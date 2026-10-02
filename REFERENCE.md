@@ -50,6 +50,20 @@ Curated frames (all PNG, extracted at exact timestamps; stage identity per the m
 | `stage3-night-lockon-t186.png` | night, banked, lock brackets + enemies |
 | `stage8-canyon-explosion-t357.png` | canyon walls both sides, low horizon, fireball lower-left |
 
+Round-3 additions, from the 60 fps cache file (`ab2-longplay-60fps.mp4`, 1028×720 —
+verified the SAME recording as the 686×480 map-keyed file: identical scene and HUD
+values at t84/t116, durations 988.68 vs 988.70 s, so the stage map transfers directly):
+
+| file | shows |
+|---|---|
+| `stage1-missile-salvo-t100.75.png` | multi-lock salvo mid-flurry: brackets, launch smoke, kills |
+| `stage2-start-bonus-tally-t124.png` | stage-end tally card "HIT COUNTS 8 / POINTS 160000" + STAGE 2 |
+| `stage3-reload-tanker-t165.png` | mid-air tanker overhead + cyan "RELOAD WEAPONS" text |
+| `stage4-vulcan-stream-t214.png` | player vulcan stream: orange puff column, astern view |
+| `stage4-barrel-roll-t222.png` | barrel roll mid-maneuver: inverted jet over a LEVEL horizon |
+| `stage5-runway-restock-t252.png` | runway flyover: trucks, ground crew, motorbike, stock refilling |
+| `stage7-enemy-shot-train-t330.png` | enemy shot train crossing the frame + debris burst |
+
 Plus the 9 screenshots inherited from the Godot repo (`ab2-arcade-*.png/jpg`): desert,
 desert-explosions, night-banking, night-missiles, closeup-enemies, coastal-banking,
 city-stage, huge-explosion, reload-dorsal. These carry **no proven stage identity** —
@@ -163,6 +177,15 @@ stage 8 `H 64.6° S 0.25 V75 0.459`, stage 17 `H 111.3° S 0.17 V75 0.353`. AB2 
   ratios 0.90/0.61/1.31, too noisy to derive numerically; tune by capture against t=98
   and t=112). Banking is a pure image-plane rotation of the sprite (measured #112: a
   de-rotated banked frame matches the level frame's proportions).
+- **Night palette swap** (MEASURED, stage 3 t164–186): on night stages the player
+  airframe renders in blue-grey tones instead of the daylight warm greys — the whole
+  sprite is palette-swapped, not dimmed. Night ground is a dense white-speckle field
+  (city lights) over near-black, with dark blue coastline bands (t169–172).
+- **Barrel roll vs bank, how to tell them apart in footage** (MEASURED t221.4–222.9 at
+  0.1 s): in a normal bank the WORLD rolls and the jet holds a moderate bank; in the
+  barrel roll the horizon stays level while the jet sprite itself sweeps through
+  steep/inverted poses (~1.2 s, ~60%W lateral and ~20→75%H vertical excursion). See
+  `stage4-barrel-roll-t222.png` and GAME_SPEC.md §1 for caveats.
 
 ## HUD (686×480 coordinates; divide by 686/480 for fractions)
 
@@ -191,6 +214,12 @@ blue corner-brackets, color `#008cd9`–`#3bbaff` (t104 (262,155), (288,170)), t
 red/white variants per state (t116 shows a white bracket on a distant enemy at
 ≈(415,210); t186 night shows white brackets).
 
+**Transient HUD overlays** (MEASURED, round 3): the stage-end tally card — red
+"HIT COUNTS n" above cyan "POINTS m", upper-left area, counting up together at ~7
+hits/s, with the incoming stage's "STAGE n" label shown lower-center during the count
+(`stage2-start-bonus-tally-t124.png`); and the mid-air reload prompt — cyan
+"RELOAD WEAPONS" blinking low-center beneath the tanker (`stage3-reload-tanker-t165.png`).
+
 Title screen (t74, MEASURED): black background; "AFTER BURNER" in white `#f4f4f4`
 brush-stroke letters; the leading A is blue `#0096fd`, the leading B red `#ff1600`;
 behind the text a large "II" built from lavender spheres `#7e85cc` with red-hot cores
@@ -215,8 +244,21 @@ ADOPTED (measured in `../afterburner/scripts/weapons/missile_2d.gd` against
 trail is a **continuous opaque ribbon** — 100% column occupancy, ~16 px thick at the
 head tapering to a few px, with internal VALUE structure, not an alpha fade: overall
 mean V 0.37, brightest quintile V 0.594, darkest quintile V 0.219 (≈2.7× bright/dark).
-Vulcan fire reads as short tracer streaks converging on the sight line, with small
-impact sparks; muzzle flame visible at the jet (t100 shows the orange flame plume).
+MEASURED addition: the trail's TAIL ages into a chain of discrete round white puffs
+(t226, t332, t120), and a launch throws large white smoke billows that briefly occlude
+part of the frame (t99.75–t101).
+
+**Projectile palettes** (MEASURED this pass on 2× nearest-neighbor crops of 60 fps
+frames; coordinates are crop-local, crops reproducible from the stated source rects):
+
+- **Player vulcan rounds** — small round orange puffs, ~3–4 native px, in a loose
+  zig-zag column ahead of the nose (alternating muzzles), NOT thin white tracers.
+  Source: t214, crop x[380,760] y[160,420] of 1028×720; samples `#ffdb21` (430,212),
+  `#ffad15` (268,350), `#ff9f0c` (310,282). See `stage4-vulcan-stream-t214.png`.
+- **Enemy shots** — larger oval fireballs, ~6–8 native px, in spaced trains of 4–8:
+  pale-gold core `#ffd570`, orange body `#ff7733`, dark red rim `#941114`, salmon edge
+  `#e96c63`. Source: t330, crop x[430,1028] y[330,620]; samples at crop (880,370),
+  (880,355), (880,385), (870,395). See `stage7-enemy-shot-train-t330.png`.
 
 ## Speed / motion (bounds, not vibes)
 
@@ -249,8 +291,10 @@ stage with measured cloud data; stage 6 is the arcade's dense-cloud stage (unmea
 
 - Stage-2/3 ground palettes: stage 2 measured (above); stage 3 night ground is
   UNMEASURABLE by the hue method (near-black; needs a value-only estimator).
-- Barrel-roll frames: not extracted (needs a hunted timestamp; motion, not pose).
-- Enemy wave patterns/timing, throttle speed effect magnitude: need 60 fps sequence
-  study, not stills (see GAME_SPEC.md markers).
-- The 60 fps file (`ab2-longplay-60fps.mp4`) exists in the Godot cache for motion work;
-  this pass used the 686×480 30 fps file because the stage map is keyed to it.
+- Barrel roll: one instance measured (t221.4–222.9; frame committed); 360° continuity
+  and the input trigger still need 1/60 s confirmation — see GAME_SPEC.md §1.
+- Throttle speed-effect magnitude: still unmeasured (only the HUD letter state and the
+  refuel-time score-accrual pause are observed).
+- The 60 fps file (`ab2-longplay-60fps.mp4`, 1028×720) is the same recording as the
+  686×480 map-keyed file (verified: identical scene + HUD at t84/t116, matching
+  durations), so the stage map applies to both; round-3 facts were measured on it.
