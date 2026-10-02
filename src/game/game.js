@@ -2,10 +2,14 @@ import * as THREE from 'three';
 import { Screen, GAME_W, GAME_H } from '../render/screen.js';
 import { createSky } from '../render/sky.js';
 import { createGround } from '../render/ground.js';
+import { createClouds } from '../render/clouds.js';
 import { Player } from '../entities/player.js';
 import { Input } from '../core/input.js';
 import { FixedLoop } from '../core/fixedloop.js';
+import { createPrng } from '../core/prng.js';
 import { STAGE_1 } from './stage.js';
+import { Combat } from '../weapons/combat.js';
+import { combatDemoTimeline } from '../weapons/combatDemo.js';
 
 const FOV_DEG = 55;
 const CAMERA_HEIGHT = 2.2;
@@ -99,6 +103,20 @@ export class Game {
     this.ground = createGround(STAGE_1, this.horizonFrac);
     this.scene.add(this.ground.mesh);
 
+    const params = new URLSearchParams(location.search);
+
+    // Stage-1 cloud banks (R3 gap 8). src/render/clouds.js was written last
+    // round by the world/HUD agent but could not be wired up there, because
+    // this file is the only place a scene object can be added and it is
+    // owned by the combat task this round — so it shipped complete and
+    // inert. Wiring it is one line each way; `?noclouds=1` is the usual
+    // measurement escape hatch, matching ?hidejet and ?nocombat.
+    const seed = params.has('seed') ? Number(params.get('seed')) : 1;
+    if (!params.has('noclouds')) {
+      this.clouds = createClouds(STAGE_1, this.camera, seed);
+      this.scene.add(this.clouds.group);
+    }
+
     const playerBaseY = worldYForScreenFrac(PLAYER_CRUISE_SCREEN_FRAC, PLAYER_BASE_Z, CAMERA_PITCH, FOV_DEG);
     this.player = new Player({ baseY: playerBaseY, baseZ: PLAYER_BASE_Z });
     // Measurement-only hook (?hidejet=1): keeps the ground/sky isolated on
@@ -107,15 +125,78 @@ export class Game {
     // measurement (ground.js's ACF/color-count tuning needs an unoccluded
     // view of true screen center; off-center patches measure a different,
     // radially-tilted axis — see dev report). Never read in normal play.
-    if (!new URLSearchParams(location.search).has('hidejet')) {
+    if (!params.has('hidejet')) {
       this.scene.add(this.player.sprite);
     }
 
+    // --- Combat (round 3: enemies + weapons) ---------------------------
+    // Gameplay randomness is a PRIVATE prng, not `this.rng`. main.js assigns
+    // `game.rng = createPrng(seed)` after construction as a reserved hook;
+    // if the spawner read that field, main.js's assignment would silently
+    // rewind the spawner's stream between construction and the first tick.
+    // Same seed, separate instance, no coupling.
+    this._rng = createPrng(seed);
+
+    // `?nocombat=1`: suppress every combat sprite. This exists for the OTHER
+    // agents' measurement captures — ground flow correlation, jet isolation
+    // masks and horizon line fits all need an unoccluded frame, and enemies,
+    // tracer puffs and smoke would land inside those masks. It is the
+    // companion to `?hidejet=1` and is never read in normal play.
+    this.combat = params.has('nocombat')
+      ? null
+      : new Combat(this.scene, this.camera, this._pitchQuat, this._rng);
+
     this.input = new Input();
+    // `?demo=2` runs the combat timeline (src/weapons/combatDemo.js) and is
+    // read HERE rather than installed on `this.input`, because main.js sets
+    // its own `?demo=1` sweep override on the input after construction and
+    // would clobber it. `?demo=1` behaviour is unchanged.
+    this._demoTimeline = params.get('demo') === '2' ? combatDemoTimeline : null;
+
     this.loop = new FixedLoop(
       (dt, simTime) => this.update(dt, simTime),
       () => this.render()
     );
+
+    // Measurement hook, `?fixed=1` only (same family as ?hidejet and
+    // ?debugstick). Exposes the combat systems' internal ground truth —
+    // alive count, per-enemy depth and projected span, missile/lock state —
+    // so a probe can read what the simulation BELIEVES instead of inferring
+    // it from pixels. On-screen blob counting was tried first and
+    // systematically under-reports: an approaching echelon is a tight
+    // cluster of a few pixels near the vanishing point for the first three
+    // seconds, and a column-run counter merges the whole wave into one blob.
+    if (params.has('fixed')) {
+      window.__combatStats = () => {
+        if (!this.combat) return null;
+        const c = this.combat;
+        return {
+          simTime: this.loop.simTime,
+          alive: c.spawner.enemies.length,
+          pending: c.spawner.pending.length,
+          enemies: c.spawner.enemies.map((e) => ({
+            id: e.id,
+            pattern: e.pattern,
+            type: e.type,
+            depth: e.d,
+            ndcX: e.ndc.x,
+            ndcY: e.ndc.y,
+            spanFrac: e.spanFrac(c.space),
+            bankDeg: (e.bank * 180) / Math.PI,
+            onScreen: Math.abs(e.ndc.x) <= 1 && Math.abs(e.ndc.y) <= 1,
+          })),
+          missileStock: c.missileStock,
+          hits: c.hits,
+          locks: c.locks.locks.length,
+          trackedId: c.locks.tracked ? c.locks.tracked.id : null,
+          brackets: c.locks.brackets.length,
+          missilesInFlight: c.missiles.count,
+          vulcanRounds: c.vulcan.rounds.length,
+          enemyShots: c.enemyShots.shots.length,
+          impactTimes: c.impactTimes.slice(),
+        };
+      };
+    }
   }
 
   // worldRoll: radians, 0 = level. Positive = banking right = world rotates
@@ -134,7 +215,9 @@ export class Game {
   }
 
   update(dt, simTime) {
-    const inputState = this.input.state(simTime);
+    const inputState = this._demoTimeline
+      ? this._demoTimeline(simTime)
+      : this.input.state(simTime);
 
     const targetRoll = inputState.x * ROLL_MAX_RAD;
     this.worldRoll = moveTowards(this.worldRoll, targetRoll, ROLL_RATE_RAD_PER_S * dt);
@@ -142,6 +225,26 @@ export class Game {
 
     this.player.update(dt, inputState, this.worldRoll);
     this.ground.update(dt, STAGE_1.scrollSpeed);
+    if (this.clouds) this.clouds.update(dt);
+
+    if (this.combat) {
+      this.combat.update(dt, inputState, this.player.sprite.position);
+      this._syncHud();
+    }
+  }
+
+  // Publishes the combat fields into the HUD's state object and redraws only
+  // when one of them actually changed — hud.js's redraw() repaints the whole
+  // 320x224 overlay canvas and re-uploads its texture, which is wasted work
+  // on the ~59 frames in 60 where the missile count and hit count are
+  // unchanged. Field names are the contract agreed with jethud-dev; see
+  // src/weapons/combat.js.
+  _syncHud() {
+    const state = this.screen.hud.state;
+    const before = `${state.missiles}|${state.hit}|${state.enemiesInPlay}|${state.locked}`;
+    this.combat.publish(state);
+    const after = `${state.missiles}|${state.hit}|${state.enemiesInPlay}|${state.locked}`;
+    if (before !== after) this.screen.hud.redraw();
   }
 
   render() {

@@ -58,7 +58,17 @@ async function main() {
   const port = address.port;
 
   const url = new URL(args.page, `http://localhost:${port}/`);
-  url.search = `fixed=1&seed=1${args.urlParams ? '&' + args.urlParams : ''}`;
+  // `fixed` and `seed` are DEFAULTS, applied only if the caller did not set
+  // them. The previous form built the query as `fixed=1&seed=1${extra}`,
+  // which APPENDS a second `seed` when the caller passes one in
+  // --url-params — and URLSearchParams.get() returns the FIRST match, so
+  // every capture ever taken with `--url-params "seed=N"` silently ran
+  // seed 1. Found while checking that two different seeds produce different
+  // enemy waves: seeds 7 and 8 produced byte-identical output.
+  const search = new URLSearchParams(args.urlParams);
+  if (!search.has('fixed')) search.set('fixed', '1');
+  if (!search.has('seed')) search.set('seed', '1');
+  url.search = search.toString();
 
   const browser = await puppeteer.launch({
     headless: true,
