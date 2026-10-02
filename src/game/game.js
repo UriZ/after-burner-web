@@ -233,22 +233,24 @@ export class Game {
     }
   }
 
-  // Publishes the combat fields into the HUD's state object and redraws only
-  // when one of them actually changed — hud.js's redraw() repaints the whole
-  // 320x224 overlay canvas and re-uploads its texture, which is wasted work
-  // on the ~59 frames in 60 where the missile count and hit count are
-  // unchanged. Field names are the contract agreed with jethud-dev; see
-  // src/weapons/combat.js.
+  // Publishes the combat fields into the HUD's state object. It does NOT
+  // call redraw(): src/render/screen.js repaints the HUD canvas every frame
+  // anyway (it has to, so the reticle's attitude line can track world roll),
+  // so a second redraw here saved nothing — and it passed no worldRoll, so
+  // the extra repaint drew the attitude line LEVEL before screen.js
+  // immediately redrew it correctly. Caught by jethud-dev reading the two
+  // call sites together; the change-detection it was wrapped in was
+  // measuring a cost that had already moved elsewhere.
   _syncHud() {
-    const state = this.screen.hud.state;
-    const before = `${state.missiles}|${state.hit}|${state.enemiesInPlay}|${state.locked}`;
-    this.combat.publish(state);
-    const after = `${state.missiles}|${state.hit}|${state.enemiesInPlay}|${state.locked}`;
-    if (before !== after) this.screen.hud.redraw();
+    this.combat.publish(this.screen.hud.state);
   }
 
   render() {
-    this.screen.render(this.scene, this.camera);
+    // worldRoll is the third argument: the HUD does not rotate, but the
+    // reticle's attitude line DOES (REFERENCE.md "Reticle anatomy" —
+    // horizontal in level flight, steeply diagonal during banks). Omitting
+    // it left the line pinned level at the default 0.
+    this.screen.render(this.scene, this.camera, this.worldRoll);
   }
 
   start() {
