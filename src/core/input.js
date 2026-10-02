@@ -11,6 +11,17 @@ export class Input {
     this._onUp = (e) => this.keys.delete(e.code);
     target.addEventListener('keydown', this._onDown);
     target.addEventListener('keyup', this._onUp);
+
+    // Measurement-only hook (?debugstick=X, X in [-1,1]): a constant stick
+    // deflection for deterministic world-roll verification under ?fixed=1
+    // (puppeteer can't inject key events into the page's own listeners
+    // cross-context the way a real keydown would). Never read in normal
+    // play. See game.js dev report for the roll-angle/rate measurement.
+    const params = typeof location !== 'undefined' ? new URLSearchParams(location.search) : null;
+    if (params && params.has('debugstick')) {
+      const x = Number(params.get('debugstick'));
+      this.override = () => ({ x, y: 0, fire: false, missile: false });
+    }
   }
 
   setOverride(fn) {
