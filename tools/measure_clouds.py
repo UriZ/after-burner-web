@@ -13,35 +13,25 @@ import os
 import numpy as np
 from PIL import Image
 from collections import deque
+from hud_mask import get_hud_mask
 
 SKY = np.array([0, 159, 255], dtype=np.float64)
-# HUD boxes, native 320x224 (src/ui/hud.js bboxes scaled 320/686, 224/480).
-HUD_BOXES = [(17, 16, 70, 23), (104, 16, 142, 22), (161, 16, 190, 23), (202, 17, 212, 22),
-             (237, 24, 291, 47), (17, 201, 42, 206), (47, 201, 103, 207),
-             (136, 200, 164, 207), (175, 199, 193, 210), (196, 199, 250, 220)]
+# HUD exclusion now comes from hud_mask.py (derived fresh from a clean
+# capture) instead of a hardcoded bounding-box list — the old list here
+# went stale against the HUD's real geometry mid-round and let 8 of 10
+# "cloud" detections in one frame leak through as HUD fragments, all
+# clustered in the top-HUD region. See hud_mask.py's header.
 
 
 def load_native(path, native_scale=3):
     img = np.asarray(Image.open(path).convert('RGB'), dtype=np.float64)
-    img = img[::native_scale, ::native_scale]
-    for x0, y0, x1, y1 in HUD_BOXES:
-        img[y0:y1, x0:x1] = SKY
-    return img
+    return img[::native_scale, ::native_scale]
 
 
-def cloud_mask(img, horizon_row, top_margin=58):
+def cloud_mask(img, horizon_row, hud_mask):
     # Cloud pixels: bright and low-saturation (white/grey), distinct from
-    # the flat-saturated sky, restricted to the sky region above horizon.
-    #
-    # top_margin excludes the top HUD strip (SCORE/HIT/reticle) ENTIRELY
-    # rather than tracking its exact bounding boxes: those move as the HUD
-    # dev iterates (found by measurement — stale HUD_BOXES from an earlier
-    # hud.js reading let 8 of 10 "cloud" detections in one frame leak
-    # through as HUD fragments, all clustered at y=16-50). clouds.js's own
-    # spawn targets screenFrac 0.30-0.60 (native y 67-134 at 224px height),
-    # so no legitimate cloud should ever appear above y~58 anyway — this
-    # margin is a real constraint of the subject, not just a measurement
-    # workaround.
+    # the flat-saturated sky, restricted to the sky region above horizon
+    # and outside the live-derived HUD mask.
     r, g, b = img[..., 0], img[..., 1], img[..., 2]
     mx = np.maximum(np.maximum(r, g), b)
     mn = np.minimum(np.minimum(r, g), b)
@@ -50,7 +40,7 @@ def cloud_mask(img, horizon_row, top_margin=58):
     low_sat = sat < 0.35
     mask = bright & low_sat
     mask[horizon_row:, :] = False
-    mask[:top_margin, :] = False
+    mask &= ~hud_mask
     return mask
 
 
@@ -83,12 +73,17 @@ def main():
     ap.add_argument('frames_glob')
     ap.add_argument('--horizon-row', type=int, default=140)
     ap.add_argument('--min-area', type=int, default=3)
+    ap.add_argument('--hud-mask-dir', default=os.path.join('tools', 'out', 'hudmask-cache'),
+                     help='cache dir for the derived HUD mask (captured fresh if absent)')
+    ap.add_argument('--refresh-hud-mask', action='store_true', help='force re-deriving the HUD mask')
     args = ap.parse_args()
 
     files = sorted(glob.glob(args.frames_glob))
     if not files:
         print('no frames matched', args.frames_glob)
         return
+
+    hud_mask = get_hud_mask(args.hud_mask_dir, force=args.refresh_hud_mask)
 
     present_count = 0
     counts = []
@@ -99,7 +94,7 @@ def main():
     for f in files:
         img = load_native(f)
         h, w, _ = img.shape
-        mask = cloud_mask(img, args.horizon_row)
+        mask = cloud_mask(img, args.horizon_row, hud_mask)
         comps = [c for c in connected_components(mask) if c[4] >= args.min_area]
         counts.append(len(comps))
         if len(comps) > 0:

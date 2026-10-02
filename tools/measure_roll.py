@@ -3,32 +3,31 @@
 (REFERENCE.md "Horizon tilt when banking" acceptance: rotation not shear,
 line-fit residual < 2px; sign convention: positive = banking right = world
 rotates clockwise on screen, horizon descends to the right)."""
+import os
 import sys
 import argparse
 import numpy as np
 from PIL import Image
+from hud_mask import get_hud_mask
 
 SKY_HEX = (0x00, 0x9f, 0xff)  # stage-1 sky, srgb-exact per stage.js
 
-# HUD bounding boxes (src/ui/hud.js, REFERENCE.md 686x480 table scaled by
-# 320/686, 224/480) — these are screen-fixed and do NOT rotate with world
-# roll, so they must be masked out before horizon detection or they read as
-# spurious "horizon" hits regardless of actual roll (found by measurement:
-# unmasked scans gave RMS residuals of 50-150px and a non-monotonic angle
-# sequence under a constant held stick).
-HUD_BOXES_NATIVE = [
-    (17, 16, 70, 23), (104, 16, 142, 22), (161, 16, 190, 23), (202, 17, 212, 22),
-    (237, 24, 291, 47), (17, 201, 42, 206), (47, 201, 103, 207),
-    (136, 200, 164, 207), (175, 199, 193, 210), (196, 199, 250, 220),
-]
+# HUD exclusion now comes from hud_mask.py (derived fresh from a clean
+# capture) instead of a hardcoded bounding-box list. The old hardcoded list
+# here silently stopped matching as the HUD was iterated by another agent —
+# this is screen-fixed geometry (does NOT rotate with world roll, so it
+# must be masked out before horizon detection or it reads as spurious
+# "horizon" hits regardless of actual roll), but WHERE it sits on screen is
+# not this script's to track. See hud_mask.py's header for the full history
+# (hit independently 3 times in one round).
 
 
-def load_native(path, native_scale=3):
+def load_native(path, native_scale=3, hud_mask=None):
     img = np.asarray(Image.open(path).convert('RGB'), dtype=np.float64)
     img = img[::native_scale, ::native_scale]
-    mode = np.array(SKY_HEX, dtype=np.float64)
-    for x0, y0, x1, y1 in HUD_BOXES_NATIVE:
-        img[y0:y1, x0:x1] = mode
+    if hud_mask is not None:
+        mode = np.array(SKY_HEX, dtype=np.float64)
+        img[hud_mask] = mode
     return img
 
 
@@ -58,8 +57,12 @@ def horizon_points(img, n_cols=40, consecutive=4, threshold=40):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument('png')
+    ap.add_argument('--hud-mask-dir', default=os.path.join('tools', 'out', 'hudmask-cache'),
+                     help='cache dir for the derived HUD mask (captured fresh if absent)')
+    ap.add_argument('--refresh-hud-mask', action='store_true', help='force re-deriving the HUD mask')
     args = ap.parse_args()
-    img = load_native(args.png)
+    hud_mask = get_hud_mask(args.hud_mask_dir, force=args.refresh_hud_mask)
+    img = load_native(args.png, hud_mask=hud_mask)
     h, w, _ = img.shape
     pts = horizon_points(img)
     if len(pts) < 5:
