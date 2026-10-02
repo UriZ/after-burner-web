@@ -16,8 +16,14 @@ const FOLLOW_RATE = 6.0; // 1/s exponential approach toward the stick target
 // span 318px = 33.1%W, bbox aspect 3.42:1. worldWidth=2.95 ->
 // tools/out/jethud-r2-tune/frame-0000.png, span 348px = 36.25%W, bbox
 // aspect 3.31:1 — both inside the 34-38%W / 3.2-3.8:1 R1 acceptance band.
-// Re-derive if camera FOV/pitch or the player's baseZ change (owned by
-// game.js, outside this file).
+// RE-VERIFIED after game.js's CAMERA_PITCH flip (gap 2) and the
+// consequent baseY fix (gap-2-regression, game.js commit dcdddb4):
+// tools/out/jet-retune-baseY/frame-0000.png still reads 36.25%W, 3.31:1
+// (coincidentally identical to pre-fix, not re-derived by luck — checked
+// by direct re-measurement, not assumed) — AND centroid cy now lands at
+// 55.95%H, inside REFERENCE.md's measured 52.8-58.3%H cruise band.
+// Re-derive if camera FOV/pitch or the player's baseZ/baseY change again
+// (owned by game.js, outside this file).
 const JET_WORLD_WIDTH = 2.95;
 
 export class Player {
