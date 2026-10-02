@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <link rel="icon" href="data:," />
+  <title>Audio preview harness</title>
+  <style>
+    html, body { margin: 0; background: #111; color: #ddd; font: 14px monospace; }
+    body { padding: 16px; }
+    h1 { font-size: 16px; }
+    .row { margin: 10px 0; }
+    button {
+      font: inherit; padding: 8px 14px; margin: 0 6px 6px 0;
+      background: #2a2a2a; color: #ddd; border: 1px solid #555; cursor: pointer;
+    }
+    button:hover { background: #3a3a3a; }
+    #log { white-space: pre; opacity: 0.7; margin-top: 16px; }
+  </style>
+</head>
+<body>
+  <h1>After Burner — audio preview</h1>
+  <p>Click anywhere once first (autoplay unlock), then audition each sound.
+  This page is a human-ear review tool, not part of the game build.</p>
+
+  <div class="row">
+    <strong>SFX</strong><br />
+    <button data-sfx="vulcan">vulcan (L)</button>
+    <button data-sfx="vulcan-r">vulcan (R)</button>
+    <button data-sfx="missileLaunch">missile launch</button>
+    <button data-sfx="lockOn">lock-on</button>
+    <button data-sfx="explosion">explosion</button>
+    <button data-sfx="explosion-big">explosion (big/death)</button>
+    <button data-sfx="enemyFlyPast">enemy fly-past</button>
+    <button data-sfx="playerDeath">player death</button>
+    <button data-sfx="respawnReady">respawn ready</button>
+    <button data-sfx="tallyTick">tally tick</button>
+    <button data-sfx="menuStart">menu/start</button>
+  </div>
+
+  <div class="row">
+    <strong>Engine loop</strong><br />
+    <button id="engine-low">engine: idle</button>
+    <button id="engine-mid">engine: cruise</button>
+    <button id="engine-high">engine: afterburner</button>
+    <button id="engine-stop">engine: stop</button>
+  </div>
+
+  <div class="row">
+    <strong>Music</strong><br />
+    <button data-music="title">music: title sting</button>
+    <button data-music="flight">music: flight loop</button>
+    <button data-music="off">music: off</button>
+  </div>
+
+  <div class="row">
+    <strong>Master</strong><br />
+    <input id="vol" type="range" min="0" max="1" step="0.05" value="0.7" />
+  </div>
+
+  <div id="log"></div>
+
+  <script type="module">
+    import { AudioBus } from '../src/audio/index.js';
+
+    const log = document.getElementById('log');
+    function say(msg) {
+      log.textContent = `${new Date().toLocaleTimeString()}  ${msg}\n` + log.textContent;
+    }
+
+    document.querySelectorAll('button[data-sfx]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const key = btn.dataset.sfx;
+        if (key === 'vulcan-r') AudioBus.play('vulcan', { side: -1 });
+        else if (key === 'explosion-big') AudioBus.play('explosion', { big: true });
+        else AudioBus.play(key);
+        say(`play('${key}')`);
+      });
+    });
+
+    document.getElementById('engine-low').onclick = () => { AudioBus.setEngine(0.1); say('setEngine(0.1) idle'); };
+    document.getElementById('engine-mid').onclick = () => { AudioBus.setEngine(0.6); say('setEngine(0.6) cruise'); };
+    document.getElementById('engine-high').onclick = () => { AudioBus.setEngine(1.0); say('setEngine(1.0) afterburner'); };
+    document.getElementById('engine-stop').onclick = () => { AudioBus.stopEngine(); say('stopEngine()'); };
+
+    document.querySelectorAll('button[data-music]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const state = btn.dataset.music;
+        AudioBus.music(state);
+        say(`music('${state}')`);
+      });
+    });
+
+    document.getElementById('vol').addEventListener('input', (e) => {
+      AudioBus.setMasterVolume(Number(e.target.value));
+    });
+
+    say('loaded — click any button (first click also unlocks audio)');
+  </script>
+</body>
+</html>
