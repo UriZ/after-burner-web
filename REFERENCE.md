@@ -123,10 +123,34 @@ measurable; the rest are flagged UNMEASURABLE there with per-stage reasons. The 
 | 16 | city | 205°/1.00 | 0.673 | 0.478 |
 | 23 | ocean/carrier | 235°/1.00 | 0.939 | 0.806 |
 
-Stage 1 extras (ADOPTED, #135): ocean is anisotropic (wave banding ~2.1–2.3× along-track
-ACF anisotropy), island vegetation green H=120° S=1.0 V75=0.514; canyon wall grey-green
-stage 8 `H 64.6° S 0.25 V75 0.459`, stage 17 `H 111.3° S 0.17 V75 0.353`. AB2 ground is
-**dithered/streaked, not flat** (stage-1 sky modal share 97.8% vs ground 5.7% — same source).
+Stage 1 extras (ADOPTED, #135): island vegetation green H=120° S=1.0 V75=0.514; canyon
+wall grey-green stage 8 `H 64.6° S 0.25 V75 0.459`, stage 17 `H 111.3° S 0.17 V75 0.353`.
+AB2 ground is **dithered/streaked, not flat** (stage-1 sky modal share 97.8% vs ground
+5.7% — same source).
+
+**Sea texture, stage 1 — direction and contrast (MEASURED; CORRECTS this doc's earlier
+"along-track" wording, which was BACKWARDS and caused a wrong implementation):**
+
+- **Direction: the sea is CROSS-TRACK dominant** — the streaks run HORIZONTALLY on
+  screen (wave rows perpendicular to the flight axis), so horizontal autocorrelation is
+  far longer than vertical. Measured on the value channel of t116 (near-level, so screen
+  axes ≈ track axes), normalized ACF at pixel lags 2/4/8:
+  - near-field band y[340,415] x[40,640]: horiz 0.66/0.49/0.31 vs vert 0.37/0.05/−0.06
+    (vert/horiz 0.55/0.10/−0.19)
+  - mid band y[300,340] x[40,180]: horiz 0.87/0.74/0.59 vs vert 0.43/0.34/0.25
+  - t97 sea y[330,420] x[30,400]: vert/horiz 0.64/0.49/0.39
+  This corroborates the R2 judge's independent 0.20–0.32 vert/horiz readings. The
+  prototype's OCEAN_ANISO magnitude ~2.1–2.3× (ADOPTED #135) stands, but the direction
+  word "along-track" was this doc's own gloss, not in the Godot source, and was wrong:
+  **ridges must run across the travel axis so scrolling moves them visibly** — ridges
+  along the travel axis slide along themselves and read as a dead ground.
+- **Contrast / foam (binding texture stats, not just palette)**: on the same t116 sea
+  regions, value-channel p5–p95 spread = **0.329** (near-field band) / **0.302**
+  (whole sea y250–420 minus the jet bbox), and the fraction of sea pixels brighter than
+  V 0.95 (foam/sparkle) = **23.4%** (near-field band) / **38.8%** (whole sea). The R2
+  judge independently measured 0.345 / 38.6% — corroborated. The R2 build measured
+  0.019 / 1.5% (judge's figures): the arcade sea is high-contrast and heavily
+  foam-flecked, not a smooth hue carpet.
 
 ## Horizon
 
@@ -158,6 +182,22 @@ stage 8 `H 64.6° S 0.25 V75 0.459`, stage 17 `H 111.3° S 0.17 V75 0.353`. AB2 
   violet-magenta canopy `#9d3aca`, airframe greyscale ladder V = 0.98/0.90/0.82/0.75 with
   near-black nacelles V≈0.33 measured at t=557; warm-tinted shadow grey `(164,132,132)`
   from `ab2-arcade-desert.png` — NOT cream/beige).
+- **Fin height is a LARGE share of the silhouette** (MEASURED on the 60 fps t175 frame,
+  1028×720, mask V>0.12 in window y[335,465] x[325,720]; CORRECTS R1's "≤25% of sprite
+  height" acceptance bound, which contradicted the reference and induced the build's
+  clipped "detached ears"): silhouette spans rows 343–464 (122 px); the per-row width
+  profile stays narrow (3→53 px — twin fins + spine) from the top down to row ~411–414,
+  where the wings erupt to the full 330 px span. Fin structure above the wing plane =
+  68–71 px = **56–58% of total silhouette height** (wing-onset threshold 30%/50% of max
+  span respectively). Corroborates the R2 judge's 57–62%. The fins are TALL blades, not
+  stubs.
+- **Canopy coverage bound** (MEASURED on `ab2-arcade-reload-dorsal.jpg`, 181×127): the
+  canopy is a single compact patch — largest connected component of the magenta mask
+  (hue 250–330°, S>0.25, V>0.15) is **8 px in a 4×2 bbox at x[90,93] y[70,71] = 0.035%
+  of frame area**, core `#9f3ccd` (≈ the known `#9d3aca`); everything else matching the
+  hue band is scattered 1–3 px JPEG noise. Corroborates the R2 judge's 0.03%; the R2
+  build's canopy covered 1.24% of frame — ~35× too large. The canopy is a fleck of
+  color, not a drawn rectangle.
 - **Wingspan on screen** (MEASURED — note each frame's extent method; they are NOT the
   same, and using the wrong one changes the answer 2.6×):
   - t175 (level, night, isolated on black): **36.3%W** = the extent of the largest run of
