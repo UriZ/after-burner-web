@@ -38,6 +38,13 @@ const BLUE = '#338bf7';
 const AMBER_CHEVRON = '#f2c56c';
 const STAGE_RED = '#c53428';
 const CREAM = '#d4b886';
+// Reticle status dot's "tracking" (not locked) state — GAME_SPEC.md §3
+// round-4 finding: red spans coincide with no active bracket. No exact
+// hex measured for this specific red (distinct from the HUD emblem red);
+// reusing RED here would make it indistinguishable from locked-vs-emblem
+// context, so this is a close visual match to REFERENCE.md's t175
+// "orange-red" dot description pending a dedicated measurement.
+const RED_LOCK = '#ff3b1f';
 const MISSILE_BODY = '#ffffff';
 // REFERENCE.md gives no hex for the missile tip, only "red tips" — reuse
 // the one red hex the doc DOES cite (SCORE/HIT emblem) rather than invent
@@ -96,7 +103,7 @@ function drawEmblem(ctx, bb, text) {
 // decoration." This is the one HUD element that SHOULD track roll while
 // everything else structurally cannot (screen.js's orthographic HUD
 // camera never inherits the game camera's rotation).
-function drawReticle(ctx, bb, worldRoll) {
+function drawReticle(ctx, bb, worldRoll, enemiesInPlay, locked) {
   const cx = (bb.x0 + bb.x1) / 2;
   const cy = (bb.y0 + bb.y1) / 2;
   const sq = (bb.y1 - bb.y0) * 0.78; // square bracket box, inscribed in the outer bbox height
@@ -140,10 +147,18 @@ function drawReticle(ctx, bb, worldRoll) {
   ctx.lineTo(cx + dx, cy + dy);
   ctx.stroke();
 
-  // Center dot, amber in neutral state (red when locking — no lock state
-  // modeled yet this round).
-  ctx.fillStyle = AMBER;
-  ctx.fillRect(cx - 1, cy - 1, 2, 2);
+  // Status dot — GAME_SPEC.md §3 "Lock-on display": ABSENT when no
+  // enemies are in play (t84-94 carrier/climb-out shows no dot at all);
+  // once enemies exist it holds YELLOW or RED for multi-second spans.
+  // "yellow spans coincide with an active enemy bracket and kills, red
+  // spans with none" is flagged there as suggestive, NOT conclusively
+  // mapped — mapping yellow=locked/red=tracking is the documented
+  // best-available reading, not a confirmed fact; revisit if an
+  // audio-synced pass nails the real semantics down.
+  if (enemiesInPlay) {
+    ctx.fillStyle = locked ? AMBER : RED_LOCK;
+    ctx.fillRect(cx - 1, cy - 1, 2, 2);
+  }
 }
 
 function drawThrottleBar(ctx, bb, fraction) {
@@ -231,16 +246,17 @@ export class Hud {
     );
     this.camera.position.z = 1;
 
-    // Placeholder game state (no scoring/stage/weapon systems exist yet —
-    // wired here so real systems can assign into `this.state` and call
-    // `redraw()` once they land). `missileCount` is the ODOMETER total, not
-    // a slot count (GAME_SPEC.md §3: start 50, resupply caps at 70) —
-    // field name proposed to combat-dev, whoever owns weapons state should
-    // write the live count here and call `redraw()`, or agree a different
-    // name and this gets a one-line rename.
+    // Shared game state — field names agreed with combat-dev (owner of
+    // src/weapons/**, src/entities/enemy*, game.js this round) so neither
+    // side needs a rename: `missiles` is the ODOMETER total (int, 0-70,
+    // GAME_SPEC.md §3), `hit` the kill count, `enemiesInPlay`/`locked`
+    // drive the reticle status dot. combat-dev writes into this object
+    // each tick and calls `redraw()`; `score`/`stage`/`throttle*` stay
+    // this file's own placeholders until something else owns them.
     this.state = {
-      score: 0, hit: 0, stage: 1, missileCount: 50,
+      score: 0, hit: 0, stage: 1, missiles: 50,
       throttle: 'M', throttleFraction: 0.55,
+      enemiesInPlay: false, locked: false,
     };
     this.redraw(0);
   }
@@ -266,7 +282,7 @@ export class Hud {
     const hitW = textWidth(hitStr, SCALE_HIT_DIGIT[0]);
     drawText(ctx, hitStr, BB_HIT_DIGITS.x1 - hitW, BB_HIT_DIGITS.y0, PALE_YELLOW, ...SCALE_HIT_DIGIT);
 
-    drawReticle(ctx, BB_RETICLE, worldRoll);
+    drawReticle(ctx, BB_RETICLE, worldRoll, this.state.enemiesInPlay, this.state.locked);
 
     const speedEnd = BB_SPEED_LABEL.x0 + drawText(ctx, 'SPEED', BB_SPEED_LABEL.x0, BB_SPEED_LABEL.y0, DARK_RED, ...SCALE_SPEED_LABEL);
     // Gap between the SPEED label's ACTUAL rendered end (not the fixed
@@ -280,7 +296,7 @@ export class Hud {
     drawText(ctx, 'STAGE', BB_STAGE_TEXT.x0, BB_STAGE_TEXT.y0, STAGE_RED, ...SCALE_STAGE_TEXT);
     drawText(ctx, String(this.state.stage), BB_STAGE_DIGIT.x0, BB_STAGE_DIGIT.y0, CREAM, ...SCALE_STAGE_DIGIT);
 
-    drawMissiles(ctx, BB_MISSILES, this.state.missileCount);
+    drawMissiles(ctx, BB_MISSILES, this.state.missiles);
 
     this.texture.needsUpdate = true;
   }
