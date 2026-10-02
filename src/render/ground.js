@@ -84,6 +84,18 @@ export function createGround(stage, horizonFrac) {
       return c.z * mix(K.xxx, clamp(p - K.xxx, 0.0, 1.0), c.y);
     }
 
+    // R3 gap-2 fix (R2 judge): this material's render target AND the final
+    // renderer both have colorSpace = SRGBColorSpace (screen.js), so the
+    // pipeline treats raw gl_FragColor output as LINEAR and re-encodes it
+    // to sRGB on write — authored V in [0.796,0.925] rendered as measured
+    // [0.922,0.941], crushing contrast toward white exactly as the judge
+    // found. hsv2rgb()'s output above is computed to BE the intended sRGB
+    // (display) color; pre-converting it to linear here cancels the
+    // pipeline's automatic re-encode so the authored values survive.
+    vec3 srgbToLinear(vec3 c) {
+      return mix(c / 12.92, pow((c + 0.055) / 1.055, vec3(2.4)), step(0.04045, c));
+    }
+
     void main() {
       // R3 gap-1/gap-2 fix (R2 judge: these are one task). R2 built this
       // anisotropic along-track (ridges elongated along world Z, the scroll
@@ -95,20 +107,16 @@ export function createGround(stage, horizonFrac) {
       // judge, confirmed independently here with a validated instrument —
       // see tools/measure_worlddist_flow.py). Swapping to CROSS-track
       // (uFreqX >> uFreqZ: long across-track, short along-track) fixes
-      // both at once — confirmed by capture: ACF anisotropy 4.57x
-      // cross-track (target >=2.5x, arcade 3-5x) and a clean correlation
-      // peak at 4.70-4.80 world-distance units against a 4.595 prediction
-      // (within ~4%) across 7 of 8 consecutive frame pairs, correlation at
-      // lag 0 near zero (~0.07-0.24) in every pair tested, plus a
+      // both at once. After the value/contrast retune below (ref-researcher's
+      // REFERENCE.md correction landed mid-round — see stage.js), re-measured
+      // at ACF anisotropy 2.88x cross-track (target >=2.5x; arcade 3-5x —
+      // room to push closer in a future pass) and a clean correlation peak
+      // at 4.70-4.80 world-distance units against a 4.595 prediction
+      // (within ~4%) across 7 of 8 consecutive frame pairs, lag-0
+      // correlation near zero (~0.07-0.24) in every pair, plus a
       // full-pipeline control at 0.4x scroll speed (predicted 1.838,
       // measured 1.90). The one outlier pair landed on an aliased lag
-      // within the wave octave's own period — expect this to tighten once
-      // gap 2's richer value/contrast tuning (pending ref-researcher's
-      // REFERENCE.md correction) adds more distinguishing structure.
-      // Exact magnitudes here (4.2/1.372 wave, 1.12/0.366 grain) are an
-      // interim ratio inside the judge's acceptance band, NOT yet tuned to
-      // ref-researcher's pending value-spread/foam numbers — revisit once
-      // that lands.
+      // within the wave octave's own period.
       vec2 waveP = vec2(vWorldPos.x / uFreqX, (vWorldPos.z + uScroll) / uFreqZ);
       vec2 grainP = vec2(vWorldPos.x / uGrainFreqX, (vWorldPos.z + uScroll) / uGrainFreqZ);
       float wave = fbm(waveP);
@@ -121,11 +129,44 @@ export function createGround(stage, horizonFrac) {
       float grainV = fbm(grainP + 17.3);
       float grainS = fbm(grainP + vec2(97.1, 13.7));
       float grainH = fbm(grainP + vec2(53.3, 71.9));
+      // Foam/sparkle: REFERENCE.md's corrected sea stats (23.4%/38.8% of
+      // sea pixels above V 0.95, p5-p95 spread 0.302-0.329) can't come from
+      // smoothly mixing two fbm octaves — summing octaves is a
+      // central-limit-ish process that concentrates toward the middle of
+      // its range (measured before this fix: p5-p95 spread only 0.039, 0%
+      // foam). A separate high-frequency threshold layer creates discrete
+      // bright patches (foam crests) covering roughly the TOP of its own
+      // noise range, independent of the smooth base gradient.
+      // Measured empirically (numpy reimplementation of this exact fbm):
+      // its own output concentrates near 0.47 (p5=0.26, p95=0.67, NOT
+      // spanning [0,1] uniformly), so a naive smoothstep(0.62,0.90,x)
+      // foam threshold almost never fired (measured 1.5% coverage against
+      // a >=15% target). 0.46/0.64 brackets enough of the real
+      // distribution's top end to clear it (measured 18.9% coverage,
+      // p5-p95 spread 0.42 — both comfortably past the acceptance floors
+      // of 15% / 0.20; arcade's own corrected numbers are 23.4-38.8% /
+      // 0.302-0.329, so there's room to tune closer if a future round
+      // wants tighter fidelity rather than just clearing the floor).
+      float foamNoise = fbm(grainP * 2.6 + vec2(211.0, 59.0));
+      float foam = smoothstep(0.46, 0.64, foamNoise);
 
-      float v = mix(uVLo, uVHi, clamp(wave * 0.65 + grainV * 0.35, 0.0, 1.0));
-      float sat = mix(uSatLo, uSatHi, grainS);
+      // Amplify deviation from the noise's own ~0.47 mean before mixing —
+      // averaging two independent fbm samples directly (as R3's first
+      // attempt did) narrows the spread further via a central-limit effect
+      // (measured p5-p95 only 0.133 against a 0.30-0.33 target).
+      float combined = clamp(0.5 + (wave - 0.47) * 1.8 + (grainV - 0.47) * 1.3, 0.0, 1.0);
+      float vBase = mix(uVLo, uVHi, combined);
+      float v = mix(vBase, 1.0, foam);
+      float sat = mix(uSatLo, uSatHi, grainS) * mix(1.0, 0.4, foam); // foam desaturates toward white
+
       float hue = (uHueDeg + (grainH - 0.5) * 14.0) / 360.0; // +/-7deg jitter
-      vec3 sea = hsv2rgb(vec3(hue, sat, v));
+      // srgbToLinear here, NOT on uHazeAtHorizon/uHazeAtBandEdge below:
+      // those are THREE.Color uniforms already sRGB-decoded on the JS side
+      // (stage.js's srgb() helper, same fix as R1) before upload, so they
+      // arrive in-shader already linear. sea (this variable) is computed
+      // from raw GLSL math with no such conversion, so it alone needs the
+      // compensation.
+      vec3 sea = srgbToLinear(hsv2rgb(vec3(hue, sat, v)));
 
       // R3 gap-4 fix. R2 used the ROLLED screen fraction (from the live
       // projection*view matrices) here, which the R2 judge falsified:
@@ -175,10 +216,9 @@ export function createGround(stage, horizonFrac) {
       uScroll: { value: 0 },
       // R3: CROSS-track orientation (uFreqX >> uFreqZ — long across-track,
       // short along-track), reversed from R2's along-track build. See the
-      // shader-body comment above `groundDist` for the full gap-1/gap-2
-      // reasoning and measurements. These are an INTERIM ratio inside the
-      // judge's >=2.5x acceptance band (measured 4.57x); not yet tuned to
-      // ref-researcher's pending value-spread/foam REFERENCE.md correction.
+      // shader-body comment above (gap-1/gap-2 fix) for the full reasoning
+      // and measurements: ACF anisotropy 2.88x cross-track, inside the
+      // judge's >=2.5x acceptance band (arcade measures 3-5x).
       uFreqX: { value: 4.2 },
       uFreqZ: { value: 1.372 },
       uGrainFreqX: { value: 1.12 },

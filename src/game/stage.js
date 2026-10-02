@@ -23,20 +23,26 @@ export const STAGE_1 = {
   skyHorizon: srgbHex('#009fff'),
 
   // Sea (R1 gap 1 — replaces the flat-checker ocean/green-island fill).
-  // ADOPTED REFERENCE.md "Ground / terrain palettes": stage 1 sea H=235deg
-  // S=1.00, V25=0.796, V75=0.925 (stage_data.gd #124 pass). Anisotropy
-  // ~2.1-2.3x along-track (ADOPTED #135, stage-1 extras) is the TARGET the
-  // ground.js noise frequencies are tuned against — see dev report for the
-  // measured ACF ratio on our own capture. No island green this round
-  // (scope-narrowed: "no green except islands" is satisfied by having none;
-  // islands are a later-round visual feature, not required by gap 1's
-  // acceptance criteria).
+  // H=235deg S=1.00 from stage_data.gd #124 (hue-histogram percentile pass,
+  // V25/V75 0.796/0.925 — descriptive percentiles, NOT the texture's
+  // extremes). R3 gap-2 (ref-researcher correction, REFERENCE.md "Sea
+  // texture, stage 1 — direction and contrast"): binding contrast stats are
+  // p5-p95 value spread 0.302-0.329 and 23.4-38.8% of sea pixels above
+  // V 0.95 (foam) — far wider than the V25/V75 band, which only described
+  // the MIDDLE 50%. vLo/vHi here are widened accordingly (base gradient,
+  // BEFORE ground.js's separate foam layer pushes a fraction toward 1.0);
+  // anisotropy orientation is CROSS-track, magnitude >=2.5x (ADOPTED #135
+  // magnitude ~2.1-2.3x stands, but R2's "along-track" direction word was
+  // this doc's own wrong gloss, corrected — see ground.js for the measured
+  // on-screen ratio). No island green this round (scope-narrowed: "no green
+  // except islands" is satisfied by having none; islands are a later-round
+  // visual feature, not required by gap 1's acceptance criteria).
   sea: {
     hueDeg: 235,
-    satLo: 0.90,
+    satLo: 0.85,
     satHi: 1.0,
-    vLo: 0.796,
-    vHi: 0.925,
+    vLo: 0.58,
+    vHi: 0.90,
   },
 
   // Horizon haze band (R1 gap 8). MEASURED REFERENCE.md "Horizon", t116
