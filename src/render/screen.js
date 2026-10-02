@@ -62,7 +62,13 @@ export class Screen {
     this.blitQuad.scale.set(pw, ph, 1);
   }
 
-  render(gameScene, gameCamera) {
+  // `worldRoll` (radians) is OPTIONAL and defaults to 0, same pattern as
+  // player.js's update(): it only feeds the reticle's attitude line
+  // (GAME_SPEC.md §3), everything else in the HUD is structurally
+  // roll-invariant regardless of this argument. Call-site change needed in
+  // game.js once combat-dev wants the line live:
+  //   this.screen.render(this.scene, this.camera, this.worldRoll);
+  render(gameScene, gameCamera, worldRoll = 0) {
     this.renderer.setRenderTarget(this.target);
     this.renderer.setClearColor(0x000000, 1);
     this.renderer.clear();
@@ -71,6 +77,7 @@ export class Screen {
     // HUD pass: same target, no clear, so the world shows through wherever
     // the HUD canvas is transparent (REFERENCE.md: "drawn over the game
     // with no opaque bar").
+    this.hud.redraw(worldRoll);
     this.renderer.autoClear = false;
     this.renderer.render(this.hud.scene, this.hud.camera);
     this.renderer.autoClear = true;
