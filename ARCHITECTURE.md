@@ -13,14 +13,19 @@ rebuild informed by the Godot prototype at `../afterburner`, not a port of it.
 ## D2 — Rendering model: true 3D camera, sprite-scaled content ("Super Scaler emulation")
 AB2 is pseudo-3D sprite scaling. We emulate the LOOK, using three.js's perspective
 projection to do the math the Super Scaler board did in hardware:
-- **PerspectiveCamera** fixed behind/above the player position, looking into the screen
-  (matches arcade camera: horizon in upper third during level flight).
+- **PerspectiveCamera** fixed behind/above the player position, looking into the screen.
+  Level-flight horizon sits at **50–65%H** (sky-dominant frame): measured 0.500 H on
+  reference t116 and 0.646 H on t175; adopted cruise constant 0.625 H. (R1 judge
+  corrected an earlier "upper third" claim here that contradicted every reference frame —
+  the camera needs a slight pitch UP, not down.)
 - **All gameplay objects are billboarded sprites** (THREE.Sprite or camera-facing quads),
   scaled by distance — never shaded 3D meshes. 3D meshes are forbidden for
   jets/missiles/explosions; the arcade look dies with lit polygons.
-- **Ground** = large shader plane: scrolling pattern (stage-specific palette, the AB2
-  radial/checker stripe look), fog-free hard horizon band. Sky = gradient (shader or large
-  quad), per-stage palette.
+- **Ground** = large shader plane: scrolling stage-specific texture (dithered/streaked —
+  AB2 ground is never flat fills). The horizon is NOT a hard edge: a pale haze band
+  ~7–11%H tall ramps from sky color toward near-white before the ground value drop
+  (measured on t116 at x=600: #6cafff → #93c7ff → #c3edff → #d1f4f8, then #010ff9).
+  Sky = flat fill on most stages (18 of 23), per-stage palette.
 - Lesson from the Godot prototype: the hand-rolled depth math (`d=0 horizon, d=1 camera`,
   quadratic scale) worked but cost weeks. The perspective camera gives equivalent curves
   for free; tune FOV + sprite base sizes to match reference footage.
@@ -73,11 +78,18 @@ From the arcade original, in priority order:
 1. **Sense of speed** — ground rush, object scale ramp, cloud/terrain flow.
 2. **Player envelope** — jet roams a wide screen area; banked turns roll the WORLD
    (horizon tilts opposite stick), barrel roll on double-tap/roll button.
-3. **Weapons feel** — hitscan-ish vulcan stream with tracer look; missile lock-on
-   (reticle box), smoke-trail missiles that curve to target.
+3. **Weapons feel** — vulcan rounds are ORANGE FIREBALL PUFFS (measured #ffdb21/#ffad15/
+   #ff9f0c) in a zig-zag column from alternating muzzles — not thin white tracers
+   (corrected per footage t214). Missile system is MULTI-LOCK: ~6 simultaneous lock
+   brackets, 6–8 missiles in flight per salvo, launch→impact 0.5–1.5s, smoke-ribbon
+   trails. Scoring is passive accrual (~3300/s at speed M) + HIT×20,000 paid at the
+   stage-end tally; kills give no immediate score (measured — see GAME_SPEC.md).
 4. **Enemy patterns** — waves crossing/approaching in formation, firing tracked shots.
-5. **Presentation** — HUD (score, lock reticle, altitude bar, stage/remaining), stage
-   palette changes, carrier launch/landing bookends, title screen.
+5. **Presentation** — HUD per the measured REFERENCE.md table: SCORE emblem + digits,
+   HIT counter, top-right lock reticle, bottom strip (SPEED/throttle bar, STAGE digit,
+   missile stock). **AB2 has NO altitude indicator** (R1 judge corrected this). HUD draws
+   over the world (no opaque bar) and never rotates with world roll. Plus stage palette
+   changes, carrier launch/landing bookends, title screen.
 6. 23-stage structure is the eventual target; early rounds: stages 1–3 + loop.
 
 ## D8 — Reference ground truth
