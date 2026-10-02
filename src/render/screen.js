@@ -1,11 +1,12 @@
 import * as THREE from 'three';
+import { Hud } from '../ui/hud.js';
+import { GAME_W, GAME_H } from './viewport.js';
 
 // ARCHITECTURE.md D3: internal render resolution is AB2's true 320x224,
 // rendered to a target and upscaled nearest-neighbor to fill the window
 // preserving aspect (letterbox). Low-res is the default look, not a toggle
 // fallback — chunky pixels are intentional.
-export const GAME_W = 320;
-export const GAME_H = 224;
+export { GAME_W, GAME_H };
 
 export class Screen {
   constructor(canvas) {
@@ -29,6 +30,13 @@ export class Screen {
     const mat = new THREE.MeshBasicMaterial({ map: this.target.texture, toneMapped: false });
     this.blitQuad = new THREE.Mesh(geo, mat);
     this.blitScene.add(this.blitQuad);
+
+    // Screen-space HUD overlay (gap 4), composited into the low-res target
+    // AFTER the game scene, via its own orthographic camera so it never
+    // rotates with world roll (REFERENCE.md: "The HUD does not rotate").
+    // Owned entirely by this file + src/ui/hud.js — no change to game.js's
+    // existing `screen.render(this.scene, this.camera)` call site needed.
+    this.hud = new Hud();
 
     this._resize = this._resize.bind(this);
     window.addEventListener('resize', this._resize);
@@ -59,6 +67,13 @@ export class Screen {
     this.renderer.setClearColor(0x000000, 1);
     this.renderer.clear();
     this.renderer.render(gameScene, gameCamera);
+
+    // HUD pass: same target, no clear, so the world shows through wherever
+    // the HUD canvas is transparent (REFERENCE.md: "drawn over the game
+    // with no opaque bar").
+    this.renderer.autoClear = false;
+    this.renderer.render(this.hud.scene, this.hud.camera);
+    this.renderer.autoClear = true;
 
     this.renderer.setRenderTarget(null);
     this.renderer.setClearColor(0x000000, 1);
