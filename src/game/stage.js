@@ -93,3 +93,78 @@ export const STAGE_1 = {
   // measurement taken on the actual render.
   scrollSpeed: 68.93,
 };
+
+// R4: stage progression support (gameflow-dev owns game.js/main.js this
+// round, driving stage 1->2->3 transitions — interface is createGround()/
+// createSky()'s new setStage(stage) methods, see those files; ground.js's
+// shader is now stage-parameterized by groundMode, not stage-1-hardcoded).
+//
+// VERIFIED arcade stage 2 (desert/autumn scrub). Sky ADOPTED
+// stage_data.gd: #e67100 -> #f0d100 horizon glow (only 5 of 23 stages
+// have a measurable glow; stage 2 is one). MEASURED REFERENCE.md t140
+// -> #f27500 (agrees to re-encode noise). Ground: stage_data.gd #124,
+// H=35deg S=0.82 V75=0.733 V25=0.441 (percentile band, not the texture's
+// extremes — widened proportionally the same way STAGE_1's was, see that
+// comment above; not separately contrast/foam-verified this round, unlike
+// STAGE_1's R3 ref-researcher pass).
+export const STAGE_2 = {
+  name: 'stage-2-desert',
+  groundMode: 'sea', // same wave/grain/foam shader path as stage 1, different palette
+  skyTop: srgbHex('#e67100'),
+  skyHorizon: srgbHex('#f0d100'),
+  sea: {
+    hueDeg: 35,
+    satLo: 0.65,
+    satHi: 0.90,
+    vLo: 0.25,
+    vHi: 0.85,
+  },
+  haze: {
+    // Not independently measured this round (no equivalent to STAGE_1's
+    // t116 x=600 column scan was taken for stage 2) — interim value
+    // continuing the sky's own horizon-glow color into the ground's near
+    // field, a defensible approximation for a heat-haze look pending a
+    // real measurement.
+    atHorizon: srgbHex('#f0d100'),
+    atBandEdge: srgbHex('#fbead0'),
+    bandHeightFrac: 0.092, // unmeasured for stage 2; reused from stage 1 pending verification
+  },
+  scrollSpeed: 68.93, // unmeasured per-stage; same camera geometry, reused pending a stage-2 flow check
+};
+
+// VERIFIED arcade stage 3 (night). Sky MEASURED REFERENCE.md t175 ->
+// #000000, modal share 0.91; ADOPTED stage_data.gd #000005 (near-identical,
+// re-encode noise). A thin dark-blue near-horizon band was measured at
+// (620,308) = #000131 (REFERENCE.md "Sky palettes"). Ground: REFERENCE.md
+// "Night palette swap" finding (MEASURED, stage 3 t164-186) — "night ground
+// is a dense white-speckle field (city lights) over near-black, with dark
+// blue coastline bands" — fundamentally NOT a wave texture (ground_mode
+// 'sea' is UNMEASURABLE here by the hue method per REFERENCE.md's own
+// "Known gaps", near-black/no stable hue), hence the separate groundMode.
+export const STAGE_3 = {
+  name: 'stage-3-night',
+  groundMode: 'speckle',
+  skyTop: srgbHex('#000005'),
+  skyHorizon: srgbHex('#000005'),
+  speckle: {
+    base: srgbHex('#06060a'), // near-black ground
+    // City-light speckle color: not colorimetrically measured (REFERENCE.md
+    // describes "white-speckle", no hex) — warm-white, between pure white
+    // and the arcade's general warm-light convention elsewhere (HUD cream,
+    // explosion warmth); verify against t175/t186 in a future pass.
+    light: srgbHex('#fff2c8'),
+    density: 0.05, // fraction of near-field pixels lit; unmeasured starting point
+  },
+  haze: {
+    // The measured (620,308)=#000131 near-horizon band, continued into a
+    // slightly paler stop for the band edge (unmeasured; proportioned like
+    // STAGE_1's horizon->edge relationship since no second stage-3 sample
+    // exists to anchor it).
+    atHorizon: srgbHex('#000131'),
+    atBandEdge: srgbHex('#0a0a2a'),
+    bandHeightFrac: 0.092,
+  },
+  scrollSpeed: 68.93,
+};
+
+export const STAGES = [STAGE_1, STAGE_2, STAGE_3];

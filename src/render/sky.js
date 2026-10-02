@@ -43,5 +43,17 @@ export function createSky(camera, stage) {
   mesh.position.set(0, 0, -dist);
   mesh.renderOrder = -10;
   camera.add(mesh);
+
+  // R4 stage-progression interface: setStage attached to the returned
+  // mesh (NOT a {mesh, setStage} wrapper) — the return type stays exactly
+  // what R1-R3 already shipped (a THREE.Mesh), since game.js already does
+  // `this.sky = createSky(...)` and is combat-dev/gameflow-dev's file this
+  // round; changing the return shape would silently break any existing
+  // code that uses `this.sky` as a THREE.Object3D directly. Matches
+  // ground.js's setStage(stage) contract (see that file's header comment).
+  mesh.setStage = (stage) => {
+    material.uniforms.uTop.value = stage.skyTop;
+    material.uniforms.uHorizon.value = stage.skyHorizon;
+  };
   return mesh;
 }
