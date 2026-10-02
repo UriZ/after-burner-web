@@ -42,10 +42,13 @@ fine-step observations below were extracted from it with exact single-frame `-ss
   sprite angles is how a barrel roll is distinguished from a bank in footage. Large
   displacement during the roll: the jet sweeps ~60%W laterally and from ~20%H to ~75%H
   and back. The player crossed several enemy shot trains during it without dying
-  (consistent with roll i-frames; not proof). CAVEATS: 360° rotation-direction continuity
-  is not provable at 0.1 s sampling with cloud occlusion (a violent S-weave with steep
-  banks both ways would look similar) — confirm with 1/60 s stepping before coding the
-  animation curve; the input trigger (double-flick vs dedicated roll input) stays ASSUMED.
+  (consistent with roll i-frames; not proof). **360° continuity CONFIRMED at frame
+  stepping** (round 4: t221.8–222.33 requested at 1/60 s): the roll advances in ONE
+  direction — right bank → level → left bank → inverted → edge-on (the sprite narrows to
+  a line) → right-bank recovery — with no reversal: a true full rotation in ~1.0–1.2 s.
+  (The 60 fps file carries duplicated frames in this span — effective unique rate
+  ~30 fps; fine for pose work, remember it for speed work.) Remaining ASSUMED: the input
+  trigger (double-flick vs dedicated roll input) and whether i-frames are granted.
 - **Throttle**: AB2 II has 3-state speed control (the HUD reads SPEED M at t140 —
   MEASURED label; H/L states ASSUMED from arcade manual knowledge). Throttle affects
   ground-flow rate and enemy closure. Magnitude: ASSUMED — needs 60 fps measurement.
@@ -53,14 +56,42 @@ fine-step observations below were extracted from it with exact single-frame `-ss
 
 ## 2. Death / respawn
 
-- Hit → jet tumbles (spins ~360°/s, falls toward lower clamp), big explosion at the jet,
-  ~1 s, then respawn at centre-low position with ~2 s invincibility, flashing. ADOPTED
-  (`player_jet_2d.gd`; flash must brighten, not alpha-fade — AB2 never renders the
-  player translucent; prototype carries the flash as RGB gain ×2.2 at full opacity).
+MEASURED in round 4 across FOUR death instances in the gameplay video
+(`ab2-gameplay.mp4`, 866 s, 30 fps, cached beside the longplay — a DIFFERENT recording
+with its own timeline, cited below as `gp tN`; it has NO stage↔timestamp map, so no
+per-stage claims from it). Cleanest full cycle: gp t198–218 (night stage); repeats at
+gp t257, t271, t281. Key frames committed: `reference/death-starburst-gp-t202.png`,
+`reference/respawn-ready-gp-t207.png`, `reference/continue-card-gp-t261.png`.
+
+- **Death sequence**: hit → an orange burst ON the jet and a fireball grows around it,
+  jet silhouette still visible inside (~0.5–1 s) → a SCREEN-FILLING multi-lobe yellow/
+  orange starburst (~60%W, ~1 s) → the burnt dark-red hulk of the F-14 tumbles AWAY from
+  the camera, shrinking toward the horizon, while the screen is otherwise empty of the
+  player (~3–4 s; the world keeps scrolling) → respawn. This REPLACES the prototype's
+  tumble-to-bottom-clamp death (spin at 360°/s, fall 1 s): the arcade hulk falls INTO
+  the scene, not down the screen.
+- **Score freezes while dead** (pinned at 5740 for gp t203–206) and resumes with the
+  respawn — same pause behavior as the refuel pass (§6).
+- **HIT is NOT reset by death** — it held at 2 across the entire gp t198–209 cycle. HIT
+  resets ONLY at the stage-end tally (§6). The prototype resets it on death
+  (`game_state.gd lose_life()`) — correct that when porting.
+- **Respawn**: the jet slides in from the BOTTOM of the frame at OVERSIZED scale
+  (larger than normal flight — it enters from behind/below the camera), twin afterburner
+  flames blazing, with a "READY" text card low-center (yellow, then cyan), shrinking to
+  normal scale as control resumes (~2 s). Full hit→control-restored cycle ≈ 8–9 s.
+- **No visible invincibility flash** after respawn in any of the four instances, and two
+  deaths occurred ~10 s apart — if post-respawn invincibility exists it is short and
+  unindicated. The prototype's 2 s flashing window stays ADOPTED as a usability choice,
+  not arcade-verified.
+- **Continue**: after the final life, "CONTINUE PLAY / <countdown from 10> / INSERT
+  COIN" overlays the still-scrolling world (gp t261). Continuing resumes IN PLACE —
+  same stage — with the score reset to ~0 (gp t265–269 climb from ~600 at the normal
+  accrual rate). Lives count itself: still ASSUMED 3 (dip-switch configurable; not
+  derivable from this footage — deaths before the continue were not all captured).
+- Players fly through their OWN kill explosions harmlessly (t116.75 longplay: jet
+  overlapping a fireball, no death) — friendly explosions must not damage.
 - Crash into terrain/canyon wall also kills (ASSUMED for walls — canyon stages exist and
   the arcade punishes wall hits; prototype collision is enemy/bullet only).
-- Lives: 3 (ADOPTED `game_state.gd` DEFAULT_LIVES — standard arcade default; dip-switch
-  configurable in the real board, so ASSUMED as the canonical value).
 - Invincibility must be pass-through for already-overlapping bodies when it expires
   (ADOPTED #103 — otherwise expiry scores an undodgeable hit).
 
@@ -84,9 +115,14 @@ fine-step observations below were extracted from it with exact single-frame `-ss
   damage balance (prototype: 1 hit kills fighters, bombers take 2).
 
 ### Missiles
-- Finite stock (ADOPTED: 50 at start, `game_state.gd`; restocked at refuel stages).
-  HUD shows stock as rocket icons + tick marks (MEASURED layout, REFERENCE.md; the
-  large-icon vs tick denomination is ASSUMED — verify before building the widget).
+- **Stock widget decoded (round 4, MEASURED)**: the bottom-right display is a base-10
+  odometer — **each large rocket icon = 10 missiles (tens digit), each small tick = 1
+  (units digit)**. Ticks decrement one per launch; when units hit 0 the next launch
+  converts a large icon into ticks (4L+0 → 3L+9, observed across the t98–105 strip,
+  which also counts ~8 launches matching the salvo's 8 kills). **Starting stock = 5
+  large = 50** (t84/t86: exactly 5 large, 0 ticks — the prototype's 50 is confirmed).
+  **Resupply fills TO 70** (7 large) at ~10–20 missiles/s over ~4 s, at BOTH resupply
+  points (tanker: 20→70 across t163–167; runway: 22→70 across t253–256).
 - Fire on button press, cooldown 0.4 s (ADOPTED). Missiles launch from wing pylons,
   run ~0.3 s straight (HOMING_DELAY), then home on the locked target; max life 5 s.
 - **Multi-lock + salvo is real and central** — MEASURED (t99.5–103.5 at 0.25 s,
@@ -97,15 +133,31 @@ fine-step observations below were extracted from it with exact single-frame `-ss
   the launch flurry). A launch throws big white smoke billows that briefly occlude part
   of the screen; two simultaneous wing-pylon launch flares are visible at t177. This
   replaces the prototype's single-lock model as the fidelity target.
-- **Lock-on**: AB2's HUD target box tracks the nearest threat CONTINUOUSLY, anywhere on
-  screen (MEASURED behavior adopted at #49 — the box is not gated on crosshair hover).
-  Weapon lock (what a missile homes on) additionally requires the crosshair near the
-  enemy (prototype: 80 px radius, lock survives 0.5 s after leaving). A hysteresis
-  margin (~0.85×) stops the box flickering between two similar-distance enemies
-  (ADOPTED). Lock brackets draw as corner-brackets sized from the enemy's actual drawn
-  sprite (loose 2× fit), blue `#008cd9`→`#3bbaff` (MEASURED t104; night stages show the
-  same brackets in white, t186); audio lock tone on acquire (ASSUMED detail: rising
-  two-tone, verify against footage audio).
+- **Lock-on display, three distinct elements (round-4 state map, MEASURED on the
+  t84–118 reticle strip and the t115–118 engagement at 0.25 s)**:
+  1. **The small dashed SIGHT square** leading the player's nose — the aim point,
+     always present in flight, separate from any lock indicator.
+  2. **The fixed reticle square** upper-right: corner-bracket square with an
+     **ATTITUDE LINE through it that rotates with the world roll** (horizontal in level
+     flight t84–94, steeply diagonal during banks t96–98 — it is an artificial-horizon
+     indicator, not decoration), plus a **status dot**: ABSENT when no enemies are in
+     play (t84–94, carrier/climb-out); present once enemies exist, holding YELLOW or
+     RED for multi-second spans (not a fast blink — 8 consecutive 0.25 s samples of
+     yellow at t115.75–117.5). In the engagement studied, yellow spans coincide with an
+     active enemy bracket and kills, red spans with none — suggestive of
+     yellow=locked/engaged vs red=tracking, but NOT conclusively mapped; do not hard-code
+     this correlation without an audio-synced pass.
+  3. **Per-enemy lock brackets**: ONE white dashed corner-bracket rides the nearest
+     enemy and JUMPS to the next enemy the moment its target dies (t116→116.25: bracket
+     → explosion under it, HIT +1, bracket already on the next); during a salvo,
+     MULTIPLE brackets show simultaneously (t100: ~6). Blue `#008cd9`→`#3bbaff`
+     variants at t104; white at night (t186).
+  AB2's bracket tracks the nearest threat continuously, not gated on crosshair hover
+  (behavior adopted at #49). Weapon lock for missile homing additionally requires the
+  crosshair near the enemy (prototype: 80 px radius, 0.5 s grace — ADOPTED). A
+  hysteresis margin (~0.85×) stops bracket flicker between similar-distance enemies
+  (ADOPTED). **Audio cues cannot be measured from frames** — the lock-tone order
+  (acquire → tone → fire) is a stated bound, not verified; needs an audio pass.
 - Missile trail: continuous opaque white→grey ribbon with 2.7× value taper near the
   missile (MEASURED — REFERENCE.md), aging into a chain of discrete round white puffs at
   the tail (MEASURED: puff chains at t226, t332, t120); curves visibly as the missile
@@ -176,10 +228,12 @@ fine-step observations below were extracted from it with exact single-frame `-ss
     low-center, and the missile stock refills. No enemies during it.
   - **Runway flyover** (stage 5, t244–257, `reference/stage5-runway-restock-t252.png`):
     low pass over a tree-lined base runway — trucks, tents, ground crew, and the
-    motorbike rider pacing the jet (t251–253). Missile icons visibly refill GRADUALLY
-    across the ~11 s pass (not a lump sum), the SPEED bar sits near zero, **score is
-    frozen for the whole pass** (1799790 for 10 straight seconds — the passive accrual of
-    §6 pauses), HIT stays 0, no enemies.
+    motorbike rider pacing the jet (t251–253). The stock sits UNCHANGED at 22 for the
+    first ~7 s of the pass, then refills in a ~4 s burst to 70 near the end (t253–256,
+    widget-strip measurement — round 4 correction of round 3's "gradual across ~11 s"
+    misread). The SPEED bar sits near zero, **score is frozen for the whole pass**
+    (1799790 for 10 straight seconds — the passive accrual of §6 pauses), HIT stays 0,
+    no enemies.
   - The prototype's `is_bonus` flags (6/12/18, +30 missiles) match NEITHER mechanism —
     trust the frame-verified stage-3-open tanker and stage-5 runway (stage 13 is the
     verified second runway biome; its sequence is ASSUMED to mirror stage 5's).
@@ -209,8 +263,11 @@ fine-step observations below were extracted from it with exact single-frame `-ss
     label shown during it (`reference/stage2-start-bonus-tally-t124.png`: 8 hits →
     160000 mid-count; stage-4→5 tally reconfirms ×20,000 at t244–245). The tally amount
     lands in the score as it counts.
-  - **HIT resets to 0 at every stage start** (t126, t204, t246) — NOT only on death as
-    the prototype has it (`game_state.gd` needs correcting when ported).
+  - **HIT resets to 0 at every stage start** (t126, t204, t246) **and ONLY there** —
+    round 4 confirmed it survives player death (held at 2 across a full death/respawn
+    cycle, gp t198–209). The prototype has both halves wrong (`game_state.gd` resets on
+    death, never on stage) — correct both when porting.
+  - **Continue resets the score to ~0** but keeps stage progress (§2, gp t261–269).
 - HUD layout and colors: MEASURED — see REFERENCE.md's HUD table. Elements: SCORE
   emblem + digits, HIT emblem + digits (top); lock reticle square (upper right); bottom
   strip: SPEED + throttle bar with 0–3 scale, STAGE + number, missile stock icons.
@@ -247,21 +304,22 @@ neither measured regime; prototype's path constants are in `player_jet_2d.gd`).
 
 ## Verification priorities (remaining unknowns, ranked)
 
-Resolved by the Round-3 pass: barrel roll timing/displacement (one instance; see §1
-caveats), wave choreography stages 1–7, scoring model + stage bonus, enemy/vulcan shot
-appearance, resupply mechanics (tanker + runway), multi-lock salvo.
+Resolved by rounds 3–4: wave choreography stages 1–7; scoring model + stage bonus +
+continue behavior; enemy/vulcan shot appearance; resupply mechanics and amounts (50
+start, refill to 70, both mechanisms); multi-lock salvo; stock-widget denominations
+(10/1 odometer); barrel roll timing, displacement, and 360° continuity; death/respawn
+sequence (4 instances); lock-display structure (sight + reticle/attitude-line/dot +
+per-enemy brackets).
 
 Still open:
-1. Barrel roll input trigger + 360° continuity at 1/60 s + i-frame confirmation (§1).
+1. Barrel roll input trigger and whether it grants i-frames (§1).
 2. Throttle's effect on flow/closure and on the score-accrual rate (AB2 II's headline
    addition; only the HUD letter state and the refuel accrual-pause are measured).
-3. Missile stock widget denominations (large icon vs tick values) and exact starting
-   stock; restock RATE on the runway (gradual — count icons per second from t246–256).
+3. Reticle dot-color semantics (yellow vs red — correlation observed §3, not mapped);
+   lock/launch audio cue order (needs an audio-synced pass, frames cannot carry it).
 4. Enemy depth-speed retune to the measured 4–6 s approach; per-stage wave scripts
    beyond stage 7.
-5. Lock-on audio + reticle state machine details (bracket colors measured; dot-color
-   state transitions — yellow vs red — observed but not mapped to states).
-6. Death/respawn look (no death occurs in the studied windows; prototype behavior stays
-   ADOPTED untested).
-7. Stage-13 runway sequence (assumed to mirror stage 5) and whether other stages open
+5. Lives count (ASSUMED 3; dip-switch) and any post-respawn invincibility window (none
+   visible — §2).
+6. Stage-13 runway sequence (assumed to mirror stage 5) and whether other stages open
    with the tanker reload (only stage 3's was observed).

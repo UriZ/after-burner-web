@@ -64,6 +64,19 @@ values at t84/t116, durations 988.68 vs 988.70 s, so the stage map transfers dir
 | `stage5-runway-restock-t252.png` | runway flyover: trucks, ground crew, motorbike, stock refilling |
 | `stage7-enemy-shot-train-t330.png` | enemy shot train crossing the frame + debris burst |
 
+Round-4 additions, from a THIRD source: `ab2-gameplay.mp4` (866 s, 30 fps, 480p, cached
+beside the longplays via the youtube-reference skill from
+https://www.youtube.com/watch?v=8d-S1kcjieA). It is a different recording with its own
+timeline, cited as `gp tN`, and has **NO stage↔timestamp map** — it was fetched because
+the skilled longplay contains no player deaths; use it for death/respawn/continue facts
+only, never per-stage claims:
+
+| file | shows |
+|---|---|
+| `death-starburst-gp-t202.png` | player death: screen-filling multi-lobe starburst at the jet |
+| `respawn-ready-gp-t207.png` | respawn: oversized jet sliding in from bottom + "READY" text |
+| `continue-card-gp-t261.png` | out of lives: "CONTINUE PLAY / 10 / INSERT COIN" over live world |
+
 Plus the 9 screenshots inherited from the Godot repo (`ab2-arcade-*.png/jpg`): desert,
 desert-explosions, night-banking, night-missiles, closeup-enemies, coastal-banking,
 city-stage, huge-explosion, reload-dorsal. These carry **no proven stage identity** —
@@ -219,6 +232,22 @@ red/white variants per state (t116 shows a white bracket on a distant enemy at
 hits/s, with the incoming stage's "STAGE n" label shown lower-center during the count
 (`stage2-start-bonus-tally-t124.png`); and the mid-air reload prompt — cyan
 "RELOAD WEAPONS" blinking low-center beneath the tanker (`stage3-reload-tanker-t165.png`).
+Round 4 adds: the respawn "READY" card low-center (yellow, then cyan —
+`respawn-ready-gp-t207.png`) and the continue card "CONTINUE PLAY / <countdown from 10>
+/ INSERT COIN" centered over the still-scrolling world (`continue-card-gp-t261.png`).
+
+**Reticle anatomy** (MEASURED, round 4, t84–118 strip at 2 s): the fixed upper-right
+reticle is a corner-bracket square with an **attitude line through it that rotates with
+the world roll** (horizontal during level flight t84–94, steeply diagonal during banks
+t96–98 — an artificial-horizon indicator, not decoration), plus a status dot: ABSENT
+when no enemies are in play, and holding YELLOW or RED for multi-second spans while
+enemies exist (state semantics not conclusively mapped — see GAME_SPEC.md §3).
+
+**Missile stock widget semantics** (MEASURED, round 4, widget strips at t84–105,
+t163–169, t245–258): base-10 odometer — large rocket icon = 10, small tick = 1; ticks
+decrement one per launch and a large icon converts to ticks when units run out
+(4L+0 → 3L+9 observed). Start = 5 large = 50; both resupply mechanisms fill to 7 large
+= 70 in a ~4 s burst at ~10–20 missiles/s.
 
 Title screen (t74, MEASURED): black background; "AFTER BURNER" in white `#f4f4f4`
 brush-stroke letters; the leading A is blue `#0096fd`, the leading B red `#ff1600`;
@@ -291,8 +320,10 @@ stage with measured cloud data; stage 6 is the arcade's dense-cloud stage (unmea
 
 - Stage-2/3 ground palettes: stage 2 measured (above); stage 3 night ground is
   UNMEASURABLE by the hue method (near-black; needs a value-only estimator).
-- Barrel roll: one instance measured (t221.4–222.9; frame committed); 360° continuity
-  and the input trigger still need 1/60 s confirmation — see GAME_SPEC.md §1.
+- Barrel roll: one instance measured (t221.4–222.9; frame committed); 360° single-
+  direction continuity CONFIRMED at frame stepping in round 4 (note: the 60 fps file
+  duplicates frames in this span — effective unique rate ~30 fps); the input trigger and
+  i-frames remain open — see GAME_SPEC.md §1.
 - Throttle speed-effect magnitude: still unmeasured (only the HUD letter state and the
   refuel-time score-accrual pause are observed).
 - The 60 fps file (`ab2-longplay-60fps.mp4`, 1028×720) is the same recording as the
