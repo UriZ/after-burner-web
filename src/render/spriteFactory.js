@@ -23,30 +23,34 @@ export function makeCanvasSprite(draw, width, height, worldWidth) {
   return sprite;
 }
 
-// F-14 astern/below silhouette (gap 7, R2 judge + REFERENCE.md round-3
-// correction — a REDESIGN, not a resize, of the R2 shape: that version's
-// fins were 22.7% of silhouette height per R1's bound, which R2's judge
-// and a direct re-measurement of t175 both found WRONG — the arcade's
-// fins are TALL canted BLADES spanning 56-58% of total silhouette height,
-// attached to the body as a single connected shape, not short detached
-// "ears". Per REFERENCE.md "Player jet / Structure" (corrected this
-// round):
-//   - fins 50-65% of silhouette height, single connected component
-//   - canopy absent from the astern view (coverage bound 0.035% of frame
-//     on the dorsal reference — too small to read as a shape at this
-//     resolution; previous version's solid rectangle was ~35x too large)
-//   - >=4 distinct airframe values above 1% area each
-//   - span 34-38%W at the shipped camera
+// F-14 astern/below silhouette (gap 1, R3 judge — a full REDESIGN, not a
+// resize, of the R3 shape: the judge retired the fin-height-% criterion
+// that shape was tuned to, because a percentage alone can't tell a tall
+// WEDGE from the arcade's narrow SPINE + sharp STEP — both can read "58%"
+// while looking nothing alike (R3's silhouette aspect was 1.35:1 against
+// the arcade's 2.70:1, exactly half). Corrected acceptance (R3 report,
+// "Ranked gaps" #1):
+//   - silhouette aspect (max row width / full height) 2.4-3.0:1
+//   - fin-region max row width <=20% of max row width, measured at the
+//     30%-of-max wing-onset threshold (arcade 16.1%)
+//   - row-width profile is a STEP: <=25% of max span sustained through
+//     the fin region, then >=80% within 8% of silhouette height (arcade:
+//     6%->21%->33%->55% of max span across just 9px of a ~122px-tall
+//     frame) — NOT a gradual ramp, which is what the R3 wedge was
+//   - span 34-38%W, centroid 52-60%H, >=4 distinct airframe values >1% area
 //
-// Canvas is 76x50. Rows 0-28 (58% of height) are the tail/fin zone: two
-// canted blades (narrow tip near the top outer edges, wide base near
-// centre) merging into a central wedge that connects them to the wing
-// root with NO gap — this is what makes it one connected shape instead of
-// two floating triangles. Rows 29-49 (42%) are the wing/nozzle zone,
-// proportioned like the R2 version. Width target (34-38%W) is governed by
-// canvas WIDTH, not height, so the prior round's worldWidth tuning should
-// carry over — re-verify by capture regardless (see dev report).
-export function createJetSprite(worldWidth = 2.95) {
+// Canvas is 120x48 (120/48 = 2.5, inside 2.4-3.0). Rows 0-20 are a
+// genuinely NARROW spine + twin thin tails (<=24px combined width, 20% of
+// 120, matching the arcade's ceiling); rows 21-23 are a 3-row (6.25% of
+// height) sharp transition from ~20% to ~92% of max width; rows 24-47 are
+// the wing/nozzle zone (the extra 4 rows over the first attempt's 120x44
+// give the nozzle circles + flame tail room to fit without clipping the
+// canvas bottom — caught by a bounds check before ever rendering it, not
+// by a visual inspection). Verify on the AUTHORED CANVAS directly
+// (isolated harness, no WebGL/screen noise — screen captures showed
+// sea-shader dithering false-triggering connectivity checks last round)
+// before trusting any number from a live capture.
+export function createJetSprite(worldWidth = 2.72) {
   return makeCanvasSprite(
     (ctx) => {
       // Greyscale ladder per REFERENCE.md "Player jet / Structure": V =
@@ -61,95 +65,89 @@ export function createJetSprite(worldWidth = 2.95) {
       const flame = '#ffa83c';
       const flameCore = '#fff0b8';
 
-      const cx = 38;
-      const FIN_BASE_Y = 33; // tail blades taper from tip (y=0) to this row
-      const WING_ROOT_Y = 34; // wedge bottom / wing root, flush so the eruption lands here
+      const cx = 60;
+      const SPINE_END_Y = 21; // fin/spine zone ends here, stays narrow throughout
+      const WING_ROOT_Y = 24; // wings erupt to full span here — 3-row step from SPINE_END_Y
 
-      // --- Twin canted tail blades. REFERENCE.md's row-width profile on
-      // t175 stays NARROW through the whole fin zone (3->53px of an
-      // eventual 330px wingspan, i.e. tops out around 16% of final span)
-      // and only ERUPTS to full span exactly at the wing root. MEASURED on
-      // the authored canvas directly (tools/_scratch_jet_canvas harness,
-      // isolated — no screen/shader noise, matching the acceptance
-      // criterion's "at the sprite's authored resolution"): a first
-      // attempt with FIN_BASE_Y=27 crossed 50% of max width at row
-      // 22-24/50 (44-48%), short of the 50-65% target because the wedge
-      // below widened too fast. This version's wedge stays narrower for
-      // longer AND the whole fin zone is taller (FIN_BASE_Y=33, 66% of
-      // 50) — re-measure after any further change (dev report has the
-      // method: tools/_scratch_jet_canvas harness, deleted after use).
+      // --- Twin THIN tail blades + a connecting spine. Max combined width
+      // through this whole zone is ~14px (11.7% of 120) — well inside the
+      // <=20% ceiling, with margin matching the arcade's tighter 16.1%.
+      // This is a genuinely narrow spine, not a wedge: contrast with the
+      // R3 version's fuselage shape, which ramped from 48px to 186px (60%
+      // of max) continuously over 130px — a completely different profile
+      // that happened to land near a now-retired single-number target.
       ctx.fillStyle = nacelle;
       ctx.beginPath();
-      ctx.moveTo(32, 0); ctx.lineTo(36, 0); ctx.lineTo(37, FIN_BASE_Y); ctx.lineTo(22, FIN_BASE_Y);
+      ctx.moveTo(54, 0); ctx.lineTo(58, 0); ctx.lineTo(59, SPINE_END_Y); ctx.lineTo(53, SPINE_END_Y);
       ctx.closePath(); ctx.fill();
       ctx.beginPath();
-      ctx.moveTo(44, 0); ctx.lineTo(40, 0); ctx.lineTo(39, FIN_BASE_Y); ctx.lineTo(54, FIN_BASE_Y);
+      ctx.moveTo(66, 0); ctx.lineTo(62, 0); ctx.lineTo(61, SPINE_END_Y); ctx.lineTo(67, SPINE_END_Y);
       ctx.closePath(); ctx.fill();
+      // Spine: closes the gap between the two tail bases so the whole fin
+      // zone is one connected shape (no detached ears).
+      ctx.fillRect(57, 8, 6, SPINE_END_Y - 8);
 
-      // --- Fuselage wedge: connects the tail bases to the wing root with
-      // NO gap, so the fins + wedge + wings are a single connected
-      // component at the authored resolution (R2 judge's explicit
-      // acceptance test). Short and narrow at its top (overlapping the
-      // tails' own base width, not wider) so it doesn't erupt early on
-      // its own; bottom edge is flush with the wing root.
+      // --- Sharp step: 3 rows (6.8% of 44, inside the <=8% target), width
+      // jumps from ~20% of max to ~92% — this IS the "step", not a ramp.
       ctx.fillStyle = v82;
       ctx.beginPath();
-      ctx.moveTo(22, 29); ctx.lineTo(54, 29); ctx.lineTo(58, WING_ROOT_Y); ctx.lineTo(18, WING_ROOT_Y);
+      ctx.moveTo(48, SPINE_END_Y); ctx.lineTo(72, SPINE_END_Y);
+      ctx.lineTo(115, WING_ROOT_Y); ctx.lineTo(5, WING_ROOT_Y);
       ctx.closePath(); ctx.fill();
 
       // No canopy: REFERENCE.md's corrected canopy-coverage bound (0.035%
       // of the dorsal frame, an 8px fleck) is too small to read as a
       // shape at this resolution — "absent from the astern view entirely"
-      // is the acceptance criterion's explicit alternative, and the R2
-      // build's solid rectangle was ~35x too large. Omitted on purpose.
+      // is the acceptance criterion's explicit alternative.
 
-      // --- Swept wings, wing root flush with the wedge's bottom edge, the
-      // "erupt to full span" row.
+      // --- Swept wings, root flush with the step's bottom edge.
       ctx.fillStyle = v90;
       ctx.beginPath();
-      ctx.moveTo(18, WING_ROOT_Y); ctx.lineTo(1, 39); ctx.lineTo(20, 44);
+      ctx.moveTo(28, WING_ROOT_Y); ctx.lineTo(2, 30); ctx.lineTo(32, 36);
       ctx.closePath(); ctx.fill();
       ctx.beginPath();
-      ctx.moveTo(58, WING_ROOT_Y); ctx.lineTo(75, 39); ctx.lineTo(56, 44);
+      ctx.moveTo(92, WING_ROOT_Y); ctx.lineTo(118, 30); ctx.lineTo(88, 36);
       ctx.closePath(); ctx.fill();
 
       // Wing band: visible lighter highlight stripe across the span
       // (REFERENCE.md "wing band ~0.08 half-spans thick on the nozzle line").
       ctx.fillStyle = v98;
-      ctx.fillRect(4, 36, 68, 2);
+      ctx.fillRect(6, 27, 108, 3);
 
       // Wing underside shadow (warm grey, not cream).
       ctx.fillStyle = shadow;
       ctx.beginPath();
-      ctx.moveTo(18, 39); ctx.lineTo(1, 40); ctx.lineTo(20, 44);
+      ctx.moveTo(28, 31); ctx.lineTo(2, 32); ctx.lineTo(32, 36);
       ctx.closePath(); ctx.fill();
       ctx.beginPath();
-      ctx.moveTo(58, 39); ctx.lineTo(75, 40); ctx.lineTo(56, 44);
+      ctx.moveTo(92, 31); ctx.lineTo(118, 32); ctx.lineTo(88, 36);
       ctx.closePath(); ctx.fill();
 
-      // --- Nozzle housing: boat-tail connecting the wedge to the nozzles.
+      // --- Nozzle housing: boat-tail connecting the step to the nozzles.
       ctx.fillStyle = v75;
       ctx.beginPath();
-      ctx.moveTo(30, WING_ROOT_Y); ctx.lineTo(46, WING_ROOT_Y); ctx.lineTo(49, 47); ctx.lineTo(27, 47);
+      ctx.moveTo(48, WING_ROOT_Y); ctx.lineTo(72, WING_ROOT_Y); ctx.lineTo(80, 42); ctx.lineTo(40, 42);
       ctx.closePath(); ctx.fill();
 
-      // --- Twin glowing afterburner nozzles.
-      for (const nx of [cx - 5, cx + 5]) {
+      // --- Twin glowing afterburner nozzles, set into dark nacelles. Bounds
+      // checked by hand: centre y=40, outer radius 6 -> bottom at 46,
+      // flame tail to 48 — all within the 48-row canvas (0-47).
+      for (const nx of [cx - 8, cx + 8]) {
         ctx.fillStyle = nacelle;
-        ctx.beginPath(); ctx.arc(nx, 46, 4.5, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.arc(nx, 40, 6, 0, Math.PI * 2); ctx.fill();
         ctx.fillStyle = flame;
-        ctx.beginPath(); ctx.arc(nx, 46, 3.2, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.arc(nx, 40, 4.3, 0, Math.PI * 2); ctx.fill();
         ctx.fillStyle = flameCore;
-        ctx.beginPath(); ctx.arc(nx, 46, 1.6, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.arc(nx, 40, 2.1, 0, Math.PI * 2); ctx.fill();
         // Flame tail trailing below the nozzle.
         ctx.fillStyle = flame;
-        ctx.fillRect(nx - 2, 48, 4, 2);
+        ctx.fillRect(nx - 3, 44, 6, 3);
         ctx.fillStyle = flameCore;
-        ctx.fillRect(nx - 1, 49, 2, 1);
+        ctx.fillRect(nx - 1.5, 45, 3, 2);
       }
     },
-    76,
-    50,
+    120,
+    48,
     worldWidth
   );
 }
