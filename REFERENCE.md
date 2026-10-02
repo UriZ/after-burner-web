@@ -24,8 +24,10 @@ Nothing below is eyeballed. If a value you need is missing, measure it — do no
   (%W / %H) is given. The arcade's native resolution is 320×224; the video is an upscale,
   so prefer the fractions.
 - All measurement scripts for this pass were run from scratch on the extracted frames
-  (mode colors, column scans with 6-consecutive-row confirmation, connected-component
-  segmentation). The sky "mode" figures are modal colors of the band y=55–130 full-width.
+  (mode colors, column scans with 6-consecutive-row confirmation, per-frame object
+  masks). The mask AND the extent method for each number are stated where the number is
+  used — they differ per frame and the difference matters (see the jet-span note below).
+  The sky "mode" figures are modal colors of the band y=55–130 full-width.
 
 ## Frame catalog (`reference/`)
 
@@ -129,13 +131,25 @@ stage 8 `H 64.6° S 0.25 V75 0.459`, stage 17 `H 111.3° S 0.17 V75 0.353`. AB2 
   violet-magenta canopy `#9d3aca`, airframe greyscale ladder V = 0.98/0.90/0.82/0.75 with
   near-black nacelles V≈0.33 measured at t=557; warm-tinted shadow grey `(164,132,132)`
   from `ab2-arcade-desert.png` — NOT cream/beige).
-- **Wingspan on screen** (MEASURED, connected-component segmentation):
-  - t175 (level, night, isolated on black): columns 225–473 of 686 = 249 px = **36.3%W**
-    (band y=225–300, threshold max(RGB)>40; a detached debris blob at x189–199 excluded —
-    gap 199–225 proves separation). Height ≈ 71 px ≈ 14.8%H.
-  - t116 (near-level): 259 px = **37.8%W** (S<0.35, V>0.60 largest component; may include
-    a few tracer pixels — treat as upper bound).
-  - t140 (banked, more distant): ~29%W.
+- **Wingspan on screen** (MEASURED — note each frame's extent method; they are NOT the
+  same, and using the wrong one changes the answer 2.6×):
+  - t175 (level, night, isolated on black): **36.3%W** = the extent of the largest run of
+    CONTIGUOUS OCCUPIED COLUMNS — columns 225–473 of 686 (249 px) in the band y=225–300,
+    where a column is "occupied" if any pixel in the band has max(RGB)>40. A detached
+    debris run at columns 189–199 is excluded (the empty column gap 199–225 separates it).
+    Height ≈ 71 px ≈ 14.8%H. **Connected-component pixel labelling is NOT the method
+    here and gives a different, much smaller number**: on the same mask the largest
+    component is the fuselage alone, 97 px = 14.1%W — the dim wing roots fall below the
+    threshold at pixel level, so the wings disconnect from the body even under
+    8-connectivity. A developer verifying jet scale against 36.3%W must reproduce the
+    column-run extent, not a component bbox, or they will tune the jet to half size and
+    believe they hit target.
+  - t116 (near-level): 259 px = **37.8%W** — this one IS the bbox of the largest
+    8-connected pixel component (mask S<0.35, V>0.60); the brighter daylight airframe
+    stays connected. May include a few tracer pixels — treat as an upper bound.
+  - t140 (banked, more distant): ~29%W (largest 8-connected component of mask B>70 ∧
+    max(RGB)>130; the warm-lit wingtip may extend slightly past it — treat as a lower
+    bound for that pose).
   - So: **neutral span ≈ 36%W of frame**; it breathes with maneuver/altitude roughly
     29–38%W. (Prototype ships 342/960 = 35.6%W — consistent.)
 - **Screen position / roam** (jet centroids MEASURED: t116 (48.0%W, 55.1%H), t140
