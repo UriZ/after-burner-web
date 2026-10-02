@@ -42,9 +42,14 @@ const _cameraPos = new THREE.Vector3(0, CAMERA_HEIGHT, 0);
 // (coincidentally identical to pre-fix, not re-derived by luck — checked
 // by direct re-measurement, not assumed) — AND centroid cy now lands at
 // 55.95%H, inside REFERENCE.md's measured 52.8-58.3%H cruise band.
+// RE-TUNED again for the gap-7 sprite redesign (R3): the new silhouette's
+// canvas WIDTH is unchanged (76px) but a wider wing-root/wingtip shape
+// measured 39.06%W at worldWidth=2.95 (tools/out/jethud-r3/jet-final),
+// just outside 34-38%W. Scaled down proportionally: 2.95 * (36/39.06) =
+// 2.719, re-measured at 2.72 (see dev report for the confirmed number).
 // Re-derive if camera FOV/pitch or the player's baseZ/baseY change again
 // (owned by game.js, outside this file).
-const JET_WORLD_WIDTH = 2.95;
+const JET_WORLD_WIDTH = 2.72;
 
 export class Player {
   constructor({ baseY = 0, baseZ = -5 } = {}) {
