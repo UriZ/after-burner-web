@@ -17,13 +17,14 @@ import { fileURLToPath } from 'node:url';
 const ROOT = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
 
 function parseArgs(argv) {
-  const args = { frames: 10, every: 1, urlParams: '' };
+  const args = { frames: 10, every: 1, urlParams: '', page: '/' };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
     if (a === '--out') args.out = argv[++i];
     else if (a === '--frames') args.frames = Number(argv[++i]);
     else if (a === '--every') args.every = Number(argv[++i]);
     else if (a === '--url-params') args.urlParams = argv[++i];
+    else if (a === '--page') args.page = argv[++i];
     else if (a === '--help') args.help = true;
   }
   return args;
@@ -33,11 +34,13 @@ async function main() {
   const args = parseArgs(process.argv.slice(2));
   if (args.help || !args.out) {
     console.log(
-      'Usage: node tools/capture.mjs --out <dir> [--frames N] [--every M] [--url-params "..."]\n' +
+      'Usage: node tools/capture.mjs --out <dir> [--frames N] [--every M] [--url-params "..."] [--page /path.html]\n' +
         '  --out          REQUIRED, caller-unique output directory for frame-NNNN.png\n' +
         '  --frames       number of frames to capture (default 10)\n' +
         '  --every        fixed ticks to advance between captured frames (default 1)\n' +
-        '  --url-params   extra query string appended after ?fixed=1&seed=1'
+        '  --url-params   extra query string appended after ?fixed=1&seed=1\n' +
+        '  --page         page path to load (default "/", the real game); point at a\n' +
+        '                 test-harness HTML file for isolated-subject captures'
     );
     process.exit(args.help ? 0 : 1);
   }
@@ -54,7 +57,7 @@ async function main() {
   const address = server.httpServer.address();
   const port = address.port;
 
-  const url = new URL(`http://localhost:${port}/`);
+  const url = new URL(args.page, `http://localhost:${port}/`);
   url.search = `fixed=1&seed=1${args.urlParams ? '&' + args.urlParams : ''}`;
 
   const browser = await puppeteer.launch({
