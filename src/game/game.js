@@ -33,10 +33,38 @@ const ROLL_RATE_DEG_PER_S = 74.5; // REFERENCE.md median measured roll rate
 const ROLL_MAX_RAD = THREE.MathUtils.degToRad(ROLL_MAX_DEG);
 const ROLL_RATE_RAD_PER_S = THREE.MathUtils.degToRad(ROLL_RATE_DEG_PER_S);
 
+// Player jet depth and vertical placement (jethud-dev regression report,
+// post gap-2 pitch flip): `baseY: CAMERA_HEIGHT - 1.1` was tuned against
+// the OLD pitch (-0.172, looking down) and put the jet at screenFrac 84.6%H
+// under the new pitch — overlapping the bottom HUD strip, independently
+// re-derived and confirmed here (see worldYForScreenFrac above). Target is
+// REFERENCE.md "Player jet / Screen position": measured cruise jet
+// centroids cy 52.8%H (ADOPTED mean) and 58.3%H (t175) — midpoint 55.6%H.
+const PLAYER_BASE_Z = -5;
+const PLAYER_CRUISE_SCREEN_FRAC = 0.556;
+
 function horizonFracFor(pitchRad, fovDeg) {
   const halfTan = Math.tan(THREE.MathUtils.degToRad(fovDeg) / 2);
   const ndcY = -Math.tan(pitchRad) / halfTan;
   return (1 - ndcY) / 2;
+}
+
+// Inverse of horizonFracFor for a FINITE point, not just the horizon
+// (jethud-dev derivation, independently re-derived and cross-checked here:
+// plugging dy=0 collapses this to horizonFracFor exactly). Camera-space
+// coordinates of a world point at (0, worldY, z) under a camera at height
+// CAMERA_HEIGHT pitched up by `pitch` around local X:
+//   dy = worldY - CAMERA_HEIGHT
+//   localY = dy*cos(pitch) + z*sin(pitch)
+//   localZ = -dy*sin(pitch) + z*cos(pitch)
+//   ndcY = (localY / -localZ) / tan(vFov/2)
+// Solved algebraically for worldY given a target screenFrac and fixed z:
+function worldYForScreenFrac(targetFrac, z, pitchRad, fovDeg) {
+  const halfTan = Math.tan(THREE.MathUtils.degToRad(fovDeg) / 2);
+  const ndcY = 1 - 2 * targetFrac;
+  const k = ndcY * halfTan;
+  const dy = (-z * (Math.sin(pitchRad) + k * Math.cos(pitchRad))) / (Math.cos(pitchRad) - k * Math.sin(pitchRad));
+  return CAMERA_HEIGHT + dy;
 }
 
 function moveTowards(current, target, maxStep) {
@@ -71,7 +99,8 @@ export class Game {
     this.ground = createGround(STAGE_1, this.horizonFrac);
     this.scene.add(this.ground.mesh);
 
-    this.player = new Player({ baseY: CAMERA_HEIGHT - 1.1, baseZ: -5 });
+    const playerBaseY = worldYForScreenFrac(PLAYER_CRUISE_SCREEN_FRAC, PLAYER_BASE_Z, CAMERA_PITCH, FOV_DEG);
+    this.player = new Player({ baseY: playerBaseY, baseZ: PLAYER_BASE_Z });
     // Measurement-only hook (?hidejet=1): keeps the ground/sky isolated on
     // screen so a captured frame's center isn't occluded by the jet
     // sprite — the standard isolation-harness pattern for visual
