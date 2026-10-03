@@ -759,15 +759,68 @@ y[330,520] x[460,640], 10.1%W × 19.2%H, n=7 235) and it is materially **hotter*
 
 | | huge-explosion.jpg | stage-1 kill fireball |
 |---|---|---|
-| mean V | 0.882–0.891 | **0.928** |
-| fraction above V 0.95 | 45.3–52.3% | **57.9%** |
-| near-white core, as % of area | 3.2–8.8% | **16.1%**, mean RGB (249,231,192) |
+| mean V | 0.882–0.906 | **0.928** |
+| fraction above V 0.95 | 45.3–54.2% | **57.9%** |
+| near-white core, as % of area | **9.2%** (FIRE-MASK, below) | **NOT MEASURABLE — see note** |
 
 **Which frame for which object**: `src/effects/explosions.js` draws *kill* explosions, so
-tune those to the stage-1 kill column; reserve the huge-explosion figures for the
-screen-filling death blast. A single point target across both is how this round's trail
-defect happened — a developer chasing two incompatible numbers. **Accept anywhere inside
-the band: mean V ≥0.88, ≥45% above V 0.95, near-white core ≥3% of area.**
+tune their body statistics to the stage-1 kill column; reserve the huge-explosion figures
+for the screen-filling death blast. A single point target across both is how this round's
+trail defect happened — a developer chasing two incompatible numbers. **Accept anywhere
+inside the band: mean V ≥0.88, ≥45% above V 0.95, near-white core ≥5% of area (core from
+the huge-explosion frame only).**
+
+**CORRECTED R5 — the kill fireball's "16.1% core" is withdrawn.** In `t100.75` the kill
+fireball sits **immediately against the white launch plume**, so no mask that admits
+white-hot pixels can separate them by connectivity: FIRE-MASK floods out of the fire and
+across the whole plume (n jumps 7 235 → 17 042, mean saturation collapses to **0.352**,
+"core" reads a nonsensical 56.1%). I rendered the mask over the crop and looked — it covers
+the entire lower-left white region, which is smoke. The 16.1% came from the warm-only mask,
+which excludes white by construction, so it is not a core measurement either. **Use
+`ab2-arcade-huge-explosion.jpg` for the core — it is the only fireball we hold that sits
+against flat blue sky with no adjacent white** — and the kill frame for body statistics
+only.
+
+### FIRE-MASK — the fireball operator that can actually see a core (MEASURED R5)
+
+```
+mask = V > 0.55  ∧  ( R > B + 0.10  ∨  ( S < 0.25 ∧ V > 0.90 ) )
+       then the largest 8-connected component
+```
+
+The warm clause takes the saturated body; the second clause **re-admits the white-hot
+core** that the warm clause rejects. Both halves are necessary, and each of the two
+one-clause operators tried this round is wrong on its own:
+
+| operator | on the arcade | on our capture |
+|---|---|---|
+| warm only (`R > B + 0.10`) | keeps 157 of 880 white-hot px — **deletes 82% of the core** | keeps 24–200 of ~1 600 — deletes **87–98%** |
+| largest non-sky component | correct on the arcade (fireball on flat sky) | **floods the scene** — n 15 611–18 731, mean S 0.60 against the arcade's 0.85 |
+| **FIRE-MASK** | **mean V 0.9055, V>0.95 54.2%, core 9.2%, mean S 0.846** | clean, see below |
+
+Control: on `ab2-arcade-huge-explosion.jpg` FIRE-MASK reproduces the independent not-sky
+measurement (0.891 / 52.3% / 8.8% / 0.848) to within 0.015 on every statistic, so the added
+white clause recovers the core without admitting anything else.
+
+**Our build, measured with FIRE-MASK on `tools/out/combatfx-r5/{verify-expl,verify-expl2,
+final-expl}` at native scale:**
+
+| | mean V | V>0.95 | core | mean S |
+|---|---|---|---|---|
+| ours | 0.874–0.903 | 44.0–54.2% | **8.4–11.6%** | 0.815–0.851 |
+| arcade (huge-explosion) | 0.906 | 54.2% | **9.2%** | 0.846 |
+
+**The core gate PASSES, and by more than the lane could see.** Combat-fx's own warm-only
+instrument reported our core at 0.8–7.4%; it is actually 8.4–11.6%, i.e. at or above the
+arcade's 9.2%. Mean saturation matches (0.815–0.851 vs 0.846). Mean V is the one statistic
+still marginally low (0.874–0.903 vs 0.906). **R4 gap 11 is closed on the evidence — but
+check it against the crop, not this table** (see below).
+
+**The crop outranks this table.** The authoritative fireball references are
+`reference/ab2-arcade-huge-explosion.jpg` whole-frame and `judging/R4/art-explosion-ours-left-arcade-right.png`,
+viewed at 4–8× nearest-neighbour. These numbers exist to catch a fireball that is *not* a
+fireball; they cannot certify that one *is*. If ours hits every row above and still does not
+read like the crop side by side, the crop wins and this table is incomplete.
 
 **WARNING — a "warm and bright" mask deletes the thing you are measuring.** Combat-fx
 used `V > 0.55 ∧ R > B + 0.10` to isolate the fireball. That is a reasonable sky/cloud
