@@ -7,6 +7,7 @@ import { Vulcan } from './vulcan.js';
 import { Missiles } from './missiles.js';
 import { EnemyShots } from './enemyShots.js';
 import { LockSystem, MAX_LOCKS } from './lockSystem.js';
+import { AudioBus } from '../audio/index.js';
 
 // Combat facade: one object game.js constructs and ticks. Owns the enemy
 // spawner, both player weapons, enemy fire, lock brackets, explosions and
@@ -53,7 +54,12 @@ const ASSIST_RADIUS_FRAC = 0.13;
 // GAME_SPEC.md doesn't measure a player hitbox size; 0.09 (an 18%W-wide box
 // against the 35.6%W jet) was a documented ASSUMED starting point — retune
 // directly here, no need to route changes through gameflow-dev.
-const PLAYER_HIT_RADIUS_FRAC = 0.09;
+// Retuned from gameflow-dev's initial 0.09 at their invitation. 0.09 put a
+// 18%W-wide kill box around the centroid of a 35.6%W jet — about half the
+// drawn span, so a shot anywhere near the inner wing was lethal. AB2 is
+// forgiving about wingtips; the lethal area is the fuselage. 0.065 = a
+// 13%W box, still comfortably inside the airframe.
+const PLAYER_HIT_RADIUS_FRAC = 0.065;
 const PLAYER_HIT_DEPTH_TOL = 2.2; // shots retire at EnemyShots' PASS_DEPTH=1.6
 
 export class Combat {
@@ -86,6 +92,7 @@ export class Combat {
     // acceptance number, so it has to be readable rather than eyeballed).
     this.impactTimes = [];
     this.missiles.onImpact = (enemy, missile) => {
+      AudioBus.play('explosion');
       this.impactTimes.push(missile.age);
       if (this.impactTimes.length > 64) this.impactTimes.shift();
       this._damage(enemy, 99);
@@ -125,6 +132,8 @@ export class Combat {
     // because this file owns what counts as a hit; src/game/flow/ owns what
     // happens afterwards.
     this.invincible = params.has('invincible');
+    this.playerHitsTaken = 0;
+    this._prevLockCount = 0;
 
     // `?combatexpl=1` — measurement-only: no enemies, no weapons; one
     // explosion every 1.2 s at a fixed screen position and depth. The
@@ -146,6 +155,7 @@ export class Combat {
         waveIndex: this.spawner.waveIndex,
         pending: this.spawner.pending.length,
         alive: this.spawner.enemies.length,
+        playerHitsTaken: this.playerHitsTaken,
         rngSample: this.rng(),
       });
     }
@@ -197,6 +207,7 @@ export class Combat {
         playerNdc: this.playerNdc,
         aimAssist: this._on('enemies') ? this._aimAssist : null,
         sight: this.sight,
+        onFire: (side) => AudioBus.play('vulcan', { side }),
       });
       this.vulcan.resolveHits(this.spawner.enemies, (e, dmg) => this._damage(e, dmg));
     }
@@ -217,6 +228,13 @@ export class Combat {
       this.missiles.live.map((m) => m.target)
     );
     this.locks.bracketsVisible = this._on('brackets') && !this.trailHarness;
+    // Lock-acquired tone: detected by watching the lock count rise rather
+    // than by adding a callback to lockSystem.js, so that file needs no
+    // audio knowledge at all (audio-dev's suggestion, and it keeps the
+    // dependency pointing one way).
+    if (this.locks.locks.length > this._prevLockCount) AudioBus.play('lockOn');
+    this._prevLockCount = this.locks.locks.length;
+
     this.missiles.update(dt);
     this.smoke.update(dt);
     this.explosions.update(dt);
@@ -251,6 +269,7 @@ export class Combat {
       if (this.launchQueue.length && this.launchTimer <= 0) {
         const stub = this.launchQueue.shift();
         this.missiles.launch(this.playerNdc, stub, this.launchSide, this.rng);
+        AudioBus.play('missileLaunch');
         this.launchSide = -this.launchSide;
         this.missileStock -= 1;
         this.launchTimer = LAUNCH_STAGGER_S;
@@ -271,6 +290,7 @@ export class Combat {
       const target = this.launchQueue.shift();
       if (this.missileStock > 0) {
         this.missiles.launch(this.playerNdc, target, this.launchSide, this.rng);
+        AudioBus.play('missileLaunch');
         this.launchSide = -this.launchSide;
         this.missileStock -= 1;
       }
@@ -348,6 +368,12 @@ export class Combat {
       if (s.ndcX === undefined) continue; // not yet updated this tick
       if (this._playerHit(s.ndcX, s.ndcY, s.depth, playerNdc)) {
         this.enemyShots.remove(s);
+        // Counted whether or not it was survived, so the HIT RATE can be
+        // tuned directly. Inferring it from deaths does not work: each
+        // death costs an 8.5 s sequence that clears and rebuilds the sky,
+        // so the death count saturates at ~4/minute almost regardless of
+        // how lethal the fire actually is.
+        this.playerHitsTaken += 1;
         return !invincible;
       }
     }
@@ -377,6 +403,7 @@ export class Combat {
     const pos = new THREE.Vector3();
     this.space.ndcToWorld(enemy.ndc.x, enemy.ndc.y, enemy.d, pos);
     this.explosions.spawn(pos, enemy.d, this.rng, enemy.type === 'bomber' ? 1.4 : 1);
+    AudioBus.play('explosion', { big: enemy.type === 'bomber' });
     this.hits += 1;
     // Removed on the same tick it dies so the tracking bracket jumps to the
     // next enemy immediately, which is the measured behaviour at

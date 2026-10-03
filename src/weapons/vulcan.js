@@ -108,7 +108,10 @@ export class Vulcan {
   // returns the enemy a round should be ramped onto, or null. ADOPTED #100:
   // without it, rounds fly the sight line and pass under airborne enemies
   // whose altitude differs from the player's.
-  update(dt, { firing, playerNdc, aimAssist, sight }) {
+  // `onFire(side)` is called on the tick a round actually leaves a muzzle.
+  // The cooldown gate is internal to this class, so a caller cannot otherwise
+  // tell a held trigger from an actual shot (audio-dev's R4 request).
+  update(dt, { firing, playerNdc, aimAssist, sight, onFire }) {
     // Clamped at zero, not allowed to run negative. The first version used
     // `cooldown += FIRE_INTERVAL_S` on an unclamped accumulator, so every
     // second of NOT firing banked a second of negative cooldown and the next
@@ -121,7 +124,7 @@ export class Vulcan {
     this.cooldown = Math.max(0, this.cooldown - dt);
     if (firing && this.cooldown <= 0) {
       this.cooldown = FIRE_INTERVAL_S;
-      this._fire(playerNdc, aimAssist, sight);
+      this._fire(playerNdc, aimAssist, sight, onFire);
     }
 
     for (let i = this.rounds.length - 1; i >= 0; i--) {
@@ -155,10 +158,12 @@ export class Vulcan {
 
   // `sight` is the screen aim point the stream converges on when nothing is
   // aim-assisted: { x, y } in NDC, supplied by the weapon manager.
-  _fire(playerNdc, aimAssist, sight) {
+  _fire(playerNdc, aimAssist, sight, onFire) {
     const startNdcX = playerNdc.x + this.side * MUZZLE_NDC_X;
     const startNdcY = playerNdc.y + MUZZLE_NDC_Y;
+    const side = this.side;
     this.side = -this.side;
+    if (onFire) onFire(side);
 
     const target = aimAssist ? aimAssist(playerNdc) : null;
     const targetNdcX = target ? target.ndcX : sight.x;

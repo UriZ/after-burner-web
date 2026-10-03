@@ -49,8 +49,8 @@ const DISPENSE_MAX_S = 0.34;
 // takes 4-6 s to cross, so the gap has to be well under that and the
 // countdown has to run continuously — waves must OVERLAP, which is also what
 // the arcade does (t113-119 has an echelon mid-approach while crossers pass).
-const WAVE_GAP_MIN_S = 1.1;
-const WAVE_GAP_MAX_S = 1.9;
+const WAVE_GAP_MIN_S = 0.9;
+const WAVE_GAP_MAX_S = 1.6;
 
 // Screen band the horizon-side spawn points sit in. The horizon is at
 // 0.6250 H = ndcY -0.250 (game.js's camera pitch); enemies appear just above
@@ -78,12 +78,17 @@ const SPAWN_NDC_Y = -0.165;
 // how many aircraft are on screen, which is the property that has to hold
 // as the population is tuned for the size-qualified density criterion.
 //
-// 1 train / 0.9 s gap was measured, not picked: at 2 / 0.35 s the screen
-// still carried up to 15 shots and the scripted player still died 3 times in
-// 33 s. 1 / 0.9 s puts ~6-7 shots on screen, which is what
-// stage7-enemy-shot-train-t330.png actually shows.
+// 1 train / 1.6 s gap was measured, not picked. The sequence: 2 trains /
+// 0.35 s left up to 15 shots on screen; 1 / 0.9 s brought that to the 4-7
+// that stage7-enemy-shot-train-t330.png actually shows, but still delivered
+// ~400 aimed shots per minute, of which ~1% landing inside the kill box is
+// 4 deaths/minute. A weaving demo path did not help, because the shot leads
+// the player by its ~1.2 s flight time and the jet wanders into the rake as
+// often as out of it. 1 / 1.6 s is still "spaced trains" by GAME_SPEC §4 and
+// still matches t330 — with a ~1.2 s shot flight time there is usually
+// exactly one train in the air, which is what that frame shows.
 const MAX_CONCURRENT_TRAINS = 1;
-const TRAIN_START_GAP_S = 0.9;
+const TRAIN_START_GAP_S = 2.2;
 
 export class Spawner {
   constructor(scene, space, rng) {
@@ -274,7 +279,14 @@ export class Spawner {
         weaveAmp: this.rng() * 0.04,
         weaveRate: 1.1 + this.rng() * 0.9,
         weavePhase: this.rng() * Math.PI * 2,
-        fireDelay: 0.9 + this.rng() * 0.8,
+        // Long first-fire delay. The primed element spawns INSIDE the
+        // 6-46 unit fire band, so a normal 0.9-1.7 s delay had it opening
+        // fire on tick ~60 and killing the player at t=1.4-1.7 s, before
+        // they had done anything — measured on all five seeds. A stage
+        // opens with aircraft to shoot at, not with an unavoidable train
+        // already inbound (GAME_SPEC.md §4's opener is an overtake flight
+        // the player kills from behind).
+        fireDelay: 2.5 + this.rng() * 1.5,
       });
     }
     return out;
@@ -314,7 +326,12 @@ export class Spawner {
         weaveAmp: this.rng() * 0.05,
         weaveRate: 1.1 + this.rng() * 0.9,
         weavePhase: this.rng() * Math.PI * 2,
-        fireDelay: 0.6 + this.rng() * 1.2,
+        // Generous first-fire delay relative to the 1.5-2 s steady-state
+        // interval: src/game/flow/ clears all enemies on death and at stage
+        // boundaries, so the sky repopulates from empty and a short initial
+        // delay means every respawn is met by a fresh train arriving within
+        // a second of the 2 s invincibility expiring.
+        fireDelay: 1.6 + this.rng() * 1.4,
       });
     }
     return out;

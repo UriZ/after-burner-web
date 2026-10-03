@@ -101,7 +101,7 @@ const FIRE_DEPTH_MIN = 6;
 // reference/stage7-enemy-shot-train-t330.png read as ~6 fireballs strung
 // across roughly a third of the frame with clear gaps between them, which at
 // enemyShots.js's shot speed puts the emission interval near 0.1 s.
-const SHOT_SPACING_S = 0.1;
+const SHOT_SPACING_S = 0.18;
 
 // A train SWEEPS PAST the player's position rather than converging on it.
 //
@@ -114,7 +114,26 @@ const SHOT_SPACING_S = 0.1;
 // was cut to the 4-6 shots t330 actually shows. Successive shots in a train
 // are offset along one direction so the train rakes across the player's
 // vicinity: the middle of a train is the dangerous part, the ends miss.
-const TRAIN_SWEEP_STEP_NDC = 0.085;
+const TRAIN_SWEEP_STEP_NDC = 0.11;
+
+// Per-train AIM BIAS: the whole train's centre is displaced from the
+// player's position by this much, in a random direction, on top of the
+// per-shot sweep.
+//
+// Without it the sweep is symmetric about the aim point, so the middle shot
+// of every train is aimed exactly where the player was ~1.2 s ago — a
+// guaranteed hit whenever the jet has not moved further than the kill
+// radius in that time, which for any weaving path is about half the time.
+// That is why the death rate barely responded to halving the number of
+// trains (4.0 deaths/min at both 0.9 s and 1.6 s train spacing): the deaths
+// were not a function of volume, they were one per encounter.
+//
+// GAME_SPEC §4's "tracked shots aimed at the player's position at fire time"
+// describes intent, not marksmanship, and
+// reference/stage7-enemy-shot-train-t330.png shows a train crossing the
+// frame rather than converging on the jet.
+const TRAIN_BIAS_MIN_NDC = 0.22;
+const TRAIN_BIAS_MAX_NDC = 0.85;
 
 // Per-type speed/hp split ADOPTED from the prototype (`enemy_jet_2d.gd`),
 // re-expressed as geometric depth rates. The prototype's 0.35/0.55/0.25
@@ -197,6 +216,8 @@ export class Enemy {
     this.burstTimer = 0;
     this.sweepX = 1;
     this.sweepY = 0;
+    this.biasX = 0;
+    this.biasY = 0;
 
     const rear = pattern === 'overtake';
     this.texDetail = rear ? enemyRearTexture() : enemyHeadOnTexture();
@@ -290,8 +311,8 @@ export class Enemy {
             ndcX: nx,
             ndcY: ny,
             depth: this.d,
-            aimOffsetX: this.sweepX * k * TRAIN_SWEEP_STEP_NDC,
-            aimOffsetY: this.sweepY * k * TRAIN_SWEEP_STEP_NDC,
+            aimOffsetX: this.biasX + this.sweepX * k * TRAIN_SWEEP_STEP_NDC,
+            aimOffsetY: this.biasY + this.sweepY * k * TRAIN_SWEEP_STEP_NDC,
           };
         }
       } else {
@@ -304,6 +325,10 @@ export class Enemy {
           const a = rng() * Math.PI * 2;
           this.sweepX = Math.cos(a);
           this.sweepY = Math.sin(a) * 0.6; // flatter than tall, as t330 reads
+          const b = rng() * Math.PI * 2;
+          const r = TRAIN_BIAS_MIN_NDC + rng() * (TRAIN_BIAS_MAX_NDC - TRAIN_BIAS_MIN_NDC);
+          this.biasX = Math.cos(b) * r;
+          this.biasY = Math.sin(b) * r * 0.7;
         }
       }
     }
