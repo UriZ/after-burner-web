@@ -92,7 +92,10 @@ export class Combat {
     // acceptance number, so it has to be readable rather than eyeballed).
     this.impactTimes = [];
     this.missiles.onImpact = (enemy, missile) => {
-      AudioBus.play('explosion');
+      // No explosion sound here: _damage() below plays it for every kill
+      // from either weapon AND knows the target type, so it can pass
+      // { big: true } for a bomber. Firing from both sites double-triggered
+      // on every missile kill, same tick, no gap (audio-dev).
       this.impactTimes.push(missile.age);
       if (this.impactTimes.length > 64) this.impactTimes.shift();
       this._damage(enemy, 99);
