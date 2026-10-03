@@ -29,6 +29,45 @@ Nothing below is eyeballed. If a value you need is missing, measure it — do no
   used — they differ per frame and the difference matters (see the jet-span note below).
   The sky "mode" figures are modal colors of the band y=55–130 full-width.
 
+### Measuring OUR captures: the native grid (VERIFIED R5)
+
+Our captures are **960×672**, which is an **exact 3× nearest-neighbour block upscale** of a
+true 320×224 render (`tools/capture.mjs` sets that viewport; `src/render/screen.js` picks
+`scale = max(1, floor(min(w/320, h/224)))` = 3, and 320·3 × 224·3 = 960×672 fills it with no
+letterbox). **Verified, not assumed**: across three independent judge-R4 captures, all
+71 680 native pixels per frame, **every 3×3 block is perfectly uniform — maximum
+intra-block deviation 0**.
+
+Therefore `img[::3, ::3]` (what `measure_ground.py`, `measure_coarseness.py`,
+`measure_flow.py`, `measure_roll.py`, `measure_clouds.py` and `hud_mask.py` all do) is
+**exactly lossless** — it recovers the native render bit-for-bit. It does not point-sample
+an aliased image, and it cannot distort a statistic. Measured both ways on the same capture
+over the near-field sea band:
+
+| statistic | full 960×672 | `[::3,::3]` 320×224 |
+|---|---|---|
+| ACF anisotropy | 3.69× / 1.97× | 3.63× / 1.94× |
+| p5–p95 value spread | 0.3843 / 0.3569 | 0.3843 / 0.3529 |
+| foam fraction (V>0.95) | 24.17% / 49.19% | 24.22% / 49.57% |
+
+The two per-pixel statistics are invariant **by construction** (a lossless block upscale
+counts every native pixel nine times, which cannot move a percentile or a fraction); the
+residual ≤0.4 pt is patch-boundary rounding landing on a different native row, not
+information loss. **Decimating is not merely safe, it is required for the ACF**: on the
+upscaled image the half-widths are 5.86/1.59 px against the native 1.94/0.53 — i.e. three
+times the native figure, dominated by the 3-px block edges rather than by texture.
+
+Two standing cautions, neither of them about the decimation:
+- **The stride is hardcoded to 3 in every tool and nothing checks it.** It is right only
+  for a 960×672 capture. A different viewport changes `scale` (1920×1080 → 4×), and a
+  viewport that is not an exact multiple also letterboxes, which misaligns the stride.
+  Before decimating, **derive the block size and assert uniformity** rather than assuming 3.
+- At native scale the sea ACF half-widths are **0.5–2 px**, so the anisotropy *ratio* is
+  quantisation-limited and can be satisfied degenerately by making the vertical axis pure
+  noise (R3 judge's point). Measuring on the upscaled image does not fix this — it only
+  measures the upscale blocks. Pair the ratio with an absolute horizontal decorrelation
+  length, as the sea section does.
+
 ## Frame catalog (`reference/`)
 
 Curated frames (all PNG, extracted at exact timestamps; stage identity per the map above):
