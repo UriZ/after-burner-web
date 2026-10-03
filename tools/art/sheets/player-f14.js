@@ -165,7 +165,7 @@ function drawFrame(canvas, bankDeg) {
 export function buildPlayerF14Sheet() {
   return buildStrip(CELL_W, CELL_H, BANK_ANGLES.length, (cell, i) => {
     drawFrame(cell, BANK_ANGLES[i]);
-  }, { maxColours: 9, label: 'player-f14' });
+  }, { maxColours: 8, label: 'player-f14' });
 }
 
 export { BANK_ANGLES, CELL_W, CELL_H, drawFrame, geometryFor };

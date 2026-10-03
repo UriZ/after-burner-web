@@ -173,7 +173,7 @@ function drawFrame(canvas, frameIdx) {
 
 export function buildExplosionSheet() {
   return buildStrip(CELL, CELL, FRAMES.length, (cell, i) => drawFrame(cell, i), {
-    maxColours: 11, label: 'explosion',
+    maxColours: 16, label: 'explosion',
   });
 }
 

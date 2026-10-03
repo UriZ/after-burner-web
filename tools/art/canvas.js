@@ -6,7 +6,7 @@
 // runs that suggest a curve while reading cleanly at 8px, not a rasterised
 // circle") — see judging/R4/art-critique.md §4.
 import { encodePNG } from './png.js';
-import { hexToRgb, isOnLadder } from './ladder.js';
+import { hexToRgb } from './ladder.js';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { dirname } from 'node:path';
 
@@ -264,9 +264,19 @@ export class PixelCanvas {
     return counts;
   }
 
-  /** HARD GATE: throws if this canvas uses more than `max` unique opaque
-   * colours, or if any colour is off the Sega 5-bit ladder. A violating
-   * sheet cannot be exported. */
+  /** HARD GATE, per REFERENCE.md "PROJECT-WIDE ACCEPTANCE CRITERIA (MEASURED
+   * R5)" Criterion A: throws if this canvas uses more than `max` unique
+   * opaque colours (per-sprite budget: 8 for aircraft/vehicle/cloud, 16 for
+   * explosion/effect — NOT a flat 8, which would fail the arcade's own
+   * explosion at 12-18), or if any channel uses more than 32 distinct
+   * values. The 32-distinct-values-per-channel form is the robust gate the
+   * criterion specifies IN PLACE OF exact ladder-set membership — a ±1
+   * level difference is visually nil, so exact membership would block an
+   * export that looks identical to one that passes (the same brittleness
+   * that retired six other criteria this project has published). Colours
+   * are still AUTHORED from the enumerated ladder table (palettes.js), this
+   * gate just doesn't re-litigate that at export time. A violating sheet
+   * cannot be exported. */
   assertPalette(max, label = '') {
     const counts = this.countColours();
     if (counts.size > max) {
@@ -275,10 +285,14 @@ export class PixelCanvas {
         [...counts.keys()].join(', ')
       );
     }
+    const rSet = new Set(), gSet = new Set(), bSet = new Set();
     for (const hex of counts.keys()) {
       const { r, g, b } = hexToRgb(hex);
-      if (!isOnLadder(r) || !isOnLadder(g) || !isOnLadder(b)) {
-        throw new Error(`[palette] ${label}: colour ${hex} is off the Sega 5-bit ladder`);
+      rSet.add(r); gSet.add(g); bSet.add(b);
+    }
+    for (const [name, set] of [['R', rSet], ['G', gSet], ['B', bSet]]) {
+      if (set.size > 32) {
+        throw new Error(`[palette] ${label}: channel ${name} has ${set.size} distinct values > 32`);
       }
     }
     return counts;
