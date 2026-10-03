@@ -548,6 +548,27 @@ Source: `../afterburner/tools/measure_clouds.py` (the #132 classifier). Stated i
   (686×480 = 1.4292, 960×672 = 1.4286), so matching one matches the other; any other frame
   shape must re-derive it.
 
+**OUR SIDE IS CURRENTLY MEASURED WITH A DIFFERENT CLASSIFIER (R5 finding).**
+`tools/measure_clouds.py` in this repo diverges from the operator above on six axes, every
+one of which pushes the measured width down or the count up, so its figures are not
+comparable with the arcade's until it is reconciled:
+
+| | #132 operator (what the arcade numbers are) | this repo's `tools/measure_clouds.py` |
+|---|---|---|
+| saturation | `< 0.25` | `< 0.35` |
+| value | `V > 0.80` (max(RGB) > 204) | `max(RGB) > 150` (V > 0.588) |
+| window | rows **2–45 %H** | rows 0 → `--horizon-row` (default 140 of 224 = **62.5 %H**) |
+| connectivity | **8-connected** | **4-connected** (fragments dithered edges) |
+| min component | ≥150 px at 686×480 = 0.046% of frame | `--min-area 3` at 320×224 = 0.004% |
+| haze-seam discard | drop components wider than 90%W | **absent** |
+| truncation | height/aspect from untruncated banks only; width pooled | **absent** |
+| frame | 686×480 as stored | our capture decimated 3× (`img[::3, ::3]`) |
+
+Its aspect *is* the normalised one (`cw` and `ch` are already %W and %H), despite the
+`(w/h)` label — that part is right. Reconciling the rest is a prerequisite for scoring
+gap 7; until then the only defensible statement is the judge's, that the two operators
+disagree by nearly 3× on the same build.
+
 **Instrument control (R5)**: reimplemented from the prose above, independently of that
 script, and run on t=88–120 extracted frame-by-frame: presence **72.7%**, count median
 **1** / p90 **5.0** / max **5**, width median **8.16 %W** / p90 **21.43** / max **42.27**,
