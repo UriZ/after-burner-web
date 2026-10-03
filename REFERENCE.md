@@ -366,11 +366,66 @@ operator and the judge agree on both aircraft, by separate routes.
   - So: **neutral span ≈ 36%W of frame**; it breathes with maneuver/altitude roughly
     29–38%W. (Prototype ships 342/960 = 35.6%W — consistent.)
 - **Screen position / roam** (jet centroids MEASURED: t116 (48.0%W, 55.1%H), t140
-  (41.2%W, 59.7%H), t175 (50.5%W, 58.3%H)). ADOPTED distribution from the prototype's
+  (41.2%W, 59.7%H), t175 (50.5%W, 58.3%H)). **Of these only t175 reproduces** (R5): t175's
+  jet is isolated on black and its published figure matches a pixel centroid to 0.56 pt. On
+  t116 I get (46.2%W, 60.04%H) as a pixel centroid and (48.1%W, 56.98%H) as a bbox centre
+  and neither matches the published pair — the t116 jet is **banked and overlaps a white
+  landmass and a second aircraft**, so the mask is contaminated whatever the threshold.
+  **Anchor centroid work on t175/t168, not t116**; treat the t116 and t140 pairs as
+  indicative only, and re-derive them before quoting either as a target. ADOPTED distribution from the prototype's
   #122 arcade measurement: the spread is **two-regime**, not constant-amplitude weaving —
   open cruise cx sd **12.88 %W** at cy ≈ **52.8%H**; canyon cx sd **2.59 %W** at cy ≈
   **63.5%H** (lower and straighter); combined cx sd 10.44 %W emerges from alternating.
   The jet sits in the lower-middle half of the frame and roams widely in cruise.
+
+#### Centroid: which pixels, and which average (DIAGNOSED R5 — this was the 2-round bias)
+
+**The centroid is the AREA-WEIGHTED MEAN of the silhouette's pixel coordinates. It is NOT
+the centre of the bounding box.** The published jet-centroid numbers ran 2–3 points
+optimistic for two consecutive rounds because the two sides of the comparison used
+different averages:
+
+| frame | area-weighted PIXEL centroid | BBOX centre | published |
+|---|---|---|---|
+| arcade t175, 686×480 | **58.86 %H** | 55.73 %H | **58.3 %H** ← the pixel centroid |
+| arcade t175, 1028×720 | **58.90 %H** | 55.62 %H | — |
+| arcade t168, 1028×720 | **57.37 %H** | 56.04 %H | — |
+| ours, R4 `jet-on`/`jet-off`, 3 frames | **57.08 %H** | 55.36 %H | **55.28 %H** ← the bbox centre |
+
+The arcade figures match the **pixel centroid** (t175: 58.86 vs published 58.3). Our
+figures match the **bbox centre** (55.36 vs published 55.28 — 0.08 pt). So the **52–60 %H
+band is in pixel-centroid units**, and the authoring side has been reporting a bbox centre
+against it. The gap is not a constant offset to subtract: it is **1.3–3.3 points** across
+these four measurements, because it depends entirely on how the silhouette distributes its
+area — an AB2 jet carries thin tall fins above and dense wings/nacelles/nozzles below, so
+its mass sits well under its vertical midpoint.
+
+Provenance of the mix-up, for the record: `judging/R2/report.md` reports "jet **bbox
+centre** (49.9%W, 84.5%H) **against arcade 55.1/58.3/59.7%H**" — i.e. a bbox centre set
+beside three pixel centroids in one sentence. The convention has been copied forward since.
+
+**Operator (use this on both sides):**
+1. Isolate the jet. Preferred: a **jet-on minus jet-off difference mask** (`?hidejet=1`),
+   `max|Δ| > 8` per channel at native scale — it needs no colour assumption and is what the
+   R3 and R4 judges used. On an arcade frame, use the largest 8-connected component of the
+   silhouette mask instead (there is no jet-off frame).
+2. **Which pixels count: the airframe plus its integral nozzle glow; exclude any detached
+   exhaust plume, smoke trail or shadow.** The arcade mask necessarily includes the nozzle
+   glow (it sits inside the nacelles and is part of the same component), so ours must too.
+   Measured contribution on our build: including the warm nozzle pixels moves the centroid
+   from 56.59 %H to 57.08 %H — **0.49 pt**, far too small to explain the bias, so the flame
+   is *not* the culprit despite being the obvious suspect.
+3. `cy = mean(y of mask pixels) / frame height`, `cx = mean(x) / frame width`. Report at
+   native scale (`[::3,::3]` for our 960×672 captures — exactly lossless, see
+   "Measuring OUR captures" above).
+
+Reproduction check: this operator returns **57.08 %H** on all three R4 `jet-on` frames,
+matching the R4 judge exactly.
+
+Side note, not a gate: the size of the pixel-centroid-minus-bbox-centre gap is itself a
+weak silhouette statistic — the arcade's t175 reads **3.28 pt** against our **1.72 pt**,
+because its fins are thinner and taller. It is confounded by the nozzle glow, so do not
+accept on it; the discriminators above are the gates.
 - **Jet bank vs world roll**: the drawn jet bank tracks the world roll (prototype ships
   jet-bank = 0.8 × world roll, VISUALLY TUNED — the three usable reference frames gave
   ratios 0.90/0.61/1.31, too noisy to derive numerically; tune by capture against t=98
