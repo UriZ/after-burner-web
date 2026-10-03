@@ -42,11 +42,11 @@ import { missileTexture } from './projectileSprites.js';
 // the ribbon is widest at its OLDEST sample and tapers toward the missile.
 //
 // VALUE IS PER-STAGE AND COMES FROM effects/trailPalette.js. It used to be
-// two constants in this file taken from a NIGHT frame, which is what made
-// stage 1's daylight trail black (R4 gap 4). Do not reintroduce a
-// stage-independent value here, and in particular do not carry the night
-// frame's 2.2-3.2 bright/dark quintile requirement into daylight — the
-// stage-1 plume's measured ratio is 1.07.
+// two constants in this file taken from a frame that turns out to contain no
+// smoke trail at all, which is what made stage 1's daylight trail black
+// (R4 gap 4). Do not reintroduce a value here, and do not tune to a
+// bright/dark quintile ratio: that criterion is withdrawn, and the stage-1
+// plume's measured ratio is 1.07 — essentially flat.
 // ---------------------------------------------------------------------------
 
 const HOMING_DELAY_S = 0.3; // ADOPTED: missiles run straight before homing

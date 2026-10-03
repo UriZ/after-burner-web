@@ -1,19 +1,27 @@
 // Per-stage missile-smoke values.
 //
 // ---------------------------------------------------------------------------
-// WHY THIS FILE EXISTS: the trail value was a SINGLE constant taken from a
-// NIGHT frame, and applying it in daylight turned stage 1's trail black.
+// WHY THIS FILE EXISTS: REFERENCE.md "Missiles / weapons visuals" published
+// "overall mean V 0.37, brightest quintile V 0.594, darkest quintile V 0.219
+// (~2.7x bright/dark)" as a single stage-independent constant, and
+// implementing it is what turned stage 1's trail black (R4 gap 4).
 //
-// REFERENCE.md "Missiles / weapons visuals" published "overall mean V 0.37,
-// brightest quintile V 0.594, darkest quintile V 0.219 (~2.7x bright/dark)".
-// I re-ran that measurement and it is correct — FOR THE FRAME IT CAME FROM.
-// Source: reference/ab2-arcade-night-missiles.jpg (181x127), mask
-// V in (0.14, 0.90) and S < 0.25, largest 8-connected component, n=59 px:
+// THAT TRIPLE IS NOW WITHDRAWN ENTIRELY, and the reason matters more than the
+// number. I re-ran it on reference/ab2-arcade-night-missiles.jpg and got
+// mean V 0.372 from a 59 px low-saturation component, which looked like a
+// clean confirmation that the figure was right for ITS frame and wrong for
+// daylight. It was not. The R5 criteria pass went further and masked the
+// whole frame: the low-saturation pixels there are the HUD reticle and
+// attitude line, the SCORE emblem, the SPEED plate, the missile-stock icons,
+// the player airframe and the city-light speckle — **that frame contains no
+// smoke trail at all**, and 0.37 is reproducible as a whole-frame grey
+// average of a night HUD. My 59 px "trail" was a fragment of the same thing.
 //
-//   mean V 0.372, darkest quintile 0.187, brightest quintile 0.598,
-//   bright/dark ratio 3.19, mean S 0.101.
+// Recording that because the failure is instructive: a measurement can
+// reproduce exactly and still be of the wrong object, and segmenting a
+// small region is how you avoid noticing. Mask the whole frame and LOOK at
+// what the mask selected before trusting it.
 //
-// That is a NIGHT stage. The stage-1 daylight plume is a different object.
 // Source: reference/stage1-missile-salvo-t100.75.png (1028x720), mask
 // V > 0.80 and S < 0.20, largest 8-connected component inside the launch
 // window y[360,720] x[260,700], n=84 511 px:
@@ -25,17 +33,24 @@
 //   per-row width 10.9%W at the missile end -> 36.2%W at the launch end.
 //
 // So the daylight plume is a near-UNIFORM white column (ratio 1.07), not a
-// 2.7x value taper. The two readings are not in conflict and neither is
-// wrong; they are different stages, and the value must therefore be a
-// per-stage property. The R4 judge reached the same conclusion
-// independently (judging/R4/report.md, "Measurement problems" defect 2:
-// "Make the trail value per-stage; stage 1 is white") and measured the same
-// daylight numbers to within 0.001-0.005 on every statistic.
+// 2.7x value taper.
 //
-// A note for whoever retunes this next: the bright/dark QUINTILE RATIO is an
-// acceptance criterion in the night case and must NOT be carried over to
-// daylight. Chasing a 2.2-3.2 ratio in daylight is precisely what forced the
-// old end of the ribbon down to V 0.19 and produced the black trail.
+// THE TRAIL IS WHITE ON NIGHT STAGES TOO — only about 6% dimmer. R4 proposed
+// a per-stage value split on the assumption that the night figure was real;
+// it was not, and REFERENCE.md "The smoke trail is WHITE — in every stage"
+// now measures stage 3 directly (60 fps t178 and t182): mean V 0.909 / 0.901,
+// median 0.922 / 0.914, p10 0.804 / 0.788, mean saturation 0.055 / 0.053.
+//
+// Published acceptance: **stage 1 mean V >= 0.90 and mean saturation <= 0.10;
+// night stages >= 0.85 / <= 0.10.** The bright/dark quintile ratio is NOT an
+// acceptance criterion anywhere — it came from the same unreproducible night
+// measurement and REFERENCE.md now flags it unverified. Do not tune to it.
+// Chasing a 2.2-3.2 ratio is exactly what forced the old end of the ribbon
+// down to V 0.19 and produced the black trail.
+//
+// The per-stage split is KEPT rather than deleted because the 6% is itself
+// measured, and because the same stage index drives enemy liveries — but the
+// two palettes are now neighbours, not opposites.
 // ---------------------------------------------------------------------------
 
 // Values below are DISPLAY (sRGB) greys in [0,1]. Every consumer must route
@@ -47,9 +62,10 @@ export const TRAIL_DAYLIGHT = {
   // point). Nearly flat, because the measured daylight ratio is 1.07.
   ribbonYoung: 0.98,
   ribbonOld: 0.95,
-  // Cross-ribbon edge value as a fraction of the centreline. 0.98, not the
-  // night case's 0.88: at 0.88 the daylight ribbon's edge lands on V 0.84,
-  // below the measured p10 of 0.941.
+  // Cross-ribbon edge value as a fraction of the centreline. Kept near 1:
+  // the old 0.88 put the ribbon's edge on V 0.84, below this plume's
+  // measured p10 of 0.941, and a wide cross-ribbon ramp reads as a shaded
+  // 3D tube rather than a flat arcade slab.
   edgeMult: 0.98,
   // Aged tail puffs. Still a ramp rather than a constant so the oldest smoke
   // reads as thinning rather than as a hard-edged white slab, but the whole
@@ -77,29 +93,41 @@ export const TRAIL_DAYLIGHT = {
   // saturation is 0.0504 — a translucent white over a saturated sky cannot
   // be that neutral. Puffs are dense and heavily overlapped, so one leaving
   // at full opacity reads as the mass thinning, not as a pop.
-  //
-  // At night the ramp already carries the smoke down to V 0.17 against a
-  // near-black sky, so there is nothing to composite badly and the fade can
-  // stay.
   puffFadeFrom: 0.97,
   billowFadeFrom: 0.88,
 };
 
-// Night stages. These ARE the previously-shipped numbers: they were verified
-// against ab2-arcade-night-missiles.jpg and they reproduce it (the R4 judge
-// measured the shipped build at mean V 0.37-0.43 against the 0.37 target).
-// Nothing here is being corrected — it is only being confined to the stages
-// the measurement was taken on.
+// Night stages. Still white — REFERENCE.md's stage-3 measurements (60 fps
+// t178/t182) give mean V 0.909/0.901 with p10 0.804/0.788 and saturation
+// 0.055/0.053, against stage 1's 0.962/0.053. So this is the daylight
+// palette scaled down ~6%.
+//
+// EVERY ENDPOINT SITS AT OR ABOVE ITS STAGE'S ACCEPTANCE FLOOR (0.90 day,
+// 0.85 night). The rendered mean is bounded by the endpoints, so holding
+// that invariant makes the acceptance criterion impossible to fail by
+// tuning here — which is the property the old palette lacked. The arcade's
+// own p10 does dip to 0.79 at night, so a darker tail would still be
+// defensible; it is left out because nothing needs it and the invariant is
+// worth more than the last 0.05 of a tenth percentile.
+//
+// It is NOT the old 0.80 -> 0.19 ramp. That ramp was built to satisfy a
+// 2.7x quintile ratio measured off a frame with no trail in it, and it
+// would render roughly mean V 0.37 here — failing the published night
+// criterion by 0.48, i.e. further from the arcade than the daylight palette
+// would have been if left unswitched.
 export const TRAIL_NIGHT = {
-  ribbonYoung: 0.80,
-  ribbonOld: 0.19,
-  edgeMult: 0.88,
-  puffStart: 0.76,
-  puffEnd: 0.17,
-  billowStart: 0.90,
-  billowEnd: 0.60,
-  puffFadeFrom: 0.82,
-  billowFadeFrom: 0.72,
+  ribbonYoung: 0.94,
+  ribbonOld: 0.87,
+  edgeMult: 0.96,
+  puffStart: 0.94,
+  puffEnd: 0.86,
+  billowStart: 0.95,
+  billowEnd: 0.88,
+  // Same reasoning as daylight: a half-faded white sprite over a dark sky is
+  // a grey ghost rather than smoke, and the measured structure is value, not
+  // alpha.
+  puffFadeFrom: 0.95,
+  billowFadeFrom: 0.86,
 };
 
 // Which stages are night. REFERENCE.md "Sky palettes" measures stage 3's sky

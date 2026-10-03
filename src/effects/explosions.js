@@ -67,7 +67,15 @@ const E_AMBER = '#f1a60c'; // p50, V 0.945
 // bright colour cannot.
 const E_GOLD = '#ffba04';
 const E_YELLOW = '#f9f647'; // p75, V 0.976
-const E_HOT = '#f6f0ba'; // S<0.40 & V>0.90 band mean, V 0.965 — the pale core
+// The near-white core. REFERENCE.md's R5 fireball pass publishes the
+// brightest decile of ab2-arcade-huge-explosion.jpg as #f6f6e7 (V 0.967,
+// sat 0.063) and names BRIGHTEST-DECILE SATURATION "the single sharpest
+// discriminator" between a fireball and R4's orange cloud (arcade 0.06-0.25,
+// R4 build 0.67). My own first value here, #f6f0ba, came from a slightly
+// different mask of the same frame and measured out at 0.24-0.27 — inside
+// the published <=0.30 target but at the very top of the arcade's observed
+// range. Deferring to the doc's operator on the doc's own discriminator.
+const E_HOT = '#f6f6e7';
 
 // Three lobe arrangements. Coordinates are canvas fractions; each entry is
 // [cx, cy, r]. Deliberately irregular — a symmetric ring reads as a gradient.

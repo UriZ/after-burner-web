@@ -10,21 +10,25 @@ import { makePixelTexture, makeBillboard, srgbScalar } from './pixelTexture.js';
 //
 // A puff's brightness is not one constant: it RAMPS over the puff's life
 // (`valueStart`/`valueEnd` below), and BOTH ENDPOINTS ARE PER-STAGE — see
-// effects/trailPalette.js, which carries the measurement for each stage and
-// the reason the two disagree by 2.6x. Callers pass the endpoints in; this
-// file does not know which stage it is drawing.
+// effects/trailPalette.js, which carries the measurement for each stage.
+// Callers pass the endpoints in; this file does not know which stage it is
+// drawing.
 //
 // The history is worth keeping, because three separate attempts each broke
 // one half of it:
 //   * puffs held at a flat dark 0.55 -> near-black discs against the stage-1
 //     sky, reading as holes punched in it, against REFERENCE.md's explicit
 //     "chain of discrete round WHITE puffs";
-//   * puffs held at a flat white 0.92 -> they flooded the bright end and the
-//     NIGHT trail's measured bright/dark quintile ratio collapsed to 1.58,
-//     outside the 2.2-3.2 that frame requires;
-//   * puffs ramped 0.76 -> 0.17 for every stage -> correct at night and
-//     BLACK in daylight, which is R4 gap 4. The ramp was never the bug; a
-//     single stage-independent pair of endpoints was.
+//   * puffs held at a flat white 0.92 -> they flooded the bright end and a
+//     bright/dark quintile ratio taken from a night frame collapsed to 1.58,
+//     outside the 2.2-3.2 that measurement demanded;
+//   * so puffs were ramped 0.76 -> 0.17 for EVERY stage, which rendered the
+//     daylight trail BLACK — R4 gap 4.
+// The ratio those attempts were chasing has since been withdrawn outright:
+// the frame it came from contains no smoke trail at all (see
+// effects/trailPalette.js). The trail is white in every stage, so these
+// endpoints are near-white in every stage and differ only ~6% between day
+// and night.
 
 // A round puff, authored NEAR-WHITE with internal value steps and NO alpha
 // falloff. Two things the first version got wrong, both visible in
