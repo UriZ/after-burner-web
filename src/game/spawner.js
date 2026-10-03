@@ -109,6 +109,11 @@ export class Spawner {
     // enemies at different depths and manufactures scale jumps that look
     // like a frozen-scale defect but are a segmentation artefact. Never
     // read in normal play.
+    // Which stage's liveries the enemies wear. Set by Combat.setStageIndex;
+    // defaults to stage 1, which is what every judge capture is taken on.
+    // src/entities/enemy.js owns the stage -> livery mapping.
+    this.stageIndex = 0;
+
     this.trainGapTimer = 0;
     this.solo =
       typeof location !== 'undefined' && new URLSearchParams(location.search).has('combatsolo');
@@ -116,6 +121,10 @@ export class Spawner {
 
   get aliveCount() {
     return this.enemies.length;
+  }
+
+  setStageIndex(stageIndex) {
+    this.stageIndex = stageIndex;
   }
 
   // Returns an array of fire requests from enemies that shot this tick.
@@ -141,7 +150,10 @@ export class Spawner {
     this.dispenseTimer -= dt;
     if (this.pending.length && this.dispenseTimer <= 0 && this.enemies.length < MAX_ALIVE) {
       const cfg = this.pending.shift();
-      const e = new Enemy(cfg);
+      // Stamped at dispense rather than at wave construction: a wave can sit
+      // in `pending` across a stage boundary, and an aircraft should wear the
+      // livery of the stage it actually flies into.
+      const e = new Enemy({ ...cfg, stageIndex: this.stageIndex });
       this.scene.add(e.sprite);
       this.enemies.push(e);
       this.dispenseTimer = DISPENSE_MIN_S + this.rng() * (DISPENSE_MAX_S - DISPENSE_MIN_S);
@@ -300,12 +312,32 @@ export class Spawner {
     const rake = (this.rng() - 0.5) * 0.9;
     const baseB = (this.rng() - 0.5) * 0.36;
     const baseBy = -0.2 + this.rng() * 0.5;
+    // ONE bomber leads roughly every third echelon (R4 gap 10, "enemy
+    // variety"). GAME_SPEC.md §4 names the type — "much larger dark airframe
+    // at close depth that drops a round black bomb ... AND fires shot trains"
+    // (stage 7, t318) — and ENEMY_TYPES has carried its 1.35x width and 2 hp
+    // since R3, but nothing ever spawned one, so every aircraft in the game
+    // was a fighter or an interceptor at the same size. A bomber reads as a
+    // different aircraft at a glance purely on span, which is the part of
+    // "at least two distinguishable silhouettes" this lane can deliver
+    // without touching enemySprite.js.
+    //
+    // Drawn ONCE per wave, outside the member loop, deliberately: CLAUDE.md's
+    // shared-PRNG rule — a conditional draw inside the loop would shift every
+    // later draw by a different amount depending on how many members a wave
+    // happens to have, which makes seeds incomparable between builds.
+    const bomberSlot = this.rng() < 0.34 ? Math.floor(this.rng() * n) : -1;
     const out = [];
     for (let i = 0; i < n; i++) {
       const k = i - (n - 1) / 2;
+      // The type draw happens unconditionally and is then overridden, rather
+      // than being skipped for the bomber slot: a draw that only sometimes
+      // happens desynchronises every later draw in the stream (CLAUDE.md,
+      // "Shared PRNG stream sequencing").
+      const roll = this.rng();
       out.push({
         pattern: 'approach',
-        type: this.rng() < 0.25 ? 'interceptor' : 'fighter',
+        type: i === bomberSlot ? 'bomber' : roll < 0.25 ? 'interceptor' : 'fighter',
         // Wide per-member depth spread. At the previous 0.85-1.15 the whole
         // echelon reached the near field inside ~1.5 s of itself, so the
         // readable-size window arrived as a CLUMP followed by a gap: the

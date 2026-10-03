@@ -1,6 +1,6 @@
+import * as THREE from 'three';
 import { makeBillboard } from '../effects/pixelTexture.js';
-import { sizeSprite } from '../effects/smoke.js';
-import { lockCornerTexture } from './projectileSprites.js';
+import { lockBarTexture } from './projectileSprites.js';
 
 // Per-enemy lock brackets and the multi-lock salvo state.
 //
@@ -55,29 +55,55 @@ const LOCK_BREAK_DEPTH = 18;
 // tracking bracket (ADOPTED).
 const TRACK_HYSTERESIS = 0.85;
 
-// Bracket BOX size relative to the enemy it rides, with a floor so a
-// bracket on a distant dot is still legible — in
-// reference/stage1-level-flight-t116.png the bracket on the far enemy is
-// several times the size of the enemy itself.
-const BRACKET_SPAN_MULT = 1.5;
-const BRACKET_MIN_FRAC = 0.042; // 13.4 px of 320
-// Box height as a fraction of its width, on screen.
-const BRACKET_BOX_ASPECT = 0.62;
-// Each corner mark is drawn at a FIXED screen size, independent of the box —
-// that is what keeps the arm weight at the arcade's 1-2 native px whether
-// the target is a 3 px dot or a 90 px fly-past. 0.021 = 6.7 px of 320.
-const CORNER_FRAC = 0.021;
-// NDC-per-screen-fraction conversions. Full frame width = 2 NDC = 1.0 frac,
-// so 1 frac of WIDTH = 2 NDC x. The vertical axis additionally carries the
-// 320:224 pixel aspect.
-const NDC_X_PER_FRAC_W = 2;
-const NDC_Y_PER_FRAC_W = 2 * (320 / 224);
+// --- Bracket geometry, all MEASURED off the arcade -------------------------
+//
+// Source frames and operator are in weapons/projectileSprites.js's bar note.
+// Summary: the box is SQUARE in pixels (t116: 35 x 35 px of 686x480), the
+// stroke is ~1 native px, and each corner arm is a quarter of the box side
+// (t116 5-9 px of 35 = 14-26%; t100.75 14-15 px of 53 = 27%).
+//
+// THE BOX IS A FIXED SCREEN SIZE. It does not scale with the target, and
+// that is measured, not a simplification:
+//
+//   t116, bracket on a DISTANT enemy ~13 px wide (1.9%W):
+//       box 35 x 35 px of 686 = 5.10%W
+//   t100.75, bracket on a CLOSE enemy ~90 px wide (~8.8%W):
+//       box side 53 px of 1028 = 5.16%W
+//
+// Two frames whose targets differ by nearly 7x in span, and the bracket is
+// the same size in both to within 0.06%W. So AB2's lock bracket MARKS a
+// target rather than outlining it — on the close enemy it sits around the
+// fuselage and the wings run straight out through it.
+//
+// This replaces a 1.5x-the-enemy-span box with a 14 px floor, which at a
+// 27%W fly-past produced a 130 px box whose corners sat 65 px away from the
+// aircraft in every direction. That is exactly R4 gap 10's "four loose
+// corners scattered near it": the corners were loose because the box was
+// four times too big, not only because the arms were too short.
+const BRACKET_BOX_PX = 16.5; // 5.15%W, the mean of the two measurements
+// Box height / box width ON SCREEN. 1.0, not the 0.62 that shipped: a
+// billboard quad that is square in world units is square in PIXELS here
+// (worldWidthFor(f, d) spans f of the width, and f * 320/224 of the height,
+// which is f*320 px either way), and the arcade's box measures 35 x 35.
+// At 0.62 our brackets were letterboxed rectangles, which is half of why
+// they read as loose corners rather than as a box around the target.
+const BRACKET_BOX_ASPECT = 1.0;
+// Corner arm length as a fraction of the box side, and its bounds. The upper
+// bound keeps the four Ls from meeting into a closed rectangle (at 0.5 they
+// touch); the lower bound keeps a minimum-size bracket legible.
+const ARM_FRAC_OF_BOX = 0.25;
+const ARM_MIN_PX = 2.5;
+const ARM_MAX_FRAC_OF_BOX = 0.40;
+// Stroke weight, native px, INDEPENDENT of box size. This is the constraint
+// the previous two designs traded against arm length; with one sprite per
+// arm it no longer has to be traded at all.
+const STROKE_PX = 1.3;
 
 // The sight square (GAME_SPEC.md §3's lock-display element 1): "the small
 // dashed SIGHT square leading the player's nose — the aim point, always
 // present in flight, separate from any lock indicator". Smaller than a lock
 // bracket so the two never read as the same element.
-const SIGHT_FRAC = 0.030; // 9.6 px of 320
+const SIGHT_PX = 10; // of 320
 
 export class LockSystem {
   constructor(scene, space) {
@@ -141,7 +167,7 @@ export class LockSystem {
     this._wasHolding = holding;
 
     if (sight) {
-      this._placeCorners(this.sightCorners, sight.x, sight.y, sight.depth, SIGHT_FRAC);
+      this._placeCorners(this.sightCorners, sight.x, sight.y, sight.depth, SIGHT_PX);
       for (const c of this.sightCorners) c.visible = true;
     } else {
       for (const c of this.sightCorners) c.visible = false;
@@ -235,22 +261,21 @@ export class LockSystem {
 
     for (let i = 0; i < wanted.length; i++) {
       const e = wanted[i];
-      const frac = Math.max(e.spanFrac(this.space) * BRACKET_SPAN_MULT, BRACKET_MIN_FRAC);
-      this._placeCorners(this.brackets[i], e.ndc.x, e.ndc.y, e.d, frac);
+      this._placeCorners(this.brackets[i], e.ndc.x, e.ndc.y, e.d, BRACKET_BOX_PX);
       for (const c of this.brackets[i]) c.visible = true;
     }
   }
 
-  // Four corner sprites, rotated into place. One texture serves all four:
-  // sprite.material.rotation turns the L through 90-degree steps, and each
-  // sprite owns its own material so the rotations do not collide.
+  // Eight bar sprites: for each of the four corners, one horizontal arm and
+  // one vertical arm. See weapons/projectileSprites.js for why this is eight
+  // rectangles and not four Ls — in short, arm length must scale with the
+  // box while stroke weight must not, and one sprite cannot do both.
   _makeCorners(renderOrder) {
-    const tex = lockCornerTexture();
+    const tex = lockBarTexture();
     const out = [];
-    for (let i = 0; i < 4; i++) {
+    for (let i = 0; i < 8; i++) {
       const s = makeBillboard(tex, 0.1);
       s.renderOrder = renderOrder;
-      s.material.rotation = -i * (Math.PI / 2);
       s.visible = false;
       this.scene.add(s);
       out.push(s);
@@ -258,23 +283,74 @@ export class LockSystem {
     return out;
   }
 
-  // Places a corner set around (ndcX, ndcY) at `depth`, with a box
-  // `boxFrac` of the frame wide. Corner SIZE does not depend on boxFrac.
-  _placeCorners(corners, ndcX, ndcY, depth, boxFrac) {
-    const halfX = boxFrac * 0.5 * NDC_X_PER_FRAC_W;
-    const halfY = boxFrac * BRACKET_BOX_ASPECT * 0.5 * NDC_Y_PER_FRAC_W;
-    const w = this.space.worldWidthFor(CORNER_FRAC, depth);
-    // Order matches the rotation applied in _makeCorners: 0 = top-left,
-    // then clockwise.
-    const at = [
-      [-halfX, halfY],
-      [halfX, halfY],
-      [halfX, -halfY],
-      [-halfX, -halfY],
-    ];
+  // Places a bracket around (ndcX, ndcY) at `depth` with a square box
+  // `boxPx` native pixels on a side.
+  //
+  // A square world quad projects to a square in PIXELS here — worldWidthFor
+  // returns `frac * widthPerUnitDepth * depth`, which spans `frac` of the
+  // frame width and `frac * 320/224` of its height, i.e. `frac * 320` px on
+  // both axes — so one conversion covers both axes and `worldPx` below is a
+  // genuine native-pixel unit on BOTH axes.
+  //
+  // THE CORNER OFFSETS GO ALONG THE LIVE CAMERA AXES, NOT ALONG NDC.
+  //
+  // ScreenSpace.ndcToWorld deliberately uses the camera's PITCH-ONLY basis so
+  // that world objects swing around screen centre when the player banks —
+  // that is right for the enemy, which is part of the world. It is wrong for
+  // the bracket's own geometry: offsetting the four corners in that frame
+  // rotates the BOX by the world roll, while each bar's billboard quad stays
+  // screen-axis-aligned, so during a bank the bracket comes apart into eight
+  // stray horizontal and vertical ticks at four different heights. Measured,
+  // not theorised — the bracket on the lower-right enemy of
+  // tools/out/combatfx-r5/fx8-brk/frame-0004.png has its top-left corner at
+  // native (245,136) and its top-right at (261,140), four rows out of square.
+  //
+  // This file's header already notes that billboards keep their QUADS
+  // screen-aligned for free. That was true and it is not sufficient: quad
+  // orientation and corner placement are separate problems, and the old
+  // four-L design hid the second one because a rotated arrangement of four
+  // small square corners still reads as a rotated box.
+  //
+  // So: take the centre from ndcToWorld (rides the enemy through the roll),
+  // then displace along the camera's CURRENT right/up — the actual screen
+  // axes — which leaves the box upright at any bank angle. REFERENCE.md's
+  // t104 and t186 both show brackets square to the screen in banked frames.
+  _placeCorners(bars, ndcX, ndcY, depth, boxPx) {
+    const halfPx = boxPx * 0.5;
+    const arm = Math.min(
+      Math.max(ARM_FRAC_OF_BOX * boxPx, ARM_MIN_PX),
+      ARM_MAX_FRAC_OF_BOX * boxPx
+    );
+    const worldPx = this.space.worldWidthFor(1 / 320, depth);
+    const halfY = halfPx * BRACKET_BOX_ASPECT;
+
+    const camera = this.space.camera;
+    this._centre ??= new THREE.Vector3();
+    this._right ??= new THREE.Vector3();
+    this._up ??= new THREE.Vector3();
+    this.space.ndcToWorld(ndcX, ndcY, depth, this._centre);
+    this._right.set(1, 0, 0).applyQuaternion(camera.quaternion);
+    this._up.set(0, 1, 0).applyQuaternion(camera.quaternion);
+
+    const place = (sprite, px, py) => {
+      sprite.position
+        .copy(this._centre)
+        .addScaledVector(this._right, px * worldPx)
+        .addScaledVector(this._up, py * worldPx);
+    };
+
+    // Corner signs: (-1,+1) top-left, then clockwise.
+    const corners = [[-1, 1], [1, 1], [1, -1], [-1, -1]];
     for (let i = 0; i < 4; i++) {
-      this.space.ndcToWorld(ndcX + at[i][0], ndcY + at[i][1], depth, corners[i].position);
-      sizeSprite(corners[i], w);
+      const [sx, sy] = corners[i];
+      // Horizontal arm: sits on the corner's row, runs inward along x.
+      const h = bars[i * 2];
+      place(h, sx * (halfPx - arm * 0.5), sy * halfY);
+      h.scale.set(arm * worldPx, STROKE_PX * worldPx, 1);
+      // Vertical arm: sits on the corner's column, runs inward along y.
+      const v = bars[i * 2 + 1];
+      place(v, sx * halfPx, sy * (halfY - arm * 0.5));
+      v.scale.set(STROKE_PX * worldPx, arm * worldPx, 1);
     }
   }
 

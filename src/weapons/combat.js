@@ -168,6 +168,28 @@ export class Combat {
     return !this.only || this.only.has(name);
   }
 
+  // Tells combat which stage it is drawing, 0-based, matching
+  // game/stage.js's STAGES array and flow.stageIndex.
+  //
+  // Only the missile smoke uses it so far, and it genuinely needs it: the
+  // trail is a near-white opaque plume in stage-1 daylight and a dark grey
+  // ribbon at night, a 2.6x difference in value that no single constant can
+  // cover (effects/trailPalette.js carries the two measurements and R4
+  // gap 4 is what happens without this).
+  //
+  // INTERFACE REQUEST, src/game/game.js (not this lane's file): one line in
+  // update(), before `this.combat.update(...)`:
+  //     this.combat.setStageIndex(this.flow.stageIndex);
+  // Until that lands the default is daylight, which is correct for stages
+  // 1-2 and wrong only for stage 3's night trail — the failure mode is a
+  // white trail at night rather than a black one in daylight, i.e. the
+  // cheap direction.
+  setStageIndex(stageIndex) {
+    this.stageIndex = stageIndex;
+    this.missiles.setStageIndex(stageIndex);
+    this.spawner.setStageIndex(stageIndex);
+  }
+
   // `playerWorld` is the player sprite's world position; `input` is the
   // same { fire, missile } shape core/input.js produces.
   update(dt, input, playerWorld) {

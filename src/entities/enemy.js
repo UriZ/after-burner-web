@@ -1,12 +1,62 @@
 import * as THREE from 'three';
 import { makeBillboard } from '../effects/pixelTexture.js';
-import {
+import * as enemySprite from './enemySprite.js';
+
+const {
   enemyHeadOnTexture,
   enemyRearTexture,
   enemyHeadOnFarTexture,
   enemyRearFarTexture,
   DETAIL_SWITCH_NATIVE_PX,
-} from './enemySprite.js';
+} = enemySprite;
+
+// ---------------------------------------------------------------------------
+// LIVERIES.
+//
+// GAME_SPEC.md §4 "Liveries observed" (MEASURED): white/grey MiG-types
+// (stage 1+), dark green/black camo (stage 2), red/orange-fuselage
+// interceptors (t102.5, t172), silver/blue prop types (stage 2 open). Night
+// stages palette-swap, the same way REFERENCE.md "Night palette swap"
+// records for the player airframe.
+//
+// WHO OWNS WHAT: src/entities/enemySprite.js belongs to the sprite-art lane
+// and it draws the artwork. This file owns only WHICH livery each aircraft
+// gets — type and stage in, a livery name out — so the two lanes do not both
+// author enemy appearance.
+//
+// The interface requested from that lane, and reported to the team lead:
+//
+//     export function enemyTexture(aspect, livery, detail)
+//     // aspect: 'headOn' | 'rear'; livery: a key below; detail: near/far
+//
+// It is FEATURE-DETECTED rather than imported by name, so this file works
+// against their current module (four no-arg getters) and against the
+// parameterised one, with no second edit needed when theirs lands. If
+// `enemyTexture` is absent every enemy simply draws the existing stage-1
+// grey, which is what ships today — the livery field is still computed and
+// still correct, so it is readable from __combatStats either way.
+const LIVERY_BY_STAGE = [
+  // stage 1 (ocean): white/grey MiG-types, with red/orange interceptors
+  { base: 'grey', interceptor: 'interceptor' },
+  // stage 2 (desert/autumn): green camo, silver/blue props in the opener
+  { base: 'camo', interceptor: 'interceptor', overtake: 'prop' },
+  // stage 3 (night): palette-swapped
+  { base: 'night', interceptor: 'night', overtake: 'night' },
+];
+
+function liveryFor(stageIndex, type, pattern) {
+  const table = LIVERY_BY_STAGE[stageIndex] ?? LIVERY_BY_STAGE[0];
+  if (pattern === 'overtake' && table.overtake) return table.overtake;
+  if (type === 'interceptor' && table.interceptor) return table.interceptor;
+  return table.base;
+}
+
+const hasLiveries = typeof enemySprite.enemyTexture === 'function';
+function textureFor(aspect, livery, detail) {
+  if (hasLiveries) return enemySprite.enemyTexture(aspect, livery, detail);
+  if (aspect === 'rear') return detail ? enemyRearTexture() : enemyRearFarTexture();
+  return detail ? enemyHeadOnTexture() : enemyHeadOnFarTexture();
+}
 
 // ---------------------------------------------------------------------------
 // Enemy aircraft entity.
@@ -177,6 +227,7 @@ export class Enemy {
     weaveRate = 0,
     weavePhase = 0,
     fireDelay = 1.2,
+    stageIndex = 0,
   }) {
     const spec = ENEMY_TYPES[type] ?? ENEMY_TYPES.fighter;
     this.id = nextEnemyId++;
@@ -220,8 +271,10 @@ export class Enemy {
     this.biasY = 0;
 
     const rear = pattern === 'overtake';
-    this.texDetail = rear ? enemyRearTexture() : enemyHeadOnTexture();
-    this.texFar = rear ? enemyRearFarTexture() : enemyHeadOnFarTexture();
+    const aspect = rear ? 'rear' : 'headOn';
+    this.livery = liveryFor(stageIndex, type, pattern);
+    this.texDetail = textureFor(aspect, this.livery, true);
+    this.texFar = textureFor(aspect, this.livery, false);
     this.worldWidth = ENEMY_WORLD_WIDTH * spec.widthScale;
     this.sprite = makeBillboard(this.texFar, this.worldWidth);
     this.sprite.renderOrder = 10;

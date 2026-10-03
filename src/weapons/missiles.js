@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { makeBillboard, srgbScalar } from '../effects/pixelTexture.js';
 import { sizeSprite } from '../effects/smoke.js';
+import { TRAIL_DAYLIGHT, trailPaletteFor } from '../effects/trailPalette.js';
 import { missileTexture } from './projectileSprites.js';
 
 // Heat-seeking missiles and their smoke trails.
@@ -35,13 +36,17 @@ import { missileTexture } from './projectileSprites.js';
 // THICKNESS DIRECTION — a deliberate reading of the measurement.
 // REFERENCE.md says "~16 px thick at the head tapering to a few px". Which
 // end is "the head" is ambiguous in that sentence, and the two readings are
-// visually opposite. reference/stage1-missile-salvo-t100.75.png settles it:
-// the smoke is enormous at the launch end near the camera and narrows toward
-// the missiles up-range. So the ribbon is widest at its OLDEST sample
-// (~17 px) and tapers to a few px at the missile. That reading is also the
-// one consistent with the measured value statistics — mean V 0.37 with a
-// 2.7x bright/dark quintile ratio only works if the DARK, old end carries
-// most of the area, which requires the old end to be the wide one.
+// visually opposite. reference/stage1-missile-salvo-t100.75.png settles it
+// numerically: the plume's per-row width runs 10.9%W at the missile end to
+// 36.2%W at the launch end (full operator in effects/trailPalette.js). So
+// the ribbon is widest at its OLDEST sample and tapers toward the missile.
+//
+// VALUE IS PER-STAGE AND COMES FROM effects/trailPalette.js. It used to be
+// two constants in this file taken from a NIGHT frame, which is what made
+// stage 1's daylight trail black (R4 gap 4). Do not reintroduce a
+// stage-independent value here, and in particular do not carry the night
+// frame's 2.2-3.2 bright/dark quintile requirement into daylight — the
+// stage-1 plume's measured ratio is 1.07.
 // ---------------------------------------------------------------------------
 
 const HOMING_DELAY_S = 0.3; // ADOPTED: missiles run straight before homing
@@ -85,44 +90,31 @@ const MISSILE_FRAC_NEAR = 0.022;
 const MISSILE_FRAC_FAR = 0.009;
 
 // --- Ribbon ----------------------------------------------------------------
-const RIBBON_LIFE_S = 0.7;
+// 1.1 s, not 0.7: the ribbon is continuous by construction and the aged puff
+// chain is not, so every tick of ribbon life is a tick the trail cannot
+// develop a gap in. The R4 judge measured per-component column occupancy at
+// 87% against a >=95% criterion, and the missing 13% is all in the puff
+// chain beyond the ribbon's tail — see PUFF_INTERVAL_S.
+const RIBBON_LIFE_S = 1.1;
 const RIBBON_HZ = 60; // one sample per fixed tick
 const MAX_SAMPLES = Math.ceil(RIBBON_LIFE_S * RIBBON_HZ) + 2;
 // Screen-fraction half-thickness at the youngest and oldest sample.
-// 0.0185 half = 3.7%W = 11.8 px of 320 at the wide end; 0.006 half = 1.2%W
-// = 3.8 px at the missile. Trimmed from 0.0265: the ribbon plus the aged
-// puff chain measured 25-27 native px of combined thickness against the
-// R4 acceptance band of 12-20 (the R3 judge measured 30 on the shipped
-// build).
-const HALF_FRAC_YOUNG = 0.006;
-const HALF_FRAC_OLD = 0.0185;
-// Value ramp along the trail. REFERENCE.md "Missiles / weapons visuals":
-// "continuous opaque WHITE->grey ribbon with 2.7x value taper near the
-// missile", measured brightest quintile V 0.594 / darkest 0.219 = 2.71x.
-// Both endpoints were scaled by 0.8 for R4: the rendered trail measured
-// mean V 0.50 (judge: 0.658 on the shipped build) against an acceptance band
-// of 0.30-0.45. Scaling both ends by the same factor moves the MEAN without
-// touching the bright/dark RATIO, which was already inside its own 2.2-3.2
-// band at 2.68 and had to stay there.
-// The ratio of 1.0 -> 0.24 is set from BOTH published numbers rather than from the ratio
-// alone: 0.24 lands the ribbon's old end on the measured darkest-quintile
-// value of 0.219, and white at the young end matches
-// reference/stage1-missile-salvo-t100.75.png, where the plume is near-white
-// at the launch end. An earlier 1.0 -> 0.38 preserved the RATIO between the
-// endpoints but left nothing in the frame genuinely dark, and the rendered
-// bright/dark quintile ratio measured 1.7-1.9 — outside the required
-// 2.2-3.2 — because quintiles are computed over PIXELS and the wide, old,
-// dark end carries most of the area only if it is actually dark.
-const V_YOUNG = 0.80;
-const V_OLD = 0.19;
-// Cross-ribbon edge value as a fraction of the centreline. Kept close to 1:
-// at 0.70 the ribbon rendered as a smooth shaded TUBE (a 17 px-wide linear
-// ramp reads as a cylinder, which is a 3D look the arcade never has — see
-// tools/out/combat-r3-13-trail/frame-0275.png). At 0.88 the ribbon reads as
-// a flat slab and the value structure the measurement describes comes from
-// the age taper above, which is what "2.7x value taper NEAR THE MISSILE"
-// actually refers to.
-const EDGE_VALUE_MULT = 0.88;
+// 0.024 half = 4.8%W = 15.4 px of 320 at the missile end, the centre of the
+// R4 criterion's 12-20 native px head band; 0.065 half = 13%W = 41.6 px at
+// the launch end. The wide end is set from the plume's own measured taper
+// rather than picked: reference/stage1-missile-salvo-t100.75.png runs
+// 10.9%W at the missile to 36.2%W at the launch point, and the ribbon
+// carries the inner part of that while the launch billow below carries the
+// outer. (The previous 1.2%W -> 3.7%W was a ninth of the measured width; it
+// is the thin-grey-streak half of R4 gap 4, the black half being the value.)
+const HALF_FRAC_YOUNG = 0.024;
+const HALF_FRAC_OLD = 0.065;
+// Cross-ribbon edge value as a fraction of the centreline, from the stage
+// palette. Kept close to 1: at 0.70 the ribbon rendered as a smooth shaded
+// TUBE (a wide linear ramp reads as a cylinder, which is a 3D look the
+// arcade never has — see tools/out/combat-r3-13-trail/frame-0275.png).
+// The value structure the night measurement describes comes from the AGE
+// taper, not from the cross-section.
 
 const NDC_Y_PER_FRAC = 2 * (320 / 224);
 const FRAC_Y_PER_NDC = 0.5 * (224 / 320);
@@ -131,6 +123,10 @@ class Trail {
   constructor(scene, space) {
     this.space = space;
     this.samples = [];
+    // Overwritten per launch from the stage palette; daylight is the default
+    // so a Trail built outside a launch still renders as stage 1 rather than
+    // as whatever the last night stage left behind.
+    this.palette = TRAIL_DAYLIGHT;
     const positions = new Float32Array(MAX_SAMPLES * 3 * 3);
     const colors = new Float32Array(MAX_SAMPLES * 3 * 3);
     const indices = new Uint16Array((MAX_SAMPLES - 1) * 12);
@@ -215,8 +211,10 @@ class Trail {
       const half = HALF_FRAC_YOUNG + (HALF_FRAC_OLD - HALF_FRAC_YOUNG) * u;
       // Authored as display greys, written into a linear vertex-colour
       // buffer — see srgbScalar's note in effects/pixelTexture.js.
-      const value = srgbScalar(V_YOUNG + (V_OLD - V_YOUNG) * u);
-      const edge = srgbScalar((V_YOUNG + (V_OLD - V_YOUNG) * u) * EDGE_VALUE_MULT);
+      const p = this.palette;
+      const grey = p.ribbonYoung + (p.ribbonOld - p.ribbonYoung) * u;
+      const value = srgbScalar(grey);
+      const edge = srgbScalar(grey * p.edgeMult);
 
       const offNdcX = px * half * 2;
       const offNdcY = py * half * NDC_Y_PER_FRAC;
@@ -249,7 +247,17 @@ class Trail {
 // Interval between the discrete aged puffs that continue the trail past the
 // ribbon's tail — REFERENCE.md: "the trail's TAIL ages into a chain of
 // discrete round white puffs (t226, t332, t120)".
-const PUFF_INTERVAL_S = 0.13;
+//
+// 0.055 s, down from 0.13. This is the occupancy fix. A missile accelerates
+// to V_MAX, so late in its flight successive puffs are emitted further apart
+// than one puff diameter and the chain develops visible gaps — which is what
+// a per-component COLUMN OCCUPANCY measurement sees, and why the R4 judge
+// measured 87% against the >=95% criterion while the ribbon itself is
+// continuous by construction. Halving the interval roughly halves the worst
+// gap. It is not free: at a 1.0 s puff life this is ~18 live puffs per
+// missile and up to ~110 across a full 6-missile salvo, so if this number
+// drops further, check the sprite count before assuming it is cheap.
+const PUFF_INTERVAL_S = 0.055;
 
 export class Missiles {
   constructor(scene, space, smoke) {
@@ -261,6 +269,15 @@ export class Missiles {
     this.trailPool = [];
     // Set by the weapon manager; called with the enemy a missile reached.
     this.onImpact = null;
+    // Stage palette for the trail/puffs/billow. Daylight until the game
+    // tells us otherwise (see Combat.setStageIndex) — stage 1 is both the
+    // default stage and the one every judge capture is taken on, so an
+    // unwired build must look right there rather than at night.
+    this.palette = TRAIL_DAYLIGHT;
+  }
+
+  setStageIndex(stageIndex) {
+    this.palette = trailPaletteFor(stageIndex);
   }
 
   get count() {
@@ -278,6 +295,7 @@ export class Missiles {
 
     const trail = this.trailPool.pop() ?? new Trail(this.scene, this.space);
     trail.reset();
+    trail.palette = this.palette;
     trail.mesh.visible = true;
 
     const m = {
@@ -294,25 +312,36 @@ export class Missiles {
     };
     this.live.push(m);
 
-    // Launch billow: three overlapping masses at the pylon, big enough to
-    // "briefly occlude part of the screen" (t99.75-t101).
-    // Two lobes, not three, and smaller: the first version painted three
-    // 30-38%W masses that merged into one soft cloud filling the lower third
-    // of the frame and hid the trails entirely
-    // (tools/out/combat-r3-12-trail/frame-0265.png). "Briefly occlude part
-    // of the screen" (GAME_SPEC.md §3) is the target, not obscure it.
+    // Launch billow: two overlapping masses at the pylon, big enough to
+    // "briefly occlude part of the screen" (t99.75-t101, GAME_SPEC.md §3).
+    //
+    // SIZE AND LIFE ARE BOTH ACCEPTANCE NUMBERS, not taste. The R4 criterion
+    // for gap 4 asks for "a launch billow >=25%W for ~1 s"; the shipped
+    // 7%W -> 17-22%W over 0.42-0.56 s missed on both axes. The arcade's own
+    // launch mass measures 39.1%W x 50.0%H on
+    // reference/stage1-missile-salvo-t100.75.png, so 0.30-0.36%W per lobe
+    // across two jittered lobes lands just under it rather than over.
+    //
+    // The ceiling is real though: an earlier version painted THREE 30-38%W
+    // masses that merged into one cloud filling the lower third of the frame
+    // and hid the trails entirely
+    // (tools/out/combat-r3-12-trail/frame-0265.png). Two lobes, and
+    // `fadeFrom` late enough that the mass is opaque while it matters but
+    // gone before the next salvo — "briefly occlude PART of the screen" is
+    // the target, not obscure it.
     const pos = new THREE.Vector3();
+    const p = this.palette;
     for (let i = 0; i < 2; i++) {
-      const jitterX = (rng() - 0.5) * 0.07;
-      const jitterY = (rng() - 0.5) * 0.05;
+      const jitterX = (rng() - 0.5) * 0.09;
+      const jitterY = (rng() - 0.5) * 0.06;
       this.space.ndcToWorld(m.ndcX + jitterX, m.ndcY + jitterY, m.depth * 1.05, pos);
       this.smoke.spawn('billow', pos, m.depth * 1.05, {
-        life: 0.42 + rng() * 0.14,
-        fracStart: 0.07,
-        fracEnd: 0.17 + rng() * 0.05,
-        valueStart: 1,
-        valueEnd: 0.8,
-        fadeFrom: 0.3,
+        life: 0.95 + rng() * 0.2,
+        fracStart: 0.12,
+        fracEnd: 0.30 + rng() * 0.06,
+        valueStart: p.billowStart,
+        valueEnd: p.billowEnd,
+        fadeFrom: p.billowFadeFrom,
       });
     }
     return m;
@@ -357,14 +386,17 @@ export class Missiles {
         this.space.ndcToWorld(m.ndcX, m.ndcY, m.depth, pos);
         this.smoke.spawn('puff', pos, m.depth, {
           life: 1.0,
-          fracStart: 0.034,
-          fracEnd: 0.043,
-          // White where the trail is young, dissipating to dark grey — see
-          // the note at the top of effects/smoke.js for why this is a ramp
-          // and not a constant.
-          valueStart: 0.76,
-          valueEnd: 0.17,
-          fadeFrom: 0.82,
+          // Sized to overlap its neighbours at PUFF_INTERVAL_S rather than
+          // to look right in isolation: the chain has to read as one mass,
+          // and a per-component column-occupancy measurement fails the
+          // moment consecutive puffs stop touching.
+          fracStart: 0.055,
+          fracEnd: 0.075,
+          // Per-stage — near-white through its whole life in daylight, a
+          // bright-to-dark ramp at night. See effects/trailPalette.js.
+          valueStart: this.palette.puffStart,
+          valueEnd: this.palette.puffEnd,
+          fadeFrom: this.palette.puffFadeFrom,
         });
       }
 

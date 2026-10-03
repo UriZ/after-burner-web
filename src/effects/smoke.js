@@ -8,24 +8,26 @@ import { makePixelTexture, makeBillboard, srgbScalar } from './pixelTexture.js';
 // and a launch throws large white smoke billows that briefly occlude part of
 // the frame (t99.75-t101)". Both are here.
 //
-// The measured internal value structure of the whole trail — mean V 0.37,
-// brightest quintile V 0.594, darkest quintile V 0.219 (~2.7x bright/dark) —
-// is a property of ribbon AND puffs TOGETHER, so a puff's brightness is not
-// one constant: it RAMPS from near-white at birth to dark grey as it
-// dissipates (`valueStart`/`valueEnd` below). Two earlier attempts each
-// broke one half of that and the measurements caught both:
-//   * puffs held at a flat dark 0.55 -> they rendered as near-black discs
-//     against the stage-1 sky, reading as holes punched in it, against
-//     REFERENCE.md's explicit "chain of discrete round WHITE puffs";
+// A puff's brightness is not one constant: it RAMPS over the puff's life
+// (`valueStart`/`valueEnd` below), and BOTH ENDPOINTS ARE PER-STAGE — see
+// effects/trailPalette.js, which carries the measurement for each stage and
+// the reason the two disagree by 2.6x. Callers pass the endpoints in; this
+// file does not know which stage it is drawing.
+//
+// The history is worth keeping, because three separate attempts each broke
+// one half of it:
+//   * puffs held at a flat dark 0.55 -> near-black discs against the stage-1
+//     sky, reading as holes punched in it, against REFERENCE.md's explicit
+//     "chain of discrete round WHITE puffs";
 //   * puffs held at a flat white 0.92 -> they flooded the bright end and the
-//     trail's measured bright/dark quintile ratio collapsed to 1.58, outside
-//     the required 2.2-3.2.
-// The ramp gives white puffs where the trail is young and a dark dissipating
-// tail behind them, which is both what the frames show and what the
-// statistic requires.
+//     NIGHT trail's measured bright/dark quintile ratio collapsed to 1.58,
+//     outside the 2.2-3.2 that frame requires;
+//   * puffs ramped 0.76 -> 0.17 for every stage -> correct at night and
+//     BLACK in daylight, which is R4 gap 4. The ramp was never the bug; a
+//     single stage-independent pair of endpoints was.
 
-// A round puff in WHITE-to-light-grey, with internal value steps and NO
-// alpha falloff. Two things the first version got wrong, both visible in
+// A round puff, authored NEAR-WHITE with internal value steps and NO alpha
+// falloff. Two things the first version got wrong, both visible in
 // tools/out/combat-r3-23-final/frame-0015.png:
 //
 //   * It was built from dark greys (#3a3a3a..#b4b4b4) and then colour-scaled
@@ -36,6 +38,20 @@ import { makePixelTexture, makeBillboard, srgbScalar } from './pixelTexture.js';
 //   * Its outermost ring was drawn at alpha 0.55, giving a soft halo —
 //     against the same measurement that says the structure is VALUE,
 //     "not an alpha fade". Every ring here is fully opaque.
+//
+// THE LADDER IS AUTHORED AT THE BRIGHTEST STAGE AND DARKENED BY THE CALLER,
+// never the reverse. The material colour MULTIPLIES the texel, so a texture
+// authored dark can only ever be darkened further — the old #8f8f8f outer
+// ring capped the puff at V 0.56 however white the caller asked for, which
+// is 0.38 BELOW the stage-1 plume's measured p10 of 0.941 and is half of why
+// R4 gap 4 could not be fixed by retuning the value ramp alone. The ring
+// values below are the measured stage-1 band: mean 0.965 against the plume's
+// 0.9674, minimum 0.933 against its darkest-quintile 0.933
+// (reference/stage1-missile-salvo-t100.75.png — see effects/trailPalette.js
+// for the full operator). Night darkens from here via `valueStart/End`.
+//
+// Band areas and values: 0.260 at 0.933, 0.250 at 0.957, 0.240 at 0.976,
+// 0.172 at 0.992, 0.078 at 1.000 -> area-weighted mean 0.9647.
 function drawSmokePuff(ctx, w, h) {
   const cx = w / 2;
   const cy = h / 2;
@@ -45,16 +61,27 @@ function drawSmokePuff(ctx, w, h) {
     ctx.arc(cx, cy, r, 0, Math.PI * 2);
     ctx.fill();
   };
-  ring(w * 0.5, '#8f8f8f');
-  ring(w * 0.43, '#b0b0b0');
-  ring(w * 0.35, '#cfcfcf');
-  ring(w * 0.25, '#e8e8e8');
-  ring(w * 0.14, '#f8f8f8');
+  ring(w * 0.5, '#eeeeee');
+  ring(w * 0.43, '#f4f4f4');
+  ring(w * 0.35, '#f9f9f9');
+  ring(w * 0.25, '#fdfdfd');
+  ring(w * 0.14, '#ffffff');
 }
 
-// Launch billow: a bigger, brighter, lumpier mass. In
+// Launch billow: a bigger, lumpier mass. In
 // reference/stage1-missile-salvo-t100.75.png the launch smoke is the single
-// largest element on screen and is near-white at its core.
+// largest element on screen (39.1%W x 50.0%H, 58% bbox fill) and is
+// near-white throughout, not just at its core — the whole mass measures
+// mean V 0.9674 with a darkest quintile of 0.933.
+//
+// Authored at the stage-1 band for the same reason the puff is: the caller
+// multiplies, so this is the ceiling. The old ladder topped out at #f6f6f6
+// drawn over a 0.7-alpha #9a9a9a base, which composited to roughly V 0.6-0.7
+// and could not reach the measured plume however bright the caller asked.
+// The alpha is gone too: the measurement says the structure is VALUE, "not
+// an alpha fade", and a part-transparent white mass over the #009fff sky
+// comes back BLUE, which is a saturation failure as well as a value one
+// (the plume's measured mean S is 0.0504).
 function drawBillow(ctx, w, h) {
   const lobes = [
     [0.5, 0.5, 0.46],
@@ -63,8 +90,7 @@ function drawBillow(ctx, w, h) {
     [0.36, 0.68, 0.3],
     [0.66, 0.68, 0.26],
   ];
-  const shade = (fill, scale, alpha = 1) => {
-    ctx.globalAlpha = alpha;
+  const shade = (fill, scale) => {
     ctx.fillStyle = fill;
     for (const [lx, ly, lr] of lobes) {
       ctx.beginPath();
@@ -72,11 +98,10 @@ function drawBillow(ctx, w, h) {
       ctx.fill();
     }
   };
-  shade('#9a9a9a', 1.0, 0.7);
-  shade('#c6c6c6', 0.86);
-  shade('#e4e4e4', 0.64);
-  shade('#f6f6f6', 0.36);
-  ctx.globalAlpha = 1;
+  shade('#eeeeee', 1.0);
+  shade('#f6f6f6', 0.86);
+  shade('#fbfbfb', 0.64);
+  shade('#ffffff', 0.36);
 }
 
 let puffTex = null;
