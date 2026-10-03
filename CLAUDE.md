@@ -12,9 +12,10 @@ arcade game.** This overrides everything else. Every decision is evaluated again
 player mistake this for AB2?" If no, it fails. Code quality and test coverage are secondary
 to visual and gameplay fidelity.
 
-This is a **rebuild**, not a port. The Godot prototype at `../afterburner` is a read-only
-knowledge mine (measured constants, reference tooling, accumulated session lessons) — never
-a source of architecture, and never written to.
+This is a **rebuild**, not a port. An earlier Godot prototype of the same game exists
+elsewhere on this machine; everything worth keeping from it (measured constants, the arcade
+stage map, reference tooling, session lessons) has been copied into this repo. **This repo is
+standalone — never reach outside it for reference material or tooling.**
 
 ## The three ground-truth documents
 
@@ -27,10 +28,20 @@ a source of architecture, and never written to.
 Arcade reference frames live in `reference/` (proven stage identity via the stage↔timestamp
 map). Judge reports and evidence live in `judging/R*/`.
 
-**Cross-repo dependency**: the arcade video cache and the `youtube-reference` skill live in
-`../afterburner/.reference-cache/` and `../afterburner/.claude/skills/`. Frame extraction
-work needs that repo present. Extract single frames with `-frames:v 1` at an exact timestamp
-(`-ss` *sequence* extraction on the AV1 60fps file starts ~4s early).
+**Arcade footage, all local to this repo:**
+- `STAGE_MAP.md` — the verified stage↔timestamp map (which second of the longplay is which
+  stage, established by reading the HUD digit) plus measured per-stage sky/ground palettes
+  with their yields, crops, and corroborations. **Never anchor per-stage work on an
+  unlabelled frame** — that shipped a stage-2 sky as stage 1 once.
+- `.reference-cache/video/` (gitignored, ~731 MB) — `ab2-longplay.mp4` (the map-keyed one),
+  `ab2-longplay-60fps.mp4` (fine stepping), `ab2-gameplay.mp4` (contains player deaths;
+  no stage map). Missing? Re-fetch with the skill below.
+- `.claude/skills/youtube-reference/` — `bash .claude/skills/youtube-reference/fetch-reference.sh --list`
+  to see cached sources, `--url "<youtube url>" --name <name>` to add one. It resolves paths
+  relative to its own location, so it works from this repo with no outside dependency.
+
+Extract single frames with `-frames:v 1` at an exact timestamp; `-ss` *sequence* extraction
+on the AV1 60fps file starts ~4s early, so verify alignment before quoting timestamps.
 
 ## How work happens here — the round loop
 
