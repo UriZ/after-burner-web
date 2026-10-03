@@ -13,13 +13,31 @@ import * as THREE from 'three';
 // texture once (`makePixelTexture`), then stamp cheap billboards off it
 // (`makeBillboard`). spriteFactory.js is jethud-dev's file this round and
 // is not modified.
-export function makePixelTexture(draw, width, height) {
+// `hardAlpha` thresholds every texel's alpha to 0 or 255 after drawing.
+//
+// canvas2d antialiases paths and there is no way to turn that off, so an
+// arc- or polygon-drawn sprite comes out with a rim of half-transparent
+// texels. On a 1987 arcade sprite that rim does not exist, and it is not
+// cosmetic: those texels alpha-blend with whatever is behind them, so an
+// explosion's outline samples as orange-mixed-with-sky. That is what put
+// blue-grey values (#7878be, #3598f4) into the explosion's measured dark
+// percentiles while its interior was correctly saturated. Thresholding
+// gives the chunky hard edge the look wants AND makes a colour measurement
+// of the sprite a measurement of the sprite.
+export function makePixelTexture(draw, width, height, { hardAlpha = false } = {}) {
   const canvas = document.createElement('canvas');
   canvas.width = width;
   canvas.height = height;
   const ctx = canvas.getContext('2d');
   ctx.imageSmoothingEnabled = false;
   draw(ctx, width, height);
+
+  if (hardAlpha) {
+    const img = ctx.getImageData(0, 0, width, height);
+    const d = img.data;
+    for (let i = 3; i < d.length; i += 4) d[i] = d[i] >= 128 ? 255 : 0;
+    ctx.putImageData(img, 0, 0);
+  }
 
   const texture = new THREE.CanvasTexture(canvas);
   texture.magFilter = THREE.NearestFilter;

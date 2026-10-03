@@ -72,6 +72,11 @@ export class EnemyShots {
       const f = (1 / s.depth - s.invAim) / (s.invStart - s.invAim);
       const ndcX = s.aimNdcX + (s.startNdcX - s.aimNdcX) * f;
       const ndcY = s.aimNdcY + (s.startNdcY - s.aimNdcY) * f;
+      // Persisted (R4 game-flow addition): combat.js's checkPlayerHit needs
+      // each shot's CURRENT screen position, which was previously only a
+      // local in this loop.
+      s.ndcX = ndcX;
+      s.ndcY = ndcY;
       this.space.ndcToWorld(ndcX, ndcY, s.depth, s.sprite.position);
       const q = Math.min(
         1,
@@ -89,6 +94,13 @@ export class EnemyShots {
     this.scene.remove(s.sprite);
     this.pool.push(s.sprite);
     this.shots.splice(i, 1);
+  }
+
+  // Public wrapper (R4 game-flow addition): removes one specific shot, e.g.
+  // one combat.checkPlayerHit() just resolved as a hit on the player.
+  remove(shot) {
+    const i = this.shots.indexOf(shot);
+    if (i >= 0) this._retire(i);
   }
 
   clear() {

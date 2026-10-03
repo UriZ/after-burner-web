@@ -46,6 +46,16 @@ const SIGHT_DEPTH = 55;
 // (GAME_SPEC.md §3), but far from the whole screen.
 const ASSIST_RADIUS_FRAC = 0.13;
 
+// Player hit radius/depth window for checkPlayerHit (R4 game-flow addition),
+// pulled out to named top-level constants per combat-dev's request — these
+// are COMBAT BEHAVIOUR (hit radius, what counts as a hit), not plumbing, so
+// they live here as plain tunables rather than buried in a helper's body.
+// GAME_SPEC.md doesn't measure a player hitbox size; 0.09 (an 18%W-wide box
+// against the 35.6%W jet) was a documented ASSUMED starting point — retune
+// directly here, no need to route changes through gameflow-dev.
+const PLAYER_HIT_RADIUS_FRAC = 0.09;
+const PLAYER_HIT_DEPTH_TOL = 2.2; // shots retire at EnemyShots' PASS_DEPTH=1.6
+
 export class Combat {
   constructor(scene, camera, baseQuaternion, rng) {
     this.scene = scene;
@@ -101,6 +111,44 @@ export class Combat {
     // which is what the column-occupancy and bright/dark quintile numbers in
     // the dev report were measured on. Never read in normal play.
     this.trailHarness = params.has('combattrail');
+
+    // `?invincible=1` — measurement-only: checkPlayerHit always reports a
+    // miss, so a capture or probe can observe >=30 s of continuous flight.
+    //
+    // This exists because the death path CLEARS combat, so every death
+    // restarts the sky from empty and the only combat ever observable is
+    // the first 2-3 s of a rebuild — which makes the size-qualified density
+    // criterion, enemy fire volume and salvo depth all unmeasurable. The
+    // sibling project's standing rule is that a capture-invincibility
+    // switch is the right tool for live verification that is not itself
+    // testing death. Gated here rather than in the flow state machine
+    // because this file owns what counts as a hit; src/game/flow/ owns what
+    // happens afterwards.
+    this.invincible = params.has('invincible');
+
+    // `?combatexpl=1` — measurement-only: no enemies, no weapons; one
+    // explosion every 1.2 s at a fixed screen position and depth. The
+    // explosion palette has to be measured at PEAK opacity against a known
+    // background: sampled out of live combat it is a mixture of the fireball,
+    // its own fade-out alpha blending toward the sky, debris chunks and
+    // whatever else is in frame, which is how a correctly-authored palette
+    // can measure as "muddy brown". Never read in normal play.
+    this.explHarness = params.has('combatexpl');
+    this._explTimer = 0;
+
+    // Spawner/pacing internals, exposed from THIS side rather than through
+    // game.js's __combatStats hook, so the diagnostic survives game.js
+    // changing hands. `?fixed=1` only.
+    if (params.has('fixed') && typeof window !== 'undefined') {
+      window.__combatDebug = () => ({
+        waveTimer: this.spawner.waveTimer,
+        dispenseTimer: this.spawner.dispenseTimer,
+        waveIndex: this.spawner.waveIndex,
+        pending: this.spawner.pending.length,
+        alive: this.spawner.enemies.length,
+        rngSample: this.rng(),
+      });
+    }
   }
 
   _on(name) {
@@ -114,10 +162,31 @@ export class Combat {
     this.sight.x = this.playerNdc.x;
     this.sight.y = this.playerNdc.y + SIGHT_NDC_Y_OFFSET;
 
+    if (this.explHarness) {
+      this._explTimer -= dt;
+      if (this._explTimer <= 0) {
+        this._explTimer = 1.2;
+        const pos = new THREE.Vector3();
+        const depth = 12;
+        this.space.ndcToWorld(0, 0.15, depth, pos);
+        this.explosions.spawn(pos, depth, this.rng, 1);
+      }
+      this.explosions.update(dt);
+      return;
+    }
+
     if (this._on('enemies') && !this.trailHarness) {
       const fires = this.spawner.update(dt);
       if (this._on('shots')) {
-        for (const f of fires) this.enemyShots.spawn(f.fire, this.playerNdc);
+        for (const f of fires) {
+          // The train's per-shot sweep offset is applied to the AIM point,
+          // so the whole train rakes past the player (see enemy.js).
+          this.enemyShots.spawn(f.fire, {
+            x: this.playerNdc.x + (f.fire.aimOffsetX ?? 0),
+            y: this.playerNdc.y + (f.fire.aimOffsetY ?? 0),
+            depth: this.playerNdc.depth,
+          });
+        }
       }
     }
     this.enemyShots.update(dt);
@@ -144,10 +213,9 @@ export class Combat {
       // on silently merges with the subject in a column-run measurement
       // (it did, on the first pass: a 9 px "enemy" that was actually the
       // sight's corner arm).
-      this._on('sight') ? this.sight : null,
+      this._on('sight') && !this.trailHarness ? this.sight : null,
       this.missiles.live.map((m) => m.target)
     );
-    this.locks.sightSprite.visible = this._on('sight') && !this.trailHarness;
     this.locks.bracketsVisible = this._on('brackets') && !this.trailHarness;
     this.missiles.update(dt);
     this.smoke.update(dt);
@@ -226,7 +294,15 @@ export class Combat {
     let bestD = Infinity;
     for (const e of this.spawner.enemies) {
       if (!e.alive) continue;
-      if (e.d < 6 || e.d > 80) continue;
+      // Assist only out to 22 units (>=3.2%W on screen). GAME_SPEC.md §3:
+      // "Vulcan is
+      // effectively the anti-close-range weapon". At the previous 80 the
+      // gun was deleting echelons while they were still 2-3%W dots, which
+      // is both wrong for the weapon and the main reason readable-size
+      // enemies were rare (measured: ~2/3 of spawns killed before reaching
+      // 10%W). Missiles remain the long-range answer, which is the arcade's
+      // division of labour.
+      if (e.d < 6 || e.d > 22) continue;
       const dx = (e.ndc.x - playerNdc.x) * 0.5;
       const dy = (e.ndc.y - this.sight.y) * 0.5 * aspectY;
       if (dx * dx + dy * dy > ASSIST_RADIUS_FRAC * ASSIST_RADIUS_FRAC) continue;
@@ -237,6 +313,62 @@ export class Combat {
     }
     if (!best) return null;
     return { ndcX: this.sight.x, ndcY: best.ndc.y, depth: best.d };
+  }
+
+  // Player hit radius, in the same NDC-ish fraction convention vulcan.js's
+  // resolveHits uses for enemy hitboxes. See PLAYER_HIT_RADIUS_FRAC/
+  // PLAYER_HIT_DEPTH_TOL above for the tunables.
+  _playerHit(ndcX, ndcY, depth, playerNdc) {
+    const aspectY = 224 / 320;
+    const dx = (ndcX - playerNdc.x) * 0.5;
+    const dy = (ndcY - playerNdc.y) * 0.5 * aspectY;
+    const depthOk = Math.abs(depth - playerNdc.depth) <= PLAYER_HIT_DEPTH_TOL;
+    return depthOk && dx * dx + dy * dy <= PLAYER_HIT_RADIUS_FRAC * PLAYER_HIT_RADIUS_FRAC;
+  }
+
+  // R4 game-flow addition: a death trigger the flow state machine can poll
+  // once per tick without reaching into enemyShots/spawner directly (the
+  // "agree a hit-test interface" ask from the round brief). Tests enemy
+  // shots only — body-ram collision is GAME_SPEC.md §2's "narrow near-
+  // despawn window" case, ADOPTED #103 reasoning, left as a documented gap
+  // this round (every one of the four measured arcade deaths was a shot
+  // hit, not a ram).
+  //
+  // `invincible` (R4 blocker fix, post-respawn grace window — GAME_SPEC.md
+  // §2 ADOPTS the prototype's 2s window "as a usability choice"): a
+  // matching shot is STILL consumed — it "passes through" rather than
+  // lingering — but no death is reported. This is what makes GAME_SPEC's
+  // explicit trap ("Invincibility must be pass-through for already-
+  // overlapping bodies when it expires — otherwise expiry scores an
+  // undodgeable hit") hold: a shot that was overlapping the WHOLE window
+  // gets removed on an earlier invincible tick, so there is nothing left to
+  // suddenly kill the player the instant invincibility ends.
+  checkPlayerHit(playerNdc, invincible = false) {
+    for (const s of this.enemyShots.shots) {
+      if (s.ndcX === undefined) continue; // not yet updated this tick
+      if (this._playerHit(s.ndcX, s.ndcY, s.depth, playerNdc)) {
+        this.enemyShots.remove(s);
+        return !invincible;
+      }
+    }
+    return false;
+  }
+
+  // R4 game-flow addition: every subsystem already has its own clear()
+  // (spawner/enemyShots/vulcan/missiles/locks/smoke/explosions) but nothing
+  // wrapped them together. Used on death and at stage transitions so combat
+  // starts clean rather than carrying stale enemies/projectiles across a
+  // state the player can't see or fight in.
+  clear() {
+    this.spawner.clear();
+    this.enemyShots.clear();
+    this.vulcan.clear();
+    this.missiles.clear();
+    this.locks.clear();
+    this.smoke.clear();
+    this.explosions.clear();
+    this.launchQueue.length = 0;
+    this.salvoCooldown = 0;
   }
 
   _damage(enemy, amount) {

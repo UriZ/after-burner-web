@@ -81,8 +81,8 @@ function drawBillow(ctx, w, h) {
 
 let puffTex = null;
 let billowTex = null;
-export const smokePuffTexture = () => (puffTex ??= makePixelTexture(drawSmokePuff, 24, 24));
-export const billowTexture = () => (billowTex ??= makePixelTexture(drawBillow, 32, 32));
+export const smokePuffTexture = () => (puffTex ??= makePixelTexture(drawSmokePuff, 24, 24, { hardAlpha: true }));
+export const billowTexture = () => (billowTex ??= makePixelTexture(drawBillow, 32, 32, { hardAlpha: true }));
 
 // Pooled smoke sprites. Both kinds are sized in SCREEN fractions (they are
 // drawn at a size that reads the same whether the missile is near or far —

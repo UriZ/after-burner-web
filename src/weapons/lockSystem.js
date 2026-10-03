@@ -1,6 +1,6 @@
 import { makeBillboard } from '../effects/pixelTexture.js';
 import { sizeSprite } from '../effects/smoke.js';
-import { lockBracketTexture } from './projectileSprites.js';
+import { lockCornerTexture } from './projectileSprites.js';
 
 // Per-enemy lock brackets and the multi-lock salvo state.
 //
@@ -50,17 +50,28 @@ const LOCK_DEPTH_MAX = 88;
 // A held lock breaks once its target has closed this far — see the drop
 // loop in update() for why this is a timing constraint as well as a
 // behavioural one.
-const LOCK_BREAK_DEPTH = 12;
+const LOCK_BREAK_DEPTH = 18;
 // Hysteresis: a challenger must be 0.85x the incumbent's range to steal the
 // tracking bracket (ADOPTED).
 const TRACK_HYSTERESIS = 0.85;
 
-// Bracket screen size relative to the enemy it rides, with a floor so a
+// Bracket BOX size relative to the enemy it rides, with a floor so a
 // bracket on a distant dot is still legible — in
 // reference/stage1-level-flight-t116.png the bracket on the far enemy is
 // several times the size of the enemy itself.
 const BRACKET_SPAN_MULT = 1.5;
 const BRACKET_MIN_FRAC = 0.042; // 13.4 px of 320
+// Box height as a fraction of its width, on screen.
+const BRACKET_BOX_ASPECT = 0.62;
+// Each corner mark is drawn at a FIXED screen size, independent of the box —
+// that is what keeps the arm weight at the arcade's 1-2 native px whether
+// the target is a 3 px dot or a 90 px fly-past. 0.021 = 6.7 px of 320.
+const CORNER_FRAC = 0.021;
+// NDC-per-screen-fraction conversions. Full frame width = 2 NDC = 1.0 frac,
+// so 1 frac of WIDTH = 2 NDC x. The vertical axis additionally carries the
+// 320:224 pixel aspect.
+const NDC_X_PER_FRAC_W = 2;
+const NDC_Y_PER_FRAC_W = 2 * (320 / 224);
 
 // The sight square (GAME_SPEC.md §3's lock-display element 1): "the small
 // dashed SIGHT square leading the player's nose — the aim point, always
@@ -84,9 +95,7 @@ export class LockSystem {
     // the smoke trail, so they have to be removable to measure the trail.
     this.bracketsVisible = true;
 
-    this.sightSprite = makeBillboard(lockBracketTexture(), 0.1);
-    this.sightSprite.renderOrder = 29;
-    scene.add(this.sightSprite);
+    this.sightCorners = this._makeCorners(29);
   }
 
   // `holding` is the missile button state. Returns nothing; read `locks`
@@ -132,8 +141,10 @@ export class LockSystem {
     this._wasHolding = holding;
 
     if (sight) {
-      this.space.ndcToWorld(sight.x, sight.y, sight.depth, this.sightSprite.position);
-      sizeSprite(this.sightSprite, this.space.worldWidthFor(SIGHT_FRAC, sight.depth));
+      this._placeCorners(this.sightCorners, sight.x, sight.y, sight.depth, SIGHT_FRAC);
+      for (const c of this.sightCorners) c.visible = true;
+    } else {
+      for (const c of this.sightCorners) c.visible = false;
     }
 
     this._drawBrackets();
@@ -201,9 +212,9 @@ export class LockSystem {
     const wanted = [];
     if (!this.bracketsVisible) {
       while (this.brackets.length) {
-        const s = this.brackets.pop();
-        this.scene.remove(s);
-        this.pool.push(s);
+        const set = this.brackets.pop();
+        for (const c of set) c.visible = false;
+        this.pool.push(set);
       }
       return;
     }
@@ -214,32 +225,65 @@ export class LockSystem {
     }
 
     while (this.brackets.length < wanted.length) {
-      const s = this.pool.pop() ?? makeBillboard(lockBracketTexture(), 0.1);
-      s.renderOrder = 30;
-      this.scene.add(s);
-      this.brackets.push(s);
+      this.brackets.push(this.pool.pop() ?? this._makeCorners(30));
     }
     while (this.brackets.length > wanted.length) {
-      const s = this.brackets.pop();
-      this.scene.remove(s);
-      this.pool.push(s);
+      const set = this.brackets.pop();
+      for (const c of set) c.visible = false;
+      this.pool.push(set);
     }
 
     for (let i = 0; i < wanted.length; i++) {
       const e = wanted[i];
-      const s = this.brackets[i];
-      this.space.ndcToWorld(e.ndc.x, e.ndc.y, e.d, s.position);
       const frac = Math.max(e.spanFrac(this.space) * BRACKET_SPAN_MULT, BRACKET_MIN_FRAC);
-      sizeSprite(s, this.space.worldWidthFor(frac, e.d));
+      this._placeCorners(this.brackets[i], e.ndc.x, e.ndc.y, e.d, frac);
+      for (const c of this.brackets[i]) c.visible = true;
+    }
+  }
+
+  // Four corner sprites, rotated into place. One texture serves all four:
+  // sprite.material.rotation turns the L through 90-degree steps, and each
+  // sprite owns its own material so the rotations do not collide.
+  _makeCorners(renderOrder) {
+    const tex = lockCornerTexture();
+    const out = [];
+    for (let i = 0; i < 4; i++) {
+      const s = makeBillboard(tex, 0.1);
+      s.renderOrder = renderOrder;
+      s.material.rotation = -i * (Math.PI / 2);
+      s.visible = false;
+      this.scene.add(s);
+      out.push(s);
+    }
+    return out;
+  }
+
+  // Places a corner set around (ndcX, ndcY) at `depth`, with a box
+  // `boxFrac` of the frame wide. Corner SIZE does not depend on boxFrac.
+  _placeCorners(corners, ndcX, ndcY, depth, boxFrac) {
+    const halfX = boxFrac * 0.5 * NDC_X_PER_FRAC_W;
+    const halfY = boxFrac * BRACKET_BOX_ASPECT * 0.5 * NDC_Y_PER_FRAC_W;
+    const w = this.space.worldWidthFor(CORNER_FRAC, depth);
+    // Order matches the rotation applied in _makeCorners: 0 = top-left,
+    // then clockwise.
+    const at = [
+      [-halfX, halfY],
+      [halfX, halfY],
+      [halfX, -halfY],
+      [-halfX, -halfY],
+    ];
+    for (let i = 0; i < 4; i++) {
+      this.space.ndcToWorld(ndcX + at[i][0], ndcY + at[i][1], depth, corners[i].position);
+      sizeSprite(corners[i], w);
     }
   }
 
   clear() {
     this.tracked = null;
     this.locks.length = 0;
-    for (const s of this.brackets) {
-      this.scene.remove(s);
-      this.pool.push(s);
+    for (const set of this.brackets) {
+      for (const c of set) c.visible = false;
+      this.pool.push(set);
     }
     this.brackets.length = 0;
   }

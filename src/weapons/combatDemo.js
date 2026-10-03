@@ -33,9 +33,9 @@ const SCRIPT = [
   // flight time, overlapping salvos are how that many get into the air at
   // once, and a single hold-and-release cannot reach it.
   [5.5, 0.05, 0, false, true],
-  [6.3, 0, 0, false, false],
+  [6.6, 0, 0, false, false],
   // Vulcan again through the impacts.
-  [6.6, -0.2, -0.05, true, false],
+  [6.9, -0.2, -0.05, true, false],
   // Hard bank right while firing: checks that enemies, trails and brackets
   // all behave under world roll.
   [7.4, 0.95, 0, true, false],

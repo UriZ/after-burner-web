@@ -26,6 +26,7 @@ function parseArgs(argv) {
     if (a === '--ticks') args.ticks = Number(argv[++i]);
     else if (a === '--every') args.every = Number(argv[++i]);
     else if (a === '--url-params') args.urlParams = argv[++i];
+    else if (a === '--debug') args.debug = true;
   }
   return args;
 }
@@ -72,10 +73,21 @@ async function main() {
 
     const samples = Math.floor(args.ticks / args.every);
     for (let i = 0; i < samples; i++) {
-      const s = await page.evaluate((n) => {
-        window.__step(n);
-        return window.__combatStats ? window.__combatStats() : null;
-      }, args.every);
+      const s = await page.evaluate(
+        ({ n, debug }) => {
+          window.__step(n);
+          const base = window.__combatStats ? window.__combatStats() : null;
+          if (!debug) return base;
+          // Spawner/pacing internals come from Combat's own hook so the
+          // diagnostic keeps working across game.js ownership changes.
+          return {
+            ...(base || {}),
+            debug: window.__combatDebug ? window.__combatDebug() : null,
+            flow: window.__flowState ? window.__flowState() : null,
+          };
+        },
+        { n: args.every, debug: !!args.debug }
+      );
       console.log(JSON.stringify(s));
     }
     if (errors.length) {

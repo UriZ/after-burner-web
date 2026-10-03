@@ -91,7 +91,7 @@ const FH = 8;
 export const DETAIL_SWITCH_NATIVE_PX = 10;
 
 function enemyTexture(draw, w, h) {
-  const tex = makePixelTexture(draw, w, h);
+  const tex = makePixelTexture(draw, w, h, { hardAlpha: true });
   // Asserted rather than inherited: the filtering choice is the subject of
   // the note above and a silent change in makePixelTexture would bring the
   // ghost-aircraft bug back.
@@ -122,10 +122,10 @@ function drawHeadOn(ctx) {
   // wings are chunky slabs at this scale anyway.
   ctx.fillStyle = V78;
   ctx.beginPath();
-  ctx.moveTo(cx - 7, 11); ctx.lineTo(0, 15); ctx.lineTo(0, 22); ctx.lineTo(cx - 7, 21);
+  ctx.moveTo(cx - 7, 11); ctx.lineTo(-2, 15); ctx.lineTo(-2, 22); ctx.lineTo(cx - 7, 21);
   ctx.closePath(); ctx.fill();
   ctx.beginPath();
-  ctx.moveTo(cx + 7, 11); ctx.lineTo(W, 15); ctx.lineTo(W, 22); ctx.lineTo(cx + 7, 21);
+  ctx.moveTo(cx + 7, 11); ctx.lineTo(W + 2, 15); ctx.lineTo(W + 2, 22); ctx.lineTo(cx + 7, 21);
   ctx.closePath(); ctx.fill();
 
   // Leading-edge highlight and trailing-edge shadow: the value ladder that
@@ -187,10 +187,10 @@ function drawRear(ctx) {
   // the invariant band.
   ctx.fillStyle = V78;
   ctx.beginPath();
-  ctx.moveTo(cx - 7, 14); ctx.lineTo(0, 14); ctx.lineTo(0, 22); ctx.lineTo(cx - 7, 21);
+  ctx.moveTo(cx - 7, 14); ctx.lineTo(-2, 14); ctx.lineTo(-2, 22); ctx.lineTo(cx - 7, 21);
   ctx.closePath(); ctx.fill();
   ctx.beginPath();
-  ctx.moveTo(cx + 7, 14); ctx.lineTo(W, 14); ctx.lineTo(W, 22); ctx.lineTo(cx + 7, 21);
+  ctx.moveTo(cx + 7, 14); ctx.lineTo(W + 2, 14); ctx.lineTo(W + 2, 22); ctx.lineTo(cx + 7, 21);
   ctx.closePath(); ctx.fill();
   ctx.fillStyle = V90;
   ctx.fillRect(1, 15, 24, 2);

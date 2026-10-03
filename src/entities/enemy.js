@@ -103,6 +103,19 @@ const FIRE_DEPTH_MIN = 6;
 // enemyShots.js's shot speed puts the emission interval near 0.1 s.
 const SHOT_SPACING_S = 0.1;
 
+// A train SWEEPS PAST the player's position rather than converging on it.
+//
+// reference/stage7-enemy-shot-train-t330.png shows a train strung out across
+// roughly a third of the frame, not a cluster on one point — and GAME_SPEC.md
+// §4's "tracked shots aimed at the player's position at fire time" cannot
+// mean perfect aim, or every train would be an unavoidable kill. It nearly
+// was: with shots aimed exactly at the player and a scripted demo jet that
+// moves slowly, the player died 3 times in 33 s even after enemy fire volume
+// was cut to the 4-6 shots t330 actually shows. Successive shots in a train
+// are offset along one direction so the train rakes across the player's
+// vicinity: the middle of a train is the dangerous part, the ends miss.
+const TRAIN_SWEEP_STEP_NDC = 0.085;
+
 // Per-type speed/hp split ADOPTED from the prototype (`enemy_jet_2d.gd`),
 // re-expressed as geometric depth rates. The prototype's 0.35/0.55/0.25
 // depth-units/s imply 1.7-2.6 s lifetimes, which GAME_SPEC.md §4 itself
@@ -168,14 +181,22 @@ export class Enemy {
 
     // Sign follows the authored endpoints: the opener's depthB is FARTHER
     // than its depthA, so it recedes. One model, both directions.
-    const magnitude = pattern === 'crosser' ? spec.depthRate * 0.5 : spec.depthRate;
+    let magnitude = spec.depthRate;
+    if (pattern === 'crosser') magnitude *= 0.5;
+    // Openers recede at well under half rate so the stage's first seconds
+    // are not empty: they are the only readable aircraft on screen until the
+    // first head-on echelon completes its ~5 s approach.
+    if (pattern === 'overtake') magnitude *= 0.45;
     this.depthRate = Math.sign(Math.log(depthB / depthA)) * magnitude;
 
     this.ndc = { x: ndcA[0], y: ndcA[1] };
     this.bank = 0;
     this.fireTimer = fireDelay;
     this.burstLeft = 0;
+    this.burstCount = 0;
     this.burstTimer = 0;
+    this.sweepX = 1;
+    this.sweepY = 0;
 
     const rear = pattern === 'overtake';
     this.texDetail = rear ? enemyRearTexture() : enemyHeadOnTexture();
@@ -192,9 +213,17 @@ export class Enemy {
     return space.spanFrac(this.worldWidth, this.d);
   }
 
+  // True while this aircraft is part-way through a shot train. The spawner
+  // uses it to bound how many trains exist at once (see `allowNewTrain`).
+  get firingTrain() {
+    return this.burstLeft > 0;
+  }
+
   // Returns a fire request ({ ndcX, ndcY, depth }) on the tick a shot leaves
   // the aircraft, else null. The caller owns the projectile pool.
-  update(dt, rng, space) {
+  // `allowNewTrain` gates the START of a train only — an enemy already
+  // mid-train always finishes it, so trains are never cut off half-way.
+  update(dt, rng, space, allowNewTrain = true) {
     this.age += dt;
 
     this.d *= Math.exp(this.depthRate * dt);
@@ -254,14 +283,27 @@ export class Enemy {
         if (this.burstTimer <= 0) {
           this.burstTimer += SHOT_SPACING_S;
           this.burstLeft -= 1;
-          fired = { ndcX: nx, ndcY: ny, depth: this.d };
+          // Index from the train's centre, so the offsets are symmetric
+          // about the aim point whatever the train length.
+          const k = this.burstLeft - (this.burstCount - 1) / 2;
+          fired = {
+            ndcX: nx,
+            ndcY: ny,
+            depth: this.d,
+            aimOffsetX: this.sweepX * k * TRAIN_SWEEP_STEP_NDC,
+            aimOffsetY: this.sweepY * k * TRAIN_SWEEP_STEP_NDC,
+          };
         }
       } else {
         this.fireTimer -= dt;
-        if (this.fireTimer <= 0) {
-          this.burstLeft = 4 + Math.floor(rng() * 5); // 4-8 shots
+        if (this.fireTimer <= 0 && allowNewTrain) {
+          this.burstCount = 4 + Math.floor(rng() * 5); // 4-8 shots
+          this.burstLeft = this.burstCount;
           this.burstTimer = 0;
           this.fireTimer = 1.5 + rng() * 0.5;
+          const a = rng() * Math.PI * 2;
+          this.sweepX = Math.cos(a);
+          this.sweepY = Math.sin(a) * 0.6; // flatter than tall, as t330 reads
         }
       }
     }
