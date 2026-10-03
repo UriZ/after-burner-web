@@ -383,14 +383,60 @@ radial gradients; debris flies as small red/white chunks (see t100 upper-left).
 
 ## Missiles / weapons visuals
 
-ADOPTED (measured in `../afterburner/scripts/weapons/missile_2d.gd` against
-`ab2-arcade-night-missiles.jpg`, reproduced independently by two agents): the smoke
-trail is a **continuous opaque ribbon** — 100% column occupancy, ~16 px thick at the
-head tapering to a few px, with internal VALUE structure, not an alpha fade: overall
-mean V 0.37, brightest quintile V 0.594, darkest quintile V 0.219 (≈2.7× bright/dark).
+### The smoke trail is WHITE — in every stage (MEASURED R5)
+
+**WITHDRAWN: "overall mean V 0.37, brightest quintile 0.594, darkest quintile 0.219".**
+That triple was ADOPTED from `missile_2d.gd`, which cites `ab2-arcade-night-missiles.jpg`
+and gives no crop. R4 flagged it as a night value wrongly applied to daylight; verifying
+it R5 makes it worse — **that frame contains no smoke trail at all.** Masking it at native
+181×127 for low-saturation pixels (S<0.25, V>0.1) returns 1 132 px, and they are the HUD
+reticle and attitude line, the SCORE emblem outline, the SPEED plate, the missile-stock
+icons, the player airframe and the city-light speckle field — nothing contiguous, nothing
+smoke-shaped. Their mean V is **0.366**, i.e. the published 0.37 is reproducible as a
+*whole-frame grey-pixel average of a night HUD*, not as a trail. The only trail-like
+structure in that frame is the missile's exhaust **flame**: hue 5–55°, S≥0.5, V>0.25 over
+x[80,135] y[70,115] gives mean V **0.660**, bright/dark quintiles 0.966/0.303, mean
+saturation **0.889** — bright orange, not dark grey. Implementing 0.37 is what made our
+daylight trail black (R4 gap 4). Do not re-adopt it.
+
+**MEASURED replacement.** Operator: read the frame at its stored resolution (no
+upscaling); mask `saturation ≤ 0.25 ∧ V ≥ 0.6` (smoke is achromatic, every AB2 sky and
+sea is saturated, so this separates them cleanly); report V and saturation over the mask.
+Exclude the HUD bands (y<90, y>630 at 1028×720) and **do not** take a connected component
+that has merged into a cloud bank — clouds pass the same mask, which is how R4's
+"34–67%W" width arose (letting them merge reproduces 56.8%W here).
+
+| frame | stage / light | box | mean V | median V | p10 V | mean sat |
+|---|---|---|---|---|---|---|
+| `stage1-missile-salvo-t100.75.png` | 1, day | x[330,620] y[400,630] | **0.962** | 0.969 | 0.937 | **0.053** |
+| 60 fps t101 | 1, day | x[120,520] y[80,620] | 0.958 | 0.969 | 0.929 | 0.057 |
+| 60 fps t178 | 3, **night** | x[300,800] y[360,630] | **0.909** | 0.922 | 0.804 | 0.055 |
+| 60 fps t182 | 3, **night** | x[300,700] y[330,620] | 0.901 | 0.914 | 0.788 | 0.053 |
+| 60 fps t226 | 4, day | x[660,980] y[380,590] (aged tail puffs) | 0.870 | 0.882 | 0.800 | 0.070 |
+
+So the trail does **not** need a per-stage value split in the sense R4 proposed: it is
+white on night stage 3 too, only ~6% dimmer than in daylight. **Acceptance: trail mean V
+≥ 0.90 and mean saturation ≤ 0.10 on stage 1; ≥ 0.85 / ≤ 0.10 on night stages.** The R4
+numbers for t100.75 (mean V 0.966, median 0.969, p10 0.941, sat 0.051) reproduce here to
+≤0.01; its width figure does not — see below.
+
+**Launch billow width.** Longest contiguous run of the smoke mask, per row, t100.75: it
+grows monotonically **14.0%W at y=430 → 32.5%W at y=620**, still widening where the bottom
+HUD cuts it off, so **≥32%W is a floor, not a peak**. Night t178 reaches **35.0%W** at
+y=284 with its own component clipped at the right frame edge. R4's "34–67%W" is not
+reproducible with a mask that excludes cloud; treat it as superseded.
+
+**Geometry (ADOPTED, unchanged, but now flagged UNVERIFIED):** `missile_2d.gd` describes
+a **continuous opaque ribbon** — 100% column occupancy, ~16 px thick at the head tapering
+to a few px, with internal VALUE structure rather than an alpha fade. The occupancy and
+the ribbon-vs-bead-chain shape are corroborated by every frame above. The **"~16 px" and
+the 2.7× bright/dark ratio are NOT verified here**: the source states no frame scale for
+the 16 px, and the ratio came from the same unreproducible night measurement. Keep them
+as working values, re-derive before treating either as a gate.
+
 MEASURED addition: the trail's TAIL ages into a chain of discrete round white puffs
-(t226, t332, t120), and a launch throws large white smoke billows that briefly occlude
-part of the frame (t99.75–t101).
+(t226, t332, t120 — measured above at mean V 0.870), and a launch throws large white
+smoke billows that briefly occlude part of the frame (t99.75–t101).
 
 **Projectile palettes** (MEASURED this pass on 2× nearest-neighbor crops of 60 fps
 frames; coordinates are crop-local, crops reproducible from the stated source rects):
