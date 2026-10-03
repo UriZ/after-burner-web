@@ -48,7 +48,7 @@ Curated frames (all PNG, extracted at exact timestamps; stage identity per the m
 | `stage2-flight-t140.png` | stage-2 orange desert/autumn, banked |
 | `stage3-night-level-t175.png` | stage-3 night, level flight — cleanest jet-scale frame |
 | `stage3-night-lockon-t186.png` | night, banked, lock brackets + enemies |
-| `stage8-canyon-explosion-t357.png` | canyon walls both sides, low horizon, fireball lower-left |
+| `stage8-canyon-explosion-t357.png` | canyon walls both sides, low horizon; the lower-left mass is a **fading smoke ring, not a fireball** — see Explosions |
 
 Round-3 additions, from the 60 fps cache file (`ab2-longplay-60fps.mp4`, 1028×720 —
 verified the SAME recording as the 686×480 map-keyed file: identical scene and HUD
