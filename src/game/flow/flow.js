@@ -1,5 +1,6 @@
 import { Score, HIT_VALUE } from '../score.js';
 import { DeathSequence } from './deathSequence.js';
+import { LaunchSequence } from './launchSequence.js';
 import { drawTitleScreen } from './titleScreen.js';
 import { drawReadyCard, drawTallyCard, drawContinueCard } from './cards.js';
 import { Overlay } from './overlay.js';
@@ -73,6 +74,7 @@ export class GameFlow {
 
     this.score = new Score();
     this.deathSeq = combat ? new DeathSequence(player, combat) : null;
+    this.launchSeq = new LaunchSequence(player);
 
     this.titleOverlay = new Overlay();
     this.cardOverlay = new Overlay();
@@ -116,9 +118,29 @@ export class GameFlow {
     this._forcedDeathDone = false;
     this._debugInvincible = params.has('invincible') || params.get('demo') === '2';
 
+    // Carrier launch (R5, feel-critique.md §9/§10 rank 14): a fresh game
+    // now opens with src/game/flow/launchSequence.js instead of dropping
+    // straight into flight. Gated to real interactive play (the `else`
+    // branch below, via _updateTitle's exit) and `?demo=1` specifically —
+    // NOT bare `?fixed=1` or `?demo=2`, because the existing comment above
+    // is load-bearing: "every other agent's and judge's measurement
+    // capture this round drives the sim via ?fixed=1&seed=N ... and
+    // expects to land in flight immediately", and ?demo=2 "defeats its own
+    // purpose" the same way a death would (combatDemo.js's own header).
+    // Adding ~3.5s of non-interactive launch in front of either would
+    // silently break every isolation harness (?hidejet/?nocombat/
+    // ?combatonly/?debugstick/etc.) that assumes tick-0 flight.
+    const playLaunch = params.get('demo') === '1';
+
     if (demoActive) {
-      this.state = 'flight';
-      this._enterStage(0);
+      if (playLaunch) {
+        this.state = 'launch';
+        this._enterStage(0);
+        this.launchSeq.start();
+      } else {
+        this.state = 'flight';
+        this._enterStage(0);
+      }
     } else {
       this.state = 'title';
       this._redrawTitle();
@@ -180,6 +202,9 @@ export class GameFlow {
       case 'title':
         result = this._updateTitle(dt, rawInput);
         break;
+      case 'launch':
+        result = this._updateLaunch(dt);
+        break;
       case 'death':
         result = this._updateDeath(dt);
         break;
@@ -205,14 +230,26 @@ export class GameFlow {
     this.titleOverlay.visible = true;
     this.cardOverlay.visible = false;
     if (rawInput.fire || rawInput.missile || this.titleTimer >= TITLE_TIMEOUT_S) {
-      this.state = 'flight';
+      // R5 (rank 14): a fresh game now opens on the carrier launch
+      // (launchSequence.js) instead of straight into flight.
+      this.state = 'launch';
       this.titleOverlay.visible = false;
       this.score.reset();
       this.lives = START_LIVES;
       if (this.combat) this.combat.clear();
       this._enterStage(0);
+      this.launchSeq.start();
       AudioBus.play('menuStart');
       AudioBus.music('flight');
+    }
+    return { input: ZERO_INPUT, combatActive: false, playerControlled: false };
+  }
+
+  _updateLaunch(dt) {
+    const done = this.launchSeq.update(dt);
+    AudioBus.setEngine(this.launchSeq.engineFrac);
+    if (done) {
+      this.state = 'flight';
     }
     return { input: ZERO_INPUT, combatActive: false, playerControlled: false };
   }

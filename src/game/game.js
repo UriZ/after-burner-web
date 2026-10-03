@@ -282,10 +282,11 @@ export class Game {
     this.worldRoll = moveTowards(this.worldRoll, targetRoll, ROLL_RATE_RAD_PER_S * dt);
     this._applyCameraOrientation();
 
-    // During 'death', src/game/flow/deathSequence.js owns the player
-    // sprite's position/scale/rotation directly (fireball/starburst/tumble/
-    // respawn) — calling Player.update() on the same tick would overwrite
-    // that with the stick-follow transform and fight it every frame.
+    // During 'death' or 'launch', deathSequence.js/launchSequence.js own
+    // the player sprite's position/scale/rotation directly (fireball/
+    // starburst/tumble/respawn, or carrier deck/climb-out) — calling
+    // Player.update() on the same tick would overwrite that with the
+    // stick-follow transform and fight it every frame.
     if (flow.playerControlled) {
       this.player.update(dt, flow.input, this.worldRoll);
     }
