@@ -94,30 +94,48 @@ const ARRANGEMENTS = [
 // V 0.95 against the arcade's 45-58%, because six overlapping lobes bury
 // each other's dark outer bands — an inner bright disc of one lobe paints
 // over the rim of its neighbour. The spikes are the only dark area that
-// nothing can overdraw, since they project past the cluster. Lengthening
-// them from 0.34-0.50w to 0.42-0.64w and thickening them from 0.045w to
-// 0.058w therefore fixes the bright fraction and the starburst silhouette
-// with one change. If the bright fraction drifts again, come here first.
+// nothing can overdraw, since they project past the cluster, so they are
+// the lever for BOTH the bright fraction and the starburst silhouette. If
+// the bright fraction drifts again, come here first — thickness (0.045w ->
+// 0.058w) moved it further than any palette edit did.
 const SPIKES = 11;
-const SPIKE_LEN_BASE = 0.42;
-const SPIKE_LEN_VAR = 0.22;
+const SPIKE_LEN_BASE = 0.30;
+const SPIKE_LEN_VAR = 0.18;
 const SPIKE_HALF_W = 0.058;
 
-// Everything is drawn inset from the canvas edge. The lobe at (0.74, 0.70)
-// with radius 0.22 reaches 0.96 of the canvas width and the spikes reach
-// 1.00, so at full size the fireball was CLIPPED to a hard vertical line
-// down one side — plainly visible in tools/out/combat-r3-29-final/frame-0011.png,
-// and the kind of thing that reads as "that explosion looks odd" rather
-// than as an obvious bug.
-const BURST_INSET = 0.85;
+// SPIKES AND LOBES GET SEPARATE TRANSFORMS, and the gap between them is the
+// starburst.
+//
+// Everything used to share one 0.85 inset from the canvas edge, which exists
+// because the lobe at (0.74, 0.70) with radius 0.22 reaches 0.96 of the
+// canvas and at full size the fireball was CLIPPED to a hard vertical line
+// down one side (tools/out/combat-r3-29-final/frame-0011.png). That inset is
+// still needed for the lobes. Applying it to the spikes as well capped how
+// far they could project: their reach and the lobe cluster's are then locked
+// together, so lengthening a spike to make it visible pushed its tip off the
+// canvas instead (0.64 * 0.85 = 0.544 of a half-width of 0.50 — I clipped
+// them doing exactly that before measuring).
+//
+// Shrinking the lobe cluster independently is what lets the spikes read. At
+// LOBE_INSET the cluster reaches ~0.26 of the canvas width from centre while
+// spikes reach 0.30-0.48, so 11 of them project clear of the mass instead of
+// being buried in it. The arcade's silhouette is mostly spike — the fireball
+// on ab2-arcade-huge-explosion.jpg spans 85.1%W, far more than its lobe mass
+// — and three-way against R4 and that frame
+// (tools/out/combatfx-r5/evidence_explosion_r4_r5_arcade.png) the missing
+// radiating points were the most obvious difference left.
+//
+// PEAK_FRAC is raised to compensate so the bright mass keeps its on-screen
+// size: 0.30 * 0.62 = 0.186 against the old 0.225 * 0.85 = 0.191. The
+// canvas also goes 48 -> 64 px: a spike projecting 0.22 of the canvas width
+// is 10 texels at 48 and 14 at 64, and below ~10 it rasterises to a bump
+// rather than to a point.
+const LOBE_INSET = 0.62;
 
 function drawBurst(arrangement) {
   return (ctx, w, h) => {
     const cx = w / 2;
     const cy = h / 2;
-    ctx.translate(cx, cy);
-    ctx.scale(BURST_INSET, BURST_INSET);
-    ctx.translate(-cx, -cy);
 
     ctx.fillStyle = E_RIM;
     for (let i = 0; i < SPIKES; i++) {
@@ -131,6 +149,12 @@ function drawBurst(arrangement) {
       ctx.closePath();
       ctx.fill();
     }
+
+    // Everything from here down is the lobe cluster, drawn inset so it sits
+    // inside the spikes and clear of the canvas edge.
+    ctx.translate(cx, cy);
+    ctx.scale(LOBE_INSET, LOBE_INSET);
+    ctx.translate(-cx, -cy);
 
     // Each value layer is drawn OFF-CENTRE within its lobe, by an offset
     // that grows as the layer shrinks. Concentric layers make every lobe a
@@ -314,7 +338,7 @@ let burstTextures = null;
 let chunkTexture = null;
 function bursts() {
   if (!burstTextures) {
-    burstTextures = ARRANGEMENTS.map((a) => makePixelTexture(drawBurst(a), 48, 48, { hardAlpha: true }));
+    burstTextures = ARRANGEMENTS.map((a) => makePixelTexture(drawBurst(a), 64, 64, { hardAlpha: true }));
   }
   return burstTextures;
 }
@@ -322,7 +346,7 @@ function bursts() {
 // Peak on-screen diameter of a kill explosion, as a fraction of frame width.
 // REFERENCE.md measures the t357 fireball at ~23%W; GAME_SPEC.md §8 requires
 // explosions to "occupy the frame generously".
-const PEAK_FRAC = 0.225;
+const PEAK_FRAC = 0.30;
 const LIFE_S = 0.75;
 const BOIL_HZ = 14; // texture swaps per second
 
