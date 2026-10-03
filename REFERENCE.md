@@ -336,6 +336,43 @@ AB2 ground is **dithered/streaked, not flat** (stage-1 sky modal share 97.8% vs 
   0.019 / 1.5% (judge's figures): the arcade sea is high-contrast and heavily
   foam-flecked, not a smooth hue carpet.
 
+### Sea anisotropy: ALWAYS pair the ratio with an absolute length (MEASURED R5)
+
+R3's judge established that **a bare anisotropy ratio can be satisfied degenerately** —
+make the vertical axis pure noise and the ratio goes to infinity without the horizontal
+axis ever becoming longer. The paired criterion has lived only in `judging/R3/report.md`
+until now; it belongs here.
+
+**GATE: horizontal decorrelation length within ±30% of 1.73 native texels (i.e.
+1.21–2.25) AND horiz/vert ratio ≥ 2.0 — both on 320×224-native pixels.**
+
+**Operator**: value channel (`max(RGB)/255`) of the near-field sea band; mean-subtract;
+1-D normalised autocorrelation along each axis; **decorrelation length = the lag at which
+the ACF first crosses 0.5**, linearly interpolated, expressed in **native texels**. On an
+upscaled arcade frame divide the frame-pixel lag by the upscale factor (t116 at 686×480 is
+686/320 = **2.1437** px per texel). Band = t116 `y[340,415] x[40,640]`, or the same
+fractions elsewhere — at 320×224 that is `y[159,194] x[19,299]`.
+
+| | horiz | vert | ratio |
+|---|---|---|---|
+| **arcade t116 near-field** | **1.73 texels** | 0.74 | **2.34** |
+| ours, judge-R4 `neutral` | 1.95 | 0.53 | 3.68 |
+| ours, judge-R4 `flight` | 2.02 | 0.53 | 3.80 |
+| ours, judge-R4 `best` | 1.79 | 0.90 | 1.99 |
+
+Control: this operator returns the arcade's published **1.73 / 0.74 / 2.34** to the digit,
+and reproduces R3's reading of our build (1.92 horiz, ratio 3.63) at 1.95 / 3.68.
+
+**Reading of the current build**: horizontal length is *right* (1.79–2.02, inside ±30%);
+the ratio is high because our **vertical** axis is too decorrelated (0.53 against the
+arcade's 0.74) — i.e. the ratio is inflated by vertical noise, which is exactly the
+degenerate mode the pairing exists to catch. The fix is more vertical coherence, not more
+horizontal stretch. Note `best` sits at ratio **1.99**, a hair under the 2.0 gate.
+
+**Do not confuse this ratio with the 2-D ACF half-width anisotropy** quoted elsewhere
+(R4's "6.51× near-field, arcade 4.43×"). That is a different operator on a different patch
+and its numbers are not interchangeable with these. Whichever you use, state it.
+
 ## Horizon
 
 - MEASURED level-flight horizon rows (median of per-column scans, 6-consecutive-row
@@ -511,13 +548,30 @@ operator and the judge agree on both aircraft, by separate routes.
   - So: **neutral span ≈ 36%W of frame**; it breathes with maneuver/altitude roughly
     29–38%W. (Prototype ships 342/960 = 35.6%W — consistent.)
 - **Screen position / roam** (jet centroids MEASURED: t116 (48.0%W, 55.1%H), t140
-  (41.2%W, 59.7%H), t175 (50.5%W, 58.3%H)). **Of these only t175 reproduces** (R5): t175's
-  jet is isolated on black and its published figure matches a pixel centroid to 0.56 pt. On
-  t116 I get (46.2%W, 60.04%H) as a pixel centroid and (48.1%W, 56.98%H) as a bbox centre
-  and neither matches the published pair — the t116 jet is **banked and overlaps a white
-  landmass and a second aircraft**, so the mask is contaminated whatever the threshold.
-  **Anchor centroid work on t175/t168, not t116**; treat the t116 and t140 pairs as
-  indicative only, and re-derive them before quoting either as a target. ADOPTED distribution from the prototype's
+  (41.2%W, 59.7%H), t175 (50.5%W, 58.3%H)). **WITHDRAWN R5: the t116 and t140 pairs are
+  not reproducible and cannot be repaired.** Only t175 stands — its jet is isolated on
+  black and its published figure matches a pixel centroid to 0.56 pt.
+
+  I tried to clean both and could not, for a structural reason worth recording so nobody
+  spends the day again:
+  - **t116 (and every daylight stage-1 frame I tried — t106, t108, t110, t114, t118,
+    t119):** in daylight the player jet is bright and achromatic, and so are the **clouds,
+    the horizon haze band and the sea foam**. No saturation/value rule separates them —
+    the largest achromatic component floods out of the jet into the haze every time
+    (on t116 it reaches 7 238 px spanning the whole window; on the 60 fps frames it spans
+    25–100%W and usually touches a frame edge). The t116 jet is additionally **banked** and
+    overlaps a white landmass and a second aircraft. I get (46.2%W, 60.04%H) as a pixel
+    centroid and (48.1%W, 56.98%H) as a bbox centre; neither matches the published pair.
+  - **t140:** stage 2's palette is orange sky over orange ground, so a warm-hue mask
+    returns **207 817 px — the entire frame**. There is no colour contrast to separate a
+    warm-grey jet from a warm-orange field at all.
+  - There is no arcade equivalent of `?hidejet=1`, so the difference-mask route is closed.
+
+  **Anchor all centroid work on the night frames t175/t168**, where the jet sits on black.
+  REFERENCE.md's own "Night palette swap" note says night is a palette swap, not a geometry
+  change, so night centroids are valid for geometry. And remember a single-frame centroid is
+  one draw from a roaming distribution (cruise cx sd 12.88%W) — the **ADOPTED distribution
+  below is the actual target**, not any one frame's pair. ADOPTED distribution from the prototype's
   #122 arcade measurement: the spread is **two-regime**, not constant-amplitude weaving —
   open cruise cx sd **12.88 %W** at cy ≈ **52.8%H**; canyon cx sd **2.59 %W** at cy ≈
   **63.5%H** (lower and straighter); combined cx sd 10.44 %W emerges from alternating.
