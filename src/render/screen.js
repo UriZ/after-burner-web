@@ -38,6 +38,15 @@ export class Screen {
     // existing `screen.render(this.scene, this.camera)` call site needed.
     this.hud = new Hud();
 
+    // R4 game-flow addition: transient full-screen overlays (title card,
+    // READY/CONTINUE/tally cards) composited into the same low-res pass,
+    // after the HUD and before the final blit, so they get the identical
+    // pixel-art/letterbox treatment. Each entry is `{ scene, camera }` built
+    // the same way Hud is (own orthographic camera, own CanvasTexture quad —
+    // see src/game/flow/overlay.js). Empty by default; existing callers of
+    // render() are unaffected.
+    this.overlays = [];
+
     this._resize = this._resize.bind(this);
     window.addEventListener('resize', this._resize);
     this._resize();
@@ -80,6 +89,10 @@ export class Screen {
     this.hud.redraw(worldRoll);
     this.renderer.autoClear = false;
     this.renderer.render(this.hud.scene, this.hud.camera);
+    for (const o of this.overlays) {
+      if (o.visible === false) continue;
+      this.renderer.render(o.scene, o.camera);
+    }
     this.renderer.autoClear = true;
 
     this.renderer.setRenderTarget(null);

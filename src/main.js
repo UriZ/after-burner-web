@@ -1,5 +1,6 @@
 import { Game } from './game/game.js';
 import { createPrng } from './core/prng.js';
+import { demoTimeline } from './game/flow/demoTimeline.js';
 
 const params = new URLSearchParams(location.search);
 const canvas = document.getElementById('screen');
@@ -22,10 +23,6 @@ if (params.has('fixed')) {
   game.start();
 }
 
-// Trivial attract-mode placeholder for ?demo=1 — a scripted left/right sweep.
-// Round 1 scope only; a real attract-mode timeline is later work.
-function demoTimeline(simTime) {
-  const x = Math.sin(simTime * 0.5);
-  const y = Math.sin(simTime * 0.33) * 0.4;
-  return { x, y, fire: false, missile: false };
-}
+// `demoTimeline` (src/game/flow/demoTimeline.js, R4): the real two-regime
+// attract flight (GAME_SPEC.md §7), replacing the round-1 placeholder
+// `sin(t*0.5)` sweep that was flagged in every judge report since.
