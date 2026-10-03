@@ -10,6 +10,7 @@ import { buildExplosionBigSheet } from './sheets/explosion-big.js';
 import { buildDebrisSheet } from './sheets/debris.js';
 import { buildSmokePuffSheet } from './sheets/smoke-puff.js';
 import { buildMissileSheet } from './sheets/missile.js';
+import { buildPlayerF14NightSheet } from './sheets/player-f14-night.js';
 
 const OUT_DIR = new URL('../../src/assets/sprites/', import.meta.url).pathname;
 const ZOOM_DIR = new URL('../out/art-zoom/', import.meta.url).pathname;
@@ -24,6 +25,7 @@ const SHEETS = {
   'debris.png': { build: buildDebrisSheet, zoom: 20 },
   'smoke-puff.png': { build: buildSmokePuffSheet, zoom: 12 },
   'missile.png': { build: buildMissileSheet, zoom: 14 },
+  'player-f14-night.png': { build: buildPlayerF14NightSheet, zoom: 8 },
 };
 
 const only = process.argv[2];

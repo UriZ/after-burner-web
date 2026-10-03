@@ -43,6 +43,31 @@ export const PLAYER = {
   nozzleHot: L('#ffd600'),
 };
 
+// Player F-14, NIGHT palette — exactly 8 colours, measured directly off
+// ab2-arcade-night-banking.png x[108,225] y[92,142] (true-native 320x224,
+// one of only two true-native arcade PNGs this project holds). Published by
+// the team lead as interface I3's resolution: six blue-greys (body ramp,
+// light to dark) plus two canopy magentas. No separate black keyline is in
+// this measured set — the darkest blue-grey (#425284) does that job, which
+// is plausible against a dark navy night sky where true black wouldn't read
+// as a distinct ladder step anyway. The nozzle ring/core reuses the same 8
+// values (dark grey ring, magenta core) rather than introducing a 9th
+// colour — there is no orange/yellow in the verified crop, so this is the
+// measured ground truth, not an invented substitute; see the delivery
+// report for the reasoning.
+export const PLAYER_NIGHT = {
+  keyline: L('#425284'),
+  lightTop: L('#c5d6f7'),
+  lightNeutral: L('#a4b5e6'),
+  midNeutral: L('#8494c5'),
+  coolDark: L('#7384b5'),
+  warmShadow: L('#6373a4'),
+  deepWarmShadow: L('#425284'),
+  canopy: L('#c594f7'),
+  nozzleCore: L('#c594f7'),
+  nozzleHot: L('#a400d6'),
+};
+
 // Player dorsal (barrel-roll top-surface) family — blue-grey, per t222.
 export const PLAYER_DORSAL = {
   keyline: '#000000',
