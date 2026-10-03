@@ -5,6 +5,151 @@ value given) or **ADOPTED** from the Godot prototype's verified measurements (th
 measurement method and its location in `../afterburner` are cited so it can be re-run).
 Nothing below is eyeballed. If a value you need is missing, measure it — do not infer it.
 
+---
+
+# PROJECT-WIDE ACCEPTANCE CRITERIA (MEASURED R5)
+
+**These two apply to EVERY frame and EVERY sprite, in every round from R5 onward. They are
+not gap-specific; they are the floor.**
+
+## Why these two exist, and why they are different from everything else in this doc
+
+Every other criterion in this document is a **summary statistic** — a mean, a percentile, an
+autocorrelation ratio, a coverage fraction — and *a statistic can be satisfied by an object
+that looks nothing like the thing the statistic was measured from*. Six concentric rings and
+a real fireball can share a p50. Isotropic specks and drawn wave streaks can share an
+autocorrelation ratio. A 2.475:1 silhouette can be an F-14 or a crab claw — that one is not
+hypothetical, it is R4's actual finding.
+
+This project has now retired **six** criteria as non-discriminating or plain wrong across
+three rounds. Every one of them was a summary statistic, and every one of them was passed by
+a build that looked nothing like the arcade.
+
+The two criteria below **cannot be laundered**, because they do not describe appearance —
+they describe the *medium*. A continuous-tone renderer cannot satisfy them at any tuning, and
+a palette-and-dither renderer satisfies them almost automatically. They are one-line
+measurements, they are cheap, and both would have caught every defect in `judging/R4/
+art-critique.md` in round 1. They come from that report; the numbers below are my independent
+re-measurement of its claims, including the places where I had to correct them.
+
+## Criterion A — colour cardinality
+
+**GATE (all three, per frame, at true native 320×224):**
+1. **≤ 256 unique RGB colours** per frame.
+2. **≤ 32 distinct values per channel** — this is the robust form of "on the Sega ladder"
+   and is the one to enforce automatically (see the ladder caveat below).
+3. **Per-sprite**, counted over the sprite's own pixels with background excluded:
+   **≤ 8 colours for an aircraft, vehicle or cloud sprite; ≤ 16 for an explosion or effect
+   sprite.**
+
+**Measured, true-native arcade frames** (the only two true 320×224 PNGs we hold — every
+other arcade reference is a video upscale and is useless for this):
+
+| frame | unique colours | distinct channel values | colours covering 90% |
+|---|---|---|---|
+| `ab2-arcade-desert.png` | **138** | **31** | **31** |
+| `ab2-arcade-night-banking.png` | **79** | **17** (every other ladder step — the 4-bit subset) | **8** |
+| ours, `tools/out/art-critic/combat/frame-0002.png` | **14 508** | **254** | **7 340** |
+
+We use 7 340 colours to cover 90% of a frame where the arcade uses 31. Every other
+art-critic capture agrees: 14 302–15 206 colours, 253–256 channel values. (The one outlier,
+`death4` at 692 colours, is a screen-filling fireball — see the representative-frame rule
+under Criterion B.) Reproduces the art critic's three figures exactly.
+
+**The ladder, enumerated — and the trap in generating it by formula.** The 31 channel
+values present in `ab2-arcade-desert.png`, which are the ladder:
+
+```
+0  16  25  33  41  49  58  66  74  82  91  99 107 115 123 132
+140 148 156 164 173 181 189 197 206 214 222 230 239 247 255
+```
+
+`ab2-arcade-night-banking.png` uses a 17-value subset of exactly these. **This ladder is NOT
+a uniform ramp and you cannot generate it with the obvious quantizer.** `round(k·255/31)`
+for k=0..31 agrees everywhere except two entries — it yields **90 where the arcade has 91**
+and **165 where the arcade has 164** — and it emits **8**, which appears in neither native
+frame. Bit-replication `(k<<3)|(k>>2)` is worse (24 where the arcade has 25). The spacing is
+irregular because the hardware drives the channel through a resistor ladder, not a linear
+DAC. **So: snap to the enumerated table above, not to a formula.** And because a ±1 level
+difference is visually nil, do **not** enforce exact set membership as the automated gate —
+enforce "≤32 distinct values per channel", and treat the table as the palette to author
+against.
+
+**Per-sprite evidence** (isolated sprite pixels, background excluded — this is the part the
+art critique asserted without showing, so I measured it):
+
+| arcade sprite | source | unique colours |
+|---|---|---|
+| player jet, night | `ab2-arcade-night-banking.png` x[108,225] y[92,142] | **8** — six blue-greys `#c5d6f7 #a4b5e6 #8494c5 #7384b5 #6373a4 #425284` plus two canopy magentas `#c594f7 #a400d6` |
+| player jet, daylight | `ab2-arcade-desert.png` x[85,182] y[82,140] | 14 total, **7 cover 95%** (`#ffffef #a48484 #d6d6a4 #ceb59c #ffffff #948463 #e694f7`) |
+| cloud puff | `ab2-arcade-desert.png` x[195,320] y[90,150] | **5** (`#f7f7e6 #f7f7b5 #e6e6a4 #d6d694 #c5c584`) |
+| explosion | `ab2-arcade-night-banking.png`, warm family | 18 total, **12 cover 95%** |
+
+**This is why the bound is split.** A flat "≤8 per sprite" would **fail the arcade's own
+explosion**, which uses 12–18. Aircraft and clouds sit at 5–8; effects need ≤16. Publishing
+the flat bound would have repeated exactly the mistake this section exists to prevent.
+
+**Scale note**: colour cardinality is identical measured on our 960×672 capture or on its
+native decimation — the upscale is lossless block duplication (see "Measuring OUR captures"
+below), so it adds no colours. Measure at native anyway, for consistency with Criterion B,
+which is *not* scale-invariant.
+
+## Criterion B — adjacent-pixel identity on ground regions
+
+**GATE: ≥ 50% of horizontally adjacent pairs AND ≥ 50% of vertically adjacent pairs are
+exactly identical**, measured on a ground region of a representative flight frame at true
+native 320×224.
+
+This is the statistic that separates *structured pixel art* from *continuous-tone noise* —
+dithered water from TV static. The arcade's ground is large flat regions punctuated by
+deliberate dither; ours is a 4-octave fbm field where every pixel differs from its
+neighbours.
+
+**Operator (ADJ-ID):**
+1. **True native 320×224.** For our captures, `img[::3,::3]` after confirming every 3×3
+   block is uniform. **Never measure this on a video frame**: re-encode noise deflates it
+   and a non-integer upscale inflates it (neighbouring output pixels share a source pixel),
+   so video is wrong in *both* directions. Only the two true-native PNGs qualify on the
+   arcade side.
+2. **Region** = all rows strictly below the horizon, full width, minus the HUD mask (derive
+   ours with `tools/hud_mask.py`; never hardcode). If the frame has no sky — the top-down
+   desert reference does not — the region is the whole frame minus the HUD bands (rows
+   10–26 and 196–216 on those two frames).
+3. A pair counts only when **both** pixels are inside the region.
+4. H-identity = fraction of in-region horizontally adjacent pairs with all three channels
+   equal. V-identity likewise.
+5. **Use a representative flight frame, not a death or explosion frame.** A screen-filling
+   fireball is flat and inflates the number: our own `death4` capture reads 56.9/51.0 where
+   normal flight reads 34.2/33.4.
+
+**Measured:**
+
+| | H-identity | V-identity |
+|---|---|---|
+| `ab2-arcade-desert.png`, whole frame minus HUD | **68.8%** | **68.5%** |
+| `ab2-arcade-night-banking.png`, whole frame minus HUD | **84.0%** | **80.3%** |
+| arcade, across five sub-regions of both frames | **62.9–88.4%** | **61.7–87.1%** |
+| ours, flight captures, ground band y140–195 minus HUD | **28.5–35.1%** | **0.4–34.8%** |
+| ours, same captures, whole frame | 61.8–69.4% | 59.7–61.4% |
+
+**The last row is why the region definition is mandatory.** Our *whole-frame* number is
+62.1%/60.8% — it would pass a 50% gate — because a flat `#009fff` sky fills the top half and
+carries the average. The sky is not the thing being tested. Restricted to ground, the two
+populations do not overlap: arcade ≥61.7% on every region of both frames, ours ≤35.1% on
+every flight capture. A 50% threshold sits in the gap with margin on both sides, which is
+what makes this criterion robust to the region choice rather than dependent on it.
+
+**Two figures from `judging/R4/art-critique.md` that I could NOT reproduce**, recorded so
+nobody tunes to them: it reports arcade **62.5%/61.0%** and ours **14.8%/3.5%**. With the
+region stated above I measure the arcade *higher* (68.8/68.5 whole-frame, never below
+61.7 on any sub-region) and ours *higher* (28.5–35.1 / 0.4–34.8). The report does not state
+its region, and the statistic moves by 30+ points with the region, so the gap is almost
+certainly region definition rather than disagreement. **The direction, the magnitude of the
+separation and the conclusion are unaffected** — ours is roughly half the arcade's on every
+pairing I tried. Use the numbers in the table above, which name their region.
+
+---
+
 ## Sources and provenance
 
 - **Video**: `../afterburner/.reference-cache/video/ab2-longplay.mp4` — 686×480, 30 fps,
