@@ -48,6 +48,11 @@ const ROLL_RATE_RAD_PER_S = THREE.MathUtils.degToRad(ROLL_RATE_DEG_PER_S);
 const PLAYER_BASE_Z = -5;
 const PLAYER_CRUISE_SCREEN_FRAC = 0.556;
 
+// Zeroed input fed to combat.update() during 'death' (R5 feel fix, see
+// update() below) so a dead jet never fires/launches while the world
+// around the tumbling hulk keeps ticking.
+const DEATH_COMBAT_INPUT = { fire: false, missile: false };
+
 function horizonFracFor(pitchRad, fovDeg) {
   const halfTan = Math.tan(THREE.MathUtils.degToRad(fovDeg) / 2);
   const ndcY = -Math.tan(pitchRad) / halfTan;
@@ -233,6 +238,11 @@ export class Game {
         lives: this.flow.lives,
         score: this.flow.score.value,
         deathPhase: this.flow.deathSeq && this.flow.deathSeq.active ? this.flow.deathSeq.phase : null,
+        // R5 addition, same measurement-only family: lets a probe confirm
+        // the throttle (rank 7) is actually moving rather than reading pixels.
+        throttleIndex: this.flow.throttleIndex,
+        throttleFraction: this.screen.hud.state.throttleFraction,
+        rolling: this.player.isRolling(),
       });
     }
   }
@@ -262,7 +272,13 @@ export class Game {
     // src/game/flow/flow.js for the state machine itself.
     const flow = this.flow.update(dt, rawInput, simTime, this._rng);
 
-    const targetRoll = flow.input.x * ROLL_MAX_RAD;
+    // Barrel roll (R5 feel fix, feel-critique.md §10 rank 13): GAME_SPEC.md
+    // §1 measures the manoeuvre SUPPRESSING world roll for its duration
+    // (the horizon stays dead level) — that suppression is how footage
+    // tells a roll apart from a hard bank. Target 0 instead of the stick
+    // while rolling; the existing rate-limited approach unwinds any roll
+    // already in progress over the move, rather than snapping it.
+    const targetRoll = this.player.isRolling() ? 0 : flow.input.x * ROLL_MAX_RAD;
     this.worldRoll = moveTowards(this.worldRoll, targetRoll, ROLL_RATE_RAD_PER_S * dt);
     this._applyCameraOrientation();
 
@@ -277,14 +293,21 @@ export class Game {
     if (this.clouds) this.clouds.update(dt);
 
     if (this.combat) {
+      // Combat lane's wiring request: fans out to the missile-smoke
+      // palette and spawner liveries (both default to stage-1 daylight
+      // without it — harmless for stages 1-2, wrong from stage 3 on).
+      this.combat.setStageIndex(this.flow.stageIndex);
       if (flow.combatActive) {
         this.combat.update(dt, flow.input, this.player.sprite.position);
       } else if (this.flow.state === 'death') {
-        // Enemies/weapons are frozen (combat.clear() ran when death
-        // triggered), but the death sequence's own fireball/starburst
-        // explosions still need their lifecycle ticked.
-        this.combat.explosions.update(dt);
-        this.combat.smoke.update(dt);
+        // R5 feel fix (feel-critique.md §2 Leg A / §10 rank 1): flow.js no
+        // longer calls combat.clear() on death, so there is a live sky to
+        // keep flying under the tumbling hulk instead of freezing it in
+        // place. Input is zeroed so a dead jet can't fire/launch; lethality
+        // is frozen independently by flow.js never calling checkPlayerHit
+        // outside 'flight' (see _triggerDeath's comment), not by anything
+        // here.
+        this.combat.update(dt, DEATH_COMBAT_INPUT, this.player.sprite.position);
       }
       this._syncHud();
     }

@@ -17,6 +17,16 @@ const CRUISE_S = 11;
 const CANYON_S = 5;
 const CYCLE_S = CRUISE_S + CANYON_S;
 
+// Throttle (R5 feel fix, feel-critique.md §4/§10 rank 7): the attract
+// timeline has no keyboard to drive Q/E, so it cycles the lever itself —
+// otherwise an unattended capture of ?demo=1 would show a throttle gauge
+// that never moves, same defect as the static decal this replaces. Dwelling
+// ~3.5s per detent gives ~9 changes over a 32s stage, above the critique's
+// "chevron must change position >=8 times in a 32s stage" target (the
+// arcade's own measured rate).
+const THROTTLE_DWELL_S = 3.5;
+const THROTTLE_PATTERN = [1, 2, 1, 0]; // M, H, M, L
+
 export function demoTimeline(simTime) {
   const phase = simTime % CYCLE_S;
   const inCruise = phase < CRUISE_S;
@@ -45,5 +55,7 @@ export function demoTimeline(simTime) {
   const fireWindow = inCruise && Math.sin(t * 1.65) > 0.55;
   const missileWindow = inCruise && (t % CRUISE_S) > 6.5 && (t % CRUISE_S) < 8.0;
 
-  return { x, y, fire: fireWindow, missile: missileWindow };
+  const throttleIndex = THROTTLE_PATTERN[Math.floor(t / THROTTLE_DWELL_S) % THROTTLE_PATTERN.length];
+
+  return { x, y, fire: fireWindow, missile: missileWindow, throttleIndex };
 }

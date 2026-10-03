@@ -5,6 +5,7 @@ import { drawReadyCard, drawTallyCard, drawContinueCard } from './cards.js';
 import { Overlay } from './overlay.js';
 import { STAGES } from '../stage.js';
 import { AudioBus } from '../../audio/index.js';
+import { MISSILE_START_STOCK } from '../../weapons/combat.js';
 
 // Game state machine (R4): title -> flight -> death -> flight -> ... ->
 // continue (out of lives) -> flight. See GAME_SPEC.md's §§2,5,6,7 for the
@@ -42,6 +43,24 @@ const CONTINUE_COUNTDOWN_S = 10; // gp t261: "CONTINUE PLAY / 10 / INSERT COIN"
 // first landed.
 const RESPAWN_INVINCIBLE_S = 2.0;
 
+// Low idle engine hum kept running through death/continue instead of the
+// previous hard stopEngine() cut (feel-critique.md §8: "the game goes
+// silent exactly when it goes blank"). Below the 0.75 afterburner threshold
+// in sfx.js so it never swells; just enough to keep the audio bed alive.
+const DEATH_ENGINE_IDLE_FRAC = 0.2;
+
+// Throttle (R5 feel fix, feel-critique.md §4/§10 rank 7): 3 detents L/M/H
+// driving ground scroll speed, engine gain and the HUD gauge. GAME_SPEC.md
+// §1 measures only the HUD letter ("SPEED M"); the multipliers/gains below
+// are the critique's suggested starting values, not independently measured.
+// Enemy depthRate scaling by throttle is the combat lane's (spawner.js/
+// enemy.js are not owned here) — `input.throttleIndex` is threaded through
+// untouched on `flight`'s returned input for them to read.
+const THROTTLE_SCROLL_MULT = [0.62, 1.0, 1.45];
+const THROTTLE_ENGINE_GAIN = [0.30, 0.65, 1.0];
+const THROTTLE_LETTER = ['L', 'M', 'H'];
+const THROTTLE_DEFAULT_INDEX = 1; // M
+
 const ZERO_INPUT = { x: 0, y: 0, fire: false, missile: false };
 
 export class GameFlow {
@@ -60,6 +79,7 @@ export class GameFlow {
 
     this.stageIndex = 0;
     this.lives = START_LIVES;
+    this.throttleIndex = THROTTLE_DEFAULT_INDEX;
     this.stageTimer = 0;
     this.tally = null; // { t, duration, hits, pointsStart }
     this.continueCountdown = 0;
@@ -135,11 +155,20 @@ export class GameFlow {
     this.sky.setStage(stage);
     this.ground.setStage(stage);
     this.hudState.stage = this.stageIndex + 1;
-    if (this.combat) this.combat.hits = 0; // HIT resets at stage start, and ONLY there (GAME_SPEC.md §6)
+    if (this.combat) {
+      this.combat.hits = 0; // HIT resets at stage start, and ONLY there (GAME_SPEC.md §6)
+      // R5 feel fix (feel-critique.md §6/§10 rank 12): missileStock only
+      // ever decremented, so a player who salvos aggressively ran dry
+      // permanently. GAME_SPEC.md §5 documents the arcade's resupply as two
+      // specific mechanisms (tanker/runway) neither of which exist yet;
+      // restocking at every stage boundary is a cheap stand-in that at
+      // least removes the permanent-dry-out failure mode.
+      this.combat.missileStock = MISSILE_START_STOCK;
+    }
   }
 
   get scrollSpeed() {
-    return STAGES[this.stageIndex % STAGES.length].scrollSpeed;
+    return STAGES[this.stageIndex % STAGES.length].scrollSpeed * THROTTLE_SCROLL_MULT[this.throttleIndex];
   }
 
   // `rawInput` is whatever main.js/game.js resolved this tick (live keys or
@@ -155,13 +184,19 @@ export class GameFlow {
         result = this._updateDeath(dt);
         break;
       case 'continue':
-        result = this._updateContinue(dt);
+        result = this._updateContinue(dt, rawInput);
         break;
       default:
         result = this._updateFlight(dt, rawInput, simTime, rng);
         break;
     }
     this.hudState.score = Math.floor(this.score.value);
+    // R5 feel fix (feel-critique.md §6 / §10 rank 6): the HUD's drawLives()
+    // has always existed but nothing ever wrote `lives` into it, so it drew
+    // a permanent, wrong 3 regardless of the real count. One assignment
+    // here covers every transition (title reset, death, continue restore)
+    // instead of needing a copy at each of those call sites.
+    this.hudState.lives = this.lives;
     return result;
   }
 
@@ -186,7 +221,15 @@ export class GameFlow {
     this.titleOverlay.visible = false;
     this.score.accrue(dt, false);
     this.stageTimer += dt;
-    AudioBus.setEngine(this.hudState.throttleFraction ?? 0.6);
+
+    // Throttle (rank 7): 3 detents, driving scroll speed (get scrollSpeed()
+    // above), engine gain and the HUD gauge. input.js edge-detects Q/E for
+    // live play; ?demo=1's timeline drives the same field for attract
+    // capture so the gauge is exercised unattended too.
+    if (typeof rawInput.throttleIndex === 'number') this.throttleIndex = rawInput.throttleIndex;
+    this.hudState.throttle = THROTTLE_LETTER[this.throttleIndex];
+    this.hudState.throttleFraction = THROTTLE_ENGINE_GAIN[this.throttleIndex];
+    AudioBus.setEngine(this.hudState.throttleFraction);
 
     if (this.invincibleTimer > 0) this.invincibleTimer = Math.max(0, this.invincibleTimer - dt);
     const invincible = this._debugInvincible || this.invincibleTimer > 0;
@@ -219,15 +262,32 @@ export class GameFlow {
     this.state = 'death';
     this.cardOverlay.visible = false;
     this._readyAudioPlayed = false;
-    if (this.combat) this.combat.clear();
+    // R5 feel fix (feel-critique.md §2 Leg A / §10 rank 1): do NOT clear
+    // combat here. Clearing wiped every enemy/shot/bracket on every one of
+    // 3 deaths/minute, which is what produced the measured 4.5s empty
+    // rectangle (feel-02-death-cycle.png: 18 consecutive tiles of bare sky
+    // and sea) — clearing the sky on death is OUR addition; GAME_SPEC.md §2
+    // says only "the world keeps scrolling", not "the world empties".
+    // Lethality is frozen for free: checkPlayerHit() is only ever called
+    // from _updateFlight below, never from _updateDeath/_updateContinue, so
+    // existing enemies/shots keep animating on screen but cannot kill the
+    // player again mid-sequence. Leaving spawner.clear() uncalled also
+    // means openerDone stays latched, so the sky does not rebuild from
+    // empty for another 2-3s after respawn (the critique's second-order
+    // complaint about the same clear() call).
     if (this.deathSeq) this.deathSeq.start(rng);
     AudioBus.play('playerDeath');
-    AudioBus.stopEngine();
+    // Keep the engine bed alive through the tumble (critique §8/§10 rank 8:
+    // "the game goes silent exactly when it goes blank" — stopEngine() cut
+    // it for the full 8.5s cycle). It's the burnt hulk's engine now, so duck
+    // it to a low idle rather than cutting it; _updateDeath keeps calling
+    // setEngine every tick below.
   }
 
   _updateDeath(dt) {
     const done = this.deathSeq ? this.deathSeq.update(dt) : true;
     this.score.accrue(dt, true); // frozen while dead (GAME_SPEC.md §2)
+    AudioBus.setEngine(DEATH_ENGINE_IDLE_FRAC);
     const readyPhase = this.deathSeq ? this.deathSeq.readyPhase : null;
     if (readyPhase !== null) {
       this.cardOverlay.visible = true;
@@ -253,9 +313,16 @@ export class GameFlow {
     return { input: ZERO_INPUT, combatActive: false, playerControlled: false };
   }
 
-  _updateContinue(dt) {
+  _updateContinue(dt, rawInput) {
     this.score.accrue(dt, true); // frozen (same family as death/resupply pauses)
+    AudioBus.setEngine(DEATH_ENGINE_IDLE_FRAC); // world still scrolling (gp t261); keep the bed alive
     this.continueCountdown -= dt;
+    // R5 feel fix (feel-critique.md §6 / §10 rank 6): the countdown took
+    // 10.2% of a measured 120s session with no button that did anything.
+    // A press skips straight to the floor instead of exiting a frame early
+    // (count-down still reaches 0 this same tick, so the card's final
+    // digit/overlay-clear logic below runs unchanged).
+    if (rawInput && (rawInput.fire || rawInput.missile)) this.continueCountdown = 0;
     this.cardOverlay.visible = true;
     this.cardOverlay.redraw((ctx, w, h) => drawContinueCard(ctx, w, h, this.continueCountdown));
     if (this.continueCountdown <= 0) {

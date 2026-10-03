@@ -2,7 +2,12 @@
 // src/audio/**. Every method is a safe no-op when muted/headless (see
 // engine.js header); callers never need to check audio state themselves.
 import { setMasterVolume as _setMasterVolume } from './engine.js';
-import { play as _play, setEngineSpeed as _setEngineSpeed, stopEngine as _stopEngine } from './sfx.js';
+import {
+  play as _play,
+  setEngineSpeed as _setEngineSpeed,
+  stopEngine as _stopEngine,
+  setInboundWarning as _setInboundWarning,
+} from './sfx.js';
 import { setState as _setMusicState } from './music.js';
 
 export const AudioBus = {
@@ -19,6 +24,15 @@ export const AudioBus = {
   },
   stopEngine() {
     _stopEngine();
+  },
+  // intensity: 0..1, 0 = nothing inbound. Looping two-tone warble, pitch
+  // rising with intensity — the audio telegraph for an approaching enemy
+  // shot (feel-critique.md §10 rank 8). Call every frame while any shot is
+  // within the owning system's warning window; call with 0 (or just stop
+  // calling) when clear. No-op if audio is muted/absent, same as every
+  // other AudioBus method.
+  setInboundWarning(intensity) {
+    _setInboundWarning(intensity);
   },
   // state: 'flight' | 'title' | 'off'
   music(state) {

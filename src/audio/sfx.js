@@ -297,6 +297,63 @@ export function stopEngine() {
   }
 }
 
+// --- Inbound-shot warning: looping two-tone warble, pitch rising with -----
+// --- proximity ---------------------------------------------------------
+// feel-critique.md §8/§10 rank 8: "there is no sound for enemy fire, for an
+// inbound shot" — the thing that kills the player arrives with no telegraph
+// at all, both visually (combatfx-r5's rank-2 fix) and audibly (this). The
+// arcade's physical DANGER lamp has no software substitute, so this is a
+// stand-in cue, not a measured reproduction.
+// Persistent node graph, same pattern as the engine loop: built once,
+// touched every frame via setInboundWarning(intensity) rather than
+// recreated — the caller (spawner/combat, not owned here) is expected to
+// drive it every tick while any shot is approaching.
+let warnNodes = null;
+
+function ensureWarn() {
+  if (warnNodes) return warnNodes;
+  const c = ctx();
+  if (!c) return null;
+  const osc1 = c.createOscillator();
+  osc1.type = 'square';
+  osc1.frequency.value = 650;
+  const osc2 = c.createOscillator();
+  osc2.type = 'square';
+  osc2.frequency.value = 650 * 1.19; // a minor third above osc1, for the two-tone warble
+  const lfo = c.createOscillator();
+  lfo.type = 'sine';
+  lfo.frequency.value = 6; // warble rate, Hz
+  const lfoGain = c.createGain();
+  lfoGain.gain.value = 40;
+  lfo.connect(lfoGain).connect(osc2.frequency);
+  const gain = c.createGain();
+  gain.gain.value = 0;
+  osc1.connect(gain);
+  osc2.connect(gain);
+  gain.connect(master());
+  osc1.start();
+  osc2.start();
+  lfo.start();
+  warnNodes = { gain, osc1, osc2 };
+  return warnNodes;
+}
+
+// `intensity` 0..1: 0 = silent (nothing inbound), 1 = closest/most urgent.
+// Callers should ramp this smoothly (e.g. from a shot's time-to-impact)
+// rather than toggling it on/off, so the pitch rise itself reads as the
+// threat closing.
+export function setInboundWarning(intensity) {
+  const nodes = ensureWarn();
+  if (!nodes) return;
+  const c = ctx();
+  const s = Math.min(1, Math.max(0, intensity));
+  const t = c.currentTime;
+  nodes.gain.gain.setTargetAtTime(s * 0.16, t, 0.05);
+  const f = 650 + s * 450;
+  nodes.osc1.frequency.setTargetAtTime(f, t, 0.05);
+  nodes.osc2.frequency.setTargetAtTime(f * 1.19, t, 0.05);
+}
+
 const HANDLERS = {
   vulcan: (opts) => playVulcan(opts.side ?? 1),
   missileLaunch: playMissileLaunch,

@@ -21,9 +21,16 @@
 // authored on top.
 const FIREBALL_S = 0.6;
 const STARBURST_S = 1.0;
-const TUMBLE_S = 4.5;
-const RESPAWN_S = 2.4;
-export const DEATH_TOTAL_S = FIREBALL_S + STARBURST_S + TUMBLE_S + RESPAWN_S; // 8.5s, inside the measured 8-9s band
+// R5 feel fix (feel-critique.md §10 rank 5): 4.5/2.4 -> 2.0/1.6 cuts the
+// cycle 8.5s -> 5.2s. The arcade's 8-9s band is measured against a death
+// rate an order of magnitude lower than ours (GAME_SPEC.md §2's "zero-death
+// clear" longplay vs our ~3/minute); with rank 1's fix (world keeps flying,
+// not empty) and rank 2's fairness fix (fewer, dodgeable deaths) landing in
+// parallel, a shorter cycle is what keeps non-interactive time under the
+// critique's 12% target instead of the measured 53%.
+const TUMBLE_S = 2.0;
+const RESPAWN_S = 1.6;
+export const DEATH_TOTAL_S = FIREBALL_S + STARBURST_S + TUMBLE_S + RESPAWN_S; // 5.2s
 
 const TUMBLE_SPIN_RAD_PER_S = 2.2;
 const TUMBLE_Z_DRIFT = -40; // world units; player baseZ=-5 (depth 5) -> ~45 at tumble end, mid enemy-depth range
