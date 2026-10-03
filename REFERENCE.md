@@ -374,12 +374,57 @@ shipped) and alternates with a BEST FIGHTERS score table and live attract gamepl
 
 ## Explosions
 
-MEASURED on t357 (canyon fireball, region x0–160 y310–460, pixels with V>0.55,
-n=22 072, brightness percentiles): p95 `#fb9352`, p75 `#d58a1c`, p50 `#c25e02`,
-p25 `#a6290f` — an orange-amber body with salmon highlights over deep red-brown.
-`ab2-arcade-huge-explosion.jpg` centre samples: `#f4a200` core, `#d57946` mid.
-Explosions are big (the t357 fireball is ~23%W across), boiling multi-lobe masses, not
-radial gradients; debris flies as small red/white chunks (see t100 upper-left).
+**The t357 numbers are NOT a fireball — they are FADING SMOKE (corrected R5).** This doc's
+previous target (region x0–160 y310–460 of t357, pixels with V>0.55, n=22 072; p95
+`#fb9352`, p75 `#d58a1c`, p50 `#c25e02`, p25 `#a6290f`) describes the translucent,
+dissipating debris ring in that frame's lower-left corner, measured through a desert-tinted
+frame whose ground is tan and whose sky is cream — so the "highlights" are partly the
+canyon floor read through the smoke. Re-measured R5 with the same operator: mean V
+**0.753**, only **6.0%** of pixels above V 0.95, **1.9%** achromatic-bright. Band means
+(mean colour of each decile, more stable on a compressed frame than a single percentile
+sample): `#941c03` → `#a42c0e` → `#bd4a1a` → `#d68122` → `#e4b47f`. The brightest band is a
+desaturated **tan**. R4's build reproduced these numbers (mean V 0.792, 20.1% above V 0.95)
+and still had no fireball, because this criterion cannot see a white-hot core. **Keep these
+figures as the description of a DISSIPATING smoke mass; do not accept a fireball on them.**
+
+### Fireball targets (MEASURED R5 — use these)
+
+Operator: read the frame at its stored resolution (no resampling). Mask = largest
+8-connected component of "not background" inside a box bounding the blast, background
+being the stage's flat sky (for `ab2-arcade-huge-explosion.jpg`, sky `#0142fe`, 20.7% of
+the frame: `B > R+60 ∧ B > 140`). Exclude the HUD bands and any cloud wedge that touches
+the blast (here `y[88,109) x[20,50)`; leaving it in moves nothing by more than 0.2 pt but
+it is not fireball). Report mean/median V, the fraction above V 0.95, the achromatic-core
+fraction (`saturation < 0.25 ∧ max(RGB) > 240`), and the **mean colour of each brightness
+decile** ranked by R+G+B — not single percentile samples, which on these compressed frames
+move by tens of levels between neighbouring masks.
+
+| | `ab2-arcade-huge-explosion.jpg` (181×127) | `death-starburst-gp-t202.png` (640×360, interior box x[200,480] y[140,300]) | R4 build | TARGET |
+|---|---|---|---|---|
+| mean V | **0.891** | **0.925** | 0.792 | **≥0.85** |
+| fraction above V 0.95 | **52.3%** | **60.1%** | 20.1% | **≥40%** |
+| white-hot core, S<0.25 ∧ V>0.94 | **8.8%** | **3.5%** | — | **≥3%** |
+| brightest-decile mean colour | `#f6f6e7` (V 0.967, **sat 0.063**) | `#f4ebb8` (V 0.958, **sat 0.246**) | `#fb9352` (sat 0.67) | **V ≥0.95, sat ≤0.30** |
+| mean saturation over the whole fireball | 0.848 | 0.799 | 0.879 | 0.75–0.90 |
+| blast extent | 140 px = **77.3%W** | — | — | — |
+
+Decile-band ladder, `ab2-arcade-huge-explosion.jpg`: `#9b0204` (deep red rim) → `#d6050b`
+→ `#f47a07` (orange) → `#f5d619` (yellow) → `#f6f6e7` (**near-white core**). The second
+source gives the same ladder one step warmer (`#c21d07` → `#eb7318` → `#efb21b` →
+`#f4dc31` → `#f4ebb8`), consistent with its heavier compression smearing the small white
+patches toward yellow. **The single sharpest discriminator is the brightest-decile
+saturation**: arcade 0.06–0.25, R4 build 0.67. Reproduces R4's independent readings (mean V
+0.882 vs my 0.891; 47.7% above V 0.95 vs my 52.3%).
+
+Caveats on the sources: `ab2-arcade-huge-explosion.jpg` is a sub-native 181×127 JPEG
+(320×224 downscaled ~0.57×) with no proven stage identity, and `death-starburst-gp-t202.png`
+comes from the third recording (`ab2-gameplay.mp4`), which has no stage map. Both are
+therefore palette/structure evidence only — but they agree with each other and with R4,
+and the white-hot core is visible by eye in both.
+
+Explosions are big — screen-filling at the extreme (77%W above) — boiling multi-lobe
+masses with radial spikes, not radial gradients; debris flies as small red/white chunks
+(see t100 upper-left).
 
 ## Missiles / weapons visuals
 
