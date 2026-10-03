@@ -697,6 +697,62 @@ Explosions are big — screen-filling at the extreme (77%W above) — boiling mu
 masses with radial spikes, not radial gradients; debris flies as small red/white chunks
 (see t100 upper-left).
 
+### Two fireball frames, and they differ by OBJECT — use a band, not a point (R5)
+
+The combat-fx lane measured a **stage-1 enemy KILL fireball** (`stage1-missile-salvo-t100.75.png`,
+y[330,520] x[460,640], 10.1%W × 19.2%H, n=7 235) and it is materially **hotter** than the
+`ab2-arcade-huge-explosion.jpg` blast:
+
+| | huge-explosion.jpg | stage-1 kill fireball |
+|---|---|---|
+| mean V | 0.882–0.891 | **0.928** |
+| fraction above V 0.95 | 45.3–52.3% | **57.9%** |
+| near-white core, as % of area | 3.2–8.8% | **16.1%**, mean RGB (249,231,192) |
+
+**Which frame for which object**: `src/effects/explosions.js` draws *kill* explosions, so
+tune those to the stage-1 kill column; reserve the huge-explosion figures for the
+screen-filling death blast. A single point target across both is how this round's trail
+defect happened — a developer chasing two incompatible numbers. **Accept anywhere inside
+the band: mean V ≥0.88, ≥45% above V 0.95, near-white core ≥3% of area.**
+
+**WARNING — a "warm and bright" mask deletes the thing you are measuring.** Combat-fx
+used `V > 0.55 ∧ R > B + 0.10` to isolate the fireball. That is a reasonable sky/cloud
+rejector, but white-hot pixels have R−B of only **0.034** on average, so the mask
+**discards 82.2% of them** (723 of the 880 white-hot pixels in the blast box survive only
+under a non-warm mask). It barely moves mean V (0.8988 vs 0.8910) or the V>0.95 fraction
+(50.7% vs 52.3%) because those are carried by the yellow body — but it drives the core
+fraction from **8.8% down to 1.8%**. Measure the core with a **non-hue-gated** mask
+(largest non-sky component) or you will under-build the exact feature R4 gap 11 is about.
+
+**The fireball has real see-through gaps** (combat-fx, corroborating structure):
+**20.0%** of the filled silhouette is not fireball, and **51.4%** of those interior pixels
+are sky-coloured (median RGB 88/66/244) against only 7.7% genuinely dark. The boiling mass
+is perforated, not solid. This costs nothing against the percentiles — a warm-and-bright
+mask excludes those pixels on both sides — but it is a visible structural feature.
+
+### Lock-on bracket geometry — a FIXED screen size (MEASURED R5)
+
+This doc previously gave bracket colour but no geometry, which is why R4 gap 10 reads as
+"four loose corners scattered near it". Mask `V > 0.70 ∧ S < 0.30` at native scale, union
+of the four corner components:
+
+| frame | target span | bracket extent |
+|---|---|---|
+| `stage1-level-flight-t116.png` (686×480) | distant enemy ≈1.9%W | 36 × 37 px = **5.25%W** |
+| `stage1-missile-salvo-t100.75.png` (1028×720) | close enemy ≈8.8%W | vertical side 57 px = **5.5%W** |
+
+**The targets differ by about 7× in span and the bracket is the same size.** AB2's lock
+bracket **marks** a target, it does not outline it — on the close enemy the wings run
+straight out through the box. Publish as: *square, **5.0–5.6%W on a side regardless of
+target size**, ~1 native px stroke, corner arms 20–27% of the side.* Our build sized it at
+1.5× the enemy span, which is the whole defect.
+
+Caveat on the second row: in t100.75 the bracket's right-hand corners are occluded by the
+white enemy sprite and the kill fireball, so its figure comes from the **vertical** side
+only; a largest-component measurement there returns the aircraft (53×71 px, n=918), not the
+bracket. Combat-fx's reported "53 px side" for that frame comes from that contaminated
+component — the number happens to land close, but re-derive it from the vertical extent.
+
 ## Missiles / weapons visuals
 
 ### The smoke trail is WHITE — in every stage (MEASURED R5)
@@ -714,6 +770,23 @@ structure in that frame is the missile's exhaust **flame**: hue 5–55°, S≥0.
 x[80,135] y[70,115] gives mean V **0.660**, bright/dark quintiles 0.966/0.303, mean
 saturation **0.889** — bright orange, not dark grey. Implementing 0.37 is what made our
 daylight trail black (R4 gap 4). Do not re-adopt it.
+
+**IDENTIFIED R5 — the 0.37 was measured on a LOCK-ON BRACKET.** The combat-fx lane
+reproduced the published triple to three decimals with a tighter operator: mask
+`0.14 < V < 0.90 ∧ S < 0.25`, largest 8-connected component — n = **59 px**, mean V
+**0.372**, quintiles **0.187 / 0.598**, ratio **3.19**, mean S 0.101. I re-ran it and got
+the same 59 pixels, then cropped them and looked: that component is the **white square
+lock-on bracket** drawn over the enemy ahead of the player, bounding box
+**x[71,83] y[42,54]** of the 181×127 frame — 13×13 px of UI outline over black sky.
+Regenerate it with the crop above and it is unmistakable.
+
+This closes the provenance completely, and every word of the inherited description now
+makes sense as a description of a bracket rather than of smoke: *"continuous opaque
+ribbon"* = a drawn rectangle outline; *"100% column occupancy"* = a solid stroke;
+*"~16 px thick at the head"* = a 13×13 px box; *"2.7× bright/dark internal value
+structure"* = JPEG edge falloff on a white line against black. **The triple is therefore
+withdrawn outright — it is not a night trail value to be scoped to night stages, it is not
+a trail value at all.** Keep it only as the cautionary example it has become.
 
 **MEASURED replacement.** Operator: read the frame at its stored resolution (no
 upscaling); mask `saturation ≤ 0.25 ∧ V ≥ 0.6` (smoke is achromatic, every AB2 sky and
@@ -736,19 +809,43 @@ white on night stage 3 too, only ~6% dimmer than in daylight. **Acceptance: trai
 numbers for t100.75 (mean V 0.966, median 0.969, p10 0.941, sat 0.051) reproduce here to
 ≤0.01; its width figure does not — see below.
 
-**Launch billow width.** Longest contiguous run of the smoke mask, per row, t100.75: it
-grows monotonically **14.0%W at y=430 → 32.5%W at y=620**, still widening where the bottom
-HUD cuts it off, so **≥32%W is a floor, not a peak**. Night t178 reaches **35.0%W** at
-y=284 with its own component clipped at the right frame edge. R4's "34–67%W" is not
-reproducible with a mask that excludes cloud; treat it as superseded.
+### Trail geometry — MEASURED on stage 1, replacing the whole inherited description
 
-**Geometry (ADOPTED, unchanged, but now flagged UNVERIFIED):** `missile_2d.gd` describes
-a **continuous opaque ribbon** — 100% column occupancy, ~16 px thick at the head tapering
-to a few px, with internal VALUE structure rather than an alpha fade. The occupancy and
-the ribbon-vs-bead-chain shape are corroborated by every frame above. The **"~16 px" and
-the 2.7× bright/dark ratio are NOT verified here**: the source states no frame scale for
-the 16 px, and the ratio came from the same unreproducible night measurement. Keep them
-as working values, re-derive before treating either as a gate.
+Operator (combat-fx lane, independently re-run by me — agrees to **2 px out of 84 511**):
+on `stage1-missile-salvo-t100.75.png` at its stored 1028×720, mask `V > 0.80 ∧ S < 0.20`,
+largest 8-connected component **inside the launch window x[260,700] y[360,720]**.
+
+| | measured |
+|---|---|
+| plume pixels | 84 509 |
+| mean V / median / p10 | **0.9674 / 0.9686 / 0.9412** |
+| mean S / median S | **0.0504 / 0.0405** |
+| **darkest / brightest quintile, RATIO** | 0.933 / 0.995 → **1.07** |
+| column occupancy | **1.000** |
+| bbox | **39.1%W × 50.0%H**, fill 0.584 |
+| per-row width, missile end → launch end | **10.9%W → 36.2%W** |
+
+**The daylight plume has essentially NO internal value structure — quintile ratio 1.07.**
+The inherited "2.2–3.2× bright/dark" requirement is therefore **withdrawn for daylight**
+along with the 0.37 it came from; it is a property of the lock bracket that triple was
+measured on. It is what drove our ribbon's tail to V 0.19 and it will do the same to the
+next developer. Keep the *shape* claims — a continuous opaque ribbon at 100% column
+occupancy — which every frame above corroborates.
+
+**Head thickness: 10.9%W = 35 native px on stage 1**, not the inherited "~16 px". That
+figure traced to the same night frame, and R4 gap 4's "12–20 native px" reproduction
+criterion inherited it. Our build ships 15.4 native px — inside the old band and
+**conservative by a factor of ~2** against the stage-1 measurement. Raise toward 35 px for
+stage 1; the night value is unmeasured.
+
+**Width: 39.1%W bbox, tapering 10.9 → 36.2%W.** R4's "34–67%W" and my own earlier
+"≥32%W floor" are both superseded by the windowed figure. A bright + low-saturation mask
+on a stage-1 frame **must** state a window or a sea exclusion: stage 1's sea is 23–38%
+foam above V 0.95 (this doc's own "Contrast / foam" numbers) and clouds pass the same
+mask, so an unwindowed largest component floods out of the plume into foam, the grey ship
+at frame left, and the cloud bank — reproducing bbox x[0,661] = **64.4%W at fill 0.350**,
+against the windowed plume's clean 39.1%W at fill 0.584. **Any trail criterion without a
+stated window is measuring the ocean.**
 
 MEASURED addition: the trail's TAIL ages into a chain of discrete round white puffs
 (t226, t332, t120 — measured above at mean V 0.870), and a launch throws large white
