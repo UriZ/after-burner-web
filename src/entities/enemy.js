@@ -20,40 +20,51 @@ const {
 // records for the player airframe.
 //
 // WHO OWNS WHAT: src/entities/enemySprite.js belongs to the sprite-art lane
-// and it draws the artwork. This file owns only WHICH livery each aircraft
-// gets — type and stage in, a livery name out — so the two lanes do not both
-// author enemy appearance.
+// and it draws the artwork — LIVERIES and the palettes are theirs. This file
+// owns only WHICH livery each aircraft gets: type, pattern and stage in, a
+// livery key plus a night flag out. The two lanes never both author enemy
+// appearance.
 //
-// The interface requested from that lane, and reported to the team lead:
+// Their shipped signature (R5 interface I1) is
 //
-//     export function enemyTexture(aspect, livery, detail)
-//     // aspect: 'headOn' | 'rear'; livery: a key below; detail: near/far
+//     enemyTexture(aspect, livery, detail, night)
+//     // aspect 'headOn'|'rear'; livery a key of their LIVERIES
+//     // ('grey' | 'camo' | 'interceptor' | 'prop'); detail near/far;
+//     // night = per-livery palette swap
 //
-// It is FEATURE-DETECTED rather than imported by name, so this file works
-// against their current module (four no-arg getters) and against the
-// parameterised one, with no second edit needed when theirs lands. If
-// `enemyTexture` is absent every enemy simply draws the existing stage-1
-// grey, which is what ships today — the livery field is still computed and
-// still correct, so it is readable from __combatStats either way.
+// — one argument more than I asked for, because they made the night swap a
+// modifier on each livery rather than a livery of its own, which is the
+// better decomposition: a night stage 3 flies the same grey MiGs as stage 1,
+// just palette-swapped.
+//
+// It is still FEATURE-DETECTED. Their resolvePalette() falls back to 'grey'
+// for an unknown key rather than throwing, so a mismatch here would show up
+// as a silently un-swapped sprite rather than as an error — exactly the
+// failure mode that is hard to notice. Keeping the guard means this file
+// degrades to the shipped stage-1 grey if that export is ever removed,
+// instead of crashing combat.
 const LIVERY_BY_STAGE = [
-  // stage 1 (ocean): white/grey MiG-types, with red/orange interceptors
-  { base: 'grey', interceptor: 'interceptor' },
-  // stage 2 (desert/autumn): green camo, silver/blue props in the opener
-  { base: 'camo', interceptor: 'interceptor', overtake: 'prop' },
-  // stage 3 (night): palette-swapped
-  { base: 'night', interceptor: 'night', overtake: 'night' },
+  // stage 1 (ocean): white/grey MiG-types, with red/orange interceptors.
+  { base: 'grey', interceptor: 'interceptor', night: false },
+  // stage 2 (desert/autumn): green camo, silver/blue props in the opener.
+  { base: 'camo', interceptor: 'interceptor', overtake: 'prop', night: false },
+  // stage 3: the stage-1 liveries under the night palette swap, NOT a
+  // separate livery — GAME_SPEC.md §4 lists camo/interceptor/prop as stage
+  // identities and treats night as a swap applied on top.
+  { base: 'grey', interceptor: 'interceptor', night: true },
 ];
 
 function liveryFor(stageIndex, type, pattern) {
-  const table = LIVERY_BY_STAGE[stageIndex] ?? LIVERY_BY_STAGE[0];
-  if (pattern === 'overtake' && table.overtake) return table.overtake;
-  if (type === 'interceptor' && table.interceptor) return table.interceptor;
-  return table.base;
+  const t = LIVERY_BY_STAGE[stageIndex] ?? LIVERY_BY_STAGE[0];
+  let key = t.base;
+  if (pattern === 'overtake' && t.overtake) key = t.overtake;
+  else if (type === 'interceptor' && t.interceptor) key = t.interceptor;
+  return { key, night: t.night };
 }
 
 const hasLiveries = typeof enemySprite.enemyTexture === 'function';
 function textureFor(aspect, livery, detail) {
-  if (hasLiveries) return enemySprite.enemyTexture(aspect, livery, detail);
+  if (hasLiveries) return enemySprite.enemyTexture(aspect, livery.key, detail, livery.night);
   if (aspect === 'rear') return detail ? enemyRearTexture() : enemyRearFarTexture();
   return detail ? enemyHeadOnTexture() : enemyHeadOnFarTexture();
 }
