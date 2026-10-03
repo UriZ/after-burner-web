@@ -251,10 +251,13 @@ uncontrolled operator is how the defective triple shipped):
 | **nozzle-centre separation, % of SPAN** | 112.2 px = **30.1%** | 112.2 px = **30.1%** | **25–35%** | 14.5% |
 | **blade cant**: blade-pair half-separation at the topmost fin row ÷ at the lowest fin row | 64.0/49.5 = **1.29** | 62.5/51.0 = **1.23** | **≥1.15** (tops further outboard than roots) | **1.00** (vertical slot) |
 
-The "ours R4" column is this operator re-run on the two panels of
-`judging/R4/cmp-09-jet-sprite-ours-TOP-arcade-BOTTOM.png`; it reproduces the R4 judge's
-independent native-scale readings (38% vs 8/21=38%, 12.6 vs 12.3, 14.5 vs 14.0, aspect
-2.499 vs 2.478) to ≤0.5 pt, so the operator and the judge agree on both aircraft.
+The "ours R4" column is this operator re-run on the *ours* panel of
+`judging/R4/cmp-09-jet-sprite-ours-TOP-arcade-BOTTOM.png` (a composite, so its absolute
+scale is unknown — but all four statistics are ratios and were shown scale-invariant
+above). It reproduces the R4 judge's independent native-scale readings of our build to
+≤0.5 pt: 38% vs his 8/21 = 38%, 12.6 vs 12.3, 14.5 vs 14.0, aspect 2.499 vs 2.478. The
+arcade column was measured directly from the video, not from the composite. So the
+operator and the judge agree on both aircraft, by separate routes.
 
 **SANITY BOUNDS ONLY — these do NOT discriminate, never accept on them alone:**
 
@@ -506,10 +509,53 @@ anti-aliasing gate). **Never judge speed from frames sampled below 60 fps** — 
 ground texture aliases temporally (Nyquist) even at 15 fps; stills support only
 pose/scale/composition claims.
 
-Stage-1 clouds (ADOPTED #132 arcade-side measurement, HUD-verified span): banks on
-screen in 68–69% of frames; banks/frame median 1, p90 5, max 6; bank width median
-9.26 %W (p90 21.49), height median 6.04 %H, aspect median 0.97. Stage 1 is the only
-stage with measured cloud data; stage 6 is the arcade's dense-cloud stage (unmeasured).
+### Stage-1 clouds — and the operator the numbers were taken with (OPERATOR ADDED R5)
+
+ADOPTED #132 arcade-side measurement over the HUD-verified stage-1 span t=88–120 of
+`ab2-longplay.mp4` (686×480, 33 frames): banks on screen in **68–69%** of frames;
+banks/frame median **1**, p90 **5**, max **6**; bank width median **9.26 %W** (p90
+**21.49**, max **42.27**), height median **6.04 %H**, aspect median **0.97**. Stage 1 is
+the only stage with measured cloud data; stage 6 is the arcade's dense-cloud stage
+(unmeasured).
+
+**These numbers are operator-dependent and R4 showed the two defensible operators disagree
+by nearly 3× (threshold p90 width 8.56%W vs isolation 23.88%W on the same build). Measure
+ours with THIS operator, because it is the one the arcade numbers above came from.**
+Source: `../afterburner/tools/measure_clouds.py` (the #132 classifier). Stated in full:
+
+- **Segmentation**: `saturation < 0.25 ∧ V > 0.80`, where V = max(R,G,B)/255 and
+  saturation = (max−min)/max — i.e. **bright and low-saturation**, at the frame's stored
+  resolution, **never upscaled**.
+- **Analysis window**: rows **2%H to 45%H** only. This is load-bearing, not tidying: the
+  same threshold matches **white aircraft and sea foam**. On the cloudless t=94 every
+  qualifying component below the window is a fuselage or a wave crest. Widening the window
+  without adding aircraft/foam rejection inflates the count with jets.
+- **HUD exclusion**: for arcade frames, rects (as fractions of W,H)
+  `(18/686, 20/480, 400/686, 58/480)` and `(495/686, 30/480, 660/686, 105/480)`. **For our
+  build, derive the exclusion per run with `tools/hud_mask.py` — never hardcode a box.**
+  With clouds disabled, a mis-sized rect left the HIT counter's digits exposed and the
+  build "reported a cloud in 100% of frames while rendering none".
+- **Components**: 8-connected, **≥150 px**. Discard any component **wider than 90%W** —
+  that is the horizon haze seam, not an object (it previously reported "clouds" of median
+  width 100.0%W).
+- **Truncation**: a bank touching either window cut has a height that is a lower bound.
+  **Height and aspect come from untruncated banks only; width is always pooled** (a
+  horizontal cut cannot change a width, and truncation preferentially selects large banks,
+  so an untruncated-only width median is biased small — 7.07 against the pooled 9.26).
+- **ASPECT IS NORMALISED, NOT GEOMETRIC**: `aspect = (width/W) / (height/H)`. On a 1.43:1
+  frame the same bank measures **0.97 normalised and 1.39 in pixels**. Building to a pixel
+  aspect of 0.97 renders banks **1.43× too tall**. Both frame shapes in play are ~1.429
+  (686×480 = 1.4292, 960×672 = 1.4286), so matching one matches the other; any other frame
+  shape must re-derive it.
+
+**Instrument control (R5)**: reimplemented from the prose above, independently of that
+script, and run on t=88–120 extracted frame-by-frame: presence **72.7%**, count median
+**1** / p90 **5.0** / max **5**, width median **8.16 %W** / p90 **21.43** / max **42.27**,
+untruncated height median **5.62 %H**, normalised aspect median **1.06**. Every figure
+lands inside the classifier's own published accept bands (58–80% / 8.0–11.0 / 38–46 /
+5.0–7.5 / 0.85–1.10) and the width max is exact, so the operator above is the right one.
+The R4 build's failing figure under this operator is **p90 width 8.56 %W against the
+arcade's 21.49** — presence and height already pass; do not retune those.
 
 ## Enemies
 

@@ -65,7 +65,11 @@ gp t257, t271, t281. Key frames committed: `reference/death-starburst-gp-t202.pn
 
 - **Death sequence**: hit → an orange burst ON the jet and a fireball grows around it,
   jet silhouette still visible inside (~0.5–1 s) → a SCREEN-FILLING multi-lobe yellow/
-  orange starburst (~60%W, ~1 s) → the burnt dark-red hulk of the F-14 tumbles AWAY from
+  orange starburst (~60%W, ~1 s) **with a WHITE-HOT core** — deep-red rim → orange →
+  yellow → near-white, ≥40% of its pixels above V 0.95 and its brightest decile at
+  saturation ≤0.30 (MEASURED R5 on `death-starburst-gp-t202.png` and
+  `ab2-arcade-huge-explosion.jpg` — REFERENCE.md "Fireball targets"; the old t357-derived
+  percentiles describe fading smoke and cannot see the core) → the burnt dark-red hulk of the F-14 tumbles AWAY from
   the camera, shrinking toward the horizon, while the screen is otherwise empty of the
   player (~3–4 s; the world keeps scrolling) → respawn. This REPLACES the prototype's
   tumble-to-bottom-clamp death (spin at 360°/s, fall 1 s): the arcade hulk falls INTO
@@ -158,10 +162,14 @@ gp t257, t271, t281. Key frames committed: `reference/death-starburst-gp-t202.pn
   hysteresis margin (~0.85×) stops bracket flicker between similar-distance enemies
   (ADOPTED). **Audio cues cannot be measured from frames** — the lock-tone order
   (acquire → tone → fire) is a stated bound, not verified; needs an audio pass.
-- Missile trail: continuous opaque white→grey ribbon with 2.7× value taper near the
-  missile (MEASURED — REFERENCE.md), aging into a chain of discrete round white puffs at
-  the tail (MEASURED: puff chains at t226, t332, t120); curves visibly as the missile
-  turns into the target. Kill = large explosion; score is NOT awarded at the kill (see
+- Missile trail: continuous opaque **WHITE** ribbon — mean V ≥0.90 and mean saturation
+  ≤0.10 in daylight, ≥0.85 at night; it is white on night stages too, only ~6% dimmer
+  (MEASURED R5 over stages 1/3/4 — REFERENCE.md). The old "white→grey with 2.7× value
+  taper" came from `ab2-arcade-night-missiles.jpg`, which contains no smoke trail at all;
+  the 2.7× taper is now flagged UNVERIFIED and the 0.37 value it carried is withdrawn —
+  implementing it is what made our daylight trail black. The trail ages into a chain of
+  discrete round white puffs at the tail (MEASURED: puff chains at t226, t332, t120);
+  curves visibly as the missile turns into the target. Kill = large explosion; score is NOT awarded at the kill (see
   §6 — kills pay through the stage-end HIT tally).
 
 ## 4. Enemies
