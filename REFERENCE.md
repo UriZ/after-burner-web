@@ -190,7 +190,82 @@ AB2 ground is **dithered/streaked, not flat** (stage-1 sky modal share 97.8% vs 
   where the wings erupt to the full 330 px span. Fin structure above the wing plane =
   68–71 px = **56–58% of total silhouette height** (wing-onset threshold 30%/50% of max
   span respectively). Corroborates the R2 judge's 57–62%. The fins are TALL blades, not
-  stubs.
+  stubs. **Caveat added R5**: this share is frame-dependent — the same operator on t168
+  gives 54/113 = **47.8%**, because the nacelles widen higher up in that pose. Treat
+  56–58% as a t175 fact, not as an acceptance bound; the acceptance bounds are the
+  silhouette discriminators below.
+
+### Silhouette discriminators, astern view (MEASURED R5 — REPLACES the R3 aspect/fin-%/step triple)
+
+**Why this section exists.** R3's acceptance triple (silhouette aspect 2.4–3.0, fin-region
+max row width ≤20% of max, "step" in the row profile) **cannot tell our jet from the
+arcade's**. R4 measured one operator on both: aspect ours **2.478** vs arcade **2.475**;
+fin-region width ours **12.3%** vs arcade **16.2%** — near-identical scores for a solid
+centred tuning-fork over a flat plank (ours) and two separated outboard canted blades over
+swept wings (the arcade). Re-verified R5 and it is worse than "non-discriminating": on the
+arcade's *own* t168 the fin-region width reads **21.0–24.4%**, so the ≤20% bound **fails the
+reference aircraft**. A 1-D row-width profile is blind to where the fins are; use the
+operator below, which is explicitly 2-D.
+
+**Operator JET-SIL (state it exactly; every number below is reproducible from it).**
+
+1. **Frame**, read at its stored resolution — **never upscale**. Arcade: `ab2-longplay-60fps.mp4`
+   (1028×720) at t=175 and t=168, both level-astern night poses isolated on black.
+   Ours: a `?fixed=1` capture at ≥960 px frame width (below ~250 px of jet span the blades
+   are not resolvable and the operator is meaningless).
+2. **Window**, chosen to contain the jet and exclude ground/HUD: t175 `x[310,730] y[340,458]`;
+   t168 `x[320,720] y[344,460]`. For our build derive HUD exclusion with `tools/hud_mask.py` —
+   never hardcode a box.
+3. **Mask** = `max(R,G,B) > 30` (V>0.12) on a dark background, or the achromatic mask
+   `saturation < 0.35 ∧ V > 0.08` over a saturated sky. Then keep **only the largest
+   8-connected component** — this drops debris, stars and HUD text that would otherwise
+   corrupt the fin extent (it did: it inflated fin extent from 35.7% to 38.9% on t175).
+4. **row width** = **count of filled pixels in the row** (NOT the row's left-to-right
+   extent; R3's published 53 px / 16.1% is a filled count and the extent reading is
+   ~2.4× different). `S` = max row width. **SPAN** = max row *extent* = the wingspan.
+   `H` = silhouette height.
+5. **Fin band** = rows from the silhouette top down to, but excluding, the first row whose
+   filled width ≥ `0.30·S` (the "30% wing onset" of the R3 text).
+6. A fin-band row **contains two separated blades** if it holds ≥2 runs of ≥2 consecutive
+   mask pixels whose inter-run gap is ≥ `0.03·SPAN` px (min 2 px).
+7. **Nozzles** = afterburner glow: hue 5–55°, S ≥ 0.45, V ≥ 0.45; take the two largest
+   8-connected components and their x-centroids.
+
+**Controls this operator passes before it is pointed at anything** (run them; an
+uncontrolled operator is how the defective triple shipped):
+
+| control | published | JET-SIL re-run | result |
+|---|---|---|---|
+| t175 fin-region max row width, px | 53 (R3) | **53** | exact |
+| t175 fin-region width, % of max row | 16.1 (R3) / 16.2 (R4) | **16.2–16.4** | exact |
+| t175 wingspan as %W | 36.3 (this doc, column-run method) | **36.28** | exact |
+| same statistics on the 686×480 t175 instead of the 1028×720 | — | 100% / 35.5% / 30.0% | **scale-invariant** |
+| V threshold swept 25→60 | — | all three stable to ≤0.4 pt | threshold-stable |
+
+**ACCEPTANCE TARGETS (arcade, two independent frames):**
+
+| statistic | t175 | t168 | target band for our jet | ours R4 |
+|---|---|---|---|---|
+| **fin rows containing two separated blades** | 67–68/68 = **99–100%** | 54/54 = **100%** | **≥90%** | 38% (62/162) |
+| **fin-pair lateral extent, % of SPAN** | 132–133 px = **35.4–35.7%** | 132 px = **35.4%** | **30–40%** | 12.6% |
+| **nozzle-centre separation, % of SPAN** | 112.2 px = **30.1%** | 112.2 px = **30.1%** | **25–35%** | 14.5% |
+| **blade cant**: blade-pair half-separation at the topmost fin row ÷ at the lowest fin row | 64.0/49.5 = **1.29** | 62.5/51.0 = **1.23** | **≥1.15** (tops further outboard than roots) | **1.00** (vertical slot) |
+
+The "ours R4" column is this operator re-run on the two panels of
+`judging/R4/cmp-09-jet-sprite-ours-TOP-arcade-BOTTOM.png`; it reproduces the R4 judge's
+independent native-scale readings (38% vs 8/21=38%, 12.6 vs 12.3, 14.5 vs 14.0, aspect
+2.499 vs 2.478) to ≤0.5 pt, so the operator and the judge agree on both aircraft.
+
+**SANITY BOUNDS ONLY — these do NOT discriminate, never accept on them alone:**
+
+- **Aspect = SPAN ÷ H** (extent-based, threshold-stable): arcade **3.24** (t175) / **3.30**
+  (t168) across V 25–60. Band **3.0–3.6**. R3's filled-pixel aspect is not usable as a
+  bound: the same two frames give 2.61–2.96 depending only on the V threshold, and ours
+  scores 2.50 against the arcade's 2.48.
+- **Span 34–38%W**, **centroid 52–60%H** (unchanged, from the sections above).
+- The old **fin-region max row width** figure stays in this doc as a *description*
+  (t175 53 px = 16.2%, t168 70 px = 21.4%) and is **withdrawn as an acceptance bound**.
+
 - **Canopy coverage bound** (MEASURED on `ab2-arcade-reload-dorsal.jpg`, 181×127): the
   canopy is a single compact patch — largest connected component of the magenta mask
   (hue 250–330°, S>0.25, V>0.15) is **8 px in a 4×2 bbox at x[90,93] y[70,71] = 0.035%
