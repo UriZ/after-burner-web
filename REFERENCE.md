@@ -197,6 +197,35 @@ AB2 ground is **dithered/streaked, not flat** (stage-1 sky modal share 97.8% vs 
 
 ### Silhouette discriminators, astern view (MEASURED R5 — REPLACES the R3 aspect/fin-%/step triple)
 
+> ## THE REFERENCE CROP IS AUTHORITATIVE OVER EVERY NUMBER BELOW.
+>
+> **Draw against the crop first; measure second.** The statistics in this section exist to
+> *catch a wrong silhouette*, not to *define a right one*. No set of scalars specifies a
+> shape, and the R4 judge's finding is precisely that a silhouette authored **to the
+> statistics** can match the arcade's aspect ratio to three decimals and still not read as
+> an F-14. If a shape satisfies every number here and does not look like the crop when you
+> put them side by side, **the crop wins and the numbers are incomplete** — report that
+> rather than shipping the shape.
+>
+> **The authoritative crops**, in order of authority:
+> 1. `reference/stage3-night-level-t175.png`, crop **x[207,487] y[227,306]** (686×480) —
+>    committed, level astern, isolated on black. View it at 4–8× **nearest-neighbour**.
+> 2. The same pose with ~2.2× the pixels, for blade and nacelle detail:
+>    `ffmpeg -ss 168 -i .reference-cache/video/ab2-longplay-60fps.mp4 -frames:v 1 t168.png`,
+>    crop **x[320,720] y[344,460]** (1028×720). t=168 is inside the HUD-verified stage-3
+>    span (160–196 in `STAGE_MAP.md`) and is the cleanest astern pose in the footage.
+> 3. `reference/ab2-arcade-reload-dorsal.jpg` — the airframe-structure reference (canopy
+>    placement, greyscale ladder); the jet is small there, so use it for structure, not
+>    proportion.
+> 4. `judging/R4/cmp-09-jet-sprite-ours-TOP-arcade-BOTTOM.png` — ours against the arcade at
+>    matched size. The single most useful image for seeing what is wrong.
+>
+> What the crop shows that no scalar in this section captures: wings that **sweep** and
+> **taper** to the tip rather than ending as planks; nacelles that are separate bodies with
+> the fuselage visible *between* them; the fins rising **from the nacelles**, not from the
+> spine; a magenta canopy fleck as the topmost body element; and twin small ventral fins
+> below the nozzle line. Draw those, then confirm with the table.
+
 **Why this section exists.** R3's acceptance triple (silhouette aspect 2.4–3.0, fin-region
 max row width ≤20% of max, "step" in the row profile) **cannot tell our jet from the
 arcade's**. R4 measured one operator on both: aspect ours **2.478** vs arcade **2.475**;
@@ -521,7 +550,9 @@ the only stage with measured cloud data; stage 6 is the arcade's dense-cloud sta
 **These numbers are operator-dependent and R4 showed the two defensible operators disagree
 by nearly 3× (threshold p90 width 8.56%W vs isolation 23.88%W on the same build). Measure
 ours with THIS operator, because it is the one the arcade numbers above came from.**
-Source: `../afterburner/tools/measure_clouds.py` (the #132 classifier). Stated in full:
+The #132 classifier is transcribed **in full** below so this repo needs nothing outside it
+(CLAUDE.md: standalone). Every constant is reproduced; nothing is left as a reference to an
+external file:
 
 - **Segmentation**: `saturation < 0.25 ∧ V > 0.80`, where V = max(R,G,B)/255 and
   saturation = (max−min)/max — i.e. **bright and low-saturation**, at the frame's stored
