@@ -94,14 +94,33 @@ const GLYPHS = {
 const GLYPH_W = 5;
 const GLYPH_H = 7;
 
-// 8-neighbour ring. Offsets are in CANVAS pixels, not glyph cells, so the
-// keyline stays 1 native px however large the text is scaled — which is how
-// the arcade's own keyline behaves (2 ref px = 1 native px on the 7-native-px
-// SCORE letters AND on the much larger title/tally text).
+// Keyline ring: the FOUR axis neighbours plus the bottom-right corner.
+// Offsets are in CANVAS pixels, not glyph cells, so the keyline stays 1
+// native px however large the text is scaled — which is how the arcade's own
+// keyline behaves (2 ref px = 1 native px on the 7-native-px SCORE letters
+// AND on the much larger title/tally text).
+//
+// WHY FIVE AND NOT EIGHT. The pixel-artist lane pushed back that a full
+// 8-neighbour ring overwhelms strokes this thin, and the pixel counts agree:
+// inside the score-digit box our 8-ring put 190 keyline px against 95 fill
+// px (ratio 2.00) where the arcade's own digits on t116 measure 0.45. The
+// three diagonal offsets that are NOT bottom-right contribute the most bulk
+// for the least separation, because an axis neighbour already covers every
+// exposed edge of a 1-px stroke.
+//
+// WHY NOT THE SHADOW-ONLY FORM THEY PROPOSED. Measured, not argued: with
+// right+below only, the score digits' worst glyph pixel scores 2.43:1 on
+// stage 1 and 2.63:1 on stage 2 — under the 3:1 bar — because a pixel on a
+// glyph's TOP or LEFT edge has no shadow neighbour and meets the raw world.
+// The median stays 17.95:1, which is exactly the trap: a median-based
+// criterion passes it. Captures: tools/out/presentation-r5/{shadowonly,ring5}.
+//
+// Five offsets measured IDENTICAL contrast to eight on every element and
+// every stage (score digits 17.95:1, STAGE 5.35:1, stage digit 16.95:1,
+// emblem 3.92:1) while dropping keyline pixels 190 -> 165, and it reads
+// visibly cleaner on a 10x crop. So this is the free half of their point.
 const OUTLINE_OFFSETS = [
-  [-1, -1], [0, -1], [1, -1],
-  [-1, 0], [1, 0],
-  [-1, 1], [0, 1], [1, 1],
+  [0, -1], [-1, 0], [1, 0], [0, 1], [1, 1],
 ];
 // Arcade-faithful subset: the drop shadow AB2 uses on text that already sits
 // on a white plate (t116 SCORE emblem — black appears only right and below
