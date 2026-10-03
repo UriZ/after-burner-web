@@ -80,10 +80,21 @@ export class GameFlow {
     // isn't itself testing death — lets a density/combat capture run
     // 30s+ uninterrupted instead of losing 3 lives in the first 24s to the
     // normal hit-test. Never read in normal play.
+    //
+    // `?demo=2` ALSO implies it (combat-dev's follow-up measurement: even
+    // after their lethality fixes, each death costs the full measured 8-9s
+    // sequence, so a judge capturing `?demo=2` would see roughly half dead
+    // animation rather than combat). combatDemo.js's own header says what
+    // it's for: "a judge or QA pass can capture firing, locking and a
+    // missile salvo unattended and deterministically" — it is a combat-
+    // systems demonstration, not a lives/death playthrough, so dying
+    // mid-demo defeats its own purpose. `?demo=1` (the real attract flight)
+    // is NOT included here — that path is meant to show the whole game
+    // including death/respawn/continue, same as unmodified play.
     const params = new URLSearchParams(location.search);
     this._forceDeathAt = params.has('forcedeath') ? Number(params.get('forcedeath')) : null;
     this._forcedDeathDone = false;
-    this._debugInvincible = params.has('invincible');
+    this._debugInvincible = params.has('invincible') || params.get('demo') === '2';
 
     if (demoActive) {
       this.state = 'flight';
