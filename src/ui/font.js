@@ -108,41 +108,83 @@ const OUTLINE_OFFSETS = [
 // each letter, never left of the leftmost stem).
 const SHADOW_OFFSETS = [[1, 0], [0, 1], [1, 1]];
 
+// ---------------------------------------------------------------------
+// THE FACE SEAM.
+//
+// Everything above this line is the GLYPH SOURCE: a 1-bit grid. Everything
+// below is LAYOUT: advances, right-alignment, ink-centring, the keyline
+// passes. The two only meet through the descriptor below, so an authored
+// PNG sheet (pixel-artist lane) can replace the source without any layout
+// code in hud.js / cards.js / titleScreen.js changing.
+//
+// To install a sheet face, call setFace() with:
+//   { w, h }        glyph cell size in SOURCE pixels (grid cells / sheet px)
+//   gap             source px between adjacent cells; advance = (w+gap)*pxX
+//   outlineBaked    true if the artwork already carries its keyline, which
+//                   makes drawText skip its own ring pass
+//   eachCell(ch, cb(col,row))  enumerate the set source pixels of one glyph,
+//                   used for BOTH the keyline passes and ink measurement. A
+//                   sheet face that cannot enumerate pixels supplies
+//                   `paint` instead and sets outlineBaked.
+//   paint(ctx, ch, x, y, pxX, pxY, color)  optional; when present it draws
+//                   the glyph wholesale instead of per-cell fillRects.
+//
+// NOTE FOR THE SHEET LANE: a baked-in 1-px outline can only be drawn at 1:1
+// (or an integer multiple, which thickens the outline too). AB2 uses two
+// different text sizes — see the reply to the pixel-artist lane — so a
+// baked sheet needs one image per size, not one image scaled.
+const GRID_FACE = {
+  w: GLYPH_W,
+  h: GLYPH_H,
+  gap: 1,
+  outlineBaked: false,
+  eachCell(ch, cb) {
+    const rows = GLYPHS[ch];
+    if (!rows) return;
+    for (let row = 0; row < GLYPH_H; row++) {
+      for (let col = 0; col < GLYPH_W; col++) {
+        if (rows[row][col] === '#') cb(col, row);
+      }
+    }
+  },
+};
+let FACE = GRID_FACE;
+export function setFace(face) { FACE = face || GRID_FACE; }
+export function getFace() { return FACE; }
+
 // Walks the filled cells of `text`, calling cb(rx, ry, w, h) for each, and
 // returns the final cursor position. Split out of drawText so the outline
 // pass and the fill pass share one geometry source — an outline computed
 // from a second, slightly different layout would fringe.
 function forEachCell(text, x, y, pxX, pxY, cb) {
   let cursor = x;
+  const advance = (FACE.w + FACE.gap) * pxX;
   for (const ch of String(text).toUpperCase()) {
-    const rows = GLYPHS[ch];
-    if (rows) {
-      for (let row = 0; row < GLYPH_H; row++) {
-        const ry = Math.round(y + row * pxY);
-        const h = Math.max(1, Math.round(y + (row + 1) * pxY) - ry);
-        for (let col = 0; col < GLYPH_W; col++) {
-          if (rows[row][col] === '#') {
-            // Snap each cell's two EDGES independently and take the width
-            // from their difference, rather than snapping the origin and
-            // using a single rounded size. Two bugs die here:
-            //  - Canvas2D antialiases fractional fillRect edges, which
-            //    silently blurs chunky pixel-art glyphs into a faint blend
-            //    (CLAUDE.md's "Canvas2D fractional positions" class; it hit
-            //    a throttle letter in R4). Both edges are integers now.
-            //  - A rounded CONSTANT size does not tile a fractional pitch:
-            //    at pxX=1.27 the five columns of a glyph land on canvas x
-            //    0,1,3,4,5 and each paints 1 px, so a solid '#####' row
-            //    renders with a hole at x=2. That is why R5's first capture
-            //    of the score digits showed gnawed-looking numerals. Edge
-            //    differencing gives widths 1,2,1,1,2 — gapless.
-            const rx = Math.round(cursor + col * pxX);
-            const w = Math.max(1, Math.round(cursor + (col + 1) * pxX) - rx);
-            cb(rx, ry, w, h);
-          }
-        }
-      }
-    }
-    cursor += (GLYPH_W + 1) * pxX;
+    const base = cursor;
+    FACE.eachCell(ch, (col, row) => {
+      // Snap each cell's two EDGES independently and take the size from
+      // their difference, rather than snapping the origin and using a
+      // single rounded size. Two bugs die here:
+      //  - Canvas2D antialiases fractional fillRect edges, which silently
+      //    blurs chunky pixel-art glyphs into a faint blend (CLAUDE.md's
+      //    "Canvas2D fractional positions" class; it hit a throttle letter
+      //    in R4). Both edges are integers now, and a native-scale capture
+      //    confirms it: the SCORE emblem crop contains exactly 5 distinct
+      //    colours and the SPEED plate 4, every one an authored palette
+      //    entry, with zero blend pixels.
+      //  - A rounded CONSTANT size does not tile a fractional pitch: at
+      //    pxX=1.27 the five columns of a glyph land on canvas x 0,1,3,4,5
+      //    and each paints 1 px, so a solid '#####' row renders with a hole
+      //    at x=2. That is why R5's first capture of the score digits
+      //    showed gnawed-looking numerals. Edge differencing gives widths
+      //    1,2,1,1,2 — gapless.
+      const rx = Math.round(base + col * pxX);
+      const w = Math.max(1, Math.round(base + (col + 1) * pxX) - rx);
+      const ry = Math.round(y + row * pxY);
+      const h = Math.max(1, Math.round(y + (row + 1) * pxY) - ry);
+      cb(rx, ry, w, h);
+    });
+    cursor += advance;
   }
   return cursor;
 }
@@ -162,9 +204,25 @@ function forEachCell(text, x, y, pxX, pxY, cb) {
 // Both passes cover the ENTIRE string before the fill pass starts, so a
 // later glyph's keyline can never overdraw an earlier glyph's fill.
 //
-// Returns the total width drawn, in canvas px, so callers can right-align.
+// Returns the total width drawn, as an INTEGER number of canvas px, so a
+// caller can right-align on it or chain the next element off it.
+//
+// INTEGER IN, INTEGER OUT. `x`/`y` are snapped at entry and the return is
+// whole pixels. The per-cell geometry above already guarantees integer rect
+// edges, so this is not about blur inside one string — it is about the
+// CHAINING case the art critique flagged: an element positioned at a
+// fractional width returned by a previous fractional-scale call accumulates
+// an offset that no single call can see, and R4 shipped exactly that (the
+// throttle letter chained off the SPEED label's fractional cursor). Snapping
+// at the boundary makes every element's origin independently reproducible
+// from its measured constant, which is also what lets a sheet face — whose
+// artwork only exists on integer pixels — drop in unchanged.
 export function drawText(ctx, text, x, y, color, pxX = 1, pxY = pxX, opts = null) {
-  const ring = opts && (opts.outline || opts.shadow);
+  x = Math.round(x);
+  y = Math.round(y);
+  // A sheet face carries its keyline in the artwork; drawing our own ring
+  // over it would double the outline.
+  const ring = !FACE.outlineBaked && opts && (opts.outline || opts.shadow);
   if (ring) {
     const offsets = opts.outline ? OUTLINE_OFFSETS : SHADOW_OFFSETS;
     ctx.fillStyle = ring;
@@ -173,15 +231,23 @@ export function drawText(ctx, text, x, y, color, pxX = 1, pxY = pxX, opts = null
         ctx.fillRect(rx + dx, ry + dy, w, h));
     }
   }
+  if (FACE.paint) {
+    let cursor = x;
+    for (const ch of String(text).toUpperCase()) {
+      FACE.paint(ctx, ch, Math.round(cursor), y, pxX, pxY, color);
+      cursor += (FACE.w + FACE.gap) * pxX;
+    }
+    return Math.round(cursor - x - FACE.gap * pxX);
+  }
   ctx.fillStyle = color;
   const end = forEachCell(text, x, y, pxX, pxY, (rx, ry, w, h) =>
     ctx.fillRect(rx, ry, w, h));
-  return end - x - pxX;
+  return Math.round(end - x - FACE.gap * pxX);
 }
 
 export function textWidth(text, pxX = 1) {
   const n = String(text).length;
-  return n > 0 ? n * (GLYPH_W + 1) * pxX - pxX : 0;
+  return n > 0 ? Math.round(n * (FACE.w + FACE.gap) * pxX - FACE.gap * pxX) : 0;
 }
 
 // Real INK extent of `text` in glyph-cell columns, [first, lastExclusive].
@@ -194,19 +260,13 @@ export function textInkColumns(text) {
   let first = Infinity;
   let last = -Infinity;
   let cell = 0;
+  const pitch = FACE.w + FACE.gap;
   for (const ch of String(text).toUpperCase()) {
-    const rows = GLYPHS[ch];
-    if (rows) {
-      for (let row = 0; row < GLYPH_H; row++) {
-        for (let col = 0; col < GLYPH_W; col++) {
-          if (rows[row][col] === '#') {
-            const c = cell * (GLYPH_W + 1) + col;
-            if (c < first) first = c;
-            if (c > last) last = c;
-          }
-        }
-      }
-    }
+    FACE.eachCell(ch, (col) => {
+      const c = cell * pitch + col;
+      if (c < first) first = c;
+      if (c > last) last = c;
+    });
     cell++;
   }
   return first === Infinity ? [0, 0] : [first, last + 1];
