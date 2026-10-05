@@ -37,7 +37,13 @@ async function main() {
   const server = await createServer({
     root: ROOT,
     configFile: path.join(ROOT, 'vite.config.js'),
-    server: { strictPort: false },
+    // hmr:false + watch:null is a CORRECTNESS guard, not a speed tweak. A probe
+    // run spans many seconds of wall clock on a tree several lanes edit; an HMR
+    // reload mid-run either kills the page ("Execution context was destroyed")
+    // or silently resets simTime without killing it, and the probe then reports
+    // a wrong number with no error. Same fix as tools/capture.mjs and
+    // tools/fairness_probe.mjs -- a judge reads combat ground truth from here.
+    server: { strictPort: false, hmr: false, watch: null },
     logLevel: 'error',
   });
   await server.listen();
