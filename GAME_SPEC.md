@@ -11,6 +11,16 @@ reference-matching. Every item is tagged:
 - **ASSUMED** — believed correct (arcade knowledge / plausible fill-in); needs verification
   before anyone treats it as ground truth.
 
+**COLOUR CAVEAT (R5b).** Every hex constant in this file beginning `#ff…` was sampled from a
+longplay video frame, and **the longplay video is not level-accurate**: it tops the arcade's
+`0xf7` palette ladder out at `0xff` and lifts chroma (pure HUD red reads `#f70000` on a native
+320×224 screenshot and `#ff1000`–`#ff1400` on every video frame). See REFERENCE.md, "THE
+LONGPLAY VIDEO IS NOT LEVEL-ACCURATE". The constants below are good for *hue and structure*;
+treat the exact levels as ~3 % bright, and re-derive from a native screenshot wherever one of
+the same stage exists (this repo has two: `ab2-arcade-desert.png` = stage 2,
+`ab2-arcade-night-banking.png` = stage 3). None of §3's muzzle-flash, §4's lock-bracket or
+§6's fireball colours has a native source, so they stand as-is with this caveat attached.
+
 Round-3 verification pass: timestamps `tN` cite the longplay timeline (see REFERENCE.md).
 The 60 fps cache file (`ab2-longplay-60fps.mp4`, 1028×720) was verified to be the SAME
 recording as the 686×480 map-keyed file (identical scene and HUD values at t84 and t116,
@@ -98,6 +108,130 @@ gp t257, t271, t281. Key frames committed: `reference/death-starburst-gp-t202.pn
   the arcade punishes wall hits; prototype collision is enemy/bullet only).
 - Invincibility must be pass-through for already-overlapping bodies when it expires
   (ADOPTED #103 — otherwise expiry scores an undodgeable hit).
+
+### Lethality: deaths per minute, and the denominator it was never given (RESTATED R5c)
+
+R4 gap 5 reads "**≤1.5 deaths/minute** averaged over ≥3 minutes of `?demo=1`" and **never
+names its denominator**. It is the seventh criterion this project has had to repair, and it
+fails in the family way: the number stops meaning what it meant when the build improves.
+
+**Why it moved.** It was drafted when a death cost **8.5 s** of non-interactive time; that is
+now **5.2 s**, and the playable share of wall clock has gone from ~35 % to ~70–78 %.
+Shortening the death cycle puts more flight seconds into the same wall clock, so **deaths per
+minute of WALL CLOCK rises even when deaths per minute of FLIGHT TIME is unchanged.**
+Identical lethality scores worse against the criterion than it did when the criterion was
+written. A lane tuning to the wall-clock reading would be compensating for another lane's
+improvement by **making the game easier than the arcade** — tune to the number, lose the
+thing, exactly as with the fin bound, the trail brightness, the explosion palette and the
+cloud window.
+
+**Restatement, binding from R5c:**
+
+- **PRIMARY — deaths per minute of FLIGHT TIME.** Denominator: ticks with
+  `flow.state === 'flight'` (verified present in `src/game/flow/flow.js`; it is the only
+  state in which the player has the controls; the other five — `launch`, `death`,
+  `continue`, `title`, `attract` — are separate states. Note `fairness_probe.mjs` also
+  reports a `tally` share: **no such state exists in `flow.js`**, so that field is always 0
+  and must not be read as "time spent at the stage tally").
+- **SECONDARY — deaths per minute of wall clock**, reported *alongside*, never alone.
+- **Both figures must name their denominator in the same line as the number.** A bare
+  "deaths/min" is not a reportable quantity in this repo.
+
+**How to produce both from the existing tool**, without changing it: `tools/fairness_probe.mjs`
+already emits `deathsPerMin` (deaths ÷ wall-clock seconds × 60) and `stateShare.flight` (per
+cent of samples in `flight`). Then
+
+```
+deathsPerFlightMin = deathsPerMin / (stateShare.flight / 100)
+```
+
+Report `deaths`, `seconds`, `stateShare.flight` and both rates, per seed and pooled. Sample
+**every tick** (`--every 1`): the probe's state share is a sample fraction, and `?demo=1`'s
+attract regime cycle is exactly 16.000 s, so any sampling interval dividing it is a coherent
+subsample — see "Sampling a periodic signal" below.
+
+**R4's 3.0–3.5 baseline is NOT comparable to a current wall-clock reading.** It was measured
+on the old 8.5 s cycle, i.e. against a different denominator. Only a flight-time comparison is
+apples to apples. Worked conversion, on other lanes' self-reported inputs and offered as
+arithmetic rather than as a measurement of mine: 3.0–3.5 wall-clock at ~35 % flight share is
+**8.6–10.0 deaths per flight-minute**; a current 1.78–3.11 wall-clock at 70–78 % is
+**2.3–4.4**. The direction of travel is real and large; **the endpoints are not settled** —
+deaths/min read 3.56–4.00, then 3.56–5.33, then 1.78–3.11 within one session, on a tree whose
+denominator was moving at the same time. Re-measure before quoting.
+
+**The ≤1.5 threshold itself is UNVERIFIED and is not a gate.** Its denominator was never
+stated, so it cannot be converted into a flight-time figure. I tried to measure the arcade's
+own death rate to replace it, and the attempt is reported below as a **withdrawal with a
+bound** — but it turned up something better than a number.
+
+#### A deaths/min target cannot be read off footage at all (MEASURED-ATTEMPT, WITHDRAWN R5c)
+
+**The attempt.** `ab2-gameplay.mp4` (VP9, 640×360, 866.5 s) is the only cached recording
+containing player deaths. Sampled at 2 fps (1 733 frames), feature = fraction of the body
+region y[48,310] that is warm (`R>180 ∧ G>90 ∧ B<110`), scored as a **spike above a ±10 s
+rolling median** — a raw warm-fraction threshold is useless because the desert stages' ground
+*is* that colour and 24 % of all frames pass it. Threshold 12 points, 2.5 s clustering:
+**43 events**. It **recovers 4 of the 4** deaths hand-identified in this section
+(gp t198–218, t257, t271, t281).
+
+**Why it is withdrawn.** All 43 detections were cropped and read on two contact sheets
+(`tools/out/criteria-fix-r5c/death-sheet0.png`, `death-sheet1.png`). **Only 18–19 are
+death-sized starbursts or a visible READY card** — precision ≈ **43 %**. The rest are
+desert-stage baseline shifts, small ground-target explosions, the attract screen and the
+refuel runway. Recall is unestablished and is *structurally suppressed* in the bright yellow
+stages (t770–840), where the baseline warm fraction is **47–74 %** and no death can raise a
+spike above it. A second discriminator — the player's nozzles vanishing, so warm collapses
+for the 3 s after a real death — **does not separate the classes** (ratio 0.07–162 across the
+same eye-classified deaths) and is withdrawn too.
+
+**The bound, and nothing more:** 19 death-sized events in 866.5 s is **1.32 per minute of
+wall clock**, with both error directions live. Order 1–3/min. **Not a gate, not a target.**
+
+**What the attempt actually established — and it retires the whole shape of this criterion.**
+`ab2-gameplay.mp4` yields ~1.3 deaths/min. `ab2-longplay.mp4` is **988 s of the same ROM with
+zero player deaths**. Two recordings of the same arcade game differ by every death there is,
+because **a deaths/min figure read off a recording measures that pilot's skill, not the game's
+lethality.** Our `?demo=1` is an autopilot running a fixed policy — a third skill level again.
+Comparing our demo's deaths/min against a human recording's compares three different things,
+and no choice of denominator fixes that.
+
+**So: deaths/min is a REGRESSION GUARD, not an arcade-fidelity criterion.** Use it to notice
+that a change made the game 2× more lethal than last round — on the flight-time denominator,
+same seeds, same tree state. Do not tune it toward a number taken from footage.
+
+**The fidelity question should be asked of pilot-independent properties instead**, all of
+which `tools/fairness_probe.mjs` already emits and none of which depend on who is flying:
+per-shot **warning time** (`warningMedian` — telegraph plus time of flight), **shots in air**
+(`meanShotsInAir`), **telegraphs started**, and the respawn-into-live-fire count
+(`shortLives` / `respawnLives`). Those are measurable on the arcade side from footage *and* on
+ours, and they are what "is the difficulty right" actually means. Deriving arcade targets for
+them is unstarted and is the recommended replacement for this criterion.
+
+**Tree state is part of the citation** (REFERENCE.md "What a complete citation is"): a
+deaths/min figure from the shared working tree and one from a clean checkout are different
+measurements. R4's critic and player-feel differed by 6 vs 9 deaths in 120 s for exactly this
+reason, and neither was wrong.
+
+**Sampling a periodic signal.** `demoTimeline.js`'s attract regime cycle is exactly 16.000 s.
+Sampling at any interval that divides it is a coherent subsample, not a random one: the same
+run and the same operator gave canyon lateral sd **1.41 %W at one 1 Hz phase and 6.41 %W at
+another**, where every-tick reads 2.48 and an incommensurate 53-tick interval reads 2.50. R4's
+published canyon **6.19 %W is retired** — it sits inside the aliased range and was reproduced
+at 6.21 by accident before the interval was changed. Any distribution statistic over `?demo=1`
+(sd, spread, percentile, rate) **must sample every tick or at an interval incommensurate with
+16.000 s, and must say which.** CLAUDE.md's "no speed claims from sub-60 Hz sampling" was
+written about motion; it applies to distribution statistics too, and there it fails
+*silently*, because the wrong value is stable and reproducible at every fixed phase.
+
+**`?demo=1` is two populations.** Cruise lateral sd 12.50 %W at pixel-centroid cy 52.75 %H;
+canyon 1.85 %W at cy **63.52 %H**. The canyon altitude is outside the 52–60 %H composition
+band *on purpose* — that band was drawn against cruise frames (REFERENCE.md's own canyon cy is
+63.5 %H). A composition reading from a random `?demo=1` frame mixes the two and reads out of
+band about 31 % of the time. **Capture cruise only, or split by regime** (`simTime % 16 < 11`
+is cruise). Cruise lateral extent is a distribution, not a point: the cited "13.20 %W" is one
+draw from a per-window spread of **8.71–18.18 %W**, and the pooled value is **19.02 %W**
+(closed form 19.30) — genuinely ~48 % too wide. Quote cruise with its window length and its
+spread.
 
 ## 3. Weapons
 

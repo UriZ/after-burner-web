@@ -21,8 +21,9 @@ a real fireball can share a p50. Isotropic specks and drawn wave streaks can sha
 autocorrelation ratio. A 2.475:1 silhouette can be an F-14 or a crab claw — that one is not
 hypothetical, it is R4's actual finding.
 
-This project has now retired **six** criteria as non-discriminating or plain wrong across
-three rounds. Every one of them was a summary statistic, and every one of them was passed by
+This project has now retired or repaired **eight** criteria as non-discriminating or plain
+wrong across three rounds — the ledger is at the end of this section so the count stops
+drifting. Every one of them was a summary statistic, and every one of them was passed by
 a build that looked nothing like the arcade.
 
 The two criteria below **cannot be laundered**, because they do not describe appearance —
@@ -31,6 +32,25 @@ a palette-and-dither renderer satisfies them almost automatically. They are one-
 measurements, they are cheap, and both would have caught every defect in `judging/R4/
 art-critique.md` in round 1. They come from that report; the numbers below are my independent
 re-measurement of its claims, including the places where I had to correct them.
+
+### The defective-criteria ledger (maintained; add a row, do not re-count from memory)
+
+| # | criterion | what was wrong | round | status |
+|---|---|---|---|---|
+| 1 | jet fin-region width bound | **inverted** — the arcade's own t168 reads 21.0–24.4 %W and FAILS it while our wrong jet PASSES at 12.6 % | R4→R5 | REPLACED by the four discriminators under "Player jet" |
+| 2 | missile-trail brightness mean V 0.37 | measured from a **night HUD's whole-frame grey average**; the cited frame contains no trail. Hitting it made our daylight trail black | R4→R5 | REPLACED: ≥0.90 V / ≤0.10 sat day, ≥0.85 / ≤0.10 night |
+| 3 | explosion palette (t357 percentiles) | measured from **fading smoke** in a desert-tinted frame; blind to the white-hot core | R4→R5 | REPLACED by the fireball targets + FIRE-MASK |
+| 4 | stage-1 cloud size/presence (#132 figures) | correct operator, **90 % non-cloud population** — 12 of 120 components were banks | R5 | REPLACED (size); presence **UNRESOLVED**, not a gate |
+| 5 | zero-cloud / HUD-overlap control | contradicted the arcade, which shows a bank behind SCORE / HIT; it compressed every bank into 32–58 %H | R5 | RETIRED |
+| 6 | sea cross-track anisotropy 6.51× | **floor-limited** (divisor clamped to 1 px) and compared across two resolutions | R5 | RESTATED 4.95× vs arcade 5.21× at a common 686×480; R4 gap 10 **withdrawn as a defect** |
+| 7 | `?demo=1` canyon lateral sd 6.19 %W | **aliased** — sampled at an interval dividing the 16.000 s attract cycle; same run reads 1.41–6.41 at different phases | R5 | RETIRED; sampling requirement now published |
+| 8 | gap 5 "≤1.5 deaths/minute" | **denominator never named**, and it moved: a death cost 8.5 s, now 5.2 s, so identical lethality now scores worse. Deeper: the figure **measures the pilot, not the game** — our two recordings of the same ROM give ~1.3/min and **zero** | R5c | RESTATED (flight-time primary) **and DEMOTED to a regression guard**; see GAME_SPEC.md §2 |
+| — | stage-2 open-plain target (median 4.2 %) | **4-frame sample** of a statistic with IQR 1.1–39.3; true median over 65 frames is 19.7 % | R5c | REPLACED by a distribution — see "Stage-2 open plain" |
+| — | HUD "≥3:1 luminance contrast vs local background" | **candidate** — the arcade's own bottom strip may fail it; on two of three ink classes the arcade has no halo at all and ours is 2–24× more separated | R5 | OPEN, assigned to presentation — run it on the arcade before tuning to it |
+
+The pattern across all of them: the number was satisfiable by something that looked nothing
+like the arcade, and in four cases tuning to it moved the build **away** from the reference.
+**Before tuning to a criterion, check the criterion against the arcade itself.**
 
 ## Criterion A — colour cardinality
 
@@ -152,13 +172,15 @@ pairing I tried. Use the numbers in the table above, which name their region.
 
 ## Sources and provenance
 
-- **Video**: `../afterburner/.reference-cache/video/ab2-longplay.mp4` — 686×480, 30 fps,
+- **Video**: `.reference-cache/video/ab2-longplay.mp4` — 686×480, 30 fps,
   AV1, 988.7 s. All `tN` frame citations are exact single-frame extractions:
   `ffmpeg -ss N -i ab2-longplay.mp4 -frames:v 1 out.png` (single-frame `-ss` is exact on
   this machine; *sequence* extraction from AV1 files starts ~4 s early — never derive
   timestamps from sequence indices).
-- **Stage identity**: every stage claim uses the HUD-verified stage↔timestamp map in
-  `../afterburner/scripts/stage/stage_data.gd` (header). Verified spans (seconds):
+- **Stage identity**: every stage claim uses the HUD-verified stage↔timestamp map, which
+  now lives in this repo as `STAGE_MAP.md` (it was ADOPTED from the prototype's
+  `stage_data.gd` header; **this repo is standalone, do not reach outside it**).
+  Verified spans (seconds):
   stage 1: 88–120, 2: 124–156, 3: 160–196, 4: 200–240, 5: 244–256, 6: 260–304,
   7: 308–340, 8: 344–372, 9: 376–424, 10: 428–468, 11: 472–508, 12: 512–548,
   13: 552–568, 14: 572–608, 15: 612–652, 16: 656–692, 17: 696–724, 18: 728–764,
@@ -173,6 +195,39 @@ pairing I tried. Use the numbers in the table above, which name their region.
   masks). The mask AND the extent method for each number are stated where the number is
   used — they differ per frame and the difference matters (see the jet-span note below).
   The sky "mode" figures are modal colors of the band y=55–130 full-width.
+
+### What a complete citation is — and the field that was missing (MEASURED R5c)
+
+A citation in this document proves **provenance**, not relevance. R5 established that even a
+complete-looking provenance line is not enough to reproduce a figure. Every measured number
+published from here on states **all five** of:
+
+1. **Source** — frame file or `tN` timestamp, and the **stored resolution** it was read at.
+   Native 320×224 outranks any upscale (see "Native frames outrank upscales"), and a
+   sub-native JPEG outranks nothing.
+2. **Region** — crop box or band, in pixels at the stated resolution *and* as %W/%H.
+3. **Operator** — the exact predicate, including the metric. "Within 24 of `#e67300`" is
+   **not** an operator: Chebyshev (max per-channel |Δ| ≤ 24) and Euclidean (L2 ≤ 24) are
+   both natural readings and the Chebyshev cube is 6.6× the volume of the Euclidean ball.
+   Name the one you used. (Project-recurring: a stable small disagreement between two lanes
+   is usually two definitions of one statistic, not an error in either.)
+4. **Population** — *which* frames, how many, and over what span. A number from 4 frames of a
+   33-frame span is not a property of the span; §"Stage-2 open plain" below is the worked
+   example, where a 4-frame sample put the arcade's median at 4.2 % and all 65 frames of the
+   same span put it at 19.7 %.
+5. **Tree state** — for any figure measured off **our build**: a commit-ish, or the explicit
+   words *"uncommitted working tree, N lanes live"*. This is new in R5c and it is not
+   pedantry. The R4 critic's playable-fraction figure and player-feel's differed widely; it
+   was neither sampling rate (re-sampling at the old rate agreed to **0.12 points**) nor
+   operator — it was the **death count, 6 vs 9**, because one measured the shared tree with
+   other lanes' uncommitted work in it and the other a clean checkout of `7b4617a^`. Both
+   were right about the tree they were taken on. "The working tree on the afternoon of the
+   Nth" is not a reproducible citation.
+
+**Corollary, binding on the judge: the judge measures a CLEAN CHECKOUT, not the live shared
+tree.** With six lanes editing one tree at once, a judge figure taken mid-round describes a
+state that never existed as a commit and that nobody can re-derive. Arcade-side measurement
+is unaffected — the footage does not move — so arcade numbers need fields 1–4 only.
 
 ### Measuring OUR captures: the native grid (VERIFIED R5)
 
@@ -263,9 +318,34 @@ only, never per-stage claims:
 
 Plus the 9 screenshots inherited from the Godot repo (`ab2-arcade-*.png/jpg`): desert,
 desert-explosions, night-banking, night-missiles, closeup-enemies, coastal-banking,
-city-stage, huge-explosion, reload-dorsal. These carry **no proven stage identity** —
-use them for pose/palette/detail, not per-stage claims. `ab2-arcade-reload-dorsal.jpg`
-(jet astern, isolated on black) is the player-sprite structure reference.
+city-stage, huge-explosion, reload-dorsal. `ab2-arcade-reload-dorsal.jpg` (jet astern,
+isolated on black) is the player-sprite structure reference.
+
+> **CORRECTED R5b — "these carry no proven stage identity" was false for four of the nine,
+> and it cost a round.** `src/game/stage.js` repeated the claim for
+> `ab2-arcade-night-banking.png` and confined stage-3 city lights to a near-field sliver on
+> that basis; the resulting build drew every light below row 199 of 224, entirely behind the
+> bottom HUD — **zero visible lights and a passing mean-V statistic**. The identity was
+> readable the whole time: **crop the bottom HUD strip and read the STAGE digit.** Done on
+> all nine (crops re-derivable: bottom 14 %H, x 0.52–0.95 W, nearest-neighbour upscale):
+
+| frame | stored size | STAGE digit | confidence |
+|---|---|---|---|
+| `ab2-arcade-desert.png` | 320×224 **native** | **2** | certain |
+| `ab2-arcade-night-banking.png` | 320×224 **native** | **3** | certain |
+| `ab2-arcade-desert-explosions.png` | 400×280 (1.25×) | **2** | certain |
+| `ab2-arcade-closeup-enemies.jpg` | 1440×1080 | **2** | certain |
+| `ab2-arcade-night-missiles.jpg` | 181×127 (**sub-native**) | 3 | low — glyph is ~4 px wide before JPEG |
+| `ab2-arcade-reload-dorsal.jpg` | 181×127 (**sub-native**) | 3 | low — same |
+| `ab2-arcade-city-stage.jpg` | 181×127 | unreadable | — |
+| `ab2-arcade-coastal-banking.jpg` | 181×127 | unreadable | — |
+| `ab2-arcade-huge-explosion.jpg` | 181×127 | unreadable | — |
+
+> So: the two **native-resolution** frames in this repo are a **stage-2** frame and a
+> **stage-3** frame, and both are now stage-anchored. The five 181×127 JPEGs are 0.57× of
+> native and lossy — treat anything measured on them as palette-and-structure evidence only,
+> which is what the Explosions section already says. **Before declaring a frame unidentified,
+> read its HUD digit.**
 
 ## Sky palettes
 
@@ -275,8 +355,38 @@ AB2 skies are flat fills, so the mode is exact):
 | stage | frame | sky top | modal share | near-horizon |
 |---|---|---|---|---|
 | 1 | t116 | `#009eff` (also at (343,20)) | 0.82 | same — no glow |
-| 2 | t140 | `#f27500` (at (343,20)) | 0.60 | glows toward gold near terrain; t144 (600,100) reads `#ea9631` |
+| 2 | t140 | ~~`#f27500`~~ → **`#e67300`** (see below) | 0.60 | glows toward gold near terrain; t144 (600,100) reads `#ea9631` |
 | 3 | t175 | `#000000` | 0.91 | near-black; a thin dark-blue band sits just above terrain: (620,308) = `#000131` |
+
+> **THE LONGPLAY VIDEO IS NOT LEVEL-ACCURATE. Re-derive from a native screenshot where one
+> exists (MEASURED R5b).** The arcade's palette ladder tops out at **`0xf7`** (247) — this
+> document's own "colour ladder" section is built on that, from the native PNGs. Every frame
+> taken from `ab2-longplay.mp4` instead tops out at **`0xff`**. Measured on art that is
+> pixel-identical in every frame, the bottom HUD:
+>
+> | source | HUD white | HUD red |
+> |---|---|---|
+> | `ab2-arcade-desert.png`, `ab2-arcade-night-banking.png` (320×224 **native**) | `#f7f7f7` | `#f70000` |
+> | `t089`, `t116`, `t140`, `t175` (686×480 video), `t100.75` (1028×720 video) | `#ffffff` | `#ff1000`–`#ff1400` |
+>
+> So the video chain expands levels (and lifts chroma: pure red gains ~`0x10` of green).
+> **Any sky/ground constant quoted to the exact level off a video frame is systematically
+> brighter than the arcade's.** Where a native frame of the same stage exists, it wins:
+>
+> | stage | published (video source) | **native re-derivation** | ADOPTED Godot table |
+> |---|---|---|---|
+> | 2 sky top | `#f27500` (t140, 686×480) | **`#e67300`** — `ab2-arcade-desert.png`, 320×224, modal of band y=55–130/480-equivalent, share **0.661**; corroborated `#e67300` share 0.613 on `ab2-arcade-desert-explosions.png` (400×280) | `#e67100` |
+> | 3 sky top | `#000000` (t175) | **`#000000`** — `ab2-arcade-night-banking.png`, share 0.883 | `#000005` |
+>
+> Stage 2's published `#f27500` is **12 levels brighter in R** than the arcade's own
+> `#e67300`; the "small deltas vs my reads are re-encode noise, both chains are cited" note
+> below is now resolved — the ADOPTED chain was right and the video read was the artifact.
+> Stage 3 needs no change. **Stage 1 cannot be re-derived: there is no native stage-1 frame
+> in this repo**, so `#009eff` keeps its video provenance and should be assumed to carry the
+> same expansion (the ADOPTED `#009fff` is the better value for the same reason).
+> Neither 686×480 (2.14375×) nor 1028×720 (3.2125×) is an integer multiple of 320×224, so
+> **native cannot be recovered from the video by decimation** — only a native screenshot
+> settles a level.
 
 ADOPTED — all-23-stage sky table: `../afterburner/scripts/stage/stage_data.gd` `STAGES`
 (sky_top/sky_horizon per stage; measured as modal color of y=55–150 over 5 frames per
@@ -311,6 +421,68 @@ Stage 1 extras (ADOPTED, #135): island vegetation green H=120° S=1.0 V75=0.514;
 wall grey-green stage 8 `H 64.6° S 0.25 V75 0.459`, stage 17 `H 111.3° S 0.17 V75 0.353`.
 AB2 ground is **dithered/streaked, not flat** (stage-1 sky modal share 97.8% vs ground
 5.7% — same source).
+
+### Stage-2 open plain — publish a RANGE, and know what the statistic actually counts (MEASURED R5c)
+
+**Source** `.reference-cache/video/ab2-longplay.mp4`, STAGE_MAP-verified stage-2 span
+**t = 124.0–156.0 sampled at 0.5 s, n = 65**, stored 686×480; stage digit read as **2** on
+the eight frames cropped and looked at (`tools/out/criteria-fix-r5c/annot-high.png`,
+`annot-low.png`), so stage identity is confirmed on the frames and not only by the map.
+**Operator** `tools/measure_plain_share.py` — fraction of the ground band **y[310,420]**
+(64.6–87.5 %H), full width, whose colour is within **Chebyshev 24** of `#e67300`. Instrument
+control `--synthetic` is exact to **0.000000 %** on both metrics, including pixels placed at
+the boundary of each (`#e67300+(24,0,0)` passes both; `+(14,14,14)` passes Chebyshev and
+fails Euclidean), so a one-level slip in the comparison would show as a whole-row error.
+
+| | min | p25 | **median** | p75 | p90 | max |
+|---|---|---|---|---|---|---|
+| **arcade, n = 65** | 0.00 | 1.11 | **19.72** | 39.26 | 50.91 | 63.58 |
+| same, Euclidean 24 | 0.00 | 0.35 | 18.32 | 38.13 | 49.47 | 61.50 |
+| same, band y[340,420] | 0.00 | 0.20 | 15.74 | 38.12 | 47.27 | 60.63 |
+| same, x[40,646] | 0.00 | 0.60 | 15.73 | 38.12 | 51.40 | 65.31 |
+
+**There is no single flat-fraction target — the thing to reproduce is the VARIATION.** The
+band is empty of plain (<1 %) in **16 of 65** frames and over 28 % in **23 of 65**. Both ends
+are the arcade; a build sitting at either one is wrong.
+
+**The accept band for ours: median 12–26 %, max ≥ 45 %, and at least 15 % of frames below
+1 %.** Drawn wide on purpose — the statistic is a positional lottery (below) — and it is
+stated as a distribution because a point value cannot be satisfied honestly.
+
+**Correction to the previously published arcade figures.** "t134 0.0 %, t138 0.0 %, t142
+33.0 %, t150 8.4 %, median 4.2" is a **4-frame sample of a statistic whose interquartile
+range is 1.1–39.3**, and it landed in the low tail: its median 4.2 is the midpoint of the two
+lowest of its four draws. On the full span the median is **19.7 %**. The conclusion drawn
+from it — that ours (self-reported 0.5–28.0 %, median 9.9, on the R5 working tree) "brackets
+both range and median" — **does not survive the larger sample**: our median is about half the
+arcade's, and our maximum sits below the arcade's p75, so we never reach the regime the
+arcade is in for **a third of the span**. The direction of the remaining work is *more* open
+plain and *more* frame-to-frame swing, not less. Robust to the operator: all four variants
+above agree on median 15.7–19.7 and on 22–23 of 65 frames above 28 %.
+
+**I could not reproduce the published t142/t150 values with any variant I tried** (closest:
+x[40,646] gives 33.49 / 9.09 against the published 33.0 / 8.4; full-width Chebyshev gives
+35.42 / 13.20). The published operator had an unstated column restriction or object
+exclusion. This is field 3 of the citation rules above, and it is why they now exist.
+
+**What the statistic actually counts, and why its name is wrong.** Stage 2's sky and its open
+plain are **the same colour**. The target `#e67300` is this document's own *native stage-2 sky
+top*; on the video it reads `#f27500`, and `#f27500` passes a ±24 Chebyshev test against
+`#e67300` (Δ = 12). Measured on pure-sky rows y[60,90]: **96.9 / 98.2 / 72.8 / 84.4 / 76.5 %**
+of them pass the "open plain" mask at t136.5 / t155.0 / t125.0 / t134.0 / t150.0, and the
+modal colour of the *band's own matched pixels* is `#f27500` — identical to the sky's. Labelled
+by 8-connectivity, **the band's orange is one connected region with the sky in 63 of 65
+frames** (median terrain-enclosed share **0.18 %**; the two frames reading 0 % sky-contiguous
+are seed failures — a cloud covering the seed rows — not enclosures, confirmed by cropping
+them). The band's top edge is only **10 px below the nominal level horizon** (62.5 %H = y 300),
+so under world roll the sky genuinely enters it and cannot be told apart.
+
+So read this number as **"fraction of the near-ground band that is uncluttered orange"**, not
+as "plain, as distinct from sky". It is still the right gate for the defect it was raised
+against — the arcade's stage-2 ground alternates between dense clutter and wide flat orange,
+ours did neither — but **do not derive a plain *colour* from it, and do not use it to locate a
+horizon.** Re-open condition for a true plain-only figure: a horizon fit (`tools/measure_horizon.py`)
+or a roll-angle gate, so sky pixels can be excluded rather than assumed absent.
 
 **Sea texture, stage 1 — direction and contrast (MEASURED; CORRECTS this doc's earlier
 "along-track" wording, which was BACKWARDS and caused a wrong implementation):**
@@ -372,6 +544,45 @@ horizontal stretch. Note `best` sits at ratio **1.99**, a hair under the 2.0 gat
 **Do not confuse this ratio with the 2-D ACF half-width anisotropy** quoted elsewhere
 (R4's "6.51× near-field, arcade 4.43×"). That is a different operator on a different patch
 and its numbers are not interchangeable with these. Whichever you use, state it.
+
+#### The 2-D ACF half-width anisotropy: 6.51× is RETIRED (MEASURED R5b)
+
+**6.51× was floor-limited, and the arcade figure it was compared against was measured at a
+different resolution.** Both faults verified independently of the world lane that reported
+them, with a second ACF implementation, on the same inputs.
+
+*Fault 1 — the floor binds.* `tools/measure_ground.py`'s `autocorr_anisotropy` returns
+`max(hx,hy) / max(min(hx,hy), 1)`. On `tools/out/world-r5b/sea-check/frame-0001.png` at the
+tool's own auto patch: native 320×224 gives hx **6.543**, hy **0.676** — the shorter
+half-width is *below one pixel*, so the divisor is clamped to 1 and the tool prints
+**6.54×** where the unfloored ratio is 9.67×. The same frame at the stored 960×672 prints
+**9.63×** from identical structure (half-widths scale by exactly 3.00, as they must — the
+capture is an exact nearest-neighbour 3× replication). A published ratio of 6.51× is
+therefore an artifact of the clamp, not a property of the texture. The auto patch at native
+is also only 53×53 px, which is thin evidence for an FFT autocorrelation.
+
+*Fault 2 — the comparison crossed resolutions.* Arcade frames are 686×480 interpolated
+upscales, and interpolation lengthens correlation lengths. At a **common 686×480 with a
+common filter** (ours resampled 960×672 → 686×480 bilinear; arcade `t116` as stored; same
+patch `(240,260)–(445,465)`):
+
+| | hx | hy | ratio |
+|---|---|---|---|
+| ours, resampled to 686×480 | **44.607** | **9.016** | **4.95×** |
+| arcade t116, as stored | **41.626** | **7.991** | **5.21×** |
+
+Agreement within **7 %** on both axes and **5 %** on the ratio. **Restate the figure as
+4.95× vs arcade 5.21× at a common 686×480. Retire 6.51×** wherever it is quoted (it is also
+in `STATUS.md`'s "what works" table).
+
+**Consequence: R4 gap 10 (sea coarseness / grain too fine) is WITHDRAWN as a defect.** The
+evidence for it was the resolution mismatch. Nothing measured is left to fix, so the
+hypothesised near-field sparkle layer should not be built on this evidence.
+**Re-open only against a common-resolution, common-filter comparison**, stated as such.
+
+**Rule this earns:** an ACF ratio is meaningless unless both sides were measured at the same
+resolution with the same filter, and unless the shorter half-width is above the estimator's
+floor. Quote `hx` and `hy` with every ratio so a reader can see when the floor binds.
 
 ## Horizon
 
@@ -639,6 +850,35 @@ accept on it; the discriminators above are the gates.
   barrel roll the horizon stays level while the jet sprite itself sweeps through
   steep/inverted poses (~1.2 s, ~60%W lateral and ~20→75%H vertical excursion). See
   `stage4-barrel-roll-t222.png` and GAME_SPEC.md §1 for caveats.
+
+### Authored vs RENDERED colour — always publish both (MEASURED R5c)
+
+Every colour in `tools/art/palettes.js` is passed through `L()` = `snapHexToLadder()` before
+it reaches a pixel, so **the hex written in the source is frequently not the hex that
+renders**. An authored-vs-rendered mismatch becomes a phantom discrepancy the moment someone
+measures the exported frame and finds a value this document does not contain.
+
+| palette entry | authored | **renders as** | pixels in the sheet |
+|---|---|---|---|
+| `PLAYER_NIGHT.nozzleCore` | `#ff7500` | **`#ff7300`** | 272 |
+| `PLAYER.nozzleCore` | `#ef7308` | **`#ef7300`** | 272 |
+| `PLAYER.keyline` | `#000008` | **`#000000`** | 2 388 |
+| `PLAYER_NIGHT.keyline` / `deepWarmShadow` | `#425284` | `#425284` (no move) | 2 652 |
+
+Measured by counting opaque pixels in `src/assets/sprites/player-f14-night.png` and
+`player-f14.png`. The two nozzle-core masks are **positionally identical and the alpha planes
+are byte-identical**, so night is the same drawing with one warm tone swapped — night's
+`#ff7300` is **one ladder step brighter in R** than day's `#ef7300` (255 vs 239, G and B
+equal), which is a real and intended difference, not an instrument artifact. Night is also
+one ladder step from the arcade's measured `#ff7500` nozzle (t175 crop x[207,487] y[227,306],
+279 px, modal `#ff7500`) — inside the documented snap tolerance.
+
+**Tree state (citation field 5, and this entry is its own worked example): uncommitted working
+tree, six lanes live, sheets 900×72.** The committed sheet at `db554e6` is a *different
+drawing* — 900×40, nozzle core `#c594f7`/`#a400d6` magenta, **no orange at all** — so the
+table above reproduces on neither HEAD nor any earlier commit. A previously circulated count
+of 486 px for these masks does not reproduce on HEAD or on the working tree; it describes
+some third intermediate state and should not be cited.
 
 ## HUD (686×480 coordinates; divide by 686/480 for fractions)
 
@@ -983,16 +1223,106 @@ pose/scale/composition claims.
 
 ### Stage-1 clouds — and the operator the numbers were taken with (OPERATOR ADDED R5)
 
-ADOPTED #132 arcade-side measurement over the HUD-verified stage-1 span t=88–120 of
-`ab2-longplay.mp4` (686×480, 33 frames): banks on screen in **68–69%** of frames;
-banks/frame median **1**, p90 **5**, max **6**; bank width median **9.26 %W** (p90
-**21.49**, max **42.27**), height median **6.04 %H**, aspect median **0.97**. Stage 1 is
-the only stage with measured cloud data; stage 6 is the arcade's dense-cloud stage
-(unmeasured).
+> **RETIRED R5b — the #132 size figures were a correct operator over the wrong population.**
+> The numbers below (width median 9.26 %W, height median 6.04 %H, aspect 0.97, presence
+> 68–69 %, count 1/5/6) are **not cloud measurements** and must not be tuned to. They are
+> preserved only so the retirement is auditable. Replacement figures: "Stage-1 cloud banks
+> — CLOUD-ONLY, hand-classified" immediately below.
+>
+> ~~ADOPTED #132 arcade-side measurement over the HUD-verified stage-1 span t=88–120 of
+> `ab2-longplay.mp4` (686×480, 33 frames): banks on screen in **68–69%** of frames;
+> banks/frame median **1**, p90 **5**, max **6**; bank width median **9.26 %W** (p90
+> **21.49**, max **42.27**), height median **6.04 %H**, aspect median **0.97**.~~
+>
+> Why it was wrong: the operator's mask (bright + achromatic) is satisfied by the launch
+> carrier's superstructure, the HUD reticle's attitude line on empty sky, white enemy
+> airframes, missile smoke plumes, explosion smoke, coastline surf, islands and sea foam,
+> every one of which lands inside the 2–45 %H window. **Re-running the operator over its own
+> source span t=88–120 at 0.5 s (65 frames, 120 components) and cropping and classifying
+> every component by eye: 12 are cloud banks and 108 are not.** The first 10 frames
+> (t88.0–92.5, the catapult launch) contribute 30 components and **zero** clouds — all
+> carrier island, antenna masts, deck markings, the checkerboard elevator pad, and four
+> instances of the HUD attitude line at 19.83 %W × 0.83 %H (normalised aspect 23.8).
+> Evidence, re-derivable from this repo alone: `tools/classify_clouds.py` (independent
+> reimplementation of the operator below, synthetic control PASS, see its docstring) plus
+> the annotated contact sheets written by it.
+
+Stage 1 is the only stage with measured cloud data; stage 6 is the arcade's dense-cloud
+stage (unmeasured).
+
+#### Stage-1 cloud banks — CLOUD-ONLY, hand-classified (MEASURED R5b)
+
+**What was measured:** the bounding box of every component the #132 operator returns that a
+human then identified as a cloud bank, and nothing else.
+**In which frames:** `ab2-longplay.mp4`, stage-1 span **t = 88.0–120.0 at 0.5 s** (65 frames
+at the stored 686×480 — the #132 span, sampled 2× denser). Frames re-extracted independently
+and verified **bit-identical** to the world lane's set, so any disagreement is classification,
+not extraction.
+**With which operator:** exactly the #132 operator transcribed below, reimplemented
+independently in `tools/classify_clouds.py` (synthetic control: width error 0.000 %W at two
+resolutions, 8-connectivity, min-area, haze discard, window, truncation and normalised aspect
+each checked against a known input). It returns the same 120 components as
+`tools/measure_clouds.py`.
+**Over which population:** the **12 of 120** components that are cloud banks. The per-bank
+table is in `judging/R5/lane-criteria-fix.md`; every bank is croppable from the frame and
+bbox given there.
+
+| statistic (45 %H window, pooled) | retired #132 | **cloud banks only** | accept band for ours |
+|---|---|---|---|
+| width %W median | 9.26 | **20.41** (p25 10.71, p75 28.43) | **14–24** |
+| width %W p90 / max | 21.49 / 42.27 | **34.02 / 42.27** | p90 **25–40** |
+| height %H median (pooled) | 6.04 | **24.17** | **16–28** |
+| normalised aspect median | 0.97 | **0.86** (p25 0.77, p75 0.89) | **0.75–1.00** |
+| presence / count per frame | 68–69 % / 1-5-6 | see "UNRESOLVED" below | not a gate |
+
+Sanity floor, independent of any percentile choice: **10 of the 12 banks are wider than the
+retired 9.26 %W median and all 12 are taller than the retired 6.04 %H median.** The retired
+medians sit below almost every real bank — that is the defect, in one line.
+
+**Heights are LOWER BOUNDS and the 45 %H window is why.** 7 of the 12 banks are cut by it.
+Re-measuring the same banks over the **whole sky above a per-frame fitted horizon**
+(`tools/measure_horizon.py`, synthetic control PASS, overlays inspected on all 55 frames)
+the 8 banks that stay unmerged read width median **11.81 %W**, height median **14.69 %H**,
+normalised aspect median **0.82**, and the three largest grow: t106.0 15.83→**16.46 %H**,
+t120.0 28.33→**33.33 %H**, t118.0 37.71→**43.12 %H**. The other 4 merge with sea, surf or
+haze once the window opens, which is why the full-sky window is NOT the published operator
+(see "UNRESOLVED" below). Take the two windows as a bracket: **bank width median lies in
+11.8–20.4 %W and height median in 14.7–24.2 %H**; the accept bands above are drawn inside
+that bracket on the published (45 %H) operator so they stay re-runnable.
+
+**Three operator defects found while classifying — read these before quoting any number:**
+
+1. **The HUD rects sever tall objects into spurious high-aspect "banks".** Blanking
+   `(18,20,400,58)` splits a smoke plume or a coastline band that passes behind it into a
+   piece above and a piece below. Six components in this span are the *above* piece: thin
+   strips at rows 10–19, e.g. 21.72 %W × 2.08 %H, **normalised aspect 10.4**. They are not
+   objects; they are the mask's own scar. They pull the height median down hard.
+2. **The 90 %W haze-seam discard only works when the frame is level.** The stage-1 horizon
+   haze band is full-width, bright and achromatic, and the discard removes it — until the
+   world rolls, when the same band becomes a diagonal swath whose bbox is under 90 %W and it
+   is counted as a bank. At least 9 components in this span are the rolled haze band, several
+   above 19 %W.
+3. **Frame-edge truncation is unhandled.** The operator's truncation rule covers the two
+   horizontal window cuts only ("a horizontal cut cannot change a width"). A **vertical frame
+   edge** certainly can: 5 of the 12 banks touch x=0 or x=W−1, so those widths are lower
+   bounds too. Treat a bank whose bbox touches a frame edge as truncated in that axis.
+
+**Explosion smoke reads as cloud under this mask, and one colour statistic separates them.**
+Over the masked pixels of a component, mean **(R − B)**: every verified cloud bank reads
+**−1 to −12**; the two large pale masses at t99.5 and t119.5 read **+25.3** and **+27.0** with
+mean saturation 0.124–0.125 against cloud's 0.045–0.089. Both are explosion smoke — confirmed
+by stepping the footage at 0.1 s, where each appears one frame after a fireball and is gone
+within 0.2 s. **This is a screen, not a classifier:** a missile plume reads **−10.2**, i.e.
+indistinguishable from cloud, so the test catches warm smoke only. Use it to re-examine, then
+look at the crop.
+
+**UNRESOLVED — presence and banks-per-frame.** Neither is published as a target.
+See "Stage-1 cloud presence" below.
 
 **These numbers are operator-dependent and R4 showed the two defensible operators disagree
 by nearly 3× (threshold p90 width 8.56%W vs isolation 23.88%W on the same build). Measure
-ours with THIS operator, because it is the one the arcade numbers above came from.**
+ours with THIS operator, because it is the one the cloud-only arcade numbers above were
+re-derived with.**
 The #132 classifier is transcribed **in full** below so this repo needs nothing outside it
 (CLAUDE.md: standalone). Every constant is reproduced; nothing is left as a reference to an
 external file:
@@ -1022,6 +1352,25 @@ external file:
   (686×480 = 1.4292, 960×672 = 1.4286), so matching one matches the other; any other frame
   shape must re-derive it.
 
+**KNOWN BIAS IN EVERY OUR-SIDE CLOUD FIGURE — carry it with the number (MEASURED R5).**
+The HUD mask is subtracted *before* components form, so the HUD cannot be counted as a cloud
+or merge two banks — the historical failures. The risk now runs the **other** way: at the
+bank sizes we render, **55.4 % of 130 components have a bbox overlapping the HUD mask**, so a
+glyph stroke can **sever** one bank into two. Control, labelling on `(cloud OR HUD)` so a
+stroke cannot cut a bank while bbox and area still come from cloud pixels only:
+
+| | components | count med/p90/max | width median %W | p90 |
+|---|---|---|---|---|
+| HUD removed (as published) | 130 | 1 / 2 / 4 | 18.12 | 37.22 |
+| HUD permeable (control) | 126 | 1 / 2 / 3 | 18.28 | 37.34 |
+
+**Published our-side figures over-count by 3.1 % and under-state width by 0.9 %.** Small —
+8-connectivity routes around most thin strokes — but real and **directional**, so quote it
+alongside any our-side count or width. **It grows with every horizontal rule added to the
+HUD**, which contrast plates are likely to add: anyone who changes HUD geometry re-runs this
+control and republishes the bias figure rather than leaving it for the judge. The arcade side
+is unaffected (its HUD rects are fixed and its banks are measured in the sky window).
+
 **OUR SIDE IS CURRENTLY MEASURED WITH A DIFFERENT CLASSIFIER (R5 finding).**
 `tools/measure_clouds.py` in this repo diverges from the operator above on six axes, every
 one of which pushes the measured width down or the count up, so its figures are not
@@ -1049,8 +1398,49 @@ script, and run on t=88–120 extracted frame-by-frame: presence **72.7%**, coun
 untruncated height median **5.62 %H**, normalised aspect median **1.06**. Every figure
 lands inside the classifier's own published accept bands (58–80% / 8.0–11.0 / 38–46 /
 5.0–7.5 / 0.85–1.10) and the width max is exact, so the operator above is the right one.
-The R4 build's failing figure under this operator is **p90 width 8.56 %W against the
-arcade's 21.49** — presence and height already pass; do not retune those.
+
+**R5b — what that control did and did not prove.** It proved the *operator* is faithfully
+transcribed: three independent implementations now reproduce it to the second decimal.
+It proved nothing about the *population*, and the population was 90 % non-cloud.
+**Cross-validation between implementations cannot detect a population error — only looking
+at the crops can.** The old closing line here, "presence and height already pass; do not
+retune those", was the single most damaging sentence in this document: it told the cloud
+author to hold a height median taken from foam bands and HUD attitude lines. It is withdrawn.
+
+### Stage-1 cloud presence — UNRESOLVED, and why (R5b)
+
+**No presence or banks-per-frame target is published.** The build currently ships **70 %
+in-window presence, count 1 / 2 / 4**, which is **ADOPTED, not MEASURED**: a deliberate
+choice by the lead to keep the sky populated, taken in preference to a clean-looking number
+that would empty it. Do not cite 70 % as an arcade fact and do not judge against it.
+
+Three things are known, and together they are why there is no target:
+
+1. **The retired 68–69 % was presence of non-cloud objects.** Over t=88–120 at 0.5 s only
+   **7 of 65 frames** contain a hand-verified cloud bank inside the 2–45 %H window
+   (**10.8 %**), and the 10 catapult-launch frames that contribute the most components
+   contain none at all.
+2. **That 10.8 % is itself not the arcade's cloud density**, because the window stops at
+   45 %H and cannot see near-horizon cloud. The 45 %H cut truncates 7 of the 12 banks it
+   does find.
+3. **Opening the window does not fix it — it makes the population worse.** With the row cut
+   replaced by a per-frame fitted horizon (`tools/measure_horizon.py`; angle recovered
+   exactly on synthetic controls, sky-mask IoU ≥ 0.986, line overlays checked by eye on all
+   55 frames and correct even at 60°+ of roll), component presence over the same frames rises
+   to **96.4 %** with a median of **4** components per frame — the extra population is the
+   player's own white airframe, enemy airframes, missile trails, surf and the rolled haze
+   band. Worse, the large banks then merge with the sea into frame-spanning blobs
+   (t101.5 reads 71.43 %W × 85.00 %H), so bank geometry stops being measurable at all.
+
+**Conclusion: on this footage presence cannot be measured by any threshold operator without
+a hand-classification step, and the window was never the binding problem — the mask was.**
+`tools/measure_horizon.py` is kept because it is validated and because it gives untruncated
+heights for unmerged banks (above), not because it closes presence.
+
+**Condition to re-open:** an aircraft/plume/surf rejection step good enough to be validated
+on a labelled set — i.e. agreeing with a human on all 120 components of this span — or a
+hand count over a span long enough (several minutes, multiple stage-1 passes) that 10.8 %
+stops being an 7-of-65 estimate.
 
 ## Enemies
 
