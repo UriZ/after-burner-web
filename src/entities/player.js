@@ -5,7 +5,33 @@ import {
   loadPoseSheetTexture,
   selectPoseCell,
   JET_POSE_SHEET,
+  JET_POSE_SHEET_NIGHT,
 } from '../render/spriteFactory.js';
+
+// Sprite-art lane note (R5 item E): the bank-pose ladder below
+// (BANK_POSE_DEG, nearestBankPoseDeg) turned out to be exactly the right
+// shape of logic for picking a cell out of an authored pose sheet, and the
+// pixel-artist lane has now shipped `player-f14.png` and `player-f14-night.png`
+// (9 drawn poses each, render/spriteFactory.js's JET_POSE_SHEET /
+// JET_POSE_SHEET_NIGHT) -- so the normal-bank `material.rotation` line below
+// is replaced with `selectPoseCell` once a sheet finishes loading
+// (fire-and-forget at construction; the loader is null-safe, so until then --
+// or if decoding ever fails -- the original procedural rotation stays the
+// fallback, never a broken frame).
+//
+// R5b, sprite-art's ask A2: BOTH sheets are loaded and `this._night` picks
+// between them. The old `!this._night` short-circuit existed only because
+// there was no night sheet, and it meant night stages banked by SPINNING one
+// bitmap while day stages selected a drawn pose -- a difference in feel, not
+// just in art. The per-sheet null check keeps the two failure modes
+// independent: a night sheet that fails to decode falls back to the
+// procedural night texture (setNight's setJetNightPalette call puts it on the
+// material) without disturbing day, and vice versa.
+//
+// The BARREL-ROLL rotation line is intentionally left alone: neither sheet
+// covers a 360 deg roll sequence (that is a separate, not-yet-shipped
+// `player-f14-roll.png`), so a full roll still spins the procedural
+// silhouette.
 
 // "Jet roams a wide screen area" (ARCHITECTURE.md D7 item 2). Envelope is in
 // world units at the jet's fixed depth in front of the camera — placeholder
@@ -22,12 +48,22 @@ const FOLLOW_RATE = 6.0; // 1/s exponential approach toward the stick target
 // the two in the critique's own measurement, i.e. not slaved together at
 // all. We had welded jet bank to 0.8x of the slow world roll, making the
 // ONE piece of instant input feedback as sluggish as the heavy one.
-// `input.x` is still binary here (core/input.js has no analog axis yet), so
-// there are only two non-zero targets; the ladder is walked at a fast rate
-// each tick and the CURRENT angle snapped to its nearest rung, which
-// reproduces the "steps through discrete poses, doesn't ease" look even
-// from a two-state input, and collapses onto real multi-frame pose
-// selection for free if sprite-art swaps this rotation for drawn frames.
+// The ladder is walked at a fast rate each tick and the CURRENT angle
+// snapped to its nearest rung, which reproduces the "steps through discrete
+// poses, doesn't ease" look and feeds the authored pose sheet directly.
+//
+// R5b: the target is `input.x` SCALED, not just its SIGN. The original form
+// was `sign(input.x) * 35.6`, written when core/input.js was the only source
+// and its x was binary — but `?demo=1`'s stick is analog, and so is any
+// gamepad we ever add, so ANY non-zero deflection snapped the drawn jet to
+// its 35.6 deg extreme. Found by measurement, not by reading: a jet-on/
+// jet-off difference mask over seven cruise frames read a span of
+// 20.27%W against the 34-38%W band, because every frame sampled was at
+// full bank and the published band is a LEVEL-astern statistic. The arcade
+// stick is analog too (MAME segaxbd.cpp clamps it to 0x20-0xe0), and
+// REFERENCE.md's six-pose ladder is exactly what a proportional deflection
+// quantises onto. Keyboard behaviour is unchanged: |x| = 1 still targets the
+// top rung and still gets there in one tick.
 const BANK_POSE_DEG = [0, 8.4, 15.9, 23.3, 30.3, 35.6];
 const BANK_SNAP_RATE_DEG_PER_S = 1400; // comfortably over the critique's >=400 deg/s floor
 
@@ -120,6 +156,48 @@ export class Player {
     this._rollT = 0;
     this._rollDir = 1;
     this._rollCooldown = 0;
+    this._night = false;
+
+    // Pose sheet (see the top-of-file note): null until loaded, after which
+    // normal banking switches from spinning the procedural bitmap to
+    // selecting a drawn cell. Loading is async; any enemy/frame rendered
+    // before it resolves keeps using the procedural fallback, which is the
+    // point of the null check in update() below.
+    this._poseTexture = null;
+    this._poseTextureNight = null;
+    loadPoseSheetTexture(JET_POSE_SHEET).then((tex) => {
+      this._poseTexture = tex;
+      // Put the sheet on the sprite as soon as it decodes, rather than
+      // waiting for the first update(). game.js only calls update() while
+      // flow.playerControlled is true, which is FALSE for the whole ~3.5s
+      // carrier launch (launchSequence.js owns the sprite transform there)
+      // and false again through death/respawn -- so without this the jet is
+      // drawn from the procedural bitmap for the entire opening of a fresh
+      // game and switches to the sheet only once control is handed over.
+      // The two drawings are the same art today, so there is no visible pop;
+      // this removes the dependency on them STAYING identical, which is not
+      // a property either lane can keep guaranteeing.
+      this._applyLevelPose();
+    });
+    loadPoseSheetTexture(JET_POSE_SHEET_NIGHT).then((tex) => {
+      this._poseTextureNight = tex;
+      this._applyLevelPose();
+    });
+  }
+
+  // Select the level (0 deg) cell of whichever sheet is currently in force.
+  // No-op if that sheet has not decoded -- selectPoseCell returns false on a
+  // null texture and leaves the procedural fallback alone.
+  _applyLevelPose() {
+    if (this._rollActive) return; // a roll owns material.rotation; do not fight it
+    const { tex, sheet } = this._activeSheet();
+    selectPoseCell(this.sprite, tex, sheet, 0);
+  }
+
+  _activeSheet() {
+    return this._night
+      ? { tex: this._poseTextureNight, sheet: JET_POSE_SHEET_NIGHT }
+      : { tex: this._poseTexture, sheet: JET_POSE_SHEET };
   }
 
   // Read by game.js to suppress world roll for the duration (GAME_SPEC.md
@@ -127,6 +205,91 @@ export class Player {
   // produces").
   isRolling() {
     return this._rollActive;
+  }
+
+  // Measurement-only (game.js's ?fixed=1 __flowState hook). The drawn bank
+  // pose in signed degrees — the number a responsiveness probe has to read,
+  // because once the authored pose sheet is loaded the bank is a UV offset,
+  // not a `material.rotation`, and is therefore invisible to anything
+  // inspecting the sprite. `poseDeg` is the QUANTISED, drawn angle;
+  // `bankDeg` is the continuous ladder-walk behind it.
+  get bankDeg() {
+    return this._bankDeg;
+  }
+
+  get poseDeg() {
+    return Math.sign(this._bankDeg) * nearestBankPoseDeg(Math.abs(this._bankDeg));
+  }
+
+  // Roll progress 0..1, or null when not rolling — lets a probe confirm the
+  // manoeuvre ran to completion rather than inferring it from `rolling`
+  // flipping true for a tick.
+  get rollPhase() {
+    return this._rollActive ? Math.min(1, this._rollT / ROLL_DURATION_S) : null;
+  }
+
+  // Measurement-only: which drawing path the jet is on this tick —
+  // 'sheet-day' / 'sheet-night' (an authored pose cell, selected by UV
+  // offset) or 'procedural' (the single bitmap spun by material.rotation).
+  // Exists because the two are indistinguishable from outside: both end up
+  // as one sprite with one map, and a capture of a LEVEL jet looks the same
+  // either way. The claim "night banks with drawn poses, same as day"
+  // (sprite-art ask A2) is otherwise only checkable by eye on a banked frame.
+  get poseSource() {
+    const { tex } = this._activeSheet();
+    if (!tex || this.sprite.material.map !== tex) return 'procedural';
+    return this._night ? 'sheet-night' : 'sheet-day';
+  }
+
+  // Abandon a roll in progress and put the sprite back to a clean state.
+  // REQUIRED on death, and found by measurement rather than by reading:
+  // game.js only calls update() while flow.playerControlled is true, so a
+  // death that lands mid-roll freezes _rollT where it was. Probed over
+  // 135s x 3 seeds, one roll in two of the three runs lasted 6.33s instead
+  // of 1.08 — stuck at phase 0.85 for the whole 5.2s death sequence and then
+  // finishing its last 0.17s after the respawn. Three things went wrong at
+  // once for that whole window: isRolling() stayed true, so game.js held the
+  // world roll suppressed through a death that had nothing to do with a
+  // roll; the x-squish (scale.x * 0.15 at the edge-on point) stayed applied
+  // to a sprite deathSequence.js had taken over; and when the roll did
+  // expire it reset scale over whatever the respawn had set.
+  cancelRoll() {
+    if (!this._rollActive) return;
+    this._rollActive = false;
+    this._rollT = 0;
+    this._rollCooldown = ROLL_COOLDOWN_S;
+    this.sprite.scale.set(this._origScaleX, this._origScaleY, 1);
+    this.sprite.material.rotation = 0;
+    // Drop the slam history too: the flick that armed this roll must not be
+    // able to pair with a post-respawn input and fire another one.
+    this._lastFlickSign = 0;
+    this._lastFlickT = -Infinity;
+  }
+
+  // Night palette swap (GAME_SPEC.md / REFERENCE.md "Night palette swap";
+  // R5 interfaces I3). Called from game.js, which owns the stage index.
+  //
+  // Two layers, and both are needed. setJetNightPalette swaps the PROCEDURAL
+  // texture, which is what the barrel roll spins and what the fallback path
+  // draws; _applyLevelPose then puts the matching authored SHEET on the
+  // material if it has decoded. Order matters: the palette swap writes
+  // material.map, so the sheet selection has to come after it or the frame
+  // of the transition renders the procedural bitmap with the previous
+  // sheet's UV offset still applied. (setJetNightPalette is self-guarded on
+  // sprite.userData.isNight, so repeat calls with the same flag are free --
+  // game.js calls this every tick.)
+  // Known, accepted edge: a barrel roll that straddles a day/night stage
+  // boundary swaps to the PROCEDURAL night texture mid-spin, because
+  // _applyLevelPose self-guards against running during a roll. Measured at
+  // 44 ticks (0.73s) of one roll in a 135s run. Left alone deliberately —
+  // the roll spins a level astern bitmap either way, and the procedural one
+  // IS the level astern view, so the only thing that changes is which of two
+  // equivalent drawings is being spun, in the correct palette.
+  setNight(isNight) {
+    if (this._night === isNight) return;
+    this._night = isNight;
+    setJetNightPalette(this.sprite, isNight);
+    this._applyLevelPose();
   }
 
   // `worldRoll` (radians, 0 = level, matching REFERENCE.md's "Horizon tilt
@@ -196,9 +359,21 @@ export class Player {
         !this._rollActive &&
         this._rollCooldown <= 0
       ) {
+        // BEFORE setting _rollActive: _applyLevelPose self-guards against
+        // running during a roll (so the async sheet loaders cannot clobber
+        // one in progress), so arming first would make this a no-op.
+        this._applyLevelPose();
         this._rollActive = true;
         this._rollT = 0;
         this._rollDir = sign;
+        // Why the level cell: a roll is triggered by a stick slam, so the
+        // pose ladder is almost always at its 35.6 deg extreme when the roll
+        // arms, and spinning THAT drawing double-counts the bank -- the jet
+        // would enter the roll already tilted. This also makes true again
+        // what this file's header claimed and the pose sheet had quietly
+        // falsified: the roll spins a level astern drawing, as it did before
+        // the sheet landed. It is a spun bitmap either way -- see A1 in
+        // judging/R5/ask-player-feel.md for the drawn roll sequence.
       }
       this._lastFlickSign = sign;
       this._lastFlickT = this._clock;
@@ -225,11 +400,20 @@ export class Player {
 
     // Jet-sprite bank: snap toward the quantised pose ladder, driven by
     // input.x, NOT worldRoll (see BANK_POSE_DEG above).
-    const targetBankDeg = sign * BANK_POSE_DEG[BANK_POSE_DEG.length - 1];
+    const deflection = Math.max(-1, Math.min(1, input.x));
+    const targetBankDeg = deflection * BANK_POSE_DEG[BANK_POSE_DEG.length - 1];
     const maxStep = BANK_SNAP_RATE_DEG_PER_S * dt;
     const diff = targetBankDeg - this._bankDeg;
     this._bankDeg += Math.abs(diff) <= maxStep ? diff : Math.sign(diff) * maxStep;
     const poseDeg = Math.sign(this._bankDeg) * nearestBankPoseDeg(Math.abs(this._bankDeg));
-    this.sprite.material.rotation = -THREE.MathUtils.degToRad(poseDeg);
+    // -poseDeg: the sheets' bank-angle ladder uses the same sign convention
+    // this file's own rotation line did. Day or night sheet per _night
+    // (sprite-art ask A2); selectPoseCell returns false if that sheet has
+    // not decoded, and only then do we spin the procedural bitmap.
+    const { tex, sheet } = this._activeSheet();
+    const usedSheet = selectPoseCell(this.sprite, tex, sheet, -poseDeg);
+    if (!usedSheet) {
+      this.sprite.material.rotation = -THREE.MathUtils.degToRad(poseDeg);
+    }
   }
 }

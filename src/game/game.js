@@ -11,6 +11,7 @@ import { STAGE_1 } from './stage.js';
 import { Combat } from '../weapons/combat.js';
 import { combatDemoTimeline } from '../weapons/combatDemo.js';
 import { GameFlow } from './flow/flow.js';
+import { trailPaletteFor, TRAIL_NIGHT } from '../effects/trailPalette.js';
 
 const FOV_DEG = 55;
 const CAMERA_HEIGHT = 2.2;
@@ -37,6 +38,12 @@ const ROLL_MAX_DEG = 66.5; // midpoint of the measured 65-68deg saturation range
 const ROLL_RATE_DEG_PER_S = 74.5; // REFERENCE.md median measured roll rate
 const ROLL_MAX_RAD = THREE.MathUtils.degToRad(ROLL_MAX_DEG);
 const ROLL_RATE_RAD_PER_S = THREE.MathUtils.degToRad(ROLL_RATE_DEG_PER_S);
+// Only while a barrel roll is running (see update()): levels the horizon from
+// full saturation in 66.5/332.5 = 0.2s. NOT an arcade-measured rate — the
+// arcade observation is the END STATE ("the horizon stays dead level the whole
+// time"), and this is the slew chosen to reach it early enough in a 1.1s roll
+// for that description to be true of our frames too.
+const ROLL_SUPPRESS_RATE_RAD_PER_S = THREE.MathUtils.degToRad(332.5);
 
 // Player jet depth and vertical placement (jethud-dev regression report,
 // post gap-2 pitch flip): `baseY: CAMERA_HEIGHT - 1.1` was tuned against
@@ -181,6 +188,12 @@ export class Game {
       hudState: this.screen.hud.state,
       sky: this.sky,
       ground: this.ground,
+      // World lane's ask W4: the clouds have a setStage() on the same
+      // contract as sky/ground and nothing was calling it, so stage-1 white
+      // banks rendered over stage 2's orange sky and stage 3's night sky.
+      // `undefined` under ?noclouds=1 (see the construction above) — flow.js
+      // guards on it.
+      clouds: this.clouds,
       demoActive: skipTitle,
     });
     this.screen.overlays.push(this.flow.titleOverlay, this.flow.cardOverlay);
@@ -243,8 +256,46 @@ export class Game {
         throttleIndex: this.flow.throttleIndex,
         throttleFraction: this.screen.hud.state.throttleFraction,
         rolling: this.player.isRolling(),
+        // R5b additions, same measurement-only family. Each exists because
+        // the property it reports is NOT inferable from pixels:
+        //  - scrollSpeed: the throttle's actual effect on the world. The
+        //    HUD gauge reads `throttleFraction`, so a gauge capture proves
+        //    only that the gauge moved — it cannot distinguish a wired
+        //    throttle from the decal this replaced. This is the number
+        //    ground.js is actually scrolled at.
+        //  - throttleLetter: what the HUD is told to draw, read back from
+        //    the same hudState the renderer consumes, so "the bar reads the
+        //    real value" is checkable without OCR.
+        //  - poseDeg/bankDeg: once the authored pose sheet is loaded the
+        //    jet's bank is a texture UV offset, not `material.rotation`, so
+        //    nothing about the drawn attitude is visible to an inspector
+        //    looking at the sprite. poseDeg is the QUANTISED, drawn angle;
+        //    bankDeg is the continuous ladder-walk behind it. Neither is
+        //    meaningful during a barrel roll — read rollPhase there.
+        //  - jetNdcX/jetNdcY: projected sprite centre, for the attract-mode
+        //    lateral-spread statistic and for input latency (ticks from
+        //    stick change to visible displacement) without a pixel pass.
+        scrollSpeed: this.flow.scrollSpeed,
+        throttleLetter: this.screen.hud.state.throttle,
+        poseDeg: this.player.poseDeg,
+        bankDeg: this.player.bankDeg,
+        rollPhase: this.player.rollPhase,
+        poseSource: this.player.poseSource,
+        spriteRotationDeg: (this.player.sprite.material.rotation * 180) / Math.PI,
+        worldRollDeg: (this.worldRoll * 180) / Math.PI,
+        ...this._playerNdc(),
       });
     }
+  }
+
+  // Measurement-only helper for __flowState above: the player sprite's
+  // centre projected into normalised device coords. Deliberately NOT a
+  // bounding-box centroid — it is the authored anchor, so it is immune to
+  // the sprite-aspect defect currently distorting the drawn airframe, and
+  // it is the quantity the flight model actually controls.
+  _playerNdc() {
+    const v = this.player.sprite.position.clone().project(this.camera);
+    return { jetNdcX: v.x, jetNdcY: v.y };
   }
 
   // worldRoll: radians, 0 = level. Positive = banking right = world rotates
@@ -278,8 +329,20 @@ export class Game {
     // tells a roll apart from a hard bank. Target 0 instead of the stick
     // while rolling; the existing rate-limited approach unwinds any roll
     // already in progress over the move, rather than snapping it.
-    const targetRoll = this.player.isRolling() ? 0 : flow.input.x * ROLL_MAX_RAD;
-    this.worldRoll = moveTowards(this.worldRoll, targetRoll, ROLL_RATE_RAD_PER_S * dt);
+    //
+    // R5b: the suppression also needs its OWN rate. A roll is triggered by a
+    // stick slam, so the player is usually banked hard when it starts, and
+    // unwinding at the normal 74.5 deg/s took up to 0.9s of a 1.1s roll —
+    // measured on real runs, the horizon was still at 35.1 / 31.9 / 23.0 deg
+    // partway through rolls that GAME_SPEC.md §1 says keep it "dead level the
+    // whole time" (frame-stepped at t221.8-222.33). ROLL_SUPPRESS_RATE levels
+    // the horizon inside 0.2s from the 66.5 deg saturation point, which is
+    // fast enough to read as "the manoeuvre cancels the bank" and still a
+    // slew rather than a one-frame snap.
+    const rolling = this.player.isRolling();
+    const targetRoll = rolling ? 0 : flow.input.x * ROLL_MAX_RAD;
+    const rollRate = rolling ? ROLL_SUPPRESS_RATE_RAD_PER_S : ROLL_RATE_RAD_PER_S;
+    this.worldRoll = moveTowards(this.worldRoll, targetRoll, rollRate * dt);
     this._applyCameraOrientation();
 
     // During 'death' or 'launch', deathSequence.js/launchSequence.js own
@@ -293,11 +356,28 @@ export class Game {
     this.ground.update(dt, this.flow.scrollSpeed);
     if (this.clouds) this.clouds.update(dt);
 
+    // Sprite-art's interface request (R5, player.js's top-of-file note,
+    // "I3"): night-stage jet palette, same integration pattern as
+    // update()'s worldRoll parameter — the night flag isn't owned by
+    // player.js, so it's set from here. Reuses combat lane's own
+    // trailPaletteFor/TRAIL_NIGHT (effects/trailPalette.js) as the single
+    // source of truth for "which stages are night" instead of duplicating
+    // their stage-index set — if they add more night stages, this tracks
+    // it for free. `contentStageIndex` (not the raw lap counter) because
+    // night-ness is a property of what's actually ON SCREEN (see that
+    // getter's comment in flow.js).
+    this.player.setNight(trailPaletteFor(this.flow.contentStageIndex) === TRAIL_NIGHT);
+
     if (this.combat) {
       // Combat lane's wiring request: fans out to the missile-smoke
       // palette and spawner liveries (both default to stage-1 daylight
       // without it — harmless for stages 1-2, wrong from stage 3 on).
-      this.combat.setStageIndex(this.flow.stageIndex);
+      // `contentStageIndex`, not the raw ever-incrementing stage counter —
+      // see flow.js's getter: once stageIndex exceeds the available
+      // content and the visuals start lapping, this is what keeps the
+      // trail/liveries matching the palette actually rendered instead of
+      // freezing at whatever the lap counter happened to be on stage 3.
+      this.combat.setStageIndex(this.flow.contentStageIndex);
       if (flow.combatActive) {
         this.combat.update(dt, flow.input, this.player.sprite.position);
       } else if (this.flow.state === 'death') {

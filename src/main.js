@@ -17,6 +17,25 @@ if (params.has('fixed')) {
   // Deterministic manual stepping for puppeteer capture (ARCHITECTURE.md D4):
   // tools/capture.mjs drives window.__step(n) itself, no rAF loop running.
   window.__step = (n = 1) => game.step(n);
+  // Measurement-only (?fixed=1 only, never read in normal play): inject a
+  // stick state that the next __step() calls will see. `?debugstick=X`
+  // (core/input.js) already pins a CONSTANT deflection, which is enough for
+  // a steady-state roll-angle read but cannot express anything with timing
+  // in it — and the two properties this lane has to prove both do:
+  //   - input latency: ticks from a stick CHANGE to visible jet displacement
+  //   - the barrel roll: a left->right stick SLAM inside 0.35s
+  // Puppeteer cannot dispatch these as real keydowns (the page's own
+  // listeners sit in a different execution context from page.keyboard's
+  // synthetic events under manual stepping), so this installs the same
+  // input override that ?demo=1 uses. Pass null to hand control back.
+  window.__setStick = (s) => {
+    if (s === null) {
+      game.input.setOverride(params.has('demo') ? demoTimeline : null);
+      return;
+    }
+    const held = { x: 0, y: 0, fire: false, missile: false, throttleIndex: 1, ...s };
+    game.input.setOverride(() => held);
+  };
   game.render();
   window.__frameReady = true;
 } else {

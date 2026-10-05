@@ -5,12 +5,22 @@ import { drawTitleScreen } from './titleScreen.js';
 import { drawReadyCard, drawTallyCard, drawContinueCard } from './cards.js';
 import { Overlay } from './overlay.js';
 import { STAGES } from '../stage.js';
+import { demoTimeline } from './demoTimeline.js';
 import { AudioBus } from '../../audio/index.js';
 import { MISSILE_START_STOCK } from '../../weapons/combat.js';
 
-// Game state machine (R4): title -> flight -> death -> flight -> ... ->
-// continue (out of lives) -> flight. See GAME_SPEC.md's §§2,5,6,7 for the
-// measured behaviour each transition reproduces; cited inline below.
+// Game state machine. R5b shape:
+//
+//   title <-> attract            (unattended cabinet loop, no credit spent)
+//     |  fire/missile
+//     v
+//   launch -> flight -> death -> flight -> ... -> continue -> flight
+//
+// See GAME_SPEC.md's §§2,5,6,7 for the measured behaviour each transition
+// reproduces; cited inline below. 'flight' is the ONLY state in which a
+// player holds the controls, which is what this lane's playable-fraction
+// statistic counts — 'attract' is deliberately not folded into it even
+// though it runs the same systems (see _updateAttract).
 //
 // DESIGN NOTE on the stage-end tally (GAME_SPEC.md §6 / REFERENCE.md
 // "Transient HUD overlays"): reference/stage2-start-bonus-tally-t124.png
@@ -31,7 +41,19 @@ const START_LIVES = 3;
 // measured per-stage durations" (GAME_SPEC.md §5).
 const STAGE_DURATIONS_S = [32, 32, 36];
 
-const TITLE_TIMEOUT_S = 8; // unattended fallback so a capture without input still reaches flight
+// Attract cycle (R5 gap 8's second half: "no attract-mode gameplay demo").
+// An unattended cabinet alternates title card and a gameplay demo forever;
+// ours used to time out of the title ONCE and then fly a real game with
+// nobody holding the stick, which is not an attract mode — it is a game
+// being lost on its own. TITLE -> ATTRACT -> TITLE -> ... until a button is
+// pressed, and only then does a credit's worth of real play start.
+//
+// ATTRACT_DEMO_S = 24 is chosen against demoTimeline.js's own 16s regime
+// period: 24s shows cruise, the scripted barrel roll (cycle phase 8s), the
+// canyon regime, and the return to cruise. A shorter loop would cut one of
+// the two regimes depending on where it started.
+const TITLE_TIMEOUT_S = 8; // unattended fallback: title -> attract demo
+const ATTRACT_DEMO_S = 24;
 const TALLY_HITS_PER_S = 7; // REFERENCE.md: tally counts "~7 hits/s"
 const CONTINUE_COUNTDOWN_S = 10; // gp t261: "CONTINUE PLAY / 10 / INSERT COIN"
 
@@ -61,16 +83,29 @@ const THROTTLE_SCROLL_MULT = [0.62, 1.0, 1.45];
 const THROTTLE_ENGINE_GAIN = [0.30, 0.65, 1.0];
 const THROTTLE_LETTER = ['L', 'M', 'H'];
 const THROTTLE_DEFAULT_INDEX = 1; // M
+// R5b: the HUD's SPEED bar must read SPEED, not engine gain. It had been
+// fed THROTTLE_ENGINE_GAIN, which is an audio mix level that happens to be
+// a 0..1 number — so the gauge drew 0.30 at the L detent while the world
+// was actually moving at 0.62 of cruise. The two ladders are genuinely
+// different quantities and nothing forces them to agree; normalising the
+// SCROLL multipliers against the top detent is the fraction the bar is
+// claiming to show. (Verified by telemetry: __flowState().scrollSpeed reads
+// 42.737 / 68.93 / 99.949 at L/M/H on stage 1's 68.93 base, exactly
+// base x THROTTLE_SCROLL_MULT.)
+const THROTTLE_BAR_FRAC = THROTTLE_SCROLL_MULT.map(
+  (m) => m / THROTTLE_SCROLL_MULT[THROTTLE_SCROLL_MULT.length - 1]
+);
 
 const ZERO_INPUT = { x: 0, y: 0, fire: false, missile: false };
 
 export class GameFlow {
-  constructor({ player, combat, hudState, sky, ground, demoActive }) {
+  constructor({ player, combat, hudState, sky, ground, clouds, demoActive }) {
     this.player = player;
     this.combat = combat;
     this.hudState = hudState;
     this.sky = sky;
     this.ground = ground;
+    this.clouds = clouds; // may be undefined (?noclouds=1) — see _enterStage
 
     this.score = new Score();
     this.deathSeq = combat ? new DeathSequence(player, combat) : null;
@@ -86,6 +121,7 @@ export class GameFlow {
     this.tally = null; // { t, duration, hits, pointsStart }
     this.continueCountdown = 0;
     this.titleTimer = 0;
+    this.attractTimer = 0;
     this.invincibleTimer = 0;
     this._readyAudioPlayed = false;
 
@@ -147,6 +183,11 @@ export class GameFlow {
       AudioBus.music('title');
     }
 
+    // Publish the lever's starting detent before the first frame is drawn,
+    // so even a tick-0 capture shows the real M rather than hud.js's
+    // placeholder 0.55 (see _publishThrottle).
+    this._publishThrottle();
+
     // `?debugtally=1` — measurement-only: the real tally plays out over
     // hits/7 seconds (often under 1s at low hit counts) while flight
     // continues underneath it, which makes it awkward to land in any one
@@ -176,7 +217,28 @@ export class GameFlow {
     // uniform in place — no mesh/material recreation for a live transition.
     this.sky.setStage(stage);
     this.ground.setStage(stage);
-    this.hudState.stage = this.stageIndex + 1;
+    // World lane's ask W4. Clouds were the one backdrop layer not switched
+    // here, so stage-1 white banks rendered over stage 2's orange sky and
+    // stage 3's night sky — and the banks got much larger this round, so it
+    // was a large wrong-coloured object, not a small one. Guarded because
+    // game.js leaves `clouds` undefined under ?noclouds=1. Called ONLY from
+    // here, never per frame: setStage re-authors the four bank textures
+    // (it disposes and rebuilds each map), so it is cheap but not free.
+    if (this.clouds) this.clouds.setStage(stage);
+    // R5 (R4 judge gap 10 / team-lead's next-tier ask): `this.stageIndex` is
+    // a TRUE ever-incrementing arcade-stage counter (stage 4, 5, 6... keep
+    // existing beyond STAGES.length, e.g. for resupply triggers keyed to
+    // absolute arcade stage numbers), but only 3 stages of CONTENT exist —
+    // `STAGES[this.stageIndex % STAGES.length]` above already wraps the
+    // palette/terrain. The HUD digit used to show the unwrapped counter
+    // while the visuals silently repeated stage 1 — "STAGE 4" drawn over
+    // stage-1 sky/sea. Showing the WRAPPED number instead means whatever
+    // digit is on screen always matches what's actually rendered; it is an
+    // honest "we only have 3 stages, so we lap them" rather than a false
+    // claim of unbounded progression. Revisit once world-r5 supplies more
+    // stage data (STAGES.length grows and the lap recedes with it, no code
+    // change needed here).
+    this.hudState.stage = this.contentStageIndex + 1;
     if (this.combat) {
       this.combat.hits = 0; // HIT resets at stage start, and ONLY there (GAME_SPEC.md §6)
       // R5 feel fix (feel-critique.md §6/§10 rank 12): missileStock only
@@ -191,6 +253,30 @@ export class GameFlow {
 
   get scrollSpeed() {
     return STAGES[this.stageIndex % STAGES.length].scrollSpeed * THROTTLE_SCROLL_MULT[this.throttleIndex];
+  }
+
+  // The stage index actually being RENDERED (0-based, wrapped into the
+  // available content) — distinct from `this.stageIndex`, the true
+  // ever-incrementing arcade-stage counter. game.js uses this to tell
+  // combat/player which palette is live (missile-trail day/night, jet
+  // night palette) so they track what's on screen rather than the lap
+  // count.
+  get contentStageIndex() {
+    return this.stageIndex % STAGES.length;
+  }
+
+  // The throttle is a LEVER, not a momentary control: it holds its detent
+  // across death, continue and the carrier launch, so the HUD has to show
+  // it in those states too. This used to be written only from
+  // _updateFlight, which left hud.js's own placeholder defaults
+  // (`throttle: 'M', throttleFraction: 0.55`) on screen for every
+  // non-flight tick — and 0.55 is not a value any detent produces, so the
+  // title/launch/death frames drew a gauge reading nothing the simulation
+  // ever held. Called from the constructor and from update()'s tail so
+  // every state is covered by one call site.
+  _publishThrottle() {
+    this.hudState.throttle = THROTTLE_LETTER[this.throttleIndex];
+    this.hudState.throttleFraction = THROTTLE_BAR_FRAC[this.throttleIndex];
   }
 
   // `rawInput` is whatever main.js/game.js resolved this tick (live keys or
@@ -211,6 +297,9 @@ export class GameFlow {
       case 'continue':
         result = this._updateContinue(dt, rawInput);
         break;
+      case 'attract':
+        result = this._updateAttract(dt, rawInput, simTime);
+        break;
       default:
         result = this._updateFlight(dt, rawInput, simTime, rng);
         break;
@@ -222,6 +311,7 @@ export class GameFlow {
     // here covers every transition (title reset, death, continue restore)
     // instead of needing a copy at each of those call sites.
     this.hudState.lives = this.lives;
+    this._publishThrottle(); // lever state, shown in every state — see the method's comment
     return result;
   }
 
@@ -229,20 +319,74 @@ export class GameFlow {
     this.titleTimer += dt;
     this.titleOverlay.visible = true;
     this.cardOverlay.visible = false;
-    if (rawInput.fire || rawInput.missile || this.titleTimer >= TITLE_TIMEOUT_S) {
-      // R5 (rank 14): a fresh game now opens on the carrier launch
-      // (launchSequence.js) instead of straight into flight.
-      this.state = 'launch';
+    if (rawInput.fire || rawInput.missile) {
+      this._startRealGame();
+    } else if (this.titleTimer >= TITLE_TIMEOUT_S) {
+      // Timing out is NOT a start any more — it rolls into the attract
+      // demo (see ATTRACT_DEMO_S). Only a button starts a game.
+      this.state = 'attract';
+      this.attractTimer = 0;
       this.titleOverlay.visible = false;
       this.score.reset();
       this.lives = START_LIVES;
       if (this.combat) this.combat.clear();
       this._enterStage(0);
-      this.launchSeq.start();
-      AudioBus.play('menuStart');
-      AudioBus.music('flight');
     }
     return { input: ZERO_INPUT, combatActive: false, playerControlled: false };
+  }
+
+  // R5 (rank 14): a fresh game opens on the carrier launch
+  // (launchSequence.js) instead of straight into flight. Shared by the
+  // title screen and the attract demo, which are now both places a player
+  // can press start from.
+  _startRealGame() {
+    this.state = 'launch';
+    this.titleOverlay.visible = false;
+    this.score.reset();
+    this.lives = START_LIVES;
+    if (this.combat) this.combat.clear();
+    this._enterStage(0);
+    this.launchSeq.start();
+    AudioBus.play('menuStart');
+    AudioBus.music('flight');
+  }
+
+  // The attract demo: real systems, scripted stick. It flies demoTimeline.js
+  // — the same two-regime attract flight `?demo=1` uses and that every judge
+  // already captures — so there is exactly one attract flight in the build
+  // rather than a second one that drifts out of step with it.
+  //
+  // Deliberately a state of its own rather than 'flight' with a flag. The
+  // player does not have the controls here, and 'flight' is what this lane's
+  // playable-fraction statistic counts; folding attract into it would have
+  // inflated that number with time nobody is playing — the exact failure the
+  // statistic exists to detect.
+  //
+  // Deaths are suppressed (`attract` never calls checkPlayerHit, the same way
+  // 'death' and 'continue' never do) because an attract loop that dies shows
+  // a cabinet losing, and because the loop's length then depends on the
+  // combat lane's current lethality instead of on ATTRACT_DEMO_S.
+  _updateAttract(dt, rawInput, simTime) {
+    if (rawInput.fire || rawInput.missile) {
+      this._startRealGame();
+      return { input: ZERO_INPUT, combatActive: false, playerControlled: false };
+    }
+    this.attractTimer += dt;
+    this.titleOverlay.visible = false;
+    this.cardOverlay.visible = false;
+    this.score.accrue(dt, false);
+    if (this.attractTimer >= ATTRACT_DEMO_S) {
+      this.state = 'title';
+      this.titleTimer = 0;
+      this._redrawTitle();
+      if (this.combat) this.combat.clear();
+      AudioBus.music('title');
+      return { input: ZERO_INPUT, combatActive: false, playerControlled: false };
+    }
+    const demo = demoTimeline(simTime);
+    this.throttleIndex = demo.throttleIndex;
+    AudioBus.setEngine(THROTTLE_ENGINE_GAIN[this.throttleIndex]);
+    return { input: demo, combatActive: true, playerControlled: true };
   }
 
   _updateLaunch(dt) {
@@ -264,9 +408,10 @@ export class GameFlow {
     // live play; ?demo=1's timeline drives the same field for attract
     // capture so the gauge is exercised unattended too.
     if (typeof rawInput.throttleIndex === 'number') this.throttleIndex = rawInput.throttleIndex;
-    this.hudState.throttle = THROTTLE_LETTER[this.throttleIndex];
-    this.hudState.throttleFraction = THROTTLE_ENGINE_GAIN[this.throttleIndex];
-    AudioBus.setEngine(this.hudState.throttleFraction);
+    // The gauge itself is published from update()'s tail (_publishThrottle),
+    // which covers every state; only the engine gain is flight-specific —
+    // death/continue duck it to DEATH_ENGINE_IDLE_FRAC instead.
+    AudioBus.setEngine(THROTTLE_ENGINE_GAIN[this.throttleIndex]);
 
     if (this.invincibleTimer > 0) this.invincibleTimer = Math.max(0, this.invincibleTimer - dt);
     const invincible = this._debugInvincible || this.invincibleTimer > 0;
@@ -299,6 +444,10 @@ export class GameFlow {
     this.state = 'death';
     this.cardOverlay.visible = false;
     this._readyAudioPlayed = false;
+    // A death landing mid-barrel-roll used to freeze the roll for the whole
+    // 5.2s sequence and resume it after the respawn — see Player.cancelRoll.
+    // Must happen BEFORE deathSequence.start() takes over the sprite.
+    if (this.player) this.player.cancelRoll();
     // R5 feel fix (feel-critique.md §2 Leg A / §10 rank 1): do NOT clear
     // combat here. Clearing wiped every enemy/shot/bracket on every one of
     // 3 deaths/minute, which is what produced the measured 4.5s empty
@@ -407,7 +556,7 @@ export class GameFlow {
     this.tally.lastHitShown = hitShown;
     this.cardOverlay.visible = true;
     this.cardOverlay.redraw((ctx, w, h) =>
-      drawTallyCard(ctx, w, h, { hitShown, pointsShown, nextStage: this.stageIndex + 1 })
+      drawTallyCard(ctx, w, h, { hitShown, pointsShown, nextStage: this.contentStageIndex + 1 })
     );
     if (q >= 1) {
       this.tally = null;
