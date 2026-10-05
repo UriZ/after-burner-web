@@ -140,6 +140,25 @@ const SPIKE_HALF_W = 0.058;
 // rather than to a point.
 const LOBE_INSET = 0.62;
 
+// White-hot core mask, drawn as explicit texels at the end of drawBurst (see
+// the long note there). One connected ragged mass with two tongues, NOT a
+// disc: REFERENCE.md records the arcade's near-white pixels as "one ragged
+// mass through the middle rather than a scatter", inside a fireball that is a
+// "boiling multi-lobe mass ... not a radial gradient". 41 filled cells of 99.
+const CORE_MASK = [
+  '...........',
+  '....##.....',
+  '..#####.#..',
+  '.########..',
+  '.#########.',
+  '..#######..',
+  '..#####....',
+  '...##.##...',
+  '...........',
+];
+const CORE_ROWS = CORE_MASK.length;
+const CORE_COLS = CORE_MASK[0].length;
+
 function drawBurst(arrangement) {
   return (ctx, w, h) => {
     const cx = w / 2;
@@ -243,28 +262,10 @@ function drawBurst(arrangement) {
     blobs(E_GOLD, 0.60);
     blobs(E_YELLOW, 0.42);
 
-    // THE WHITE-HOT CORE IS ONE CONNECTED REGION, not one disc per lobe.
-    // Drawn per-lobe it came out as six scattered pale dots, which is not
-    // what either reference frame shows: on ab2-arcade-huge-explosion.jpg
-    // the near-white pixels (S < 0.40, V > 0.90) are 3.2% of the fireball
-    // and on the t100.75 kill fireball they are 16.1%, and in both they form
-    // one ragged mass through the middle rather than a scatter. Three
-    // overlapping circles clustered on the arrangement's largest lobe give
-    // that without a gradient.
-    const [hx, hy, hr] = arrangement[0];
-    ctx.fillStyle = E_HOT;
-    for (let i = 0; i < 3; i++) {
-      const a = 1.9 + i * 2.399;
-      ctx.beginPath();
-      ctx.arc(
-        hx * w + Math.cos(a) * hr * w * 0.30,
-        hy * h + Math.sin(a) * hr * h * 0.30,
-        hr * w * (0.34 - i * 0.05),
-        0,
-        Math.PI * 2
-      );
-      ctx.fill();
-    }
+    // (The white-hot core used to be drawn here, as three overlapping arcs on
+    // the largest lobe. It is now drawn at the very END of this function, as
+    // an explicit texel grid — see CORE_MASK below for why both the position
+    // and the construction had to change.)
 
     // Ragged edge. The arcade's fireball boundary is a broken fringe of
     // small red flecks, not the clean circular rim a filled arc leaves; at
@@ -331,6 +332,81 @@ function drawBurst(arrangement) {
       ctx.fill();
     });
     ctx.globalCompositeOperation = 'source-over';
+
+    // ---- THE WHITE-HOT CORE -------------------------------------------------
+    //
+    // R4 gap 11 ("explosions have no white-hot core") was reported CLOSED in
+    // REFERENCE.md on the strength of a FIRE-MASK reading of 8.4-11.6% core.
+    // It was not closed. Measured on tools/out/combatfx-r5b/expl, the core
+    // colour E_HOT (#f6f6e7) reached the screen ZERO times — not a low
+    // fraction, not a dim version, zero pixels within 40 of it anywhere in any
+    // frame of a 16-frame capture, and zero pixels satisfying warm AND
+    // S < 0.35 AND V > 0.90. The brightest colour the fireball actually puts
+    // on screen is E_YELLOW #f9f647, a fully saturated yellow (S 0.98). Side
+    // by side at 4x against ab2-arcade-huge-explosion.jpg, ours is a smooth
+    // red-orange-yellow gradient and the arcade's is a lobed mass shot through
+    // with white patches. The crop and the statistic agree, which is why this
+    // is a bug report and not a retune.
+    //
+    // WHY THE OLD CONSTRUCTION PRODUCED NOTHING. Three `ctx.arc` fills on the
+    // largest lobe, drawn mid-function under the LOBE_INSET scale transform.
+    // Bisected with colour probes: recolouring E_AMBER renders (99-630 px per
+    // frame), recolouring E_HOT renders 0, and moving the same three arcs to
+    // the very end of the function — after the destination-out hole pass, so
+    // nothing can erase them — still renders 0. So the arcs were not being
+    // covered or punched out; they were producing no texels. Rather than keep
+    // bisecting a Canvas2D path-fill under an active scale transform, the core
+    // is authored the way judging/R4/art-critique.md already told this project
+    // to author chunky shapes: "Canvas2D antialiases path fills with no way to
+    // disable it ... the nozzle donuts, the smoke rings, the explosion lobes
+    // and the enemy bullseye nose are all the same failure", with the vulcan
+    // puff's explicit grid named as the pattern to copy.
+    //
+    // SO: an explicit texel grid, at integer texture coordinates, with the
+    // transform reset first so the grid lands on the texture's own pixels
+    // instead of being resampled by the 0.62 inset.
+    //
+    // SHAPE, not a disc. REFERENCE.md: the arcade's near-white pixels "form
+    // one ragged mass through the middle rather than a scatter", and the
+    // fireball is a "boiling multi-lobe mass with radial spikes, not a radial
+    // gradient". The mask below is one connected ragged blob with two short
+    // tongues reaching out along the lobe axis.
+    //
+    // SIZE: 0.46 * w, MEASURED, and the one larger value tried was rejected
+    // ON THE CROP rather than on a number. The gate is >= 3% of fireball area
+    // achromatic-bright and the arcade reads 8.8-9.2%; at 0.46 this mask
+    // measures 4.1-7.8% across eight frames (tools/out/combatfx-r5b/expl2,
+    // boxed FIRE-MASK) — comfortably over the gate, under the arcade. 0.52
+    // scales the area by (0.52/0.46)^2 = 1.28, which would land exactly on the
+    // arcade's band and also pull the brightest-decile saturation under its
+    // <= 0.30 target on every frame instead of half of them.
+    //
+    // It looks wrong. At 0.52 the core square is 33 texels across against a
+    // lobe cluster that only reaches ~33 texels after LOBE_INSET, so the white
+    // swallows the lower half of the sprite and the fireball reads as a white
+    // mound with an orange cap (tools/out/combatfx-r5b/expl3/frame-0003.png at
+    // 4x). REFERENCE.md's own rule for this statistic applies: "the crop
+    // outranks this table ... these numbers exist to catch a fireball that is
+    // not a fireball; they cannot certify that one is." Staying under the
+    // arcade's core fraction is the honest trade, and it is recorded in
+    // judging/R5/lane-combatfx.md as a knowingly-unclosed margin.
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    const side = 0.46 * w;
+    const cell = side / CORE_COLS;
+    const ox = cx - side / 2;
+    const oy = cy - (side * CORE_ROWS) / CORE_COLS / 2;
+    ctx.fillStyle = E_HOT;
+    for (let r = 0; r < CORE_ROWS; r++) {
+      for (let c = 0; c < CORE_COLS; c++) {
+        if (CORE_MASK[r][c] !== '#') continue;
+        // Integer device coordinates: a fractional rect is the Canvas2D
+        // antialiasing trap CLAUDE.md lists as a recurring bug class here, and
+        // on a 64-texel canvas a half-covered texel is 1.5% of the sprite.
+        const x0 = Math.round(ox + c * cell);
+        const y0 = Math.round(oy + r * cell);
+        ctx.fillRect(x0, y0, Math.round(cell) || 1, Math.round(cell) || 1);
+      }
+    }
   };
 }
 

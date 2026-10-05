@@ -78,17 +78,75 @@ const SPAWN_NDC_Y = -0.165;
 // how many aircraft are on screen, which is the property that has to hold
 // as the population is tuned for the size-qualified density criterion.
 //
-// 1 train / 1.6 s gap was measured, not picked. The sequence: 2 trains /
-// 0.35 s left up to 15 shots on screen; 1 / 0.9 s brought that to the 4-7
-// that stage7-enemy-shot-train-t330.png actually shows, but still delivered
-// ~400 aimed shots per minute, of which ~1% landing inside the kill box is
-// 4 deaths/minute. A weaving demo path did not help, because the shot leads
-// the player by its ~1.2 s flight time and the jet wanders into the rake as
-// often as out of it. 1 / 1.6 s is still "spaced trains" by GAME_SPEC §4 and
-// still matches t330 — with a ~1.2 s shot flight time there is usually
-// exactly one train in the air, which is what that frame shows.
-const MAX_CONCURRENT_TRAINS = 1;
-const TRAIN_START_GAP_S = 2.2;
+// 2 trains, 2.72 s apart. The committed build was 1 every 2.2 s, reached by
+// cutting the train rate until the death rate came down; R4 gap 5 forbids
+// that direction explicitly ("the fix should be lead/accuracy and hit-box,
+// not fewer shots"), and it did not work anyway. An interim attempt in the
+// OTHER direction — 3 trains every 0.9 s — is the one worth explaining,
+// because it looked right and measured wrong.
+//
+// The train count is the number of INDEPENDENT DECISIONS about where the
+// player is. Every round inside one train shares a single aim snapshot and
+// they all arrive inside ~0.8 s of each other, so a train either misses
+// wholesale or produces a death; eight rounds in one train are barely more
+// dangerous than one. Rounds per minute, which is what R4 gap 5 forbids
+// cutting, is train count x train length — so the lethality can be taken out
+// of the first factor and put back into the second at constant volume. That
+// is the whole trade: FEWER, LONGER, TIGHTER trains.
+//
+// Raising the train rate instead (3 every 0.9 s) tripled the number of
+// independent snapshots and the death rate did not move: 5.00/min against
+// the committed 5.44/min, with the per-round hit rate pinned at ~10% in both.
+// The intuition it was built on — "more fire, each round individually less
+// likely to land, so a continuous readable presence instead of rare lethal
+// walls" — is right about presence and wrong about lethality, because
+// presence is carried by rounds and lethality by snapshots.
+//
+// Shot presence is preserved by the other two levers: SHOT_SPACING_S 0.08 s
+// and a fixed 8-round train keep 8 fireballs in the air per train, each in
+// flight for 1.3-3.1 s (enemyShots.js at 15 units/s over the 52..24 firing
+// band). Two overlapping trains therefore put 10-16 fireballs on screen,
+// which is what reference/stage7-enemy-shot-train-t330.png actually shows.
+//
+// 2.72 s and not a round number: it is SET BY MEASUREMENT, to hold rounds
+// per minute at the committed build's ~117. At 2.4 s the same geometry
+// delivered 138.1 rounds/min, i.e. 18% MORE fire than the build this round
+// has to beat — which would have made the death-rate comparison flattering
+// and meaningless; at 2.85 s, once the stage-opener re-arm below put
+// non-firing overtake flights back into the MAX_ALIVE budget, it fell to
+// 112.1 and read as a 4% volume CUT. Re-measure and re-set this whenever the
+// firing band, the shot spacing, the train length or the alive budget moves
+// — it is downstream of all four.
+const MAX_CONCURRENT_TRAINS = 2;
+const TRAIN_START_GAP_S = 2.72;
+
+// ---------------------------------------------------------------------------
+// ROLE MIX PER STAGE — how much of each stage's sky is the elite livery.
+//
+// `role` is a VISUAL identity and is deliberately independent of `type`,
+// which is the flight model (see src/entities/enemy.js's LIVERY_BY_STAGE
+// note). They used to be the same axis and that was a real defect: two wave
+// builders independently prefer the fast `interceptor` TYPE for pacing
+// reasons — every crosser is one because a near-field lateral pass wants to
+// be quick, and echelons rolled one in four — so once the sprite lane's
+// authored art landed, a third of stage 1 was rust-red delta airframes. The
+// lead's capture `tools/out/dash-r5/s1-combat/frame-0000.png` has four of
+// them against one grey. Stage 1's arcade cast is slender swept grey jets.
+//
+// The fractions are a DIFFICULTY-AND-IDENTITY ramp, not a measurement: the
+// arcade gives us single timestamps for each livery (GAME_SPEC.md §4, t102.5
+// and t172 for interceptors) and no per-stage census, so this is ADOPTED. It
+// is chosen so every stage shows BOTH silhouette families — the `mig` line
+// aircraft and the `delta` elite — which is what R4 gap 1 criterion (d)
+// asks for, while keeping each stage's dominant colour the one the frames
+// show.
+const ELITE_FRACTION_BY_STAGE = [0.12, 0.22, 0.30];
+
+// Crossers are near-field lateral passes and the most visually prominent
+// single aircraft in any frame, so they carry a higher elite share than the
+// echelon line — one red delta crossing right over the player reads as the
+// stage's elite without tinting the whole sky.
+const CROSSER_ELITE_BONUS = 0.18;
 
 export class Spawner {
   constructor(scene, space, rng) {
@@ -115,6 +173,7 @@ export class Spawner {
     this.stageIndex = 0;
 
     this.trainGapTimer = 0;
+    this.trainsStarted = 0;
     this.solo =
       typeof location !== 'undefined' && new URLSearchParams(location.search).has('combatsolo');
   }
@@ -124,11 +183,43 @@ export class Spawner {
   }
 
   setStageIndex(stageIndex) {
+    // A STAGE CHANGE RE-ARMS THE OPENER, and this is load-bearing rather
+    // than tidy.
+    //
+    // GAME_SPEC.md §4 is explicit that the overtake flight is "the first
+    // thing every stage shows" — not just the first stage — and cites it on
+    // stages 1, 2 and 4 (t94-99, t126-128, t204). The re-arm used to live in
+    // clear(), which src/game/flow/ called at every stage boundary. R5's
+    // game-feel work correctly stopped clearing combat at stage boundaries
+    // and on death (clearing the sky was our addition, not the arcade's), and
+    // that silently took the opener with it: MEASURED on this build before
+    // the fix, `?fixed=1&demo=2&seed=1` ran 90 s across three stages and
+    // produced overtake aircraft ONLY in the first 5 s of stage 1 — stages 2
+    // and 3 opened with no opener at all. It also meant stage 2's silver/blue
+    // prop livery never appeared, because the opener is the only wave that
+    // wears it; a 3-seed livery census read 0.0% prop.
+    //
+    // Keying the re-arm to the stage index instead makes this file own its
+    // own invariant rather than depending on another lane's call order.
+    // `contentStageIndex` wraps 0,1,2,0,... so a lap re-arms correctly too.
+    if (stageIndex !== this.stageIndex) this.openerDone = false;
     this.stageIndex = stageIndex;
   }
 
+  // Visual role for one aircraft. `roll` is a draw the caller has ALREADY
+  // made unconditionally — passing it in rather than drawing here is the
+  // CLAUDE.md shared-PRNG rule: a draw that only sometimes happens shifts
+  // every later draw in the stream and makes seeds incomparable between
+  // builds.
+  _roleFor(roll, bonus = 0) {
+    const f = (ELITE_FRACTION_BY_STAGE[this.stageIndex] ?? ELITE_FRACTION_BY_STAGE[0]) + bonus;
+    return roll < f ? 'elite' : 'line';
+  }
+
   // Returns an array of fire requests from enemies that shot this tick.
-  update(dt) {
+  // `playerNdc` is forwarded to each enemy so it can snapshot an aim point
+  // when its telegraph lights (src/entities/enemy.js).
+  update(dt, playerNdc = null) {
     if (this.solo) return this._updateSolo(dt);
     if (!this.openerDone) {
       this.openerDone = true;
@@ -176,12 +267,16 @@ export class Spawner {
     for (let i = this.enemies.length - 1; i >= 0; i--) {
       const e = this.enemies[i];
       const wasFiring = e.firingTrain;
-      const fired = e.update(dt, this.rng, this.space, allowNewTrain);
+      const fired = e.update(dt, this.rng, this.space, allowNewTrain, playerNdc);
       if (!wasFiring && e.firingTrain) {
         // This enemy just opened a train — consume the budget for this tick
         // and start the spacing gap.
         allowNewTrain = false;
         this.trainGapTimer = TRAIN_START_GAP_S;
+        // Cumulative, measurement-only (combat.js's __fairness hook). A
+        // train now opens with its TELEGRAPH, so this is also the count of
+        // flares lit.
+        this.trainsStarted += 1;
       }
       if (fired) fires.push({ enemy: e, fire: fired });
       if (!e.alive || e.isRetired()) {
@@ -240,7 +335,67 @@ export class Spawner {
     // Every third wave is a crosser pass rather than every fourth: crossers
     // are near-field by construction and are the cheapest way to keep a
     // readable-size aircraft on screen between echelon arrivals.
-    return this.waveIndex % 3 === 0 ? this._crosserWave() : this._echelonWave();
+    const specs = this.waveIndex % 3 === 0 ? this._crosserWave() : this._echelonWave();
+    // WAVE IDENTITY, measurement only — nothing in the simulation branches on
+    // it. Needed because "the enemies arrive in a single-file diagonal queue"
+    // is a statement about a FORMATION, and a formation is a property of one
+    // wave. Measured over the pooled live population it is meaningless: 3-5
+    // waves are in flight at once by construction (WAVE_GAP 0.9-1.6 s against
+    // a ~5 s approach), so the pooled depth spread reads 17x max/min no matter
+    // how tight each formation is. That is the I9/I26 defect class — a correct
+    // operator pointed at the wrong population — so the population is made
+    // addressable instead of inferred.
+    for (const s of specs) s.waveId = this.waveIndex;
+    return this._shuffleDispenseOrder(specs);
+  }
+
+  // THE SINGLE-FILE DIAGONAL QUEUE, and why it was structural rather than a
+  // tuning error.
+  //
+  // Measured (3 seeds, ?fixed=1&demo=1&invincible=1, every 4 ticks, 7 944
+  // flight samples, 85 waves, 15 089 per-wave observations): WITHIN one wave
+  // the absolute correlation between a member's depth and its screen x had
+  // median 0.85, p75 0.94, and 59.3 % of observations above 0.8. A wave was
+  // therefore a line of aircraft running diagonally away from the camera,
+  // which is exactly the complaint.
+  //
+  // The cause is not the formation geometry — `depthA` is drawn independently
+  // per member (0.70-1.20 x spawn depth) and is not monotonic in member index.
+  // It is the DISPENSE ORDER. `pending` is a FIFO drained one aircraft every
+  // 0.14-0.34 s, so member i enters the world i dispense-ticks before member
+  // i+1 and has that much more depth travel behind it: depth becomes monotonic
+  // in i. And i maps monotonically to the lateral slot (`ndcB: baseB + k*0.26`
+  // with k = i - (n-1)/2). Two monotonic maps through the same index compose
+  // into a perfect depth-vs-screen-x ordering, every wave, in the same
+  // direction.
+  //
+  // So the fix is to break the composition, not the geometry: shuffle the
+  // order the members are HANDED TO THE DISPENSER, leaving every member's
+  // spec — fan-out, rake, depth spread, bomber slot, liveries — byte for byte
+  // unchanged. The leading aircraft is now at a random lateral slot.
+  //
+  // Deliberately NOT done by compressing the depth spread, which is the other
+  // way to make a wave read as a formation. That spread is what buys the
+  // size-qualified density criterion (>=1 enemy at >=10%W in >=60% of combat
+  // frames); it measures 84.87 % on this tree, and the comment on `depthA`
+  // records that an earlier, tighter spread measured 53 %. Spending measured
+  // headroom on an unmeasured impression is the trade this project has
+  // retired four criteria for.
+  //
+  // PRNG: n-1 draws, taken unconditionally for every wave, after the wave is
+  // fully built — so it cannot desynchronise draws WITHIN a wave (CLAUDE.md,
+  // "Shared PRNG stream sequencing"). It does shift the stream relative to
+  // older builds, so seed-for-seed comparisons against figures taken before
+  // this landed are not valid; the A/B in judging/R5/lane-combatfx.md was
+  // re-taken after it.
+  _shuffleDispenseOrder(specs) {
+    for (let i = specs.length - 1; i > 0; i--) {
+      const j = Math.floor(this.rng() * (i + 1));
+      const t = specs[i];
+      specs[i] = specs[j];
+      specs[j] = t;
+    }
+    return specs;
   }
 
   // --- Stage opener: overtake flight ----------------------------------------
@@ -284,6 +439,7 @@ export class Spawner {
       out.push({
         pattern: 'approach',
         type: 'fighter',
+        role: 'line',
         depthA: 18 + this.rng() * 16,
         depthB: FLY_PAST_DEPTH,
         ndcA: [k * 0.06, SPAWN_NDC_Y + 0.02],
@@ -291,14 +447,16 @@ export class Spawner {
         weaveAmp: this.rng() * 0.04,
         weaveRate: 1.1 + this.rng() * 0.9,
         weavePhase: this.rng() * Math.PI * 2,
-        // Long first-fire delay. The primed element spawns INSIDE the
-        // 6-46 unit fire band, so a normal 0.9-1.7 s delay had it opening
-        // fire on tick ~60 and killing the player at t=1.4-1.7 s, before
-        // they had done anything — measured on all five seeds. A stage
-        // opens with aircraft to shoot at, not with an unavoidable train
-        // already inbound (GAME_SPEC.md §4's opener is an overtake flight
-        // the player kills from behind).
-        fireDelay: 2.5 + this.rng() * 1.5,
+        // The primed element NEVER fires, and now by geometry rather than by
+        // a long timer. It spawns at depth 18-34 and the firing band's floor
+        // is 24 (src/entities/enemy.js), so after the 1.0 s telegraph it is
+        // at depth 8.8-16.7 — under the floor — whatever this delay says.
+        // Kept explicit and large so the intent survives a band retune: a
+        // stage opens with aircraft to shoot at, not with a train already
+        // inbound (GAME_SPEC.md §4's opener is an overtake flight the player
+        // kills from behind), and the old 0.9-1.7 s delay here was measured
+        // killing the player at t=1.4-1.7 s on all five seeds.
+        fireDelay: 1e9,
       });
     }
     return out;
@@ -335,9 +493,17 @@ export class Spawner {
       // happens desynchronises every later draw in the stream (CLAUDE.md,
       // "Shared PRNG stream sequencing").
       const roll = this.rng();
+      // Second unconditional draw, for the VISUAL role. Separate from the
+      // type roll above on purpose: a fast interceptor-type aircraft in a
+      // stage-1 echelon should usually still be a grey MiG.
+      const roleRoll = this.rng();
       out.push({
         pattern: 'approach',
         type: i === bomberSlot ? 'bomber' : roll < 0.25 ? 'interceptor' : 'fighter',
+        // A bomber is the 'heavy' role whatever it rolled — it is already
+        // visually distinct on span (1.35x) and should read as the line's
+        // own big aircraft, not as an elite.
+        role: i === bomberSlot ? 'heavy' : this._roleFor(roleRoll),
         // Wide per-member depth spread. At the previous 0.85-1.15 the whole
         // echelon reached the near field inside ~1.5 s of itself, so the
         // readable-size window arrived as a CLUMP followed by a gap: the
@@ -358,12 +524,27 @@ export class Spawner {
         weaveAmp: this.rng() * 0.05,
         weaveRate: 1.1 + this.rng() * 0.9,
         weavePhase: this.rng() * Math.PI * 2,
-        // Generous first-fire delay relative to the 1.5-2 s steady-state
-        // interval: src/game/flow/ clears all enemies on death and at stage
-        // boundaries, so the sky repopulates from empty and a short initial
-        // delay means every respawn is met by a fresh train arriving within
-        // a second of the 2 s invincibility expiring.
-        fireDelay: 1.6 + this.rng() * 1.4,
+        // SHORT first-fire delay, 0.1-0.4 s — down from 1.6-3.0 s, and the
+        // reversal is forced by the telegraph geometry, not a difficulty
+        // choice.
+        //
+        // An approach aircraft lives 5.0 s from depth 90 and the firing band
+        // is 52..24 (src/entities/enemy.js), i.e. it is eligible to fire only
+        // between t=0.77 s and t=1.86 s of its own life. A 1.6-3.0 s delay
+        // therefore means the aircraft becomes willing to fire at a depth it
+        // is already forbidden to fire from: measured, every flare lit at
+        // depth 18-22 and 148 trains across 180 s delivered 12 rounds.
+        // The delay has to be short enough that the flare — which itself
+        // takes TELEGRAPH_S = 1.0 s — can light while the aircraft is still
+        // above the band.
+        //
+        // What the old long delay was protecting against is now handled by
+        // the flare rather than by silence: its comment was about a train
+        // arriving within a second of the 2 s respawn invincibility expiring.
+        // A train that opens with a 1.0 s pulsing flare and then needs
+        // another 0.9-2.1 s of flight is announced ~2-3 s ahead, which is
+        // longer than the grace window it was being hidden behind.
+        fireDelay: 0.0 + this.rng() * 0.15,
       });
     }
     return out;
@@ -375,9 +556,11 @@ export class Spawner {
     const dir = this.rng() < 0.5 ? -1 : 1;
     const out = [];
     for (let i = 0; i < n; i++) {
+      const roleRoll = this.rng();
       out.push({
         pattern: 'crosser',
         type: 'interceptor',
+        role: this._roleFor(roleRoll, CROSSER_ELITE_BONUS),
         depthA: 30 + this.rng() * 14,
         depthB: 3.0,
         // ndcB was dir*(1.35..1.65) — far enough off-frame that a crosser
@@ -392,6 +575,15 @@ export class Spawner {
         weaveAmp: 0.03,
         weaveRate: 1.8,
         weavePhase: this.rng() * Math.PI * 2,
+        // Crossers also no longer fire in practice, and this is a KNOWN
+        // consequence of the band retune rather than an intent: they spawn at
+        // depth 30-44 as interceptors (depth rate 0.8862), so 1.0 s of
+        // telegraph puts them at depth 12-18, under the 24 floor. Left as it
+        // is because GAME_SPEC.md §4 describes the crosser as a near-depth
+        // fly-past pattern and says nothing about it firing, and because the
+        // alternative — a pattern that fires from inside the floor — is the
+        // point-blank case the floor exists to forbid. Recorded in
+        // judging/R5/lane-combatfx.md as a volume source given up.
         fireDelay: 0.4 + this.rng() * 0.6,
       });
     }

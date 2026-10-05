@@ -2,13 +2,7 @@ import * as THREE from 'three';
 import { makeBillboard } from '../effects/pixelTexture.js';
 import * as enemySprite from './enemySprite.js';
 
-const {
-  enemyHeadOnTexture,
-  enemyRearTexture,
-  enemyHeadOnFarTexture,
-  enemyRearFarTexture,
-  DETAIL_SWITCH_NATIVE_PX,
-} = enemySprite;
+const { DETAIL_SWITCH_NATIVE_PX } = enemySprite;
 
 // ---------------------------------------------------------------------------
 // LIVERIES.
@@ -20,53 +14,74 @@ const {
 // records for the player airframe.
 //
 // WHO OWNS WHAT: src/entities/enemySprite.js belongs to the sprite-art lane
-// and it draws the artwork — LIVERIES and the palettes are theirs. This file
-// owns only WHICH livery each aircraft gets: type, pattern and stage in, a
-// livery key plus a night flag out. The two lanes never both author enemy
-// appearance.
+// and it draws the artwork — LIVERIES, the palettes and the two silhouette
+// families are theirs. This file owns only WHICH livery each aircraft gets:
+// stage, role and pattern in, a livery key plus a night flag out. The two
+// lanes never both author enemy appearance.
 //
-// Their shipped signature (R5 interface I1) is
+// ROLE, NOT TYPE, SELECTS THE LIVERY. This is the second iteration and the
+// reason for it is a measured defect, so it is worth stating.
 //
-//     enemyTexture(aspect, livery, detail, night)
-//     // aspect 'headOn'|'rear'; livery a key of their LIVERIES
-//     // ('grey' | 'camo' | 'interceptor' | 'prop'); detail near/far;
-//     // night = per-livery palette swap
+// The first mapping keyed the livery off the ENEMY TYPE — `type ===
+// 'interceptor'` got the `interceptor` livery. That is the obvious mapping
+// and it is wrong, because `type` is a FLIGHT-MODEL choice (depth rate and
+// hit points: fighter 0.7089, interceptor 0.8862, bomber 0.5908) that
+// spawner.js makes for pacing reasons, not an identity. Two independent wave
+// builders lean on the fast type: `_crosserWave` makes every crosser an
+// interceptor because a near-field lateral pass wants to be quick, and
+// `_echelonWave` rolled one in four echelon members. With the sprite lane's
+// authored art now serving all four daylight liveries, that put roughly a
+// third of stage 1's sky in rust-red `delta` airframes — the lead's capture
+// (`tools/out/dash-r5/s1-combat/frame-0000.png`, `?demo=2&seed=1`) has four
+// of them against one grey. Stage 1's arcade cast is slender swept grey jets;
+// GAME_SPEC.md §4's red/orange interceptor sighting is ONE timestamp in that
+// stage (t102.5), not a third of it.
 //
-// — one argument more than I asked for, because they made the night swap a
-// modifier on each livery rather than a livery of its own, which is the
-// better decomposition: a night stage 3 flies the same grey MiGs as stage 1,
-// just palette-swapped.
+// So spawner.js now tags each aircraft with a ROLE — 'line', 'elite' or
+// 'heavy' — independently of its type, and this table maps (stage, role) to
+// a livery. A stage-1 crosser can stay mechanically fast and still wear the
+// grey the frames show.
 //
-// It is still FEATURE-DETECTED. Their resolvePalette() falls back to 'grey'
-// for an unknown key rather than throwing, so a mismatch here would show up
-// as a silently un-swapped sprite rather than as an error — exactly the
-// failure mode that is hard to notice. Keeping the guard means this file
-// degrades to the shipped stage-1 grey if that export is ever removed,
-// instead of crashing combat.
+// SILHOUETTE FAMILIES COME WITH THE LIVERY (sprite lane, R5): `grey` and
+// `camo` are the `mig` family (slender body, thin high-aspect swept wings,
+// separate tailplanes, one fin); `interceptor` and `prop` are the `delta`
+// family (one solid triangular wing, no tailplane, fatter body, taller fin).
+// So choosing a livery here chooses a SHAPE, which is what R4 gap 1
+// criterion (d) — ">=2 distinguishable enemy types by silhouette" — is
+// actually about. Each stage below deliberately flies both families.
 const LIVERY_BY_STAGE = [
-  // stage 1 (ocean): white/grey MiG-types, with red/orange interceptors.
-  { base: 'grey', interceptor: 'interceptor', night: false },
-  // stage 2 (desert/autumn): green camo, silver/blue props in the opener.
-  { base: 'camo', interceptor: 'interceptor', overtake: 'prop', night: false },
-  // stage 3: the stage-1 liveries under the night palette swap, NOT a
-  // separate livery — GAME_SPEC.md §4 lists camo/interceptor/prop as stage
-  // identities and treats night as a swap applied on top.
-  { base: 'grey', interceptor: 'interceptor', night: true },
+  // stage 1 (ocean): grey MiG-types as the line, red/orange interceptor
+  // deltas as the rare elite (GAME_SPEC.md §4, t102.5).
+  { line: 'grey', elite: 'interceptor', heavy: 'grey', overtake: 'grey', night: false },
+  // stage 2 (desert/autumn): green camo MiGs as the line, interceptors as
+  // the elite, and the opener's overtake flight in the silver/blue prop
+  // livery ("silver/blue prop types (stage 2 open)").
+  { line: 'camo', elite: 'interceptor', heavy: 'camo', overtake: 'prop', night: false },
+  // stage 3: the stage-1 set under the night palette swap, NOT a separate
+  // livery — GAME_SPEC.md §4 lists camo/interceptor/prop as stage identities
+  // and treats night as a swap applied on top.
+  { line: 'grey', elite: 'interceptor', heavy: 'grey', overtake: 'grey', night: true },
 ];
 
-function liveryFor(stageIndex, type, pattern) {
+function liveryFor(stageIndex, role, pattern) {
   const t = LIVERY_BY_STAGE[stageIndex] ?? LIVERY_BY_STAGE[0];
-  let key = t.base;
-  if (pattern === 'overtake' && t.overtake) key = t.overtake;
-  else if (type === 'interceptor' && t.interceptor) key = t.interceptor;
+  const key = (pattern === 'overtake' ? t.overtake : t[role]) ?? t.line;
   return { key, night: t.night };
 }
 
-const hasLiveries = typeof enemySprite.enemyTexture === 'function';
+// Shipped signature (R5 interface I1, sprite-art lane):
+//   enemyTexture(aspect, livery, detail, night, bankDeg)
+//   aspect 'headOn'|'rear'; livery a key of their LIVERIES
+//   ('grey' | 'camo' | 'interceptor' | 'prop'); detail near/far;
+//   night = per-livery palette swap.
+// The feature-detection guard that stood here while I1 was in flight is gone
+// at the lead's instruction now that it has landed. Note the consequence it
+// was covering: resolvePalette() falls back to 'grey' for an unknown key
+// rather than throwing, so a key typo in LIVERY_BY_STAGE above shows up as a
+// silently un-swapped sprite, not an error. Check a stage capture after
+// editing that table, not just that the page loads.
 function textureFor(aspect, livery, detail) {
-  if (hasLiveries) return enemySprite.enemyTexture(aspect, livery.key, detail, livery.night);
-  if (aspect === 'rear') return detail ? enemyRearTexture() : enemyRearFarTexture();
-  return detail ? enemyHeadOnTexture() : enemyHeadOnFarTexture();
+  return enemySprite.enemyTexture(aspect, livery.key, detail, livery.night);
 }
 
 // ---------------------------------------------------------------------------
@@ -152,49 +167,239 @@ const BANK_OSC_RAD_PER_S = 0.55;
 const BANK_PER_NDC_VEL = 1.40;
 const BANK_SLEW_RAD_PER_S = 3.2;
 
+// THE FIRING BAND, and why its two ends are solved together with
+// TELEGRAPH_S below rather than picked independently.
+//
 // Enemies "may only open fire once visibly close" (GAME_SPEC.md §4; shots
-// appear from enemies at mid depth, t113-114, t117, t318) and stop once
-// they are on top of the player.
-const FIRE_DEPTH_MAX = 46;
-const FIRE_DEPTH_MIN = 6;
+// appear from enemies at mid depth, t113-114, t117, t318) and stop once they
+// are on top of the player. The committed band was 46..6, which satisfies
+// that sentence and nothing else: at the committed 24 units/s a round fired
+// from depth 6 reached the player in (6 - 1.6) / 24 = 0.18 s, and no
+// telegraph can make 0.18 s dodgeable. Measured on the committed build, the
+// median time of flight across all hits was 0.22 s — enemies were doing
+// nearly all of their killing at point-blank range.
+//
+// The constraint that actually binds is TIME, not depth, and it is easy to
+// get wrong because depth decays GEOMETRICALLY. A fighter spawns at
+// APPROACH_SPAWN_DEPTH 90 and lives 5.00 s to FLY_PAST_DEPTH 2.6, so:
+//
+//   time from spawn down to depth D  = ln(90 / D) / 0.7089
+//   time to cross a band D_hi..D_lo  = ln(D_hi / D_lo) / 0.7089
+//   time of flight of a round from D = (D - 1.6) / 15   (enemyShots.js SPEED)
+//
+// A telegraph of length T has to fit in the approach ABOVE the band, and the
+// train has to fit INSIDE it:
+//
+//   ln(90 / D_hi) / 0.7089  >=  T        (room to announce)
+//   ln(D_hi / D_lo) / 0.7089 >= n * 0.18 (room to pay out n rounds)
+//
+// The first attempt kept D_hi = 46 and set T = 1.4 s, which fails the first
+// inequality outright — only 0.944 s of approach exists above depth 46 — and
+// the measured result was unmistakable: 148 trains opened across 180 s and
+// delivered 12 rounds between them, a 97% volume collapse against the
+// committed build's 116.7 rounds/min. Every flare lit at depth 18-22 (read
+// off the per-enemy state in combat.js's __fairness hook) and the aircraft
+// sank through the floor before it could fire.
+//
+// 52 and 24 with T = 1.0 satisfies both: 0.774 s of approach above 52 (so
+// the flare lights at spawn and HOLDS for ~0.23 s, see TELEGRAPH_DEPTH_MAX),
+// and 1.09 s inside the band, which at SHOT_SPACING_S 0.11 pays out a full
+// 8-round train. Time of flight is 3.36 s at the top and 1.49 s at the
+// floor, so the total lag between the aim snapshot and impact is 2.49-4.36 s
+// — the range the displacement table under TELEGRAPH_S prices at a
+// 0.10 -> 0.05 per-round hit probability.
+//
+// MOVE NONE OF THESE FOUR ALONE. D_hi, D_lo, T and EnemyShots' SPEED are one
+// solution to the two inequalities plus a hit-probability target. Raising the
+// floor buys lag and COSTS budget; slowing the round buys lag for free, which
+// is why SPEED carried the last factor rather than D_lo.
+const FIRE_DEPTH_MAX = 52;
+const FIRE_DEPTH_MIN = 24;
 
 // Spacing inside a shot train. The trains in
 // reference/stage7-enemy-shot-train-t330.png read as ~6 fireballs strung
 // across roughly a third of the frame with clear gaps between them, which at
 // enemyShots.js's shot speed puts the emission interval near 0.1 s.
-const SHOT_SPACING_S = 0.18;
+//
+// 0.08, not 0.18. The old value was never derived from that frame — the
+// comment above computed 0.1 s and the constant said 0.18 — and the gap
+// matters now because the train has to fit inside the depth budget: at 0.18 s
+// an 8-round train needs 1.26 s on top of the telegraph and the whole
+// approach from spawn to the firing floor is 1.86 s, so the long trains were
+// silently truncated to 1.4 rounds each (measured: 169 trains, 241 rounds
+// across 180 s). 0.08 s puts an 8-round train at 0.56 s, which leaves a
+// 0.3-0.5 s window in each aircraft's life in which it can light a flare and
+// still deliver all eight — narrow enough to be worth checking (the
+// __fairness hook reports rounds per train) and wide enough to hold the
+// round count at the committed build's level.
+const SHOT_SPACING_S = 0.08;
+
+// The least a train may be allowed to deliver. A train that opens and is cut
+// off by FIRE_DEPTH_MIN after one round spends a full telegraph of the
+// concurrency budget to put a single fireball on screen, which is how the
+// round count collapsed while the train count stayed at the cap. Enforced as
+// a DEPTH gate when the flare lights (see update()), not by letting a
+// truncated train fire below the floor.
+const MIN_TRAIN_ROUNDS = 4;
 
 // A train SWEEPS PAST the player's position rather than converging on it.
 //
 // reference/stage7-enemy-shot-train-t330.png shows a train strung out across
-// roughly a third of the frame, not a cluster on one point — and GAME_SPEC.md
-// §4's "tracked shots aimed at the player's position at fire time" cannot
-// mean perfect aim, or every train would be an unavoidable kill. It nearly
-// was: with shots aimed exactly at the player and a scripted demo jet that
-// moves slowly, the player died 3 times in 33 s even after enemy fire volume
-// was cut to the 4-6 shots t330 actually shows. Successive shots in a train
-// are offset along one direction so the train rakes across the player's
-// vicinity: the middle of a train is the dangerous part, the ends miss.
-const TRAIN_SWEEP_STEP_NDC = 0.11;
+// roughly a third of the frame, not a cluster on one point. Successive shots
+// in a train are offset along one direction so the burst has spread rather
+// than being a laser into one pixel.
+//
+// 0.012, and the direction of this constant is the opposite of what it looks
+// like. A WIDE rake is MORE lethal, not less, and that is worth stating
+// plainly because two rounds of tuning got it backwards.
+//
+// The reasoning that fails: "spread the train and most of its rounds sit
+// clear of the kill box, so fewer rounds hit." True and irrelevant. A death
+// costs one hit, so what matters is P(the train hits AT ALL), and a train of
+// n rounds spaced s apart sweeps a CAPSULE of length (n-1)*s and radius
+// PLAYER_HIT_RADIUS_FRAC through the aim point. Widening s grows that
+// capsule's area almost linearly, so it grows the chance the player's actual
+// position at arrival falls somewhere inside it. A TIGHT train is n chances
+// at one disc — which, because every round in a train shares one aim
+// snapshot and they all arrive within ~0.8 s of each other, is barely more
+// dangerous than a single round.
+//
+// That is also what makes the volume constraint satisfiable at all. R4 gap 5
+// forbids cutting the round count, so the lethality has to come out of the
+// number of INDEPENDENT AIM SNAPSHOTS instead: fewer, longer, tighter trains
+// deliver the same fireballs per minute from fewer separate decisions about
+// where the player is. See spawner.js's MAX_CONCURRENT_TRAINS.
+//
+// Measured confirmation of the sign: at 0.11 NDC (committed) and at 0.04 the
+// per-round hit rate was 10.1% and 10.4% — unchanged — while deaths/min went
+// 5.44 and 5.00. The spread was not buying anything.
+//
+// Not zero, because a train of coincident fireballs reads as one smear.
+// 0.012 NDC over an 8-round train is 0.084 NDC = 4.2%W of aim spread; the
+// visible "strung out across roughly a third of the frame" in t330 comes
+// from the FIRING AIRCRAFT's own motion between rounds and from perspective,
+// which at 0.11 s intervals and a 52..24 depth band is the larger effect.
+const TRAIN_SWEEP_STEP_NDC = 0.012;
 
-// Per-train AIM BIAS: the whole train's centre is displaced from the
-// player's position by this much, in a random direction, on top of the
-// per-shot sweep.
+// Every train is 8 rounds — the top of GAME_SPEC.md §4's measured "trains of
+// 4-8" — and the length is fixed rather than drawn for two reasons.
 //
-// Without it the sweep is symmetric about the aim point, so the middle shot
-// of every train is aimed exactly where the player was ~1.2 s ago — a
-// guaranteed hit whenever the jet has not moved further than the kill
-// radius in that time, which for any weaving path is about half the time.
-// That is why the death rate barely responded to halving the number of
-// trains (4.0 deaths/min at both 0.9 s and 1.6 s train spacing): the deaths
-// were not a function of volume, they were one per encounter.
+// LENGTH IS THE CHEAPEST LETHALITY REDUCTION AT CONSTANT VOLUME. Rounds per
+// minute is trains/min x length, and R4 gap 5 forbids cutting the first
+// factor's product. Measured on the attract path, P(a train hits at all)
+// rises strongly sublinearly with length — 0.041 for a single round against
+// 0.188 for eight, a 4.6x rise for 8x the rounds — because all eight share
+// one aim snapshot. Lethality per round delivered therefore FALLS as trains
+// get longer, by 1.7x from 1 round to 8, so the longest train the reference
+// supports is the right one.
 //
-// GAME_SPEC §4's "tracked shots aimed at the player's position at fire time"
-// describes intent, not marksmanship, and
-// reference/stage7-enemy-shot-train-t330.png shows a train crossing the
-// frame rather than converging on the jet.
-const TRAIN_BIAS_MIN_NDC = 0.22;
-const TRAIN_BIAS_MAX_NDC = 0.85;
+// EVEN, so that `k` below is always a half-integer and no round is aimed
+// dead-centre on the snapshot: with an odd length the middle round lands
+// exactly on the telegraphed point, a guaranteed hit on a player who did not
+// move at all. The train straddles the last known position instead.
+//
+// Not a contradiction of "4-8": that range is per train, and
+// reference/stage7-enemy-shot-train-t330.png has 10-16 fireballs in the air
+// at once, which is two overlapping trains (MAX_CONCURRENT_TRAINS = 2).
+const TRAIN_LENGTHS = [8];
+
+// ---------------------------------------------------------------------------
+// THE TELEGRAPH. This is the fairness contract, and it replaces a random aim
+// bias that the game-feel critique correctly called an inverted one.
+//
+// What was here: every train's centre was displaced from the player by a
+// RANDOM 0.22-0.85 NDC (11-42.5%W) in a RANDOM direction. It was added
+// because aimed fire was "a guaranteed hit whenever the jet has not moved
+// further than the kill radius" — but aiming AWAY from the player does not
+// make fire fair, it makes it arbitrary. judging/R4/feel-critique.md: "Enemy
+// fire is no longer something you dodge — it is a rake that sweeps a random
+// part of the screen, and you die when you happen to be standing in it.
+// There is no tell, no lead you can read, and nothing you can learn."
+// Measured: 67% of flight frames had no enemy shot on screen at all, and the
+// player still died 6.0 times per minute.
+//
+// What replaces it: fire is genuinely AIMED, and it is ANNOUNCED first. An
+// enemy that wants to shoot spends TELEGRAPH_S lit up with a muzzle flare
+// before anything leaves the barrel, and the shot is aimed at where the
+// player was WHEN THE FLARE LIT, not at where they are when it fires. That
+// single choice is what makes the tell honest: the flare predicts the
+// impact point, so reacting to it works, and ignoring it is what kills you.
+//
+// WHAT SIZES IT. The quantity that decides whether aimed-at-a-snapshot fire
+// is dodgeable is not a speed, it is the DISPLACEMENT DISTRIBUTION of the
+// jet over the lag between the snapshot and the impact. Speeds were tried
+// first and mislead: a median speed of 0.077 frame-widths/s implies 0.108 of
+// travel over 1.4 s, comfortably past a 0.05 kill radius, and yet the jet
+// was being hit on a third of aimed rounds — because the jet weaves, so the
+// displacement over a 1.4 s window is far smaller than speed x time
+// whenever the window straddles a turnaround.
+//
+// MEASURED, tools/fairness_probe.mjs --trace, ?fixed=1&demo=1&seed=4, 120 s,
+// 671 flight samples at 0.1 s. Operator: displacement between two samples
+// lag apart that are BOTH in state 'flight', in the hit test's own units
+// (dx = dNDCx * 0.5, dy = dNDCy * 0.5 * 224/320), i.e. frame-width
+// fractions, directly comparable to PLAYER_HIT_RADIUS_FRAC:
+//
+//   lag    p10     median   P(displacement < 0.05)
+//   0.6 s  0.0094  0.0342   0.635
+//   1.0 s  0.0158  0.0583   0.455
+//   1.4 s  0.0238  0.0815   0.320
+//   2.0 s  0.0376  0.1155   0.161
+//   2.6 s  0.0532  0.1449   0.090
+//
+// That last column IS the per-round hit probability for a round aimed
+// exactly at the snapshot, and it is the curve every constant here is
+// solved against. The lag available is
+//
+//   lag = TELEGRAPH_S + timeOfFlight,  timeOfFlight = (d - 1.6) / 24
+//
+// so with firing confined to FIRE_DEPTH_MIN..FIRE_DEPTH_MAX = 16..46 the
+// flight term is only 0.60-1.85 s. At TELEGRAPH_S 0.8 that put the lag at
+// 1.4-2.65 s, the hit probability near 0.32 at the dangerous end, and the
+// measured result was 4.5 deaths/min on seed 4 — WORSE than the 3.50 R4
+// measured, because honest aim at a 1.4 s snapshot is more accurate than the
+// random rake it replaced. The telegraph was doing its job; it was too short
+// to pay for the accuracy it bought.
+//
+// 1.0 s, against the 52..24 band solved in FIRE_DEPTH_MAX/MIN above and
+// enemyShots.js's 15 units/s, puts the lag at 2.49-4.36 s: a per-round hit
+// probability of ~0.10 at the floor falling to ~0.05 at the top of the band,
+// against the 0.32 the committed geometry was paying. The remaining margin comes from the wider
+// rake above, not from firing less.
+//
+// 1.0 and not 1.4: 1.4 was tried, and it is the first inequality under
+// FIRE_DEPTH_MAX that kills it — there is only 0.774-0.944 s of approach
+// above any defensible band top, so a 1.4 s flare spends most of its life
+// HELD at full brightness on a stationary-looking dot, which is both less
+// informative (the pulse is what carries the timing) and more cluttered.
+//
+// WHY THIS IS NOT JUST "make the enemy slower to shoot". The flare is lit
+// for the whole window and the aim point is frozen at the instant it lit, so
+// the window is not dead time — it is the only interval in which the player
+// can act on the information. A longer window is a longer promise, not a
+// longer pause: volume per minute is set by the train cadence and the
+// concurrency cap, both unchanged.
+export const TELEGRAPH_S = 1.0;
+
+// The flare may light while the aircraft is still OUTSIDE the firing band,
+// and holds at full brightness until the band is entered.
+//
+// This exists because the band is short in TIME, not in depth (see the
+// inequalities under FIRE_DEPTH_MAX): a flare that had to fit inside the
+// band would leave nothing for the train it announces, and the measured
+// symptom was exactly that — 12 rounds delivered by 148 trains. Lighting the
+// flare on the approach instead costs no band time and gives the player MORE
+// warning, not less.
+//
+// Set to APPROACH_SPAWN_DEPTH, i.e. an aircraft may light its flare from the
+// moment it exists. An earlier 70 was there out of a worry about legibility
+// on a distant dot, and it is the wrong worry: the flare is a FIXED-SIZE
+// glyph (telegraph.js, 7-13 native px) and an approach-pattern aircraft is
+// only ~7 px across even at the top of the firing band, so the flare is the
+// larger of the two at every depth it is lit — it reads BETTER on the dot
+// than on the aircraft. Capping it instead delays the tell to a depth where
+// the round that follows can no longer be dodged.
+const TELEGRAPH_DEPTH_MAX = APPROACH_SPAWN_DEPTH;
 
 // Per-type speed/hp split ADOPTED from the prototype (`enemy_jet_2d.gd`),
 // re-expressed as geometric depth rates. The prototype's 0.35/0.55/0.25
@@ -239,11 +444,21 @@ export class Enemy {
     weavePhase = 0,
     fireDelay = 1.2,
     stageIndex = 0,
+    // Visual identity, chosen by spawner.js independently of `type`. See the
+    // LIVERY_BY_STAGE note at the top of this file for why these are two
+    // separate axes: `type` is the flight model, `role` is who they are.
+    role = 'line',
+    // Which wave dispensed this aircraft. MEASUREMENT ONLY — no code branches
+    // on it; see spawner.js's _nextWave for why formation geometry cannot be
+    // measured without it. -1 = the stage opener and primed echelon, which are
+    // pushed outside the numbered wave sequence.
+    waveId = -1,
   }) {
     const spec = ENEMY_TYPES[type] ?? ENEMY_TYPES.fighter;
     this.id = nextEnemyId++;
     this.pattern = pattern;
     this.type = type;
+    this.waveId = waveId;
     this.hp = spec.hp;
     this.alive = true;
     this.age = 0;
@@ -278,12 +493,21 @@ export class Enemy {
     this.burstTimer = 0;
     this.sweepX = 1;
     this.sweepY = 0;
-    this.biasX = 0;
-    this.biasY = 0;
+    // Telegraph state. `telegraph` counts DOWN to zero and the train starts
+    // when it gets there; `telegraphFrac` is 0..1 for the flare renderer in
+    // weapons/combat.js. `aimX`/`aimY` are the player's NDC snapshotted at
+    // the instant the flare lit — see the TELEGRAPH note above for why the
+    // snapshot, not the live position, is what every shot in the train aims
+    // at.
+    this.telegraph = 0;
+    this.telegraphFrac = 0;
+    this.aimX = 0;
+    this.aimY = 0;
 
     const rear = pattern === 'overtake';
     const aspect = rear ? 'rear' : 'headOn';
-    this.livery = liveryFor(stageIndex, type, pattern);
+    this.role = role;
+    this.livery = liveryFor(stageIndex, role, pattern);
     this.texDetail = textureFor(aspect, this.livery, true);
     this.texFar = textureFor(aspect, this.livery, false);
     this.worldWidth = ENEMY_WORLD_WIDTH * spec.widthScale;
@@ -300,15 +524,24 @@ export class Enemy {
 
   // True while this aircraft is part-way through a shot train. The spawner
   // uses it to bound how many trains exist at once (see `allowNewTrain`).
+  //
+  // The TELEGRAPH counts as part of the train. It has to: the concurrency cap
+  // exists so the player is never facing more aimed trains than they can read,
+  // and a flare the player is supposed to react to is precisely the part of a
+  // train that needs to be counted. Leaving it out let N enemies all light up
+  // together and then fire together, which is the un-dodgeable case the cap
+  // was written to prevent.
   get firingTrain() {
-    return this.burstLeft > 0;
+    return this.burstLeft > 0 || this.telegraph > 0;
   }
 
-  // Returns a fire request ({ ndcX, ndcY, depth }) on the tick a shot leaves
-  // the aircraft, else null. The caller owns the projectile pool.
+  // Returns a fire request on the tick a shot leaves the aircraft, else null.
+  // The caller owns the projectile pool.
   // `allowNewTrain` gates the START of a train only — an enemy already
   // mid-train always finishes it, so trains are never cut off half-way.
-  update(dt, rng, space, allowNewTrain = true) {
+  // `playerNdc` is snapshotted when the telegraph lights, and every shot in
+  // the resulting train is aimed at that snapshot.
+  update(dt, rng, space, allowNewTrain = true, playerNdc = null) {
     this.age += dt;
 
     this.d *= Math.exp(this.depthRate * dt);
@@ -357,44 +590,109 @@ export class Enemy {
     this.bank += THREE.MathUtils.clamp(target - this.bank, -step, step);
     this.sprite.material.rotation = this.bank;
 
-    // --- Firing: spaced TRAINS of 4-8 shots, 1.5-2 s apart (GAME_SPEC.md §4
-    // / REFERENCE.md "Projectile palettes / Enemy shots").
+    // --- Firing: TELEGRAPH, then a train of 4/6/8 shots 1.5-2 s apart
+    // (GAME_SPEC.md §4 / REFERENCE.md "Projectile palettes / Enemy shots").
+    // See the TELEGRAPH note at the top of this file for the fairness
+    // reasoning; the three phases below are flare -> train -> cooldown.
+    //
+    // The flare and the train have DIFFERENT depth windows. The train is
+    // confined to the measured firing band (GAME_SPEC §4: shots appear from
+    // enemies at mid depth); the flare runs on the approach into it, because
+    // the band is only ~1.2-1.5 s long and a flare that had to fit inside it
+    // would leave no room for the train it is announcing.
     let fired = null;
-    const canFire =
-      this.pattern !== 'overtake' && this.d < FIRE_DEPTH_MAX && this.d > FIRE_DEPTH_MIN;
-    if (canFire) {
-      if (this.burstLeft > 0) {
+    const armed = this.pattern !== 'overtake' && this.d > FIRE_DEPTH_MIN;
+    if (armed) {
+      if (this.telegraph > 0) {
+        // Phase 1: the flare is lit and nothing has been fired yet. The aim
+        // point was snapshotted when it lit and is NOT refreshed here —
+        // refreshing it would make the tell a lie.
+        this.telegraph -= dt;
+        this.telegraphFrac = 1 - Math.max(0, this.telegraph) / TELEGRAPH_S;
+        if (this.telegraph <= 0) {
+          if (this.d >= FIRE_DEPTH_MAX) {
+            // Flare ran out before the aircraft reached the band. HOLD it at
+            // full brightness rather than dropping it and re-lighting later:
+            // a tell that blinks off and on again teaches the player that it
+            // means nothing. The aim snapshot is deliberately NOT refreshed
+            // during the hold either, so the hold only ever adds warning.
+            this.telegraph = 1e-6;
+            this.telegraphFrac = 1;
+          } else {
+            this.telegraph = 0;
+            this.telegraphFrac = 0;
+            this.burstCount = TRAIN_LENGTHS[Math.floor(rng() * TRAIN_LENGTHS.length)];
+            this.burstLeft = this.burstCount;
+            this.burstTimer = 0;
+          }
+        }
+      } else if (this.burstLeft > 0) {
+        // Phase 2: paying out the train.
         this.burstTimer -= dt;
         if (this.burstTimer <= 0) {
           this.burstTimer += SHOT_SPACING_S;
           this.burstLeft -= 1;
-          // Index from the train's centre, so the offsets are symmetric
-          // about the aim point whatever the train length.
+          // Index from the train's centre, so the rake is symmetric about
+          // the snapshotted aim point whatever the train length — the middle
+          // of a train is the dangerous part and the ends miss.
           const k = this.burstLeft - (this.burstCount - 1) / 2;
           fired = {
             ndcX: nx,
             ndcY: ny,
             depth: this.d,
-            aimOffsetX: this.biasX + this.sweepX * k * TRAIN_SWEEP_STEP_NDC,
-            aimOffsetY: this.biasY + this.sweepY * k * TRAIN_SWEEP_STEP_NDC,
+            // ABSOLUTE aim, not an offset from wherever the player happens
+            // to be this tick. The caller used to add these to the LIVE
+            // player position, which quietly re-aimed every shot in flight's
+            // worth of train at a moving target.
+            aimX: this.aimX + this.sweepX * k * TRAIN_SWEEP_STEP_NDC,
+            aimY: this.aimY + this.sweepY * k * TRAIN_SWEEP_STEP_NDC,
+            // The un-raked snapshot, for the fairness probe in combat.js.
+            snapX: this.aimX,
+            snapY: this.aimY,
           };
         }
       } else {
+        // Phase 3: cooling down, then light the flare.
+        //
+        // The flare may only light if there is DEPTH BUDGET left to announce
+        // the train and then deliver MIN_TRAIN_ROUNDS of it before the
+        // aircraft sinks through FIRE_DEPTH_MIN. Without this gate the
+        // concurrency budget in spawner.js hands the flare to whichever
+        // aircraft happens to win it, which is usually one most of the way
+        // through its 5 s approach, and the train is cut off after a round or
+        // two: measured, 169 trains delivered 241 rounds, 1.4 each of a
+        // nominal 4-8. The budget is the aircraft's own remaining time to the
+        // floor, so it is correct for all three depth rates rather than for
+        // the fighter only.
         this.fireTimer -= dt;
-        if (this.fireTimer <= 0 && allowNewTrain) {
-          this.burstCount = 4 + Math.floor(rng() * 5); // 4-8 shots
-          this.burstLeft = this.burstCount;
-          this.burstTimer = 0;
+        const budgetS = Math.log(this.d / FIRE_DEPTH_MIN) / Math.abs(this.depthRate);
+        const needS = TELEGRAPH_S + (MIN_TRAIN_ROUNDS - 1) * SHOT_SPACING_S;
+        if (
+          this.fireTimer <= 0 &&
+          allowNewTrain &&
+          playerNdc &&
+          this.d < TELEGRAPH_DEPTH_MAX &&
+          budgetS >= needS
+        ) {
+          this.telegraph = TELEGRAPH_S;
+          this.telegraphFrac = 0;
           this.fireTimer = 1.5 + rng() * 0.5;
+          this.aimX = playerNdc.x;
+          this.aimY = playerNdc.y;
           const a = rng() * Math.PI * 2;
           this.sweepX = Math.cos(a);
           this.sweepY = Math.sin(a) * 0.6; // flatter than tall, as t330 reads
-          const b = rng() * Math.PI * 2;
-          const r = TRAIN_BIAS_MIN_NDC + rng() * (TRAIN_BIAS_MAX_NDC - TRAIN_BIAS_MIN_NDC);
-          this.biasX = Math.cos(b) * r;
-          this.biasY = Math.sin(b) * r * 0.7;
         }
       }
+    } else {
+      // Past FIRE_DEPTH_MIN (or an overtake flight, which never fires): drop
+      // the flare rather than leaving it lit on an aircraft that can no
+      // longer shoot. Any unpaid remainder of a train goes with it — a round
+      // leaving from inside FIRE_DEPTH_MIN is the point-blank case the floor
+      // exists to forbid, and finishing the train would reintroduce it.
+      this.telegraph = 0;
+      this.telegraphFrac = 0;
+      this.burstLeft = 0;
     }
     return fired;
   }

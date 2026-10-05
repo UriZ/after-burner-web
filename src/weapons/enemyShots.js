@@ -16,7 +16,33 @@ import { enemyShotTexture } from './projectileSprites.js';
 // fixed straight line, exactly like a vulcan round but in the other depth
 // direction.
 
-const SPEED = 24; // world depth units/s, toward the camera
+// World depth units/s, toward the camera. 15, down from 24.
+//
+// NEITHER NUMBER IS MEASURED, and this comment exists so the next agent does
+// not treat 15 as arcade-derived. GAME_SPEC.md §4 carries "bullet speed ~0.6
+// depth/s", ADOPTED from the Godot prototype in that prototype's normalised
+// depth units; mapped onto this project's 90-unit spawn depth that is roughly
+// 54 units/s, so the committed 24 was already a large unexplained departure
+// from the inherited figure, in this same direction. Shot time of flight is
+// in principle measurable off the 60fps longplay (count frames from a muzzle
+// flash to its impact) and has not been; until it is, this is a gameplay
+// constant with a stated derivation, not a reference fact.
+//
+// What it IS solved against: time of flight is the only term in the fairness
+// lag (TELEGRAPH_S + timeOfFlight, see src/entities/enemy.js) that can grow
+// without shrinking the depth budget an enemy needs to pay out a full train
+// — raising the firing band's floor buys lag and costs budget, whereas
+// slowing the round buys lag for free. At 15 units/s a round from the 52..24
+// band is in the air 1.49-3.36 s, putting the lag at 2.49-4.36 s against the
+// 1.93-3.10 s that 24 gave.
+//
+// It also happens to agree better with the one measured frame we have:
+// reference/stage7-enemy-shot-train-t330.png shows ~6 fireballs strung out
+// across roughly a third of the frame AT ONCE, which needs the earlier rounds
+// of a train still in the air when the later ones leave. At 0.11 s spacing an
+// 8-round train spans 0.77 s of emission, so the whole train is only
+// simultaneously visible if a round lives well beyond that.
+const SPEED = 15;
 const PASS_DEPTH = 1.6; // retire once it has gone by
 
 // Shots GROW visibly as they close — in
@@ -37,8 +63,10 @@ export class EnemyShots {
   }
 
   // `from` = { ndcX, ndcY, depth } at the firing aircraft; `aim` = the
-  // player's { x, y, depth } NDC at fire time.
-  spawn(from, aim) {
+  // { x, y, depth } NDC this shot flies at — snapshotted when the firing
+  // enemy's telegraph lit, NOT the live player position (see enemy.js).
+  // `meta` carries measurement-only fields the fairness probe reads back.
+  spawn(from, aim, meta = null) {
     let sprite;
     if (this.pool.length) sprite = this.pool.pop();
     else {
@@ -49,6 +77,7 @@ export class EnemyShots {
     this.shots.push({
       sprite,
       depth: from.depth,
+      prevDepth: from.depth,
       startNdcX: from.ndcX,
       startNdcY: from.ndcY,
       aimNdcX: aim.x,
@@ -56,12 +85,20 @@ export class EnemyShots {
       invStart: 1 / from.depth,
       invAim: 1 / aim.depth,
       startDepth: from.depth,
+      meta,
     });
   }
 
   update(dt) {
     for (let i = this.shots.length - 1; i >= 0; i--) {
       const s = this.shots[i];
+      // Kept so combat.js's hit test can ask "did this round cross the
+      // player's plane during THIS tick" rather than "is it currently within
+      // a depth tolerance of it". See checkPlayerHit's comment: the
+      // tolerance form tested the round at every tick across a window
+      // 1.23x the firer-to-aim screen distance wide, so a round aimed well
+      // clear of the player still swept over them on the way through.
+      s.prevDepth = s.depth;
       s.depth -= SPEED * dt;
       if (s.depth <= PASS_DEPTH) {
         this._retire(i);

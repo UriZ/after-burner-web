@@ -270,11 +270,62 @@ export class LockSystem {
   // one vertical arm. See weapons/projectileSprites.js for why this is eight
   // rectangles and not four Ls — in short, arm length must scale with the
   // box while stroke weight must not, and one sprite cannot do both.
+  // `depthTest: false` CLOSES R4 GAP 10'S RESIDUAL, and the cause was not the
+  // placement code. Recording the diagnosis because the symptom pointed
+  // straight at the geometry and the geometry was correct.
+  //
+  // The symptom: on a hard-banked frame the bracket measured 5 x 18 native px
+  // with only the two LEFT corners present, in a near-white connected-
+  // component pass. Reproduced on the current tree at roll +25.6 to +26.5 deg
+  // (?fixed=1&demo=2&seed=3, ticks 36/40/44), bars 2-5 scoring zero near-white
+  // pixels at their own predicted positions.
+  //
+  // tools/bracket_probe.mjs projects the eight bar sprites through the live
+  // camera instead of reading pixels, and the box measures 16.50 x 16.50
+  // native px at EVERY roll angle out to the +-66.5 deg saturation point. So
+  // the bars were placed correctly and something removed them from the frame.
+  // Three candidates, all eliminated or confirmed by measurement rather than
+  // by argument:
+  //
+  //   clouds        RULED OUT. ?noclouds=1 reproduces the defect identically,
+  //                 bar for bar — despite clouds.js building its banks with a
+  //                 bare SpriteMaterial, whose depthWrite defaults to TRUE,
+  //                 which made them the obvious suspect.
+  //   mask merging  RULED OUT. The missing bars sit on pure #009fff sky
+  //                 (0,159,255 read straight off the frame), not merged into
+  //                 the trail mass or any other near-white component.
+  //   the PLAYER'S  CONFIRMED. ?hidejet=1 restores 8/8 bars on every one of
+  //   OWN SPRITE    the six banked frames. createJetSprite() in
+  //                 render/spriteFactory.js builds its SpriteMaterial with
+  //                 `transparent: true` and no alphaTest, so every texel of
+  //                 its quad — INCLUDING the fully transparent margin —
+  //                 writes depth, at depth ~5, nearer than anything else in
+  //                 the scene. The jet has no renderOrder (0) and these bars
+  //                 have 29/30, so the jet stamps first and the bars are
+  //                 depth-rejected inside a ~117 x 64 native-px rectangle in
+  //                 which the jet is invisible. Under bank the tracked enemy
+  //                 swings around screen centre and the bracket falls into it.
+  //
+  // depthTest:false is also the right answer on its own terms, independent of
+  // that bug: a lock bracket and the sight square are target MARKERS, and
+  // REFERENCE.md's banked frames show them square to the screen and drawn
+  // over everything. Nothing should occlude a reticle — not the aircraft it
+  // marks, not the player's own airframe, not terrain. The HUD is a separate
+  // render pass (render/screen.js renders hud.scene after the game scene), so
+  // this cannot reach it.
+  //
+  // THE ROOT CAUSE IS NOT FIXED HERE and is much wider than the brackets —
+  // see judging/R5/ask-combatfx.md. Measured blast radius, ?demo=2&seed=3,
+  // 150 frames at 3-tick spacing, diffing the live tree against a snapshot
+  // with `alphaTest: 0.5` added to the jet's material: 239 176 native pixels
+  // differ, in all 150 frames, and the largest revealed colour bucket is
+  // #f6f6e7 (19 343 px) — the explosion's white-hot core, punched out by the
+  // player's own transparent sprite margin.
   _makeCorners(renderOrder) {
     const tex = lockBarTexture();
     const out = [];
     for (let i = 0; i < 8; i++) {
-      const s = makeBillboard(tex, 0.1);
+      const s = makeBillboard(tex, 0.1, { depthTest: false });
       s.renderOrder = renderOrder;
       s.visible = false;
       this.scene.add(s);
