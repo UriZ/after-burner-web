@@ -45,6 +45,10 @@ if (stage !== STAGE_1) {
   ground.setStage(stage);
 }
 const clouds = createClouds(STAGE_1, camera, seed);
+// Clouds are stage-tinted too (CLOUD_PALETTES). The real game does NOT yet
+// call this — src/game/flow/flow.js switches sky and ground but not clouds,
+// and that file belongs to another lane this round; see judging/R5/ask-world.md.
+if (stage !== STAGE_1) clouds.setStage(stage);
 scene.add(clouds.group);
 
 const loop = new FixedLoop(

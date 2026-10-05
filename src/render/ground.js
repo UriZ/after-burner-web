@@ -107,6 +107,11 @@ export function createGround(stage, horizonFrac) {
     uniform float uRoadFeather;
     uniform float uRoadEdgeJitter;
     uniform vec3 uRoadColor;
+    uniform vec3 uPlainColor;
+    uniform float uVegHalfWidth;
+    uniform float uVegFeather;
+    uniform float uOpenWaveLen;
+    uniform float uOpenAmp;
     uniform float uCameraHeight;
     uniform float uCameraPitch;
     uniform float uHalfTanFov;
@@ -214,6 +219,43 @@ export function createGround(stage, horizonFrac) {
       return floor(clamp(c, 0.0, 1.0) * 15.0 + 0.5) * (247.0 / (15.0 * 255.0));
     }
 
+    // Stage-2 terrain palette. MEASURED on reference/ab2-arcade-desert.png
+    // (native 320x224, HUD STAGE digit reads 2), terrain band x[10,180]
+    // y[150,194], n=7480: that band contains only 42 distinct colours and
+    // these 18 cover 85.0% of it, in yield order —
+    //   #313100 12.65  #311000 9.47  #d6b584 8.92  #312100 6.15
+    //   #843100  5.74  #633100 5.53  #846331 4.34  #f7b500 4.17
+    //   #c59463  3.54  #b56300 3.40  #b58463 3.30  #f7c584 2.89
+    //   #636300  2.82  #522100 2.75  #632100 2.67  #945200 2.42
+    //   #d68400  2.31  #946352 1.89
+    // MEASURED on our own capture over the same kind of band, our stage-2
+    // ground used 238-258 distinct ladder entries against the arcade's 42,
+    // with V sd 0.19-0.21 against 0.278 — a continuous HSV field snapped to
+    // a 4-bit ladder, which reads as mush where the arcade reads as rock,
+    // scrub and canopy. Snapping to the measured set restores the arcade's
+    // small indexed palette; the haze mix downstream is deliberately NOT
+    // snapped, because the horizon band is a genuine gradient.
+    vec3 snapToStage2Palette(vec3 c) {
+      vec3 pal[18];
+      pal[0]  = vec3(0.192, 0.192, 0.000); pal[1]  = vec3(0.192, 0.063, 0.000);
+      pal[2]  = vec3(0.839, 0.710, 0.518); pal[3]  = vec3(0.192, 0.129, 0.000);
+      pal[4]  = vec3(0.518, 0.192, 0.000); pal[5]  = vec3(0.388, 0.192, 0.000);
+      pal[6]  = vec3(0.518, 0.388, 0.192); pal[7]  = vec3(0.969, 0.710, 0.000);
+      pal[8]  = vec3(0.773, 0.580, 0.388); pal[9]  = vec3(0.710, 0.388, 0.000);
+      pal[10] = vec3(0.710, 0.518, 0.388); pal[11] = vec3(0.969, 0.773, 0.518);
+      pal[12] = vec3(0.388, 0.388, 0.000); pal[13] = vec3(0.322, 0.129, 0.000);
+      pal[14] = vec3(0.388, 0.129, 0.000); pal[15] = vec3(0.580, 0.322, 0.000);
+      pal[16] = vec3(0.839, 0.518, 0.000); pal[17] = vec3(0.580, 0.388, 0.322);
+      vec3 best = pal[0];
+      float bestD = 1e9;
+      for (int i = 0; i < 18; i++) {
+        vec3 d = c - pal[i];
+        float dd = dot(d, d);
+        if (dd < bestD) { bestD = dd; best = pal[i]; }
+      }
+      return best;
+    }
+
     void main() {
       // R3 gap-1/gap-2 fix (R2 judge: these are one task). R2 built this
       // anisotropic along-track (ridges elongated along world Z, the scroll
@@ -305,7 +347,34 @@ export function createGround(stage, horizonFrac) {
         // and mid-bright: #d6b584 (S 0.38 V 0.84), #c59463 (S 0.50 V 0.77),
         // #946352 (S 0.44 V 0.58) — see uRoadColor in stage.js.
         vec3 roadColor = linearToSrgb(uRoadColor) * (0.78 + 0.44 * stipV);
-        groundColor = mix(veg, roadColor, road);
+        // The snap is applied to the TERRAIN ONLY. Its 18-colour set was
+        // measured from the terrain band, which by construction excludes the
+        // open plain, so snapping the plain rewrites #e67300 to its nearest
+        // terrain entry #d68400 and the plain stops being the plain —
+        // measured: the open-plain fraction moved only 0.5% -> 1.1% until
+        // this was separated out.
+        vec3 terrain = snapToStage2Palette(mix(veg, roadColor, road));
+
+        // OPEN PLAIN. The arcade's stage 2 is NOT vegetated everywhere: a
+        // large share of it is the flat orange plain, and the share swings
+        // wildly along the stage. MEASURED on the STAGE_MAP-verified span
+        // 124-156, ground band y[310,420] x[20,660] at 686x480, fraction
+        // within 24 of #e67300: t134 0.0%, t138 0.0%, t142 33.0%,
+        // t150 8.4%. Our build measured 0.3-0.5% everywhere — one uniform
+        // regime, which is a large part of why stage 2 reads as a smear.
+        // There is therefore NO single flat-fraction target to tune to; the
+        // thing to reproduce is the VARIATION, so the vegetated band's
+        // width is modulated by a low-frequency function of depth and the
+        // rest of the ground is the measured flat plain.
+        //
+        // That plain colour is the same #e67300 as stage 2's sky top, which
+        // is not a mistake — the arcade uses one colour for both, which is
+        // why its stage-2 horizon is nearly invisible over open ground
+        // (ab2-arcade-desert.png: the orange runs continuously across it).
+        float openness = valueNoise(vec2(3.7, (vWorldPos.z + uScroll) / uOpenWaveLen));
+        float vegEdge = clamp(uVegHalfWidth + (openness - 0.5) * 2.0 * uOpenAmp, 0.02, 1.0);
+        float plain = smoothstep(vegEdge, vegEdge + uVegFeather, bandT);
+        groundColor = mix(terrain, linearToSrgb(uPlainColor), plain);
       } else if (uGroundMode > 0.5) {
         // ---- 'night' (stage 3) --------------------------------------
         // Pure-blue dithered field. The value distribution is strongly
@@ -500,6 +569,14 @@ export function createGround(stage, horizonFrac) {
     roadFeather: 0.10,
     roadEdgeJitter: 0.22,
     roadColor: new THREE.Color(0, 0, 0),
+    // Open-plain defaults are deliberately inert: vegHalfWidth 1.0 means the
+    // vegetated band covers the whole period, i.e. no plain, which is the
+    // pre-R5 behaviour for any stage that does not set these.
+    plainColor: new THREE.Color(0, 0, 0),
+    vegHalfWidth: 1.0,
+    vegFeather: 0.08,
+    openWaveLen: 40.0,
+    openAmp: 0.0,
     hazePeak: 0.0,
     hazeAtHorizonMix: 1.0,
   };
@@ -563,6 +640,11 @@ export function createGround(stage, horizonFrac) {
       uRoadFeather: { value: p.roadFeather },
       uRoadEdgeJitter: { value: p.roadEdgeJitter },
       uRoadColor: { value: p.roadColor },
+      uPlainColor: { value: p.plainColor },
+      uVegHalfWidth: { value: p.vegHalfWidth },
+      uVegFeather: { value: p.vegFeather },
+      uOpenWaveLen: { value: p.openWaveLen },
+      uOpenAmp: { value: p.openAmp },
     },
     vertexShader,
     fragmentShader,
@@ -637,6 +719,11 @@ export function createGround(stage, horizonFrac) {
       u.uRoadFeather.value = q.roadFeather;
       u.uRoadEdgeJitter.value = q.roadEdgeJitter;
       u.uRoadColor.value = q.roadColor;
+      u.uPlainColor.value = q.plainColor;
+      u.uVegHalfWidth.value = q.vegHalfWidth;
+      u.uVegFeather.value = q.vegFeather;
+      u.uOpenWaveLen.value = q.openWaveLen;
+      u.uOpenAmp.value = q.openAmp;
     },
   };
 }

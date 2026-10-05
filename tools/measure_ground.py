@@ -5,6 +5,36 @@ column-scan horizon operator and adds a distinct-color/palette-share count
 and a 2D-autocorrelation anisotropy estimate for the near-field ground.
 
 Usage: python3 tools/measure_ground.py <png> [--patch x0 y0 x1 y1]
+
+R5 CAVEAT ON THE ANISOTROPY NUMBER — read before quoting it.
+Behaviour here is UNCHANGED so earlier figures stay reproducible, but the
+ratio is resolution-dependent in two ways that are easy to miss:
+
+  1. `autocorr_anisotropy` floors the SHORTER half-width at 1 px
+     (`max(min(hx, hy), 1)`). Our sea's along-track correlation length is
+     BELOW that floor once a capture is decimated to native 320x224: on
+     tools/out/world-r5b/sea-check/frame-0001.png it is 0.676 px, so the
+     floor binds and the ratio prints 6.54x. The same frame measured at the
+     stored 960x672 prints 9.63x from the identical structure (half-widths
+     scale by exactly 3.00, as they must — the capture is an exact
+     nearest-neighbour 3x replication, see tools/measure_clouds.py
+     --verify-native). The published 6.51x is therefore a floor-limited
+     reading, not a measurement of the texture.
+
+  2. COMPARING ACROSS RESOLUTIONS IS INVALID. Arcade frames are 686x480
+     interpolated upscales of the same 320x224 the hardware draws, and
+     interpolation lengthens correlation lengths. Brought to a common
+     resolution with a common filter — ours resampled 960x672 -> 686x480
+     bilinear, arcade t116 as stored, same patch (240,260)-(445,465) — the
+     two agree closely: ours hx 44.61 hy 9.02 ratio 4.95x, arcade hx 41.63
+     hy 7.99 ratio 5.21x. Measuring ours at native and the arcade at 686
+     made our sea look 2x more anisotropic than it is.
+
+HISTOGRAM statistics (distinct colours, palette share, foam fraction,
+contrast spread) are NOT affected by the decimation: the 3x upscale
+replicates every pixel exactly 9 times, so every pixel keeps its weight.
+"distinct colors below horizon" reads 13950 at both 320x224 and 960x672 on
+the frame above, which is the control for that claim.
 """
 import sys
 import argparse

@@ -40,6 +40,11 @@ export const STAGE_1 = {
   skyTop: srgbHex('#009fff'),
   skyHorizon: srgbHex('#009fff'),
   skyGlowElevDeg: 0, // flat fill: no glow, so the elevation ramp is inert
+  // Cloud tint (src/render/clouds.js CLOUD_PALETTES). Stage 1's daylight
+  // clouds measure white with a faint lavender cast on
+  // stage1-climbout-t92.png (cloud mass y[260,400] x[80,300], modal
+  // #fdfafe, p50 (249,246,250), p2 (210,207,211)).
+  cloudPalette: 'day',
 
   // Sea (R1 gap 1 — replaces the flat-checker ocean/green-island fill).
   // H=235deg S=1.00 from stage_data.gd #124 (hue-histogram percentile pass,
@@ -125,6 +130,10 @@ export const STAGE_2 = {
   skyTop: srgbHex('#e67300'),
   skyHorizon: srgbHex('#f7ce00'),
   skyGlowElevDeg: 4.0,
+  // MEASURED ab2-arcade-desert.png (native, STAGE 2): the clouds are
+  // CREAM, not white — y[92,122] x[200,232] and y[110,140] x[240,275] run
+  // #f7f7e6 / #f7f7b5 / #e6e6a4 / #d6d694 / #c5c584 / #b5b573.
+  cloudPalette: 'desert',
 
   // Vegetation stipple. ADOPTED stage_data.gd #124 gives H=35deg S=0.82
   // V75=0.733 V25=0.441 (a percentile band, not the texture's extremes).
@@ -186,6 +195,17 @@ export const STAGE_2 = {
     // (y=180 x97-101), #946352 (y=180 x91-94, S 0.44 V 0.58). Mid of that
     // set; ground.js stipples it +/-22% so the gravel keeps texture.
     roadColor: srgbHex('#c59c73'),
+    // Open plain — see ground.js's OPEN PLAIN block for the measurement.
+    // MEASURED ab2-arcade-desert.png (native, HUD STAGE digit reads 2),
+    // crop x[205,300] y[150,190], n=3800: 99.4% is exactly #e67300, i.e. a
+    // flat fill and not a dither. openAmp carries the along-stage swing the
+    // 686x480 level-flight frames show (0.0 / 0.0 / 33.0 / 8.4% flat across
+    // t134/t138/t142/t150).
+    plainColor: srgbHex('#e67300'),
+    vegHalfWidth: 0.74,
+    vegFeather: 0.10,
+    openWaveLen: 34.0,
+    openAmp: 0.42,
   },
 
   // Ground-side horizon haze. MEASURED ab2-arcade-desert.png: the gold band
@@ -219,6 +239,10 @@ export const STAGE_3 = {
   skyTop: srgbHex('#000005'),
   skyHorizon: srgbHex('#000331'),
   skyGlowElevDeg: 1.5,
+  // MEASURED ab2-arcade-night-banking.png (native): white with a
+  // lavender-grey ramp — #f7f7f7 / #e6d6e6 / #d6c5d6 / #c5b5c5 / #b5a4b5 /
+  // #a494a4 over the cloud at y[48,90] x[58,102].
+  cloudPalette: 'night',
 
   // Dithered dark-blue field. MEASURED t175 ground band y[344,424]
   // x[20,660]: mean RGB (0.82, 0.96, 16.85) — R and G are effectively ZERO,
@@ -256,20 +280,38 @@ export const STAGE_3 = {
     macroFreqZ: 12.0,
     macroAmp: 1.5,
     detailAmp: 1.4,
-    // City lights, near-field only. MEASURED ab2-arcade-night-banking.png
-    // (native 320x224): 9.38% of y[150,190] x[10,310] is above V 0.5, but
-    // its own mid-field band y[120,145] x[170,310] is only 0.57%, and both
-    // PROVEN stage-3 frames are lower still (t175 0.20%, t186 0.00%).
-    // REFERENCE.md's "dense white-speckle field (city lights)" is therefore
-    // true only of the near field, and night-banking carries no proven
-    // stage identity, so stage 3 takes a deliberately restrained density:
-    // enough for the near field to sparkle, low enough that the measurable
-    // mid-field band still matches t175.
-    lightDensity: 0.10,
+    // City lights. R5 CORRECTION — the previous block called
+    // ab2-arcade-night-banking.png a frame that "carries no proven stage
+    // identity" and confined the lights to a near-field sliver on that
+    // basis. ITS HUD STAGE DIGIT READS 3 (readable at native 320x224 in the
+    // bottom bar, next to the red STAGE label), so it is proven stage 3,
+    // and it is the only NATIVE-resolution stage-3 frame in the repo — the
+    // t175/t186 pair are 686x480 video upscales.
+    //
+    // The two sources disagree because they are different parts of a 36 s
+    // stage, and both are real: over the ground band x[20,310] y[128,196],
+    // night-banking has 5.93% of pixels above V 0.9 and p99 V 0.969, while
+    // t175's equivalent band has 0.12% and p99 0.271. What is NOT
+    // defensible is what we shipped: the ramp lightNearDist 6.2 →
+    // lightFarDist 9.0 put every light within 9 world units of the camera,
+    // and MEASURED on our own capture the first row carrying any pixel
+    // above V 0.5 was y=199 of 224 — entirely behind the bottom HUD block.
+    // Our visible night ground had p99 V 0.322 and ZERO pure-white pixels
+    // against the arcade's 4.27%, while mean V matched at 0.099 vs 0.119.
+    // A matching mean with no lights in it is exactly the failure mode this
+    // project keeps hitting: the statistic was in band and the picture was
+    // wrong.
+    //
+    // Density is set between the two sources and the ramp now runs out to
+    // mid-field, so lights are visible across the whole ground band and
+    // thin with distance. Light colours MEASURED on night-banking (pixels
+    // V>0.6 in y[150,190] x[10,310], n=1114): #f7f7f7 dominates (58%), then
+    // #00d6d6, #f7f700/#c5d600, #f70000/#a40000, #f7a400, #00f7a4.
+    lightDensity: 0.055,
     lightCell: 0.055,
     lightCellZ: 0.30,
-    lightNearDist: 6.2,
-    lightFarDist: 9.0,
+    lightNearDist: 5.0,
+    lightFarDist: 45.0,
   },
 
   // Near-horizon glow. MEASURED t175, mean blue of x[20,660] per row with
