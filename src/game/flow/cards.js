@@ -1,4 +1,4 @@
-import { drawText, textWidth, drawTextCenteredInk } from '../../ui/font.js';
+import { drawText, textWidth, drawTextCenteredInk, FACE_BIG_CARD } from '../../ui/font.js';
 
 // Transient HUD overlay cards, drawn OVER the live (still-scrolling) world —
 // REFERENCE.md "Transient HUD overlays" / GAME_SPEC.md §2/§6/§7. Each
@@ -43,7 +43,36 @@ const CONTINUE_GREEN = '#00f0ae';
 const COUNTDOWN_CREAM = '#dde294';
 const COIN_RED = '#ff0000';
 
-const OUTLINED = { outline: '#000000' };
+const OUTLINED = { outline: '#000000', face: FACE_BIG_CARD };
+
+// ---------------------------------------------------------------------
+// THE CARD FACE, AND ITS ONE SCALE. R5c.
+//
+// Every line on every card is the HUD's BIG face at pxX = 1, pxY = 2 — a
+// 7x14 native glyph on an 8-px advance. Three independent corroborations,
+// none of which R5a had:
+//
+//  1. The dotted lowercase i and the blank-middle-row E are visible on both
+//     t124 and t261, and both are distinctive features of the big face.
+//  2. t261's "INSERT COIN" measures 87.0 native px of ink against 87
+//     predicted for eleven 7-wide glyphs on an 8-px pitch. Five-wide glyphs
+//     on the same pitch would give 85.
+//  3. The glyph BODY measures 14 native rows on t261, t207 and t124 — three
+//     frames at two different magnifications (2x anamorphic and 3.21x).
+//
+// R5a drew all of this in the 5x7 SMALL face at pxX 1.27 / 1.33 / 1.25 /
+// 1.3 / 2.3, fractional scales chosen to hit the measured 8-px advance with
+// a 6-px one. That is the same defect the HUD shed in R5b: a fractional
+// horizontal scale on a 5-wide face cannot render the arcade's 2-px stroke,
+// it can only approximate it. There is no fractional scale left in this
+// file.
+//
+// font.js grades 18 of the letters this needs as ADOPTED rather than
+// MEASURED, with the source, the operator and a 0/343 instrument control
+// written out next to them. Read that note before changing a letterform.
+const CARD_PX = 1;
+const CARD_PY = 2;
+// ---------------------------------------------------------------------
 
 // GAME_SPEC.md §2: "respawn 'READY' text card low-center (yellow, then
 // cyan)". `phase` in [0,1): under 0.6 renders yellow, at/after renders cyan.
@@ -53,7 +82,7 @@ const OUTLINED = { outline: '#000000' };
 // HUD row — judge gap 9's "READY sits low enough to collide".
 export function drawReadyCard(ctx, w, h, phase) {
   const color = phase < 0.6 ? READY_YELLOW : READY_CYAN;
-  drawTextCenteredInk(ctx, 'READY', w * 0.508, h * 0.622, color, 1.3, 2, OUTLINED);
+  drawTextCenteredInk(ctx, 'READY', w * 0.508, h * 0.622, color, CARD_PX, CARD_PY, OUTLINED);
 }
 
 // GAME_SPEC.md §6: stage-end tally — red "HIT COUNTS n" over cyan
@@ -65,25 +94,45 @@ export function drawReadyCard(ctx, w, h, phase) {
 //   both NUMBERS end at x 0.446W (right-aligned), cyan
 //   "STAGE 2" x[0.375,0.692]W y[0.794,0.847]H, lavender
 export function drawTallyCard(ctx, w, h, { hitShown, pointsShown, nextStage }) {
-  const px = 1.33; // 6*1.33 = 8.0 native advance (arcade 8.1)
-  const py = 2; // 14 native tall (arcade 13)
-  const labelX = Math.round(w * 0.1245);
-  const numRight = Math.round(w * 0.446);
-  const y1 = Math.round(h * 0.150);
-  const y2 = Math.round(h * 0.221);
+  const px = CARD_PX;
+  const py = CARD_PY;
+  // t124, re-measured at the glyph grid rather than off a threshold edge:
+  // the red ink of both labels starts at native x39 ('H' and 'P' both open
+  // on column 0), and both cyan numbers right-align on native x143 — the
+  // single "8" measures ink x[136.3,142.6], which is exactly one 7-wide big
+  // cell ending at 142, and "160000" at six cells from 96 lands its '1'
+  // stem at 98.4 as measured. Row origins are the alignment-fit values
+  // (native y33 and y49), not the threshold edges, because a threshold edge
+  // on red-over-orange and cyan-over-orange disagree by 1.8 px about the
+  // same row.
+  const labelX = Math.round(w * 0.1219);   // native 39
+  const numRight = Math.round(w * 0.4469); // native 143
+  const y1 = Math.round(h * 0.1473);       // native 33
+  const y2 = Math.round(h * 0.2188);       // native 49
 
   drawText(ctx, 'HIT COUNTS', labelX, y1, CARD_RED, px, py, OUTLINED);
   const n1 = String(hitShown);
-  drawText(ctx, n1, numRight - textWidth(n1, px), y1, CARD_CYAN, px, py, OUTLINED);
+  drawText(ctx, n1, numRight - textWidth(n1, px, FACE_BIG_CARD), y1, CARD_CYAN, px, py, OUTLINED);
 
   drawText(ctx, 'POINTS', labelX, y2, CARD_RED, px, py, OUTLINED);
   const n2 = String(pointsShown);
-  drawText(ctx, n2, numRight - textWidth(n2, px), y2, CARD_CYAN, px, py, OUTLINED);
+  drawText(ctx, n2, numRight - textWidth(n2, px, FACE_BIG_CARD), y2, CARD_CYAN, px, py, OUTLINED);
 
   // Lower-centre, clear of the bottom HUD strip (which starts at native
   // y=199 = 0.888H). R4 put this at 0.62H, mid-screen over the jet.
-  drawTextCenteredInk(ctx, `STAGE ${nextStage}`, w * 0.533, h * 0.794,
-    STAGE_LAVENDER, 2.3, 2, OUTLINED);
+  //
+  // THE LABEL AND THE DIGIT ARE TWO ELEMENTS, NOT ONE CENTRED STRING. On
+  // t124 the lavender ink falls in three column groups — native x[120.2,
+  // 142.3] and x[144.4,158.4] (that gap is inside the word, between G and
+  // E) and then x[184.9,190.5] for the digit, 26 px of empty sky away. So
+  // the card reuses the bottom HUD row's own geometry: label at x120, digit
+  // ink-centred at x188. Drawing "STAGE 2" as one centred string, as R5a
+  // did, cannot produce that gap at any scale, and needed pxX 2.3 to reach
+  // the right-hand end — which is how the label ended up 2.3x too wide.
+  const row = Math.round(h * 0.7946); // native 178
+  drawText(ctx, 'STAGE', Math.round(w * 0.375), row, STAGE_LAVENDER, px, py, OUTLINED);
+  drawTextCenteredInk(ctx, String(nextStage), w * 0.5891, row,
+    STAGE_LAVENDER, px, py, OUTLINED);
 }
 
 // GAME_SPEC.md §2: "CONTINUE PLAY / <countdown from 10> / INSERT COIN"
@@ -94,12 +143,27 @@ export function drawTallyCard(ctx, w, h, { hitShown, pointsShown, nextStage }) {
 // All three lines are centred on x ~0.486W, not on w/2 exactly.
 export function drawContinueCard(ctx, w, h, countdown) {
   drawTextCenteredInk(ctx, 'CONTINUE PLAY', w * 0.486, h * 0.333,
-    CONTINUE_GREEN, 1.27, 2, OUTLINED);
+    CONTINUE_GREEN, CARD_PX, CARD_PY, OUTLINED);
 
+  // SAME HEIGHT AS THE OTHER TWO LINES. All three of t261's lines measure
+  // 15.6 native px tall including their keyline, and the tally card's two
+  // lines on t124 (a 3.21x upscale, so an independent check at a different
+  // magnification) measure 13.7 and 14.0 native for the glyph body. R5a drew
+  // the countdown at pxY=2.5, which renders 20 px — a third taller than any
+  // line the arcade puts on a card.
+  // The countdown is NOT on the other two lines' centre axis. t261's ink
+  // bboxes put CONTINUE PLAY's centre at native x155.25 and INSERT COIN's at
+  // 156.25, but the "10" at 159.5 — four pixels right. Two big cells with a
+  // '1' (ink cols 2-4) and a '0' (ink cols 1-5) give 12 px of real ink, so
+  // the frame's 15.5 px measurement is that 12 plus ~1.75 px of upscale blur
+  // per side, and its centre is the reliable part of the reading. Whether
+  // the arcade centres this or left-aligns it cannot be told from a single
+  // countdown value; centred reproduces the measured frame and is the safer
+  // behaviour when the count drops to one digit.
   const countText = String(Math.max(0, Math.ceil(countdown)));
-  drawTextCenteredInk(ctx, countText, w * 0.486, h * 0.442,
-    COUNTDOWN_CREAM, 1.33, 2.5, OUTLINED);
+  drawTextCenteredInk(ctx, countText, w * 0.4984, h * 0.442,
+    COUNTDOWN_CREAM, CARD_PX, CARD_PY, OUTLINED);
 
   drawTextCenteredInk(ctx, 'INSERT COIN', w * 0.486, h * 0.539,
-    COIN_RED, 1.25, 2, OUTLINED);
+    COIN_RED, CARD_PX, CARD_PY, OUTLINED);
 }
