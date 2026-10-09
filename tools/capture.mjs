@@ -100,11 +100,14 @@ async function main() {
     args: ['--no-sandbox', '--disable-setuid-sandbox'],
   });
 
+  // Hoisted out of the try so the `finally` dump can see it — see the
+  // comment on that dump below.
+  const errors = [];
+
   try {
     const page = await browser.newPage();
     await page.setViewport({ width: 960, height: 672 });
 
-    const errors = [];
     page.on('pageerror', (e) => errors.push(String(e)));
     page.on('console', (msg) => {
       if (msg.type() === 'error') errors.push(msg.text());
@@ -146,12 +149,19 @@ async function main() {
       console.log('captured', file);
     }
 
+  } finally {
+    // The error dump lives in `finally`, NOT on the success path. It used to
+    // sit after the capture loop, so a boot failure — the case where the page
+    // errors are the entire diagnosis — presented as a bare puppeteer
+    // TimeoutError on `__frameReady` with the real cause collected and then
+    // thrown away. That cost the world lane a diagnosis cycle on a break in
+    // another lane's file, and it had to write its own puppeteer probe to
+    // recover a stack this tool already had in hand.
     if (errors.length) {
       console.error(`${errors.length} page error(s) during capture:`);
       for (const e of errors) console.error(' ', e);
       process.exitCode = 1;
     }
-  } finally {
     await browser.close();
     await server.close();
   }

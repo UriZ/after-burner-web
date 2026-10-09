@@ -59,10 +59,32 @@ fine-step observations below were extracted from it with exact single-frame `-ss
   (The 60 fps file carries duplicated frames in this span — effective unique rate
   ~30 fps; fine for pose work, remember it for speed work.) Remaining ASSUMED: the input
   trigger (double-flick vs dedicated roll input) and whether i-frames are granted.
-- **Throttle**: AB2 II has 3-state speed control (the HUD reads SPEED M at t140 —
-  MEASURED label; H/L states ASSUMED from arcade manual knowledge). Throttle affects
-  ground-flow rate and enemy closure. Magnitude: ASSUMED — needs 60 fps measurement.
-  Prototype has no throttle.
+- **Throttle**: AB2 II has 3-state speed control. **Read this before wiring it — the
+  footage cannot tell you what it does (MEASURED-NEGATIVE R6).**
+
+  - **MEASURED**: the HUD throttle letter reads **`M` in 27 of 27 samples** spanning
+    t90–t370 of `ab2-longplay.mp4` (stages 1–8, sampled every 10–12 s;
+    `tools/out/criteria-r6/throttle/strip.png`). It is never `H` and never `L`.
+  - **MEASURED**: the throttle bar's fill is **constant in every flight sample** — blue
+    0→1, amber 1→2, dots 2→3 — and **empty in both non-flight samples**: the carrier deck
+    before launch (t90, SCORE 0) and the stage-5 runway restock (t250, jet on the ground).
+    So the fill tracks *being under power*, and its level never changes in this recording.
+  - **Therefore the magnitude of throttle's effect is NOT derivable from the cached
+    footage, and no amount of re-measuring will change that** — the pilot in the only
+    stage-mapped recording never touches it. This is a *negative* result, not an unfinished
+    measurement: do not open a ticket to go and measure it here.
+  - **ASSUMED (unchanged, from arcade manual knowledge)**: three states, and that throttle
+    affects ground-flow rate and enemy closure.
+  - **THE BINDING CONSTRAINT FOR ANYONE WIRING IT: `M` is the datum.** Every flight constant
+    this project has MEASURED — ground-flow rate, the 62.50 %H horizon and the composition
+    bands, the 4–6 s enemy approach, passive accrual at **3300/s** (§6 states "at SPEED M"
+    explicitly) — was measured from footage in which the throttle is `M` throughout. So the
+    middle state **must reproduce all of them exactly**, and H/L must be excursions either
+    side of it. Wiring throttle as a multiplier on a default that is not `M` silently
+    re-bases every one of those numbers.
+  - Whatever magnitudes are chosen are **ADOPTED, not MEASURED** — label them, and cite the
+    tuning rationale, per this file's tagging rules.
+  - Prototype has no throttle.
 
 ## 2. Death / respawn
 
@@ -76,8 +98,10 @@ gp t257, t271, t281. Key frames committed: `reference/death-starburst-gp-t202.pn
 - **Death sequence**: hit → an orange burst ON the jet and a fireball grows around it,
   jet silhouette still visible inside (~0.5–1 s) → a SCREEN-FILLING multi-lobe yellow/
   orange starburst (~60%W, ~1 s) **with a WHITE-HOT core** — deep-red rim → orange →
-  yellow → near-white, ≥40% of its pixels above V 0.95 and its brightest decile at
-  saturation ≤0.30 (MEASURED R5 on `death-starburst-gp-t202.png` and
+  yellow → near-white, ≥40% of its pixels above V 0.95 and a **core fraction
+  (`S < 0.25 ∧ V > 0.94`) of ~9%** — the old "brightest decile at saturation ≤0.30" is
+  **DROPPED R6**, a false negative by construction on any palette holding a saturated colour
+  brighter than its own core, which ours does (MEASURED R5 on `death-starburst-gp-t202.png` and
   `ab2-arcade-huge-explosion.jpg` — REFERENCE.md "Fireball targets"; the old t357-derived
   percentiles describe fading smoke and cannot see the core) → the burnt dark-red hulk of the F-14 tumbles AWAY from
   the camera, shrinking toward the horizon, while the screen is otherwise empty of the
@@ -99,9 +123,51 @@ gp t257, t271, t281. Key frames committed: `reference/death-starburst-gp-t202.pn
   not arcade-verified.
 - **Continue**: after the final life, "CONTINUE PLAY / <countdown from 10> / INSERT
   COIN" overlays the still-scrolling world (gp t261). Continuing resumes IN PLACE —
-  same stage — with the score reset to ~0 (gp t265–269 climb from ~600 at the normal
-  accrual rate). Lives count itself: still ASSUMED 3 (dip-switch configurable; not
-  derivable from this footage — deaths before the continue were not all captured).
+  **same stage** (the stage digit reads 4 before and after).
+
+  - **THE SCORE IS NOT RESET. It runs straight through the continue (CORRECTED R6).**
+    The previous text here — *"with the score reset to ~0 (gp t265–269 climb from ~600 at the
+    normal accrual rate)"* — was a **misread frame**, and `flow.js:_updateContinue` called
+    `this.score.reset()` on its authority, wiping the player's whole score on an action the
+    arcade rewards. Found by the R5 feel critic; **re-read independently here, digit by digit,
+    at 8× nearest-neighbour** over gp t256–276 (`tools/out/criteria-r6/score/sheet-score-continue.png`,
+    plus six full frames at `…/score/full/sheet-continue-context.png`):
+
+    | gp t | score | state |
+    |---|---|---|
+    | 256 | 485 440 | flight |
+    | 258–264 | **489 540** | **frozen through the death** |
+    | **261** | **489 540** | **"CONTINUE PLAY / 10 / INSERT COIN" on screen — the score is displayed and unchanged** |
+    | 263 | 489 540 | READY card |
+    | 265 | **490 000** | flight resumed, accruing |
+    | 268 / 274 | 491 900 / 497 430 | climbing normally |
+
+    Monotone across the continue, with no reset and no discontinuity. **"~600" is not on
+    screen at t265–269 — 490 000 is.** Two independent re-reads, two operators (digit OCR by
+    eye on a cropped strip; full-frame context), same conclusion.
+  - **HIT is not reset by the continue either** — it reads 4 at t259, through the CONTINUE
+    card, and 4 at t268, ticking to 5 only on the next kill. Consistent with §6: HIT resets
+    at the stage-end tally and nowhere else.
+  - **Lives per credit = 3. MEASURED R6** (was ASSUMED; the old note "not derivable from this
+    footage" is withdrawn — it *is* derivable, just not by counting deaths before one
+    continue). **Operator**: detect deaths over the whole of `ab2-gameplay.mp4` by the
+    score-freeze signal (below), identify every CONTINUE PLAY screen on the same filmstrips,
+    then **partition the deaths by the continues**. R5 feel critic, 27 deaths and 9 continues:
+
+    ```
+    deaths per credit: [3, 3, 3, 3, 3, 3, 3, 3, 3]
+    ```
+
+    **Nine groups of exactly three, no exceptions.** The partition is self-validating: a missed
+    death makes a group read 2, a false positive makes one read 4, and neither occurs — so the
+    same result establishes precision ≈ 100 %, recall ≈ 100 % **and** the lives count. It is
+    structurally stronger than any threshold sweep, which is why the R5 judge deferred to this
+    count over their own.
+
+    **Scope of the claim**: 3 is the lives count **of the cabinet in this recording**. AB2's
+    lives count is dip-switch configurable, so this measures a configuration, not the ROM. It
+    is the right number to build to — it is the one an ordinary player met — but do not cite it
+    as "the arcade cannot be set otherwise".
 - Players fly through their OWN kill explosions harmlessly (t116.75 longplay: jet
   overlapping a fireball, no death) — friendly explosions must not damage.
 - Crash into terrain/canyon wall also kills (ASSUMED for walls — canyon stages exist and
@@ -109,10 +175,123 @@ gp t257, t271, t281. Key frames committed: `reference/death-starburst-gp-t202.pn
 - Invincibility must be pass-through for already-overlapping bodies when it expires
   (ADOPTED #103 — otherwise expiry scores an undodgeable hit).
 
-### Lethality: deaths per minute, and the denominator it was never given (RESTATED R5c)
+### Lethality: THE ARCADE'S OWN DEATH RATE, measured twice independently (MEASURED R6)
+
+**After five rounds of guessing, this number exists.** Two reviewers measured it on the same
+recording, on instruments neither shared, and they agree.
+
+| | deaths | span | **deaths/min WALL CLOCK** | deaths/min FLIGHT TIME |
+|---|---|---|---|---|
+| **R5 judge** — READY-card template match | 26 | 816 s (t50→866) | **1.91** | — |
+| **R5 feel critic** — score-freeze clusters + continue partition | **27** | 793.8 s (launch t47.4 → GAME OVER t841.2) | **2.04** | **2.78–2.94** |
+| **ours**, `53ce86b`, judge's 3 seeds × 180 s | — | — | **3.00** | — |
+| **ours**, feel critic's 7 seeds, 1 260.1 s | 61 | — | 2.90 | 4.04 |
+
+**Operator A — READY-card normalised cross-correlation (R5 judge).** Template cut from the
+known death at gp t202 (`reference/respawn-ready-gp-t207.png` is the same event), searched over
+±2/±3 px offsets, frames sampled at 2 fps. 24 candidates above threshold 0.55; **every one
+cropped and looked at** (`judging/R5/evidence-arcade-deaths-ready-cards.png`): 23 genuine, 1
+false positive (the title screen's "II"). Sweeping the threshold down to 0.40 surfaced 36 more,
+also all looked at, of which **3 were genuine cards the higher threshold had missed** — so the
+method's known failure mode is a missed card, i.e. this count is a **lower bound**.
+
+**Operator B — score-freeze clusters (R5 feel critic).** Uses the MEASURED fact above that the
+score freezes while dead: `crop=104:22:186:20,format=gray` over all 25 993 frames; per-frame
+change = pixels differing from the previous frame by >40 grey levels; zero-runs ≥20 frames
+(0.67 s), clustered at a 4.0 s gap → 31 clusters; **every cluster read as a 6-frame filmstrip**
+at −1.0/+0.5/+1.5/+2.5/+3.5/+5.0 s. Validated on known input first: it recovers **4 of the 4**
+deaths hand-identified in this section. Non-deaths removed by eye, not by threshold: 2 runway
+restock stages, 2 attract/title screens, 1 GAME OVER card. **Cross-validated by the 9-continue
+partition** (see "Lives per credit" above), which cannot be off by one.
+
+**Why the two differ, decomposed — it is almost entirely the one missed card.** The gap is
+0.129/min. Holding the count at 27 and using the judge's 816 s span gives 1.985, so **0.073 of
+the gap is the missed card and 0.056 is where each reviewer bounded "gameplay"**. Harmonised on
+either denominator the two methods land within **4 %** of each other. **Take the arcade at
+~1.9–2.0 deaths/min of wall clock**, and prefer 27 — the judge deferred to it for the right
+reason: an exact integer partition beats a threshold sweep whose failure mode is exactly a
+missed card.
+
+**GATE, binding from R6 (REPLACES "≤1.5 deaths/minute", REFERENCE.md ledger row 13):**
+
+- **≤ 2.0 deaths per minute of WALL CLOCK.** Ours is **3.00** and fails it. That is the point.
+- **Deaths per minute of FLIGHT TIME reported on the same line**, as the secondary figure —
+  it is the denominator that is invariant to death-cycle length (which is why row 8 restated
+  it), but wall clock is the one the arcade anchor is strongest on.
+- **Every figure names its denominator, its seeds, its span and its tree state.** A bare
+  "deaths/min" is not a reportable quantity in this repo.
+
+**Why ≤1.5 had to go**: the arcade fails it by **36 % on wall clock** and by **85–96 % on
+flight time**, with a competent human flying. A lane tuning to ≤1.5 would have built a game
+**half as lethal as After Burner II**. It was never checked against the arcade, because until
+R5 nobody had measured the arcade.
+
+**Why lethality stays gated at all, against R5c's demotion.** R5c demoted deaths/min to a
+regression guard because "the figure measures the pilot, not the game" **and because no arcade
+target existed**. The second half is no longer true. A pilot-dependent statistic *with a
+measured anchor* is a usable loose bound, and leaving lethality ungated at the moment the
+project first acquired an anchor would be the wrong trade. The pilot-dependence is real and is
+carried **on** the gate, not against it:
+
+| source | deaths/min wall | what it measures |
+|---|---|---|
+| `ab2-longplay.mp4` (988 s, 23 stages) | **0.00** | an expert exhibition clear — a superplay |
+| `ab2-gameplay.mp4` (793.8 s, 9 credits) | **2.04** | an ordinary competent player paying to play |
+| our `?demo=1` | **2.90–3.00** | a **non-reactive autopilot** (`demoTimeline.js` is a pure function of `simTime` — no RNG, no reaction, it cannot dodge) |
+
+**The honest reading of that bracket**: a policy that cannot dodge dies only **1.42×** as often
+as a human who can. For a player who actually reacts, this build is plausibly at or below arcade
+lethality, and much of the excess is the autopilot's. So: **fail the gate and investigate; do not
+reflexively make the game easier.** The companion figure that transfers cleanly, because it is a
+property of the game's structure rather than the pilot's skill, is **playable share of wall
+clock: arcade 69.4–73.5 %, ours 71.9 %** — a match, and it closes R4 gap 5's pacing half.
+
+**Still the recommended replacement**: pilot-independent properties — per-shot **warning
+time**, **shots in air**, **telegraphs started**, **respawn-into-live-fire** — all already
+emitted by `tools/fairness_probe.mjs`, all measurable on the arcade side from footage.
+Deriving their arcade targets would make this section obsolete, which is the goal.
+
+**One of them is no longer unstarted: the arcade's enemy ALTITUDE distribution (CANDIDATE,
+R6 — deliberately NOT a gate).** `judging/R5/feel-critique.md` §6 named this "the single best
+replacement criterion available"; the R6 combat lane measured it and **asked that it not be
+adopted as a gate this round.** That request is honoured, and the reasoning recorded, because
+adopting a one-lane hand count is how several ledger rows started.
+
+| arcade enemy screen altitude | n | p5 | p50 | p95 | sd | share in top third |
+|---|---|---|---|---|---|---|
+| all enemies | 83 | 14.1 | **40.0** | 72.8 | 19.22 | **32.5 %** |
+| readable, ≥10 %W | 19 | 14.5 | **36.0** | 59.8 | 18.22 | **47.4 %** |
+| the player, for scale | 61 | 36.0 | **49.0** | 63.0 | 8.11 | — |
+
+**Operator**: 63 analysed frames of `ab2-longplay.mp4` on a fixed 3.00 s grid over six
+`STAGE_MAP.md`-verified spans (1, 4, 6, 7, 12, 19), each trimmed 2 s at both ends so no sample
+lands on a transition card; every aircraft read **by a human** off a 1.4× NEAREST upscale
+against a 5 %H ruler; the player separated by drawn span. **No detector, on purpose** —
+aircraft-vs-cloud-vs-island segmentation over arbitrary arcade grounds is this project's
+most-retired trap, and one to five aircraft per frame does not need one. Raw data:
+`tools/out/combat-r6/arcade-vert/labels.csv`.
+
+**Why candidate and not gate**, from the lane's own stated weaknesses: the longplay pilot is
+an expert who never dies, so enemies die young and the sample skews toward newly-arrived —
+small, high — aircraft; spans are eyeballed to ±2–3 points, so observations near the 10 %W cut
+can switch populations; and it is **one lane's hand count**. **The bar for promotion is an
+independent re-count by someone else** — the same bar the arcade death rate had to clear, and
+what made that figure trustworthy was two independent methods agreeing, not one careful one.
+
+**It has already paid for itself without being a gate**, which is the argument for carrying
+candidates in this document rather than leaving them in a lane report: the arcade's readable
+enemies sit at **36.0 %H** against its player's **49.0 %H** — thirteen points above him — and
+`combat.js`'s `SIGHT_NDC_Y_OFFSET` is **0.30 NDC = 15 %H above the nose**, tagged MEASURED in
+§3 and derived years of frames apart. **Two independently measured numbers agreeing to two
+points.** Ours had enemies and player one point apart — the gun was aimed at a part of the sky
+nothing flew in. A candidate that explains a MEASURED constant is worth publishing before it
+is worth enforcing.
+
+### The denominator this criterion was never given (RESTATED R5c, and still binding)
 
 R4 gap 5 reads "**≤1.5 deaths/minute** averaged over ≥3 minutes of `?demo=1`" and **never
-names its denominator**. It is the seventh criterion this project has had to repair, and it
+names its denominator**. It was the seventh criterion this project had to repair (the running
+count is now **fifteen** — the ledger is in REFERENCE.md; do not re-count from memory), and it
 fails in the family way: the number stops meaning what it meant when the build improves.
 
 **Why it moved.** It was drafted when a death cost **8.5 s** of non-interactive time; that is
@@ -159,10 +338,9 @@ arithmetic rather than as a measurement of mine: 3.0–3.5 wall-clock at ~35 % f
 deaths/min read 3.56–4.00, then 3.56–5.33, then 1.78–3.11 within one session, on a tree whose
 denominator was moving at the same time. Re-measure before quoting.
 
-**The ≤1.5 threshold itself is UNVERIFIED and is not a gate.** Its denominator was never
-stated, so it cannot be converted into a flight-time figure. I tried to measure the arcade's
-own death rate to replace it, and the attempt is reported below as a **withdrawal with a
-bound** — but it turned up something better than a number.
+**The ≤1.5 threshold itself is RETIRED (R6)** — see the measured arcade rate above; the arcade
+fails it. R5c's own attempt to measure the arcade's rate is kept below as a **withdrawal with a
+bound**, because the two instruments that succeeded in R5 were built out of why it failed.
 
 #### A deaths/min target cannot be read off footage at all (MEASURED-ATTEMPT, WITHDRAWN R5c)
 
@@ -198,6 +376,18 @@ and no choice of denominator fixes that.
 **So: deaths/min is a REGRESSION GUARD, not an arcade-fidelity criterion.** Use it to notice
 that a change made the game 2× more lethal than last round — on the flight-time denominator,
 same seeds, same tree state. Do not tune it toward a number taken from footage.
+
+> **PARTLY SUPERSEDED R6.** The reasoning above is sound and the pilot-dependence is real, but
+> its premise — "no arcade target exists" — was overtaken within the same round: two independent
+> measurements of the arcade now exist and agree (1.91 / 2.04 wall clock). Deaths/min is now a
+> **loose gate at ≤2.0 wall clock** *and* a regression guard on flight time. The warning not to
+> chase the number still applies: the bracket 0.00 / 2.04 / 2.90 is three pilots, not three
+> games.
+
+> **AND ITS 1.32/min BOUND IS SUPERSEDED.** The withdrawal below bounded the arcade at ~1.3/min
+> from a 43 %-precision detector with unestablished recall. Both R5 instruments — which *did*
+> establish recall, one of them exactly — put it at 1.91–2.04. The withdrawal was the correct
+> call on the evidence it had; the bound itself should not be quoted again.
 
 **The fidelity question should be asked of pilot-independent properties instead**, all of
 which `tools/fairness_probe.mjs` already emits and none of which depend on who is flying:
@@ -409,7 +599,12 @@ spread.
     round 4 confirmed it survives player death (held at 2 across a full death/respawn
     cycle, gp t198–209). The prototype has both halves wrong (`game_state.gd` resets on
     death, never on stage) — correct both when porting.
-  - **Continue resets the score to ~0** but keeps stage progress (§2, gp t261–269).
+  - ~~**Continue resets the score to ~0** but keeps stage progress~~ — **WRONG, CORRECTED R6.**
+    A second copy of the §2 misread, sitting in the section a scoring lane actually reads.
+    **The continue does not touch the score**: 489 540 before the card, 489 540 displayed *on*
+    the card, 490 000 after (§2 has the full digit-by-digit re-read and the frames). Stage
+    progress is kept, which is the half that was right. **HIT is not reset either** — 4 across
+    the whole continue, consistent with "HIT resets at stage start and ONLY there" below.
 - HUD layout and colors: MEASURED — see REFERENCE.md's HUD table. Elements: SCORE
   emblem + digits, HIT emblem + digits (top); lock reticle square (upper right); bottom
   strip: SPEED + throttle bar with 0–3 scale, STAGE + number, missile stock icons.
@@ -447,7 +642,7 @@ neither measured regime; prototype's path constants are in `player_jet_2d.gd`).
 ## Verification priorities (remaining unknowns, ranked)
 
 Resolved by rounds 3–4: wave choreography stages 1–7; scoring model + stage bonus +
-continue behavior; enemy/vulcan shot appearance; resupply mechanics and amounts (50
+continue behavior (**the continue's score handling was wrong until R6 — see §2**); enemy/vulcan shot appearance; resupply mechanics and amounts (50
 start, refill to 70, both mechanisms); multi-lock salvo; stock-widget denominations
 (10/1 odometer); barrel roll timing, displacement, and 360° continuity; death/respawn
 sequence (4 instances); lock-display structure (sight + reticle/attitude-line/dot +
@@ -455,13 +650,17 @@ per-enemy brackets).
 
 Still open:
 1. Barrel roll input trigger and whether it grants i-frames (§1).
-2. Throttle's effect on flow/closure and on the score-accrual rate (AB2 II's headline
-   addition; only the HUD letter state and the refuel accrual-pause are measured).
+2. ~~Throttle's effect on flow/closure and on the score-accrual rate~~ — **CLOSED AS
+   UNMEASURABLE R6, not as unknown.** The throttle letter reads `M` in 27 of 27 samples
+   across stages 1–8 and the bar fill never changes: the only stage-mapped recording
+   contains no throttle change to measure. Remains ASSUMED and must be ADOPTED with a
+   stated rationale (§1). Re-open only if footage showing an `H` or `L` state is acquired.
 3. Reticle dot-color semantics (yellow vs red — correlation observed §3, not mapped);
    lock/launch audio cue order (needs an audio-synced pass, frames cannot carry it).
 4. Enemy depth-speed retune to the measured 4–6 s approach; per-stage wave scripts
    beyond stage 7.
-5. Lives count (ASSUMED 3; dip-switch) and any post-respawn invincibility window (none
+5. ~~Lives count (ASSUMED 3; dip-switch)~~ — **RESOLVED R6: MEASURED 3** by the 9-continue
+   partition of 27 deaths (§2). Still open: any post-respawn invincibility window (none
    visible — §2).
 6. Stage-13 runway sequence (assumed to mirror stage 5) and whether other stages open
    with the tanker reload (only stage 3's was observed).

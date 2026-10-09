@@ -22,11 +22,26 @@ npm run preview    # serve the built dist/ locally
 
 ## Controls
 
-Arrow keys (or WASD) move the stick, `Z` fires the vulcan, `X` fires a
-missile (`src/core/input.js`). On the title screen, either fire button
-starts the game (`src/game/flow/flow.js`) — there is no Enter/start key
-binding; AB2's own "insert coin" convention is the fire button. Title
-auto-advances after a timeout if nothing is pressed.
+| key | action |
+|---|---|
+| Arrows / WASD | Stick (up = climb) |
+| `Z` | Vulcan |
+| `X` | Missile |
+| `Q` / `E` | Throttle down / up one detent (three detents: L / M / H) |
+| Stick slammed one way then the other within 0.35 s | Barrel roll |
+
+All in `src/core/input.js`. On the title screen, either fire button starts
+the game (`src/game/flow/flow.js`) — there is no Enter/start key binding;
+AB2's own "insert coin" convention is the fire button. Title auto-advances
+after a timeout if nothing is pressed.
+
+This table was stale for two rounds: it listed only the stick and the two
+fire buttons, while `Q`/`E` had shipped in R5 and the barrel roll was built
+in R5b. **The R5 judge recorded the throttle as "wired to `scrollSpeed` with
+no player control" — a gap that did not exist** — and the R6 flow lane spent
+part of its round disproving it with a key-event probe. A verb that is not
+in this table is a verb a judge will score as absent, so add one here in the
+same change that ships it.
 
 ## Query params
 

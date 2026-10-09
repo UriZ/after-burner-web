@@ -8,3 +8,4 @@ tools/__pycache__/
 # arcade footage cache (large; re-fetch with .claude/skills/youtube-reference)
 .reference-cache/
 assets/reference/motion/
+tools/art/__pycache__/
