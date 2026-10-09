@@ -72,6 +72,50 @@ function drawSmokePuff(ctx, w, h) {
   ring(w * 0.14, '#ffffff');
 }
 
+// THE TRAIL PUFF — an AXIAL element, not a disc. R5's art critique, §4:
+//
+//   "The arcade's is an oriented tapering wedge ... Ours is a radially
+//    symmetric ball of lobes with no axis and no taper ... our trail puffs
+//    are the same sprite family as our clouds."
+//
+// The last clause is not literally true in code -- render/clouds.js authors
+// its own stippled multi-lobe texture and nothing is shared -- and saying so
+// matters, because the shared-texture reading suggests a one-line fix that
+// would have changed nothing. What IS true is the thing the eye reported:
+// both were round, white, soft-edged lobed masses at similar screen sizes,
+// and `drawSmokePuff` above is a stack of five concentric circles. A chain of
+// those, emitted every 0.055 s along a path that compresses toward the
+// vanishing point, piles into a disc -- which is exactly what
+// tools/out/combat-r6/base/trail-sheet.png shows: a round cumulus above the
+// jet with no visible direction of travel.
+//
+// So this one is an ELLIPSE, authored 32x20 (aspect 0.625) with its long axis
+// along the canvas x. The caller rotates it to the trail's local screen
+// tangent, so the long axis lies ALONG the path and the short axis sets the
+// plume's visible width. Three consequences, all of them the point:
+//   * the chain has an axis even before any size ramp;
+//   * neighbouring puffs overlap along the direction of travel, so the same
+//     emission interval buys more column occupancy than a disc did;
+//   * it cannot be mistaken for a cloud bank, which is round.
+// Same five-step near-white ladder as the round puff (see the note above for
+// why the ladder is authored at the brightest stage and darkened by the
+// caller, never the reverse).
+function drawTrailPuff(ctx, w, h) {
+  const cx = w / 2;
+  const cy = h / 2;
+  const ell = (k, fill) => {
+    ctx.fillStyle = fill;
+    ctx.beginPath();
+    ctx.ellipse(cx, cy, (w / 2) * k, (h / 2) * k, 0, 0, Math.PI * 2);
+    ctx.fill();
+  };
+  ell(1.0, '#eeeeee');
+  ell(0.86, '#f4f4f4');
+  ell(0.7, '#f9f9f9');
+  ell(0.5, '#fdfdfd');
+  ell(0.28, '#ffffff');
+}
+
 // Launch billow: a bigger, lumpier mass. In
 // reference/stage1-missile-salvo-t100.75.png the launch smoke is the single
 // largest element on screen (39.1%W x 50.0%H, 58% bbox fill) and is
@@ -86,19 +130,43 @@ function drawSmokePuff(ctx, w, h) {
 // an alpha fade", and a part-transparent white mass over the #009fff sky
 // comes back BLUE, which is a saturation failure as well as a value one
 // (the plume's measured mean S is 0.0504).
+// R6: THE BILLOW IS A TAPERING PLUME, NOT A BALL, and this is the other half
+// of the art critique's "no axis" finding. The five lobes it used to carry
+// were laid out symmetrically about the canvas centre at radii 0.46/0.3/0.28/
+// 0.3/0.26 on a SQUARE canvas -- a radially symmetric ball by construction,
+// 30-36 %W across, and the largest single element of the trail. On
+// tools/out/combat-r6/base/trail-sheet.png it is the cumulus.
+//
+// The arcade's launch mass is NOT square: 39.1 %W x 50.0 %H on
+// reference/stage1-missile-salvo-t100.75.png (the same measurement the width
+// here was already taken from -- only its height was being ignored), i.e. an
+// aspect of 1.28, a column. And the plume above it tapers: the per-row width
+// runs 36.2 %W at the launch end to 10.9 %W at the missile.
+//
+// So: a 32x42 canvas (aspect 1.3125, against the measured 1.28) with the
+// lobes laid along the canvas's y axis and their radii falling monotonically
+// toward the TOP, which the caller rotates to point along the launch ->
+// target direction. Canvas +y is screen up at rotation 0, so the caller
+// rotates by (axisAngle - pi/2).
+//
+// The lateral jitter is kept -- the mass has to be lumpy, it is smoke -- but
+// it is now small against the taper, so no lobe can restore the circle.
 function drawBillow(ctx, w, h) {
+  // [centre y as a fraction of h, lateral offset in w, radius in w].
+  // y runs 0 at the TOP of the canvas, so the first row is the narrow end.
   const lobes = [
-    [0.5, 0.5, 0.46],
-    [0.3, 0.38, 0.3],
-    [0.68, 0.36, 0.28],
-    [0.36, 0.68, 0.3],
-    [0.66, 0.68, 0.26],
+    [0.10, 0.00, 0.14],
+    [0.24, 0.05, 0.20],
+    [0.40, -0.04, 0.27],
+    [0.58, 0.04, 0.34],
+    [0.76, -0.03, 0.42],
+    [0.92, 0.02, 0.46],
   ];
   const shade = (fill, scale) => {
     ctx.fillStyle = fill;
-    for (const [lx, ly, lr] of lobes) {
+    for (const [ly, lx, lr] of lobes) {
       ctx.beginPath();
-      ctx.arc(lx * w, ly * h, lr * w * scale, 0, Math.PI * 2);
+      ctx.arc((0.5 + lx) * w, ly * h, lr * w * scale, 0, Math.PI * 2);
       ctx.fill();
     }
   };
@@ -109,29 +177,37 @@ function drawBillow(ctx, w, h) {
 }
 
 let puffTex = null;
+let trailTex = null;
 let billowTex = null;
 export const smokePuffTexture = () => (puffTex ??= makePixelTexture(drawSmokePuff, 24, 24, { hardAlpha: true }));
-export const billowTexture = () => (billowTex ??= makePixelTexture(drawBillow, 32, 32, { hardAlpha: true }));
+export const trailPuffTexture = () => (trailTex ??= makePixelTexture(drawTrailPuff, 32, 20, { hardAlpha: true }));
+export const billowTexture = () => (billowTex ??= makePixelTexture(drawBillow, 32, 42, { hardAlpha: true }));
 
 // Pooled smoke sprites. Both kinds are sized in SCREEN fractions (they are
 // drawn at a size that reads the same whether the missile is near or far —
 // the arcade's smoke does not shrink into the vanishing point the way the
 // aircraft do), so each live puff recomputes its world width from its own
 // camera distance every frame.
+const TEXTURE_FOR = {
+  puff: smokePuffTexture,
+  trail: trailPuffTexture,
+  billow: billowTexture,
+};
+
 export class SmokeField {
   constructor(scene, space) {
     this.scene = scene;
     this.space = space;
     this.live = [];
-    this.pool = { puff: [], billow: [] };
+    this.pool = { puff: [], trail: [], billow: [] };
   }
 
   _acquire(kind) {
-    const pool = this.pool[kind];
+    const pool = (this.pool[kind] ??= []);
     if (pool.length) return pool.pop();
-    const tex = kind === 'puff' ? smokePuffTexture() : billowTexture();
+    const tex = TEXTURE_FOR[kind]();
     const sprite = makeBillboard(tex, 1);
-    sprite.renderOrder = kind === 'puff' ? 6 : 7;
+    sprite.renderOrder = kind === 'billow' ? 7 : 6;
     return sprite;
   }
 
@@ -141,15 +217,27 @@ export class SmokeField {
   // in this build, so a puff's depth is fixed at spawn and is stored rather
   // than recomputed (Euclidean distance to the camera would over-size
   // off-axis puffs by up to ~10%).
+  // `rotation` (R6) is the IMAGE-PLANE angle the sprite is held at, radians,
+  // CCW, 0 = the authored canvas upright. It is what gives the trail an axis:
+  // an elliptical puff rotated onto the path's screen tangent reads as a
+  // segment of a plume, and the same sprite without it reads as a disc. Fixed
+  // for the sprite's life on purpose -- a puff is smoke the missile has
+  // already left behind, so it keeps the heading it was laid down at while
+  // the missile turns away from it, which is what makes a curving trail look
+  // curved rather than swept.
   spawn(
     kind,
     position,
     depth,
-    { life, fracStart, fracEnd, valueStart = 1, valueEnd = valueStart, fadeFrom = 0.7 }
+    {
+      life, fracStart, fracEnd, valueStart = 1, valueEnd = valueStart,
+      fadeFrom = 0.7, rotation = 0,
+    }
   ) {
     const sprite = this._acquire(kind);
     sprite.position.copy(position);
     sprite.material.opacity = 1;
+    sprite.material.rotation = rotation;
     sprite.material.color.setScalar(srgbScalar(valueStart));
     this.scene.add(sprite);
     this.live.push({

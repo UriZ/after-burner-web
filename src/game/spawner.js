@@ -1,4 +1,5 @@
 import { Enemy, APPROACH_SPAWN_DEPTH, FLY_PAST_DEPTH } from '../entities/enemy.js';
+import { AudioBus } from '../audio/index.js';
 
 // Stage-1 wave choreography.
 //
@@ -52,11 +53,125 @@ const DISPENSE_MAX_S = 0.34;
 const WAVE_GAP_MIN_S = 0.9;
 const WAVE_GAP_MAX_S = 1.6;
 
-// Screen band the horizon-side spawn points sit in. The horizon is at
-// 0.6250 H = ndcY -0.250 (game.js's camera pitch); enemies appear just above
-// it, matching reference/stage1-level-flight-t116.png where the bracketed
-// distant enemy sits at 0.4375 H against a 0.500 H horizon, i.e. ~6%H of
-// clear sky above the line.
+// ---------------------------------------------------------------------------
+// THE VERTICAL DIMENSION. R5's game-feel critique ranked this #1 of twelve and
+// it is the largest single defect this lane has had: "the game is played on a
+// wire". Measured on this build before the fix (tools/out/combat-r6/base/,
+// 3 seeds x 120 s, every tick, 269 124 on-screen enemy samples):
+//
+//                      | ARCADE (hand count)  | OURS (telemetry)
+//   all enemies  p5/p50/p95 %H | 14.1 / 40.0 / 72.8 | 47.7 / 56.6 / 59.0
+//                sd            | 19.2               | 3.9
+//                top third     | 32.5 %             | 0.01 %
+//   readable >=10%W p5/p50/p95 | 14.5 / 36.0 / 59.8 | 42.6 / 53.8 / 61.6
+//                top third     | 47.4 %             | 0.04 %
+//
+// THE ARCADE SIDE IS A HAND COUNT and its operator is published in full in
+// tools/out/combat-r6/arcade-vert/labels.csv: 71 frames of ab2-longplay.mp4 at
+// 3.00 s over the STAGE_MAP.md-verified spans of stages 1, 4, 6, 7, 12 and 19,
+// 8 frames excluded as launch/reload/transition/unreadable, every aircraft in
+// the remaining 63 read off a 1.4x upscale with a %H ruler -- 83 enemy
+// observations and 61 player observations. No detector: aircraft-vs-cloud-vs-
+// island segmentation over arbitrary arcade grounds is the "correct operator,
+// wrong population" trap that has retired nine criteria here, and a population
+// of a few aircraft per frame does not need one. Its weaknesses, stated: the
+// longplay pilot is an expert, so enemies die young and the sample skews
+// toward newly-arrived (small, high) aircraft; spans are eyeballed to +-2-3
+// points, so observations near the 10 %W line can flip; and one frame (t517,
+// a five-aircraft diagonal) contributes 5 of the 19 readable observations.
+// Dropping that frame moves the readable top-third share 47.4 % -> 50.0 %, so
+// the headline does not depend on it.
+//
+// THE DIAGNOSIS, in one line that two independently MEASURED numbers give:
+// the arcade's readable-size enemies sit on the SIGHT LINE, and ours sit on
+// the AIRFRAME. The arcade's player reads median 49 %H, its readable enemies
+// median 36 %H -- 13 points of H above him, which is exactly
+// combat.js SIGHT_NDC_Y_OFFSET (0.30 NDC = 15 %H, GAME_SPEC.md §3 MEASURED).
+// Ours: player median 54.8 %H, readable enemies median 53.8 %H. One point
+// apart. The gun points at a part of the sky nothing flies in.
+//
+// So the two endpoint bands below are quantile-matched to the arcade's two
+// populations: the far-field band to the <10 %W (distant) observations, which
+// is where an approach spends almost all of its life, and the near-field band
+// to the >=10 %W ones.
+//
+// WHAT IS NOT FIXED HERE, and it is half the gap: src/entities/player.js
+// ENVELOPE_Y = 1.1 against ENVELOPE_X = 2.6. The arcade player's own screen
+// altitude ranges 27-67 %H (sd 8.1 over 61 observations); ours ranges
+// 44.7-62.6 %H (sd 6.2 over 20 970 ticks). Even with enemies arriving high
+// the player cannot climb to meet them -- only the SIGHT, which leads the
+// nose by 0.30, reaches up there. That file belongs to another lane and the
+// ask is in judging/R6/ask-combat.md. REACH_CEILING_NDC_Y below is the clamp
+// that keeps this build playable until it lands, and it is the one number in
+// this block that should MOVE when it does.
+const FAR_BAND = [
+  // [u, ndcY] knots of the inverse CDF of the arcade's <10 %W enemy screen
+  // altitude. u=0/1 are the observed min/max (2 %H and 82 %H); the rest are
+  // p5/p25/p50/p75/p95 converted by ndcY = 1 - 2*(%H/100).
+  [0.0, 0.96], [0.05, 0.714], [0.25, 0.364], [0.5, 0.16], [0.75, -0.24],
+  [0.95, -0.454], [1.0, -0.64],
+];
+const NEAR_BAND = [
+  // Same, for the >=10 %W observations: min 10 %H, p5 14.5, p25 21.5,
+  // p50 36.0, p75 48.0, p95 59.8, max 85 %H.
+  [0.0, 0.8], [0.05, 0.71], [0.25, 0.57], [0.5, 0.28], [0.75, 0.04],
+  [0.95, -0.196], [1.0, -0.7],
+];
+
+// How high a wave's near-field endpoint is allowed to finish. Derived, not
+// picked: the player's sight sits at playerNdcY + 0.30 and the measured
+// player ndcY ceiling on this build is +0.106 (44.7 %H, the ENVELOPE_Y = 1.1
+// limit), so the sight tops out at +0.406; lockSystem.js's lock radius is
+// 8.3 %W, which is +-0.166 in x and, after the 224/320 aspect term the lock
+// and assist tests both apply, +-0.237 in y. +0.64 is the highest an enemy
+// can finish and still be engageable at all. Everything above that is an
+// aircraft the player can watch and cannot touch, which is not the arcade's
+// vertical dimension -- it is a different defect.
+// RAISE THIS when player.js ENVELOPE_Y does: at 1.9 the ceiling is +0.82.
+//
+// APPLIED AT BOTH ENDS OF THE PATH, and that is a choice rather than an
+// oversight. The reachability argument only really binds on `ndcB` (where a
+// wave finishes, at readable size); an enemy that starts at 5 %H and descends
+// into reach is fine and is what the arcade does. Clamping `ndcA` as well
+// costs the far-field distribution its top tail -- our all-enemy p5 reads
+// 19.2 %H against the arcade's 14.1. It is kept because the statistic it
+// would improve is the one that ALREADY MATCHES: all-enemy top-third share is
+// 34.9 % against the arcade's 32.5 %, so lifting the far-field cap
+// overshoots a matched figure to chase a quantile. Lift it only together with
+// ENVELOPE_Y, and re-measure both columns when you do.
+const REACH_CEILING_NDC_Y = 0.64;
+// And a floor, for the same reason in the other direction (player ndcY floor
+// -0.252, sight -0.252 + 0.30 = +0.048, minus the 0.237 reach = -0.19 -- but
+// an enemy BELOW the sight is still shootable by flying at it, and the arcade
+// puts 23 of its 83 observations below 62.5 %H, so the floor is the arcade's
+// own p95 rather than a reach bound).
+const REACH_FLOOR_NDC_Y = -0.7;
+
+// Vertical extent one wave's formation spans, as a multiple of `rake` (which
+// is +-0.45). 0.30 lets a six-ship echelon run +-0.34 NDC = 34 points of H
+// nose to tail, which is the t517 ladder; a flat-raked wave is still a row.
+const VERTICAL_RAKE_SCALE = 0.3;
+
+function clampReach(y) {
+  return Math.max(REACH_FLOOR_NDC_Y, Math.min(REACH_CEILING_NDC_Y, y));
+}
+
+// Inverse-CDF sample from a [u, value] knot table. `u` is a draw the caller
+// has already made unconditionally (the shared-PRNG rule, see _roleFor).
+function bandSample(band, u) {
+  for (let i = 1; i < band.length; i++) {
+    if (u <= band[i][0]) {
+      const [u0, v0] = band[i - 1];
+      const [u1, v1] = band[i];
+      return v0 + ((v1 - v0) * (u - u0)) / (u1 - u0);
+    }
+  }
+  return band[band.length - 1][1];
+}
+
+// Retained as the OPENER's recede target only. The overtake flight shrinks
+// toward the vanishing point, and the vanishing point is a fact about the
+// camera (horizon 0.6250 H = ndcY -0.250), not a choice about altitude.
 const SPAWN_NDC_Y = -0.165;
 
 // ---------------------------------------------------------------------------
@@ -118,7 +233,25 @@ const SPAWN_NDC_Y = -0.165;
 // firing band, the shot spacing, the train length or the alive budget moves
 // — it is downstream of all four.
 const MAX_CONCURRENT_TRAINS = 2;
-const TRAIN_START_GAP_S = 2.72;
+// R6: 2.46, down from 2.72, and it is the re-measurement this constant's own
+// comment demands rather than a difficulty change. TWO things moved the alive
+// budget this round without touching the fire budget, and each cost volume:
+//
+//   * the vertical-track work above -- enemies now cross the sight line, so
+//     the vulcan's assist cone finally has something in it and the population
+//     turns over faster (kills per 180 s per seed 9/7/15 -> 26/27/38).
+//     Measured volume 126.5 -> 120.4 rounds/min on the same three seeds;
+//     2.72 -> 2.59 put it back to 129.8.
+//   * enemy.js abandonTrain() on the respawn edge, which cancels a train that
+//     was aimed at the previous life. It is a fairness fix and it destroys
+//     rounds: 129.8 -> 120.7 rounds/min over 7 seeds x 300 s.
+//
+// R4 gap 5 forbids buying the death rate with a volume cut, and that applies
+// to volume lost as a SIDE EFFECT just as much as to volume cut on purpose --
+// otherwise every fix that happens to reduce fire is a free difficulty
+// reduction. So the volume is put back here, 2.59 x 120.7/127.1 = 2.46, and
+// the lethality is taken out of enemyShots.js SPEED instead.
+const TRAIN_START_GAP_S = 2.46;
 
 // ---------------------------------------------------------------------------
 // ROLE MIX PER STAGE — how much of each stage's sky is the elite livery.
@@ -140,6 +273,75 @@ const TRAIN_START_GAP_S = 2.72;
 // aircraft and the `delta` elite — which is what R4 gap 1 criterion (d)
 // asks for, while keeping each stage's dominant colour the one the frames
 // show.
+// ---------------------------------------------------------------------------
+// THE THROTTLE, applied to enemy closure. judging/R6/ask-flow.md A6: the
+// throttle is a real verb and has been since R5, but it drives ground scroll,
+// engine gain and the HUD gauge and nothing else -- so the world looks faster
+// and the fight does not change. This is the half of that which is combat's.
+//
+// M IS THE DATUM AND ITS MULTIPLIER IS EXACTLY 1. Every flight constant this
+// project has MEASURED was read off footage with the throttle at M throughout
+// (the criteria lane has published that as a MEASURED NEGATIVE: the pilot in
+// the only stage-mapped recording never touches it, 27 samples). So L and H
+// are excursions either side of a middle that must reproduce the measured
+// build bit for bit, and the two outer values are ADOPTED, not measured.
+//
+// THE MAGNITUDES ARE BOUNDED, not chosen by feel. The obvious move is to
+// reuse flow.js's THROTTLE_SCROLL_MULT [0.62, 1.0, 1.45] so the sky and the
+// ground agree -- and it breaks a MEASURED criterion. An approach runs
+// APPROACH_SPAWN_DEPTH -> FLY_PAST_DEPTH in ln(90/2.6)/0.7089 = 5.00 s, and
+// GAME_SPEC.md §4 measures that approach at 4-6 s. Scaling the depth rate
+// divides the duration:
+//
+//   multiplier   approach      inside the measured 4-6 s band?
+//     0.62         8.06 s      NO
+//     0.85         5.88 s      yes
+//     1.00         5.00 s      yes  (the datum)
+//     1.20         4.17 s      yes
+//     1.45         3.45 s      NO
+//
+// So the band itself fixes the widest excursion that is allowed: >= 5/6 =
+// 0.833 at L and <= 5/4 = 1.25 at H. 0.85 and 1.20 sit just inside both, and
+// they are the whole range the measurement leaves available. The throttle
+// therefore cannot make the sky rush at you the way it makes the ground rush
+// past you; that asymmetry is already documented in enemy.js's header as
+// something the arcade itself carries.
+//
+// ---------------------------------------------------------------------------
+// AND IT IS SHIPPED INERT AT [1, 1, 1]. THE PLUMBING IS LIVE; THE EFFECT IS
+// WITHDRAWN. This is a measured withdrawal, not an unfinished edit.
+//
+// [0.85, 1.0, 1.20] was built, run and measured (7 seeds x 300 s, the same
+// instrument and arms as the SPEED sweep in enemyShots.js):
+//
+//                      rounds/min   deaths/min wall   pHit %
+//   closure inert        130.6        2.171 +-0.249    2.481
+//   closure [0.85..1.2]  121.3        2.371 +-0.260    3.030
+//
+// It breaks BOTH of this round's constraints at once, and the mechanism is
+// the one enemy.js's "MOVE NONE OF THESE FOUR ALONE" note warns about --
+// closure rate turns out to be a FIFTH member of that solution set:
+//
+//   * VOLUME, -7 %. The train gate needs TELEGRAPH_S + 3 x SHOT_SPACING_S of
+//     depth budget above FIRE_DEPTH_MIN, and budget is ln(d/24)/|depthRate|.
+//     Scaling the depth rate by 1.2 shortens the band crossing from 1.09 s
+//     to 0.91 s, so fewer aircraft qualify to open a train at all. R4 gap 5
+//     forbids losing enemy fire volume, side effect or not.
+//   * LETHALITY, +9 %. Faster closure means a flare that lit at a given
+//     depth pays out from LOWER depths, which shortens the time of flight
+//     and therefore the fairness lag -- the exact quantity the SPEED sweep
+//     spent the round buying.
+//
+// Restoring both would mean re-setting TRAIN_START_GAP_S and SPEED again,
+// with the firing geometry now depending on a player input that no
+// measurement covers. That is a round's work, not a line, and trading a
+// measured lethality result for an unmeasured speed cue is the wrong way
+// round. Left wired and inert so the next lane gets the interface, the
+// bound and the measured cost, and can turn it on in one line with its eyes
+// open. A half-strength [0.92, 1.0, 1.10] is the obvious next arm and was
+// NOT measured.
+const THROTTLE_CLOSURE_MULT = [1, 1, 1];
+
 const ELITE_FRACTION_BY_STAGE = [0.12, 0.22, 0.30];
 
 // Crossers are near-field lateral passes and the most visually prominent
@@ -218,8 +420,10 @@ export class Spawner {
 
   // Returns an array of fire requests from enemies that shot this tick.
   // `playerNdc` is forwarded to each enemy so it can snapshot an aim point
-  // when its telegraph lights (src/entities/enemy.js).
-  update(dt, playerNdc = null) {
+  // when its telegraph lights (src/entities/enemy.js). `throttleIndex` is
+  // 0/1/2 = L/M/H and scales enemy closure (THROTTLE_CLOSURE_MULT).
+  update(dt, playerNdc = null, throttleIndex = 1) {
+    const closure = THROTTLE_CLOSURE_MULT[throttleIndex] ?? 1;
     if (this.solo) return this._updateSolo(dt);
     if (!this.openerDone) {
       this.openerDone = true;
@@ -267,7 +471,7 @@ export class Spawner {
     for (let i = this.enemies.length - 1; i >= 0; i--) {
       const e = this.enemies[i];
       const wasFiring = e.firingTrain;
-      const fired = e.update(dt, this.rng, this.space, allowNewTrain, playerNdc);
+      const fired = e.update(dt, this.rng, this.space, allowNewTrain, playerNdc, closure);
       if (!wasFiring && e.firingTrain) {
         // This enemy just opened a train — consume the budget for this tick
         // and start the spacing gap.
@@ -280,6 +484,24 @@ export class Spawner {
       }
       if (fired) fires.push({ enemy: e, fire: fired });
       if (!e.alive || e.isRetired()) {
+        // FLY-PAST ROAR. `playEnemyFlyPast` has been a complete, enveloped,
+        // stereo-panned synth with ZERO call sites since R4 (sfx.js:134,
+        // registered at sfx.js:362); the R5 game-feel critique ranked it 9
+        // and judging/R6/ask-flow.md A2 routed the call site here, which is
+        // correct -- this is the only place that knows the despawn edge, and
+        // polling for it from game.js would fire twice or on the wrong one.
+        //
+        // Gated on a NEAR despawn, not on every retirement. `isRetired()`
+        // has three exits: past the fly-past depth, off the side of the
+        // frame, and shrunk past the opener's recede target. Only the first
+        // is an aircraft going over the player's head; an overtake flight
+        // dwindling to a dot at the horizon must not roar, and nor must a
+        // crosser that has already left the frame. `depthRate < 0` is the
+        // receding case (enemy.js signs it from the authored endpoints).
+        if (e.alive && e.depthRate > 0 && e.d <= e.depthB * 1.05 && Math.abs(e.ndc.x) <= 1.2) {
+          const pan = Math.max(-1, Math.min(1, e.ndc.x));
+          AudioBus.play('enemyFlyPast', { panFrom: pan, panTo: Math.sign(pan || 1) });
+        }
         e.retired = true;
         this.scene.remove(e.sprite);
         e.dispose();
@@ -433,6 +655,11 @@ export class Spawner {
   _primedEchelon() {
     const n = 3;
     const baseB = (this.rng() - 0.5) * 0.3;
+    // Same two vertical-track draws as a normal echelon. The stage opener is
+    // the first thing a player sees of every stage (GAME_SPEC.md §4), so it
+    // is the worst place to leave a flat level pass.
+    const baseAy = clampReach(bandSample(FAR_BAND, this.rng()));
+    const baseBy = clampReach(bandSample(NEAR_BAND, this.rng()));
     const out = [];
     for (let i = 0; i < n; i++) {
       const k = i - (n - 1) / 2;
@@ -442,8 +669,12 @@ export class Spawner {
         role: 'line',
         depthA: 18 + this.rng() * 16,
         depthB: FLY_PAST_DEPTH,
-        ndcA: [k * 0.06, SPAWN_NDC_Y + 0.02],
-        ndcB: [baseB + k * 0.24, -0.05 + this.rng() * 0.3],
+        ndcA: [k * 0.06, baseAy + k * 0.03],
+        // The per-member draw is KEPT (it is one of this wave's three
+        // unconditional draws and removing it would shift the stream for no
+        // gain); it now jitters around the wave's own near-field altitude
+        // instead of around a fixed one.
+        ndcB: [baseB + k * 0.24, clampReach(baseBy + k * 0.16 + (this.rng() - 0.5) * 0.2)],
         weaveAmp: this.rng() * 0.04,
         weaveRate: 1.1 + this.rng() * 0.9,
         weavePhase: this.rng() * Math.PI * 2,
@@ -469,7 +700,24 @@ export class Spawner {
     // diagonal line of aircraft rather than a flat row.
     const rake = (this.rng() - 0.5) * 0.9;
     const baseB = (this.rng() - 0.5) * 0.36;
-    const baseBy = -0.2 + this.rng() * 0.5;
+    // THE WAVE'S VERTICAL TRACK. Two draws, INDEPENDENT on purpose: `baseAy`
+    // is where the wave is first visible and `baseBy` is where it passes the
+    // camera, and drawing them separately is what produces approaches from
+    // ABOVE (baseAy high, baseBy low -- the wave dives at you) and from BELOW
+    // in the same proportion the two measured marginals imply. Correlating
+    // them would make every wave a level pass again, which is the defect.
+    // Only the marginals are measured; the joint is not, and independence is
+    // the choice that maximises vertical travel. Stated as ADOPTED.
+    const baseAy = clampReach(bandSample(FAR_BAND, this.rng()));
+    const baseBy = clampReach(bandSample(NEAR_BAND, this.rng()));
+    // Vertical rake, 2.5x the old value. The arcade's formations are
+    // VERTICAL LADDERS as often as they are flat rows: t517 is five aircraft
+    // running 10 -> 57 %H across one frame (0.47 NDC), t785 is three inside
+    // 3 points of each other. `rake` already carried that variation
+    // laterally; it was multiplied by 0.12 vertically, which capped a
+    // six-ship echelon's vertical extent at +-0.135 NDC and made every
+    // formation read as a row however it was raked.
+    const vrake = rake * VERTICAL_RAKE_SCALE;
     // ONE bomber leads roughly every third echelon (R4 gap 10, "enemy
     // variety"). GAME_SPEC.md §4 names the type — "much larger dark airframe
     // at close depth that drops a round black bomb ... AND fires shot trains"
@@ -518,9 +766,9 @@ export class Spawner {
         // Spawn points sit in a tight cluster just above the horizon — at
         // 90 units out the whole echelon is a handful of pixels wide, which
         // is how a wave first reads in the arcade.
-        ndcA: [k * 0.05 + (this.rng() - 0.5) * 0.02, SPAWN_NDC_Y + k * rake * 0.02],
+        ndcA: [k * 0.05 + (this.rng() - 0.5) * 0.02, baseAy + k * vrake * 0.05],
         // and fans out across the frame on the way in.
-        ndcB: [baseB + k * 0.26, baseBy + k * rake * 0.12],
+        ndcB: [baseB + k * 0.26, clampReach(baseBy + k * vrake)],
         weaveAmp: this.rng() * 0.05,
         weaveRate: 1.1 + this.rng() * 0.9,
         weavePhase: this.rng() * Math.PI * 2,
@@ -554,6 +802,15 @@ export class Spawner {
   _crosserWave() {
     const n = 2 + Math.floor(this.rng() * 2); // 2-3
     const dir = this.rng() < 0.5 ? -1 : 1;
+    // A crosser reaches depth 3.0, so it is a READABLE-SIZE aircraft by
+    // construction and belongs to the >=10 %W population -- it draws its
+    // endpoints from NEAR_BAND at both ends, and the two draws being
+    // independent is what makes a crosser climb across the frame or dive
+    // across it rather than slide along one line. The old pair
+    // (-0.1 +- 0.09 in, -0.40..-0.10 out) was a shallow downward slide at
+    // the player's own altitude, every time.
+    const crossAy = clampReach(bandSample(NEAR_BAND, this.rng()));
+    const crossBy = clampReach(bandSample(NEAR_BAND, this.rng()));
     const out = [];
     for (let i = 0; i < n; i++) {
       const roleRoll = this.rng();
@@ -570,8 +827,8 @@ export class Spawner {
         // aircraft right over the player was contributing 3.2 enemy-seconds
         // of readable size out of 36 across a 33 s run. 0.80..1.00 keeps the
         // fly-past inside the frame and still exits the side afterwards.
-        ndcA: [dir * (-0.45 - this.rng() * 0.2), -0.1 + this.rng() * 0.18],
-        ndcB: [dir * (0.55 + this.rng() * 0.20), -0.40 + this.rng() * 0.3],
+        ndcA: [dir * (-0.45 - this.rng() * 0.2), clampReach(crossAy + (this.rng() - 0.5) * 0.18)],
+        ndcB: [dir * (0.55 + this.rng() * 0.20), clampReach(crossBy + (this.rng() - 0.5) * 0.3)],
         weaveAmp: 0.03,
         weaveRate: 1.8,
         weavePhase: this.rng() * Math.PI * 2,

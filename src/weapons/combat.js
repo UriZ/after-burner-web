@@ -5,7 +5,7 @@ import { ExplosionField } from '../effects/explosions.js';
 import { Spawner } from '../game/spawner.js';
 import { Vulcan } from './vulcan.js';
 import { Missiles } from './missiles.js';
-import { EnemyShots } from './enemyShots.js';
+import { EnemyShots, SPEED as ENEMY_SHOT_SPEED } from './enemyShots.js';
 import { LockSystem, MAX_LOCKS } from './lockSystem.js';
 import { Telegraphs } from './telegraph.js';
 import { TELEGRAPH_S as ENEMY_TELEGRAPH_S } from '../entities/enemy.js';
@@ -41,6 +41,12 @@ const LAUNCH_STAGGER_S = 0.05; // 6 missiles leave over ~0.3 s
 // converges (top of the column ~0.32 H against a jet at ~0.51 H) and which
 // sits inside the band the enemies fan out through.
 const SIGHT_NDC_Y_OFFSET = 0.30;
+// The same 0.30 expressed as a distance in frame WIDTHS, which is the
+// isotropic unit the offset has to be applied in now that its direction is
+// screen up rather than NDC +y: 0.30 * 0.5 * (224/320) = 0.105 = 10.5 %W.
+// Derived from SIGHT_NDC_Y_OFFSET rather than written out, so the measured
+// constant stays the single source.
+const SIGHT_FRAC = SIGHT_NDC_Y_OFFSET * 0.5 * (224 / 320);
 const SIGHT_DEPTH = 55;
 
 // Cone around the sight inside which a vulcan round's vertical ramp is
@@ -82,6 +88,12 @@ const PLAYER_HIT_RADIUS_FRAC = 0.040;
 // shot on screen is ambience.
 const WARN_MISS_FRAC = PLAYER_HIT_RADIUS_FRAC * 3.2;
 
+// Miss-distance histogram resolution for _logMiss. 0.01 per bin over
+// 0..0.40 of a frame width, so PLAYER_HIT_RADIUS_FRAC (0.040) is exactly
+// four bins and a change in the hit radius does not need a re-binning.
+const MISS_BINS = 40;
+const MISS_BIN_W = 0.01;
+
 export class Combat {
   constructor(scene, camera, baseQuaternion, rng) {
     this.scene = scene;
@@ -106,6 +118,7 @@ export class Combat {
 
     this.playerNdc = { x: 0, y: 0, depth: 5 };
     this.sight = { x: 0, y: SIGHT_NDC_Y_OFFSET, depth: SIGHT_DEPTH };
+    this._up = { x: 0, y: 1 };
     this._aimAssist = (ndc) => this._findAssistTarget(ndc);
 
     // Flight times of missiles that reached a target, kept for the
@@ -230,6 +243,28 @@ export class Combat {
       // the harness measures placement, and a pixel pass afterwards measures
       // whether what was placed survived to the screen. One of those two is
       // the actual bug and they are not the same question.
+      // THE SIGHT SQUARE'S LIVE SCREEN POSITION, measurement only. Same
+      // reasoning as __brackets below: read the projection of the sprites
+      // that were placed, not the pixels, so "not placed there" and "placed
+      // there and covered" stay separable. Returns NDC through the LIVE
+      // (rolled) camera, which is the frame the question is asked in --
+      // "does the sight hold station on the nose while the world rolls".
+      window.__sight = () => {
+        const cam = this.space.camera;
+        const v = new THREE.Vector3();
+        const pts = this.locks.sightCorners
+          .filter((c) => c.visible)
+          .map((c) => {
+            v.copy(c.position).project(cam);
+            return [v.x, v.y];
+          });
+        if (!pts.length) return null;
+        return {
+          ndcX: pts.reduce((a, p) => a + p[0], 0) / pts.length,
+          ndcY: pts.reduce((a, p) => a + p[1], 0) / pts.length,
+          n: pts.length,
+        };
+      };
       window.__brackets = () => {
         const cam = this.space.camera;
         const v = new THREE.Vector3();
@@ -275,6 +310,13 @@ export class Combat {
         playerHitsTaken: this.playerHitsTaken,
         hits: this.hits,
         hitLog: this.hitLog ?? [],
+        // R6 lethality instrument -- see _logMiss. A histogram, not a list:
+        // ~1100 crossings per 3-minute run would be a 40 KB array per poll
+        // and the probe polls 10x a second.
+        missHist: Array.from(this.missHist ?? []),
+        missCrossings: this.missCrossings ?? 0,
+        missBinW: MISS_BIN_W,
+        hitRadius: PLAYER_HIT_RADIUS_FRAC,
         playerNdc: { x: this.playerNdc.x, y: this.playerNdc.y },
         // Per-enemy firing state. Needed because the aggregate counters
         // cannot distinguish "trains never start" from "trains start and
@@ -347,8 +389,32 @@ export class Combat {
   update(dt, input, playerWorld) {
     this.t = (this.t ?? 0) + dt;
     this.space.worldToNdc(playerWorld, this.playerNdc);
-    this.sight.x = this.playerNdc.x;
-    this.sight.y = this.playerNdc.y + SIGHT_NDC_Y_OFFSET;
+    // THE SIGHT LEADS THE NOSE ON SCREEN, NOT IN THE UNROLLED FRAME.
+    //
+    // It used to be `playerNdc.y + 0.30` flat, and that is a defect in the
+    // SELECTION and not only in the drawing (judging/R6/ask-flow.md A1).
+    // Everything in this NDC frame is authored against the pitch-only basis
+    // so that it swings with the horizon under bank -- except the jet, which
+    // player.js roll-compensates so the airframe holds screen station. The
+    // jet's position in THIS frame therefore rotates with the bank, and a
+    // constant offset bolted onto it rotates around the airframe on screen:
+    // 2 x 0.30 NDC x sin(33.25 deg) = 11.5 %W at the 66.5 deg saturation
+    // angle, which reproduces R4's measured 112 px.
+    //
+    // That moves `_findAssistTarget`'s cone and `lockSystem._nearestLockable`'s
+    // cone with it, so WHICH ENEMY THE GUN HELPS YOU HIT AND WHICH ONE THE
+    // MISSILES LOCK WERE BOTH FUNCTIONS OF BANK ANGLE -- during the manoeuvre
+    // the player spends most of their time in, and with nothing about the
+    // target having changed. Visible or not, that is wrong.
+    //
+    // Fixed by taking the offset along SCREEN UP (screenSpace.screenUpNdc),
+    // which is a unit direction in frame-width units, and scaling it back
+    // into each axis's own NDC units. At zero roll this is exactly the old
+    // expression: up = (0, 1), so x is unchanged and y gains
+    // SIGHT_FRAC / (0.5 * 224/320) = 0.105 / 0.35 = 0.30.
+    const up = this.space.screenUpNdc(this._up);
+    this.sight.x = this.playerNdc.x + (up.x * SIGHT_FRAC) / 0.5;
+    this.sight.y = this.playerNdc.y + (up.y * SIGHT_FRAC) / (0.5 * (224 / 320));
 
     if (this.explHarness) {
       this._explTimer -= dt;
@@ -364,7 +430,12 @@ export class Combat {
     }
 
     if (this._on('enemies') && !this.trailHarness) {
-      const fires = this.spawner.update(dt, this.playerNdc);
+      // `throttleIndex` has been threaded through flow.js's returned input
+      // since R5 with nothing consuming it (judging/R6/ask-flow.md A6).
+      // Defaulted to M rather than 0 so a caller that does not supply it --
+      // every measurement harness in tools/ -- gets the measured datum and
+      // not the slow detent.
+      const fires = this.spawner.update(dt, this.playerNdc, input.throttleIndex ?? 1);
       if (this._on('shots')) {
         for (const f of fires) {
           // The aim point is ABSOLUTE and was snapshotted when this enemy's
@@ -615,6 +686,7 @@ export class Combat {
       const f = (1 / pd - s.invAim) / (s.invStart - s.invAim);
       const hx = s.aimNdcX + (s.startNdcX - s.aimNdcX) * f;
       const hy = s.aimNdcY + (s.startNdcY - s.aimNdcY) * f;
+      this._logMiss(hx, hy, playerNdc);
       if (this._playerHit(hx, hy, playerNdc)) {
         this.enemyShots.remove(s);
         // Counted whether or not it was survived, so the HIT RATE can be
@@ -653,14 +725,55 @@ export class Combat {
       // what teaches the player the sound means something.
       if (miss > WARN_MISS_FRAC) continue;
       const near = 1 - Math.min(1, miss / WARN_MISS_FRAC);
-      // Depth closes at EnemyShots' 24 units/s; 1.2 s out is where the tone
-      // should already be audible.
-      const eta = Math.max(0, s.depth - this.playerNdc.depth) / 24;
+      // Depth closes at EnemyShots' own SPEED; 1.2 s out is where the tone
+      // should already be audible. IMPORTED, not copied: this was a literal
+      // 24 and the constant has been 15 since R5 and is 12 since R6, so the
+      // warble had been starting at the wrong range for two rounds -- it
+      // computed an ETA twice the real one and the tone therefore rose late.
+      const eta = Math.max(0, s.depth - this.playerNdc.depth) / ENEMY_SHOT_SPEED;
       const soon = 1 - Math.min(1, eta / 1.2);
       worst = Math.max(worst, near * soon);
     }
     const intensity = Math.max(worst, lit > 0 ? 0.25 : 0);
     AudioBus.setInboundWarning?.(intensity);
+  }
+
+  // MEASUREMENT ONLY, R6. The MISS DISTANCE of every enemy round at the
+  // instant it crosses the player's plane, in the hit test's own units, as a
+  // 40-bin histogram over 0..0.40 plus an overflow bin.
+  //
+  // It exists because DEATHS CANNOT BE TUNED ON. Three seeds x 180 s of
+  // `?demo=1` produce 23-25 fatal hits; the Poisson standard deviation on 24
+  // is 4.9, so the measurement cannot resolve anything smaller than a 20 %
+  // change, and the gate this round asks for is a 22 % change. Measured
+  // directly: a geometry change predicted to cut the per-round hit
+  // probability ~25 % moved the death count 23 -> 24. That is not evidence
+  // the change failed; it is evidence the instrument is too coarse, and
+  // publishing either number as a result would have been the "clean,
+  // plausible, stable" false alarm CLAUDE.md warns about.
+  //
+  // The same 540 s carries ~1100 plane crossings. P(hit) = the share of them
+  // inside PLAYER_HIT_RADIUS_FRAC, so deaths/min is predicted as
+  //   rounds/min x P(miss <= radius) x (fraction of hits that are fatal)
+  // with a relative standard error of ~1/sqrt(hits in the bin) on the first
+  // factor rather than on the deaths. The histogram also shows WHERE the
+  // mass is, which is what says whether a lever is moving the distribution
+  // or only its tail.
+  //
+  // Known bias, stated: `checkPlayerHit` returns on the first round that
+  // hits, so on a tick where two rounds cross and the first one kills, the
+  // second is never logged. Measured frequency of multi-crossing ticks is
+  // low and only hits are affected, so this under-counts the >=2nd crossing
+  // of a killing tick -- it cannot inflate P(hit).
+  _logMiss(hx, hy, playerNdc) {
+    const aspectY = 224 / 320;
+    const dx = (hx - playerNdc.x) * 0.5;
+    const dy = (hy - playerNdc.y) * 0.5 * aspectY;
+    const d = Math.hypot(dx, dy);
+    this.missHist ??= new Int32Array(MISS_BINS + 1);
+    const b = Math.min(MISS_BINS, Math.floor(d / MISS_BIN_W));
+    this.missHist[b] += 1;
+    this.missCrossings = (this.missCrossings ?? 0) + 1;
   }
 
   // MEASUREMENT ONLY. Records, for every shot that reached the player,
@@ -756,6 +869,18 @@ export class Combat {
   // now opens, correctly, with a flare the respawned player can see.
   clearShots() {
     this.enemyShots.clear();
+    // ...and the trains that had not yet paid out. See enemy.js
+    // abandonTrain(): retiring the rounds in the air is only half of the
+    // guarantee, because an enemy mid-telegraph at the moment of death keeps
+    // its aim snapshot of the previous life's jet and fires it into the new
+    // one. Measured at 2 unannounced fatal hits in 72 before this line and
+    // 0 after (tools/out/combat-r6/final/, 7 seeds x 300 s).
+    for (const e of this.spawner.enemies) e.abandonTrain();
+    // The flare sprites are driven from enemy.telegraph, so they have to be
+    // retired on the same tick or a cleared train leaves a lit muzzle flare
+    // hanging on an aircraft that is no longer shooting -- a tell that lies
+    // in the other direction.
+    this.telegraphs.clear();
     AudioBus.setInboundWarning?.(0);
   }
 

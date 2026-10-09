@@ -99,4 +99,46 @@ export class ScreenSpace {
   worldWidthFor(frac, depth) {
     return frac * this.widthPerUnitDepth * depth;
   }
+
+  // SCREEN UP, expressed in this unrolled NDC frame. Unit length, isotropic
+  // (x and y in the same frame-WIDTH units the hit tests use), written into
+  // `out`.
+  //
+  // WHY ANYTHING NEEDS THIS. Everything in this frame is authored against the
+  // PITCH-ONLY basis, which is the whole trick above: it makes objects swing
+  // around screen centre with the horizon when the camera rolls, which is
+  // what banking does to the world. The player jet is the one exception --
+  // player.js rotates its offset by the same roll so the airframe holds
+  // screen station. The consequence is that the jet's position IN THIS FRAME
+  // rotates with the bank, and so does any offset added to it here.
+  //
+  // So an offset that is supposed to mean "a fixed distance ABOVE THE NOSE ON
+  // SCREEN" -- the vulcan sight -- cannot be a constant in this frame. At the
+  // 66.5 deg roll the world saturates at, a constant +0.30 in y lands 33 deg
+  // around the airframe, which is the 11.5 %W swing judging/R6/ask-flow.md A1
+  // reports, and it moves the vulcan assist cone and the missile lock cone
+  // with it.
+  //
+  // Taken from the camera's LIVE quaternion rather than from a roll angle
+  // passed in, deliberately: combat.js is not given the world roll, the sign
+  // convention for "rotate about the camera's forward axis" is easy to get
+  // backwards, and this form is correct for any camera orientation without
+  // anyone having to know which way `worldRoll` turns. A view-space
+  // displacement (dx, dy) at depth d projects to NDC (dx/(halfTan*aspect*d),
+  // dy/(halfTan*d)); in frame-width units both carry the same factor, so the
+  // DIRECTION is preserved and only x and y need normalising together.
+  screenUpNdc(out = { x: 0, y: 1 }) {
+    _up.set(0, 1, 0).applyQuaternion(this.camera.quaternion).applyQuaternion(this._inv);
+    const n = Math.hypot(_up.x, _up.y);
+    if (n < 1e-9) {
+      out.x = 0;
+      out.y = 1;
+      return out;
+    }
+    out.x = _up.x / n;
+    out.y = _up.y / n;
+    return out;
+  }
 }
+
+const _up = new THREE.Vector3();

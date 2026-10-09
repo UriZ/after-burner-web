@@ -372,26 +372,65 @@ function drawBurst(arrangement) {
     // gradient". The mask below is one connected ragged blob with two short
     // tongues reaching out along the lobe axis.
     //
-    // SIZE: 0.46 * w, MEASURED, and the one larger value tried was rejected
-    // ON THE CROP rather than on a number. The gate is >= 3% of fireball area
-    // achromatic-bright and the arcade reads 8.8-9.2%; at 0.46 this mask
-    // measures 4.1-7.8% across eight frames (tools/out/combatfx-r5b/expl2,
-    // boxed FIRE-MASK) — comfortably over the gate, under the arcade. 0.52
-    // scales the area by (0.52/0.46)^2 = 1.28, which would land exactly on the
-    // arcade's band and also pull the brightest-decile saturation under its
-    // <= 0.30 target on every frame instead of half of them.
+    // SIZE: 0.27 * w, down from 0.46, AND THE DIRECTION OF THIS CHANGE IS THE
+    // OPPOSITE OF WHAT TWO ROUNDS OF REPORTS SAY IT SHOULD BE. The reason is
+    // that the number both of them rest on was taken with an instrument that
+    // does not reproduce its own published control.
     //
-    // It looks wrong. At 0.52 the core square is 33 texels across against a
-    // lobe cluster that only reaches ~33 texels after LOBE_INSET, so the white
-    // swallows the lower half of the sprite and the fireball reads as a white
-    // mound with an orange cap (tools/out/combatfx-r5b/expl3/frame-0003.png at
-    // 4x). REFERENCE.md's own rule for this statistic applies: "the crop
-    // outranks this table ... these numbers exist to catch a fireball that is
-    // not a fireball; they cannot certify that one is." Staying under the
-    // arcade's core fraction is the honest trade, and it is recorded in
-    // judging/R5/lane-combatfx.md as a knowingly-unclosed margin.
+    // WHAT THE REPORTS SAY. judging/R5/lane-combatfx.md recorded our core at
+    // "4.1-7.8% across eight frames", under the arcade's 9.2% and over the
+    // >= 5% gate, and called staying under it a knowing, deliberate trade --
+    // 0.52 was tried and rejected because "the white swallows the lower half
+    // of the sprite". judging/R5/art-critique.md reviewed that call and
+    // endorsed it ("Yes. Hold the line"), adding that the I6 ladder was
+    // measured on PEAK-FLASH frames and should be judged per phase.
+    //
+    // THE PER-PHASE MEASUREMENT, which is what R6 was asked to do, is in
+    // tools/out/combat-r6/measure_expl_phase.py and it says the premise is
+    // wrong. FIRE-MASK, verbatim from REFERENCE.md, over one whole 0.75 s
+    // blast captured EVERY TICK in the ?combatexpl=1 harness with no clouds
+    // and no player sprite:
+    //
+    //   phase        0.03-0.13 s   0.15-0.40 s   0.42-0.58 s   (40 frames)
+    //   core %         28.2-29.6     27.7-32.3     28.9-31.3
+    //   mean S          0.67-0.69     0.66-0.69     0.67-0.69
+    //   V > 0.95 %      46.5-48.1     49.9-53.8     50.8-53.9
+    //   mean V          0.862-0.873   0.872-0.880   0.872-0.880
+    //
+    // Against the arcade's 9.2% core / 0.846 mean S / 54.2% / 0.9055. Our
+    // core is THREE TIMES the arcade's, flat across every phase, and our mean
+    // saturation is 22% LOW -- which is the same fact said twice: the white
+    // disc the previous value was trying not to create is already there.
+    //
+    // WHY THE EARLIER NUMBER WAS WRONG, and it is a criteria defect rather
+    // than an arithmetic slip. REFERENCE.md publishes FIRE-MASK's control
+    // figures on ab2-arcade-huge-explosion.jpg (0.9055 / 54.2% / 9.2% /
+    // 0.846) but NOT the regions excluded from that 181x127 frame. Run
+    // verbatim it reads core 18.2% / mean S 0.764 -- the mask walks out of
+    // the fireball into the cloud wedge at the bottom left and the HUD strip
+    // at the top, both of which are low-saturation and bright. Two
+    // independent re-implementations have now failed on that one statistic in
+    // the same direction (R5's read 13.2%, mine 18.2%, against 9.2%).
+    // Excluding rows 0-14, rows 112-127 and the x<55 / y>82 cloud wedge
+    // reproduces all four published figures to within 0.5 points
+    // (0.9028 / 53.6% / 9.4% / 0.847), and THAT is the operator the numbers
+    // above are taken with. The exclusion belongs in REFERENCE.md.
+    //
+    // SO: 0.27, because core area goes as side^2 and 0.46 * sqrt(9.5/30) =
+    // 0.26. It is a 16-texel core inside a lobe cluster that reaches ~33
+    // texels after LOBE_INSET, i.e. a hot centre rather than a mound. The
+    // crop still outranks this: see tools/out/combat-r6/expl-ab.png, where
+    // the 0.46 frames are a white mass with an orange fringe and the 0.27
+    // frames are the lobed orange-and-yellow fireball with white patches
+    // through the middle that REFERENCE.md describes.
+    //
+    // The art critique's per-phase argument is CORRECT and is kept: the
+    // target was measured at peak flash. It simply does not rescue the old
+    // value, because our core does not decay -- it is flat to within 4
+    // points across all three phases, since it is an authored texel grid on
+    // a texture that only cycles between three lobe arrangements.
     ctx.setTransform(1, 0, 0, 1, 0, 0);
-    const side = 0.46 * w;
+    const side = 0.27 * w;
     const cell = side / CORE_COLS;
     const ox = cx - side / 2;
     const oy = cy - (side * CORE_ROWS) / CORE_COLS / 2;

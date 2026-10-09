@@ -86,6 +86,11 @@ const SPLAY_NDC_X_PER_S = 1.1; // outward, signed by the launch pylon
 const SPLAY_NDC_Y_PER_S = -0.7; // and downward, away from the sight line
 const SPLAY_DECAY_PER_S = 3.0;
 
+// How far apart the two launch-billow lobes sit ALONG the launch axis, in
+// frame-width fractions. 0.17 against a lobe long axis of 0.31-0.38 keeps
+// them overlapping (no gap between them) while making the union a column.
+const BILLOW_LOBE_STEP_NDC = 0.17;
+
 const MISSILE_FRAC_NEAR = 0.022;
 const MISSILE_FRAC_FAR = 0.009;
 
@@ -309,6 +314,11 @@ export class Missiles {
       velX: side * SPLAY_NDC_X_PER_S,
       velY: SPLAY_NDC_Y_PER_S,
       puffTimer: 0,
+      prevNdcX: playerNdc.x + side * PYLON_NDC_X,
+      prevNdcY: playerNdc.y + PYLON_NDC_Y,
+      // Seeded from the splay velocity so the first puff of a trail is
+      // already aligned; overwritten every tick from the actual screen step.
+      trailAngle: Math.atan2(SPLAY_NDC_Y_PER_S * FRAC_Y_PER_NDC, side * SPLAY_NDC_X_PER_S * 0.5),
     };
     this.live.push(m);
 
@@ -329,16 +339,52 @@ export class Missiles {
     // `fadeFrom` late enough that the mass is opaque while it matters but
     // gone before the next salvo — "briefly occlude PART of the screen" is
     // the target, not obscure it.
+    //
+    // R6: the billow is now a TAPERING PLUME (effects/smoke.js drawBillow) and
+    // has to be ORIENTED, or the taper points in an arbitrary direction and is
+    // worse than no taper. The axis is pylon -> target, which is the direction
+    // the trail will actually develop in; the launch splay bends the first
+    // 0.3 s of the path away from it, so taking the axis from the splay
+    // velocity instead would aim the plume down and outward while the trail
+    // went up. Canvas +y is screen up at rotation 0 and the narrow end is at
+    // the canvas top, so the sprite is turned by (axis angle - pi/2).
+    // No target (the ?combattrail harness passes a stub, and a real launch
+    // always has one): fall back to straight up the sight line.
     const pos = new THREE.Vector3();
     const p = this.palette;
+    const axX = ((target?.ndc?.x ?? m.ndcX) - m.ndcX) * 0.5;
+    const axY = ((target?.ndc?.y ?? m.ndcY + 0.4) - m.ndcY) * FRAC_Y_PER_NDC;
+    const billowRot =
+      (Math.hypot(axX, axY) > 1e-6 ? Math.atan2(axY, axX) : Math.PI / 2) - Math.PI / 2;
+    // The two lobes are strung ALONG the axis, not jittered laterally. They
+    // used to be offset by +-0.045 x +-0.03 NDC in screen x/y, which put two
+    // 30-36 %W balls side by side -- a ~50 %W mass, wider than it is tall,
+    // against the arcade's 39.1 %W x 50.0 %H column. Along the axis the same
+    // two lobes make one rooted plume.
+    const axN = Math.hypot(axX, axY) || 1;
+    const stepX = (axX / axN) * BILLOW_LOBE_STEP_NDC * 2; // NDC x per unit frac
+    const stepY = (axY / axN) * BILLOW_LOBE_STEP_NDC * NDC_Y_PER_FRAC;
     for (let i = 0; i < 2; i++) {
-      const jitterX = (rng() - 0.5) * 0.09;
-      const jitterY = (rng() - 0.5) * 0.06;
+      const jitterX = stepX * i + (rng() - 0.5) * 0.04;
+      const jitterY = stepY * i + (rng() - 0.5) * 0.03;
       this.space.ndcToWorld(m.ndcX + jitterX, m.ndcY + jitterY, m.depth * 1.05, pos);
       this.smoke.spawn('billow', pos, m.depth * 1.05, {
         life: 0.95 + rng() * 0.2,
-        fracStart: 0.12,
-        fracEnd: 0.30 + rng() * 0.06,
+        rotation: billowRot,
+        // `frac` is the SHORT (across-plume) axis now that the canvas is
+        // 32x42 -- the sprite's long axis is frac * 1.3125. The arcade's
+        // launch mass is 39.1 %W x 50.0 %H, so a 0.30 %W short axis puts the
+        // long axis at 0.394, which is that measurement rather than a
+        // square 0.30 x 0.30.
+        fracStart: 0.10,
+        // SHORT axis. 0.24-0.29 here puts the long axis at 0.31-0.38 and the
+        // union of the two lobes, offset BILLOW_LOBE_STEP_NDC apart along it,
+        // at roughly 0.25 x 0.49 -- the arcade's 39.1 %W x 50.0 %H mass is
+        // 0.39 x 0.50, and the rest of its width is the ribbon and the puff
+        // chain lying on the same axis. The old 0.30-0.36 was the FULL width
+        // of a round sprite, so this is not a shrink: the mass is the same
+        // size and a different shape.
+        fracEnd: 0.24 + rng() * 0.05,
         valueStart: p.billowStart,
         valueEnd: p.billowEnd,
         fadeFrom: p.billowFadeFrom,
@@ -377,6 +423,19 @@ export class Missiles {
         m.ndcY += (target.ndc.y - m.ndcY) * steer;
       }
 
+      // Screen tangent of the path THIS tick, in isotropic width-fraction
+      // units (the same convention Trail._rebuild uses for its perpendicular,
+      // so the ribbon and the puff chain cannot disagree about which way the
+      // trail is pointing). Held when the step is degenerate rather than
+      // normalising noise, for the reason given in _rebuild.
+      {
+        const tx = (m.ndcX - m.prevNdcX) * 0.5;
+        const ty = (m.ndcY - m.prevNdcY) * FRAC_Y_PER_NDC;
+        if (Math.hypot(tx, ty) > 1e-6) m.trailAngle = Math.atan2(ty, tx);
+        m.prevNdcX = m.ndcX;
+        m.prevNdcY = m.ndcY;
+      }
+
       m.trail.push(m.ndcX, m.ndcY, m.depth);
       m.trail.update(dt);
 
@@ -384,14 +443,32 @@ export class Missiles {
       if (m.puffTimer <= 0) {
         m.puffTimer += PUFF_INTERVAL_S;
         this.space.ndcToWorld(m.ndcX, m.ndcY, m.depth, pos);
-        this.smoke.spawn('puff', pos, m.depth, {
+        this.smoke.spawn('trail', pos, m.depth, {
           life: 1.0,
-          // Sized to overlap its neighbours at PUFF_INTERVAL_S rather than
-          // to look right in isolation: the chain has to read as one mass,
-          // and a per-component column-occupancy measurement fails the
-          // moment consecutive puffs stop touching.
-          fracStart: 0.055,
-          fracEnd: 0.075,
+          // R6. THE CHAIN NOW CARRIES THE RIBBON'S OWN TAPER instead of a
+          // flat one, and this is the "size falloff along the axis" half of
+          // the art critique's fix.
+          //
+          // It used to run 0.055 -> 0.075 of frame width over a puff's life:
+          // a 1.36x ramp, against the ribbon's 2.7x (HALF_FRAC_YOUNG 0.024 ->
+          // HALF_FRAC_OLD 0.065, i.e. a full thickness of 4.8 %W -> 13 %W)
+          // and against the arcade plume's measured 3.3x (10.9 %W at the
+          // missile -> 36.2 %W at the launch end,
+          // reference/stage1-missile-salvo-t100.75.png). A chain that barely
+          // tapers, laid along a path that compresses toward the vanishing
+          // point, is a disc.
+          //
+          // These are the LONG axis of an ellipse whose canvas aspect is
+          // 0.625, so the plume's visible WIDTH is 0.625x these: 0.048 ->
+          // 0.130, exactly the ribbon's full thickness at both ends. The
+          // chain and the ribbon are now the same wedge, and the chain's
+          // extra length along the axis is what buys the column occupancy
+          // that the old overlap-sized discs were buying with area.
+          fracStart: 0.0768,
+          fracEnd: 0.208,
+          // Held at the screen tangent the missile had when this puff was
+          // laid down (effects/smoke.js `rotation`).
+          rotation: m.trailAngle,
           // Per-stage — near-white through its whole life in daylight, a
           // bright-to-dark ramp at night. See effects/trailPalette.js.
           valueStart: this.palette.puffStart,

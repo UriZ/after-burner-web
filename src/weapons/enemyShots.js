@@ -16,7 +16,79 @@ import { enemyShotTexture } from './projectileSprites.js';
 // fixed straight line, exactly like a vulcan round but in the other depth
 // direction.
 
-// World depth units/s, toward the camera. 15, down from 24.
+// World depth units/s, toward the camera. 10, down from 15, down from 24.
+//
+// R6. The reason for the second step is that THE DISPLACEMENT TABLE THIS
+// CONSTANT IS SOLVED AGAINST NO LONGER REPRODUCES. Re-measured with the same
+// instrument and the same operator the table under enemy.js TELEGRAPH_S
+// publishes (tools/fairness_probe.mjs --trace, ?fixed=1&demo=1&seed=4, 120 s,
+// 0.1 s sampling, displacement in frame-width fractions), on the R6 working
+// tree with this lane's files at HEAD:
+//
+//   lag    P(displacement < 0.05)   published (R5)
+//   0.6 s  0.726                    0.635
+//   1.0 s  0.556                    0.455
+//   1.4 s  0.432                    0.320
+//   2.0 s  0.331                    0.161
+//   2.6 s  0.220                    0.090
+//   2.87 s 0.180                    --
+//   3.5 s  0.111                    --
+//   4.36 s 0.038                    --
+//   5.2 s  0.012                    --
+//
+// Every row is HIGHER than the published one and the gap widens with lag:
+// the `?demo=1` pilot moves materially less than it did when 15 was chosen.
+// (This lane did not change it — player.js and demoTimeline.js are another
+// lane's, and the trace above was taken with spawner.js/enemy.js/weapons at
+// HEAD.) So the geometry that was solved for a 0.10 -> 0.05 per-round hit
+// probability is in fact paying 0.24 -> 0.04, and the death rate followed.
+//
+// 10 moves the band's time of flight from 1.49-3.36 s to 2.24-5.04 s and the
+// total fairness lag from 2.49-4.36 s to 3.24-6.04 s. It is the lever
+// enemy.js's "MOVE NONE OF THESE FOUR ALONE" note names for exactly this
+// case: raising the firing floor buys lag and costs train budget, slowing the
+// round buys lag for free. Volume is untouched -- the train cadence, the
+// concurrency cap, the band and the spacing all still hold, and the
+// MIN_TRAIN_ROUNDS depth gate is computed from the depth rate, not from this.
+//
+// THE VALUE WAS CHOSEN BY A FOUR-POINT SWEEP, not by solving the table, and
+// the instrument is combat.js's miss-distance histogram rather than the death
+// count (7 seeds x 300 s per arm = 2100 s, ~3000 plane crossings per arm; the
+// deaths in the same run are 54-102, far too few to separate these arms).
+// `pHit` is the share of crossings inside PLAYER_HIT_RADIUS_FRAC and its
+// self-check -- crossings inside the radius must equal playerHitsTaken
+// exactly -- passed on every arm.
+//
+//   SPEED   pHit %         deaths/min wall   /flight   rounds/min   live shots
+//     15    3.812 +-0.370    2.914 +-0.289     4.121     127.1        4.19
+//     12    3.201 +-0.330    2.600 +-0.273     3.500     127.9        5.18
+//     10    2.272 +-0.265    2.057 +-0.242     2.601     129.8        6.27
+//      9    2.454 +-0.280    2.143 +-0.247     2.731     129.4        6.80
+//      8    1.568 +-0.212    1.543 +-0.210     1.839     131.3        7.92
+//
+// (9 is off the monotone trend by half a standard error and is noise, not a
+// turning point. Rounds per minute RISES slightly across the sweep, so none
+// of this is bought with a volume cut.)
+//
+// WHY 10 AND NOT 8. The arcade's own death rate has been measured twice and
+// the two agree: 1.91/min of wall clock (R5 judge, READY-card template match,
+// 60 candidates crop-verified) and 2.04/min (R5 game-feel critique, 27 deaths
+// partitioned by 9 continue screens into nine groups of exactly three). 10
+// puts `?demo=1` at 2.057/min -- on that bracket. 8 puts it at 1.543, which
+// is 24 % BELOW the rate a human paying for the cabinet dies at, while OUR
+// pilot is a pure function of simTime and cannot dodge at all. A non-reactive
+// policy that dies less often than a reacting human is not a difficulty
+// setting, it is a broken game, and going there to clear a round number would
+// be tuning to the gate instead of to the arcade.
+//
+// What it costs: rounds are visibly slower, and more of them are in the air
+// at once (mean live shots 4.19 -> 6.27). The second is a gain against
+// reference/stage7-enemy-shot-train-t330.png's 10-16 simultaneous fireballs;
+// the first is a real fidelity risk and is UNMEASURABLE from this repo's
+// footage today -- see the paragraph below, which was already true at 15 and
+// is why this constant can be moved at all. If anyone ever counts frames from
+// a muzzle flash to its impact on the 60 fps longplay, that measurement
+// outranks this whole sweep.
 //
 // NEITHER NUMBER IS MEASURED, and this comment exists so the next agent does
 // not treat 15 as arcade-derived. GAME_SPEC.md §4 carries "bullet speed ~0.6
@@ -42,7 +114,7 @@ import { enemyShotTexture } from './projectileSprites.js';
 // of a train still in the air when the later ones leave. At 0.11 s spacing an
 // 8-round train spans 0.77 s of emission, so the whole train is only
 // simultaneously visible if a round lives well beyond that.
-const SPEED = 15;
+export const SPEED = 10;
 const PASS_DEPTH = 1.6; // retire once it has gone by
 
 // Shots GROW visibly as they close — in

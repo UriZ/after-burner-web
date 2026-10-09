@@ -202,6 +202,26 @@ async function runSeed(browser, port, seed, args) {
     graceWindowHits: graceHits,
     graceWindowHitsUnannounced: graceUnannounced,
     kills: fair?.hits ?? null,
+    // R6 LETHALITY INSTRUMENT. The cumulative miss-distance histogram of every
+    // enemy round that crossed the player's plane (combat.js _logMiss). Deaths
+    // are far too few to tune on -- 23-25 per 3 seeds x 180 s, Poisson sd 4.9 --
+    // and these are ~1100 events over the same run. `pHit` is the share inside
+    // the kill radius and is the quantity a geometry change is supposed to move;
+    // `deathsPerMin` is then a prediction that can be checked, not the estimator.
+    missCrossings: fair?.missCrossings ?? null,
+    missHist: fair?.missHist ?? null,
+    missBinW: fair?.missBinW ?? null,
+    hitRadius: fair?.hitRadius ?? null,
+    pHit:
+      fair?.missHist && fair.missCrossings
+        ? Number(
+            (
+              fair.missHist
+                .slice(0, Math.round(fair.hitRadius / fair.missBinW))
+                .reduce((a, b) => a + b, 0) / fair.missCrossings
+            ).toFixed(5)
+          )
+        : null,
     trace: args.trace ? trace : undefined,
     errors,
   };

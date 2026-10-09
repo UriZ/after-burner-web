@@ -535,16 +535,55 @@ export class Enemy {
     return this.burstLeft > 0 || this.telegraph > 0;
   }
 
+  // ABANDON a train in progress, used only on the respawn edge
+  // (weapons/combat.js clearShots). R5's game-feel critique, §2 residual 1:
+  //
+  //   "clearShots() retires rounds in the air; it does not touch
+  //    enemy.telegraph, burstLeft or the aim snapshot. An enemy whose flare
+  //    lit at the dying jet will pay out its train into the new life, aimed
+  //    at a snapshot of a jet that no longer exists -- announced:false by
+  //    construction. Observed at 3 of 39 respawns. It produced 0 of 61 fatal
+  //    hits in 21 minutes. It is a latent hole, not an active defect."
+  //
+  // It is no longer latent. On the R6 geometry a round is in the air 2.24-
+  // 5.04 s instead of 1.49-3.36 s, so a train that opens just before a death
+  // is still arriving well into the next life, and the same probe reads
+  // 2 unannounced fatal hits in 72 (7 seeds x 300 s, seed 1 t=239.68 and
+  // seed 4 t=231.43; both flares lit 3.1 s and 4.7 s before the life began).
+  // Two in 72 is 2.8 %, and every one of them is a death the player could not
+  // have avoided by any input -- which is the one thing the telegraph
+  // contract promises cannot happen.
+  //
+  // `fireTimer` is left alone deliberately: the aircraft is allowed to open a
+  // NEW train at the new player, announced by a new flare. What is destroyed
+  // is only the promise made to a pilot who is already dead.
+  abandonTrain() {
+    this.telegraph = 0;
+    this.telegraphFrac = 0;
+    this.burstLeft = 0;
+  }
+
   // Returns a fire request on the tick a shot leaves the aircraft, else null.
   // The caller owns the projectile pool.
   // `allowNewTrain` gates the START of a train only — an enemy already
   // mid-train always finishes it, so trains are never cut off half-way.
   // `playerNdc` is snapshotted when the telegraph lights, and every shot in
   // the resulting train is aimed at that snapshot.
-  update(dt, rng, space, allowNewTrain = true, playerNdc = null) {
+  update(dt, rng, space, allowNewTrain = true, playerNdc = null, closureScale = 1) {
     this.age += dt;
 
-    this.d *= Math.exp(this.depthRate * dt);
+    // `closureScale` is the throttle's effect on how fast the sky comes at
+    // you (judging/R6/ask-flow.md A6). See spawner.js THROTTLE_CLOSURE_MULT
+    // for the magnitudes and the bound they are derived from. It multiplies
+    // the depth rate only; the screen path is driven by 1/d, so a wave's
+    // shape through the frame is unchanged and only its TIMING moves.
+    //
+    // 1 at the M detent, exactly, and that is load-bearing rather than
+    // tidy: every flight constant this project has MEASURED was taken from
+    // footage with the throttle at M throughout, including this file's own
+    // 4-6 s approach. A multiplier whose middle value is not exactly 1
+    // re-bases all of them at once and no test would notice.
+    this.d *= Math.exp(this.depthRate * closureScale * dt);
 
     // Screen path, advanced by SIZE (1/d), not by time — see the header.
     const q = THREE.MathUtils.clamp((1 / this.d - this.invA) / this.invSpan, 0, 1);
