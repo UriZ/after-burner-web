@@ -116,3 +116,68 @@ rungs, which would put dither where the sheet has flat shading.
 If a future sheet carries a small, genuinely-brightest highlight tone (a few per cent, on the wing
 edges), the hulk's top rung follows it automatically — the remap reads the live sheet and needs no
 change here.
+
+
+---
+
+## A7 — CRITERIA: a tick index is not a reportable quantity without the URL that produced it
+
+**To**: criteria lane. **Accepted by the TL. Ledger candidate, and it is ledger row 21's class for
+the third time in one round — the lead contributed the third instance.**
+
+Resolved in `lane-ladder.md` §5. A one-value disagreement between two lanes at "tick 1 950" was
+not an instrument disagreement: **the two tick 1 950s were different moments in the simulation.**
+Same seed, same `?invincible=1`, **one flag apart** — `?demo=1` — and 29 becomes 28. Each side
+then reproduced the other's three figures exactly by adding or dropping that one flag
+(29/29/30 without, 27/28/28 with).
+
+**The mechanism is mechanical, not statistical, and it generalises past this one flag.** `?demo=1`
+is the only URL that plays the carrier launch (`flow.js`: `playLaunch = params.get('demo') ===
+'1'`), and `stageTimer += dt` lives only inside `_updateFlight` — so the timer does not run during
+the `launch` state and **every stage boundary in a `?demo=1` run is displaced later by
+`LAUNCH_TOTAL_S` = 3.5 s = 210 ticks**. Predicted from source, the first boundary moves from
+tick 1 921 to **2 132**; measured, launch occupies ticks 1-210 and the first tick on stage > 0
+is **2 132** — predicted and measured agree to the tick. Dropping `?invincible=1`
+displaces them by an *unbounded* amount instead (1 227 of the first 2 100 ticks go to the death
+cycle and the boundary never arrives at all). **Two different flags, two different displacements,
+both silent.**
+
+Three other candidates were tested and refuted first: stepping granularity (1 950 × `step(1)` and
+one `step(1950)` produce **byte-identical** PNGs), readback path (in-page `gl.readPixels`, the same
+run's `toDataURL` PNG and an independent `capture.mjs` PNG all agree), and tree drift, tested
+independently on both sides.
+
+**Ask**: add to REFERENCE.md's citation rules, beside row 27's "a bare %H is not a reportable
+quantity" — **a tick index is meaningless without the URL parameters that produced it**, because
+two measurement-only flags each move every stage boundary and neither announces it. Any
+window-aimed verification must quote its URL; this round's window reproduces on
+`?fixed=1&seed=1&invincible=1`, ticks 1 921–1 979.
+
+### A7b — this is a FOURTH class of silent wrong number, and it deserves its own row
+
+The TL's framing, which is better than mine and which I am recording in its words:
+
+> This failure is invisible to every cross-check we run. Both instruments were right, both agreed
+> with themselves, both agreed with a second implementation, both were stable on repetition. Only
+> reading the flow state out of the frame showed the two samples were not the same sample.
+
+The three classes already in the ledger are **a bad operator**, **a validated operator pointed at
+the wrong population/resolution/region**, and **a stale capture set**. This is none of them:
+**two correct measurements of two different things that look like one thing.** Cross-validating
+implementations cannot detect it — that is the standard remedy for the first class and it actively
+*reinforces* this one, because both sides keep agreeing with themselves. Nor can re-running, nor a
+duplicate sweep, nor a black-frame sweep.
+
+**The actionable half is an asymmetry in the tooling, and it is now fixed.** `probe.mjs` logged
+the flow state it sampled; `capture.mjs` did not, which is why this took four experiments instead
+of one. The TL has since added a `capture-manifest.json` to `capture.mjs` (`1a49ac0`) carrying the
+URL, the cumulative tick and the full flow state per frame — **verified working here**, and this
+lane fixed one bug in it: the console tag read `st.stage`, which `__flowState()` does not expose
+(it has `stageIndex` and `stageNumber`), so the stage silently never printed. Now reads
+`[flight stage 2]`. **That bug is itself a miniature of the class** — a guard that made a typo
+look like an absent field.
+
+**Suggested general rule for the row**: *an operator that samples a time series must record the
+state it sampled, not just the index it asked for.* It is the stage-digit rule (REFERENCE.md,
+"every palette or value criterion names its stage") one level up, and the same remedy: read the
+identity out of the artefact rather than trusting the request that produced it.

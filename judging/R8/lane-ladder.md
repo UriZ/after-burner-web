@@ -384,11 +384,54 @@ ticks **1 930, 1 950 and 1 970** — inside the 59-tick window localised one tic
 boundary — read **24, 28 and 27** channel values against the ≤32 gate, plus twelve frames across
 the first stage span with a worst case of 28.
 
-One small disagreement, stated rather than smoothed over: **this lane's own per-tick probe reads
-29 at tick 1 950 where the TL's capture reads 28.** One channel value, same verdict, and the most
-likely cause is already quantified in §5 — the shared tree moved under both of us, and the
-isolation-vs-shared-tree spread on these same objects is 1–4 values in exactly that direction.
-It has **not** been run to ground, and by this project's own rule a stable small disagreement is
-usually two definitions of one statistic rather than noise, so it is recorded as open rather than
-waved through. It does not touch any pass/fail in this report: nothing in 12 600 ticks came
-within two values of the gate.
+### The 28-versus-29 at tick 1 950 — RUN TO GROUND. It is ledger row 21's class for the third time this round, and the lead contributed the third instance.
+
+Filed as open (this lane's probe read **29** at tick 1 950, the TL's capture read **28**). The TL
+tested the two obvious causes and **refuted both**: re-measuring on the post-commit tree gave a
+*different frame* (md5 differs) with an *identical* count, so not tree drift on that side; and
+neither reading of A2 yields 29 (union 28, max-per-channel 22, undecimated 28), so not "same name,
+different operator" either. Four further candidates were then tested here.
+
+| candidate | test | verdict |
+|---|---|---|
+| **stepping granularity** — 1 950 × `step(1)` vs one `step(1950)` | `fixedloop.js:46` loops `n` fixed ticks and renders once; captured both ways | **RULED OUT.** The two PNGs are **byte-identical**, md5 `100587fd…`. A useful determinism result in its own right |
+| **readback path** — in-page `gl.readPixels` vs a `toDataURL` PNG (the TL's own suggestion, and the only remaining difference between the two pipelines) | same tick, three readers: probe in-page, probe's own dumped PNG via `inst.py`, and `capture.mjs`'s independent PNG | **RULED OUT.** All three read **79 colours / 29 / 0 off-ladder** |
+| **tree drift on THIS side** | re-ran the probe to tick 1 950 on the current tree, three commits later | **RULED OUT.** Still 29 |
+| **population** | one URL flag | **THIS IS IT** |
+
+**The flag is `?demo=1`, and this lane's first diagnosis named the wrong one.** I inferred a
+missing `?invincible=1` from the fact that dropping it also reproduces 28. The TL supplied the
+actual URL — `?fixed=1&seed=1&invincible=1&demo=1` — and both sides then reproduced each other
+exactly: the TL re-ran without `demo` and got **29 / 29 / 30**, this lane's three figures at
+1 930 / 1 950 / 1 970; this lane re-ran *with* it and got **27 / 28 / 28**. Same seed, same
+invincibility, **one flag apart, 29 → 28**, which is cleaner evidence for the population
+diagnosis than the version it replaced. Recorded this way round because the wrong flag would have
+gone into the ledger.
+
+**The mechanism, and it is mechanical rather than statistical — predicted from source, then
+measured to the tick.** `?demo=1` is the only URL that plays the carrier launch (`flow.js`:
+`playLaunch = params.get('demo') === '1'`), and `stageTimer += dt` lives **only** inside
+`_updateFlight` — so the stage timer does not run during the `launch` state and every boundary is
+displaced by the launch's whole length. `LAUNCH_TOTAL_S = ON_DECK_S + CLIMB_S = 3.5 s = 210 ticks`,
+and flight begins on the tick after, so the first boundary should move from 1 921 to **2 132**.
+Measured: launch occupies **ticks 1–210 (210 ticks, 3.50 s)** and the first tick on stage > 0 is
+**2 132**. At ticks 1 930–1 970 a `?demo=1` run is therefore still on `stage 0`, 162 ticks short of
+its own boundary, with the stage-1 sky in frame — the `[159]` off-ladder value is the tell, since
+nothing past the first boundary can carry it.
+
+| | tick 1 930 | tick 1 950 | tick 1 970 | first tick on stage > 0 |
+|---|---|---|---|---|
+| **`?invincible=1`** (this lane) | 29, `flight` **stage 1**, off `[]` | **29** | 30 | **1 921** |
+| **`?invincible=1&demo=1`** (the TL) | 27, `flight` **stage 0**, off `[159]` | **28** | 28 | **not within 2 000** |
+
+**Consequence, stated plainly because it is a verification gap and not a result gap.** Those three
+frames were a valid sample of attract-mode play, which also passes — but they were on stage 0 and
+so **did not land inside the 59-tick tally window they were aimed at**. The TL has since re-run on
+`?fixed=1&seed=1&invincible=1` and reproduced 29 / 29 / 30, so **the localisation is now
+independently confirmed on a second instrument**, which is what it needed.
+
+**The lesson is one this round has now paid for three times**: the R7 judge's claim 1 (a Criterion
+A figure quoted with combat silently off), the tally card passing in isolation and failing in play
+(§1), and now a verification whose tick index meant something different from the tick index it was
+checking. **A tick index is not a reportable quantity without the URL that produced it** — the
+same shape as ledger row 27's "a bare %H is not a reportable quantity".
