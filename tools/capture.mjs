@@ -190,7 +190,14 @@ async function main() {
       tick += args.every;
       manifest.push({ frame: name, tick, state: shot.state });
       const st = shot.state || {};
-      const tag = st.state ? ` [${st.state}${st.stage !== undefined ? ' stage ' + st.stage : ''}]` : '';
+      // `stageNumber`, not `stage`: __flowState() exposes `stageIndex` (the
+      // 0-based content index) and `stageNumber` (the digit the HUD actually
+      // draws) and has no `stage` at all, so the first cut of this line
+      // silently printed no stage on every frame -- the guard made the miss
+      // look like an absent field rather than a typo. The HUD digit is the
+      // right one to surface here because it is what a judge reads off the
+      // frame it is standing next to.
+      const tag = st.state ? ` [${st.state}${st.stageNumber !== undefined ? ' stage ' + st.stageNumber : ''}]` : '';
       console.log('captured', file + tag);
     }
 
