@@ -55,30 +55,29 @@ against both arcade frames and thirteen synthetic controls before it was pointed
 | **`e8fed58` ours stage 1, `?nocombat=1`** | **24** | **46 / 51 / 51** ✓ | **21 / 21 / 21** ✓ | 79.3 / **80.8** / 82.4 ✓ | 50.8 / **56.4** / 60.8 ✓ | **0 of 24** |
 | **`e8fed58` ours stage 1, ORDINARY PLAY** | **49** | **59 / 71 / 99** ✓ | **28 / 53 / 98** ✗ | 78.8 / **80.6** / 82.4 ✓ | 50.7 / **56.3** / 60.8 ✓ | **48 of 49** |
 
-> **R7 FINAL TREE — the composite passes Criterion A in ordinary play (TEAM LEAD's figure,
-> NOT re-derived by this lane).** The R7 world lane flagged that its own whole-frame numbers
-> were a composite over five lanes and asked for a re-measure against whatever was committed.
-> The lead ran it on the final tree: **12 frames, three tick spacings (97/137/211), ordinary
-> play with combat and `invincible=1`, stage-digit range verified — worst case 30 channel
-> values and 70 colours** against gates of ≤32 and ≤256. **Quote that figure rather than any
-> single lane's.** It closes the ordinary-play failure in the row below, on a tree this
-> document's own rows predate.
+> ### R7 FINAL TREE — CRITERION A PASSES IN ORDINARY PLAY. Quote this row, not the ones below
 >
-> **Provenance gap, stated rather than papered over**: this lane **could not locate the capture
-> set** and so has **not re-derived it**. The `tools/out/tl-verify-*` directories hold 15
-> frames in total, not 12 at three spacings, and the only multi-frame set among them
-> (`tl-verify-9-{1,2,3}`) reads **13 997–14 470 colours / 253–256 channel values** — the
-> *pre-R6* signature, with a 9 430-colour ground and 11 320 singleton colours, i.e. the sea
-> before the world lane's rebuild. Those are old captures, not this measurement. **Two things
-> are owed before the figure is cited as reproduced: the capture directory's name, and the
-> commit.** Until then it is a correctly-attributed figure from one measurer, which is exactly
-> what field 5 of "What a complete citation is" exists to flag.
+> | commit | population | n | colours | chan union | over A1 | over A2 |
+> |---|---|---|---|---|---|---|
+> | **`5913af6`** | **ordinary play, combat on** (`?fixed=1&seed=1&invincible=1`), three tick spacings 97/137/211, **stage digit read 1 on every frame** | **12** | **62–70** ✓ | **26–30** ✓ | **0 of 12** | **0 of 12** |
 >
-> **Separately, a capture-hygiene finding in that directory tree**: `tl-verify-9-1`, `-9-2` and
-> `-9-3` contain **byte-identical frames** — md5 `ed3de9da…` and `fc8feed9…` appear in all
-> three. Three directories carrying one directory's information. If any pooled figure draws on
-> them it is triple-counting two frames, and a black-frame sweep cannot see it; STATUS's
-> standing warning about duplicates is the relevant one.
+> Captures: `tools/out/tl-r7-final-{97,137,211}`, four frames each; **0 duplicates across all
+> three directories**. Measured by the team lead and **independently re-derived by this lane on
+> its own instrument — worst case 30 / 70, agreeing exactly.**
+>
+> **This supersedes the ordinary-play row below**, which was measured on `e8fed58`. The R7 world
+> lane flagged that its own whole-frame figures were a composite over five lanes and asked for a
+> re-measure against whatever was committed; this is it, and **Criterion A passes on the
+> composite, not merely per lane.** The `e8fed58` rows stay on the record because they are what
+> the population defect (ledger row 21) was diagnosed from.
+>
+> **Carried as a worked example of citation field 5.** The figure was first circulated **without
+> its capture directory or commit**, and this lane declined to confirm it and went looking —
+> landing on an unrelated R5-era directory and reading 13 997 colours. Nothing was wrong with
+> the measurement; the provenance line was missing, and the number was therefore unreproducible
+> by anyone but its measurer. Once the directories and the commit were supplied it reproduced in
+> one run. **That is the whole argument for field 5, and it happened to the gate at the top of
+> this document in the round the field was being enforced elsewhere.**
 
 **Read the last two rows together — that is the point of the column.** The same build, the same
 commit, the same instrument: **Criterion B does not move with the population** (80.8 → 80.6 H,
@@ -512,6 +511,57 @@ timestamps to stages, established by reading that same digit.
 ledger row 3, retired once for being measured off fading smoke. It is not being retired again
 here; the flag is the deliverable. Anyone tuning explosions should know the targets rest on two
 frames whose stage nobody can name.
+
+## Capture sets: sweep for duplicates ACROSS sets, and mark controls so nothing pools them (PROCESS RULE, binding from R7)
+
+Two gaps in the capture hygiene this project already practises. Both were found by one
+observation, and neither is covered by any sweep currently run.
+
+### 1. Duplicate detection is WITHIN-SET only, and pooling is exactly where cross-set matters
+
+Every sweep here checks for black frames, byte duplicates and near-duplicates **inside** a
+capture directory. **Nothing checks across directories** — and a pooled figure, which is the
+normal way a median or a min/max band gets built in this document, is precisely the case where
+a repeated directory does damage.
+
+**The live instance.** `tools/out/tl-verify-9-1`, `-9-2` and `-9-3` hold **byte-identical
+frames** (md5 `ed3de9da…` and `fc8feed9…` in all three). They were created deliberately — the
+same invocation run three times to test whether a `watch: null` change had broken
+`capture.mjs` — and then kept. **Three directories carrying one directory's information.** A
+figure pooled over them triple-counts two frames, every within-set sweep passes, and a
+black-frame sweep sees nothing.
+
+**The rule: hash every frame of every set that feeds a pooled figure, and report the count of
+cross-set duplicates beside the figure**, the same way black-frame counts are already reported.
+It is one dictionary. STATUS's standing warning — *"two capture-corruption causes are fixed;
+that is not proof there is no third… sweep for black frames AND for duplicates"* — now has a
+named third: **the duplicate is in a different directory.**
+
+### 2. A CONTROL RUN IS NOT A MEASUREMENT SET — name it so, or delete it
+
+A directory produced to test the *instrument* must never be able to enter a measurement. Today
+nothing distinguishes the two, and the only defence is that whoever pools remembers.
+
+**Convention, binding: a capture directory whose purpose is a control, a smoke test or a
+repeated-invocation check is named with a `-control` suffix** (`tools/out/<lane>-<thing>-control`),
+and **no pooled figure may include a `-control` directory.** Deleting it is equally good. The
+cost is a word; the failure it prevents is silent and survives every existing gate.
+
+### 3. A capture set's AGE is visible in its CONTENT — date it before you trust its name
+
+The detector that caught the above, worth stating because it is reusable and it works when
+directory names and timestamps do not:
+
+> **A stale capture set is identifiable from its pixels, and the component that dates it is
+> whichever one a lane most recently rebuilt.**
+
+Worked case: `tl-verify-9-*` carried **sky 15 colours, jet 40 — both current — and ground
+9 430 colours with 11 320 singletons.** Sky and jet could not date the set; **the ground
+could**, because the world lane had just replaced the stage-1 sea and nothing that reads 9 430
+colours in its ground can postdate that commit. The set was R5-era (`53ce86b` or earlier) and
+the names said nothing. **So: before trusting a capture set's provenance, measure the one
+subsystem that changed most recently and check it against that subsystem's current figure.**
+A set that disagrees is old, whatever it is called.
 
 ## An API where "no value" means "erase" cannot tell a typo from an intent — assert the INPUTS (PROCESS RULE, binding from R7)
 

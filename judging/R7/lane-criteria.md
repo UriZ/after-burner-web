@@ -730,3 +730,83 @@ information.** If any pooled figure draws on them it is triple-counting two fram
 black-frame sweep cannot see it. STATUS's standing warning — *"two capture-corruption causes are
 fixed; that is not proof there is no third… sweep for black frames AND for duplicates"* — is the
 relevant one, and this is a live instance of it.
+
+---
+
+# Addendum 3 — the verification reproduced, and two capture-hygiene items
+
+## The final-tree figure: provenance supplied, and it reproduces exactly
+
+The lead supplied what was missing — `tools/out/tl-r7-final-{97,137,211}`, four frames each,
+`?fixed=1&seed=1&invincible=1`, ordinary play with combat, on **`5913af6`**. I re-derived it on
+my own instrument:
+
+| | n | colours | chan union | over A1 | over A2 | digit |
+|---|---|---|---|---|---|---|
+| **this lane, `5913af6`** | **12** | **62–70** | **26–30** | **0 of 12** | **0 of 12** | **1 on every frame** |
+
+**Worst case 30 channel values and 70 colours — the lead's figure exactly.** 0 duplicates across
+the three directories. **Criterion A passes on the composite in ordinary play**, which closes
+the failure that ledger row 21 was diagnosed from, and REFERENCE and STATUS now both point at
+this row rather than at any single lane's or at my `e8fed58` numbers.
+
+**This round's best worked example of citation field 5, and it landed on the gate itself.** The
+figure was first circulated without its capture directory or commit. **Nothing was wrong with
+the measurement** — I went looking, landed on an unrelated R5-era directory, read 13 997
+colours, and correctly refused to confirm. It reproduced in **one run** once the provenance
+arrived. A number that only its measurer can reproduce is not yet a published number, and that
+is exactly what field 5 exists to enforce; it is worth noting it was the top-of-document gate
+that skipped it, in the round the field was being enforced on everything else.
+
+I also got the diagnosis right for the right reason and it generalises — see item 3 below.
+
+## Item 1 — duplicate detection is WITHIN-set only, and pooling is where cross-set matters
+
+**Agreed and published.** Every sweep here checks black frames, byte duplicates and
+near-duplicates **inside** a directory. **Nothing checks across directories**, and a pooled
+figure — the normal way a median or a min/max band is built in REFERENCE — is precisely where a
+repeated directory does damage.
+
+`tl-verify-9-{1,2,3}` is the live instance: byte-identical frames in all three, created as one
+invocation run three times to test whether a `watch: null` change had broken `capture.mjs`, then
+kept. **Three directories carrying one directory's information**; every within-set sweep passes
+and a black-frame sweep sees nothing.
+
+**Rule published: hash every frame of every set feeding a pooled figure, and report the cross-set
+duplicate count beside the figure**, the way black-frame counts already are. It is one
+dictionary. STATUS's standing "that is not proof there is no third" warning now names the third:
+**the duplicate is in a different directory.**
+
+## Item 2 — a control run is not a measurement set
+
+**Agreed, and it is the cheaper of the two.** A directory produced to test the *instrument* must
+not be able to enter a measurement, and today nothing distinguishes the two except whoever pools
+remembering.
+
+**Convention published: a capture directory whose purpose is a control, a smoke test or a
+repeated-invocation check is named with a `-control` suffix, and no pooled figure may include
+one.** Deleting it is equally good. Cost: one word. The failure it prevents is silent and
+survives every gate we have.
+
+## Item 3 — a capture set's AGE is visible in its CONTENT (the detector)
+
+Worth taking, and it is the transferable half of the whole episode:
+
+> **A stale capture set is identifiable from its pixels, and the component that dates it is
+> whichever one a lane most recently rebuilt.**
+
+In `tl-verify-9-*` the **sky was 15 colours and the jet 40 — both current, both useless for
+dating.** The **ground at 9 430 colours with 11 320 singletons** dated it, because the world
+lane had just replaced the stage-1 sea and nothing reading 9 430 colours in its ground can
+postdate that commit. Directory names and mtimes said nothing.
+
+**So: before trusting a capture set's provenance, measure the one subsystem that changed most
+recently and check it against that subsystem's current figure. A set that disagrees is old,
+whatever it is called.** Published in REFERENCE beside items 1 and 2.
+
+---
+
+**Lane closed.** Ledger at **29 rows**; rows 21–29 added this round and row 20 restated. The
+three ground-truth documents and `judging/R7/lane-criteria.md` are consistent with `5913af6`,
+and every our-side figure in them names its population, its operator, its unit and its tree
+state — which, this round, is the only reason three of them survived contact with a reader.

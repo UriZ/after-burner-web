@@ -22,12 +22,19 @@ below. Everything else in this file is downstream of those.
 > digit-verified stage-1 frames.** Criterion **B** was separately shown population-*insensitive*
 > (80.8 → 80.6 H, 56.4 → 56.3 V), so the caveat binds **A only**. REFERENCE ledger row 21.
 >
-> **R7 FINAL TREE: the composite PASSES in ordinary play — worst case 30 channel values and
-> 70 colours over 12 frames at three spacings, combat on.** That is the team lead's figure on
-> the final tree and it supersedes the `e8fed58` row above; **this lane could not locate the
-> capture set and has not re-derived it**, so it is cited with its measurer until the capture
-> directory and commit are named. The `e8fed58` numbers stay on the record because they are
-> what the population repair was diagnosed from.
+> **R7 FINAL TREE (`5913af6`): the composite PASSES in ordinary play — 12 frames at three
+> spacings with combat on, stage digit read 1 on every one, 62–70 colours and 26–30 channel
+> values, 0 of 12 over either gate.** Measured by the team lead, **independently re-derived by
+> this lane on its own instrument, agreeing exactly**; captures
+> `tools/out/tl-r7-final-{97,137,211}`, 0 cross-directory duplicates. **Quote that row.** The
+> `e8fed58` numbers stay on the record because they are what the population defect (ledger row
+> 21) was diagnosed from.
+>
+> **It is also the round's worked example of citation field 5.** The figure was first circulated
+> without its capture directory or commit; this lane declined to confirm it, went looking, and
+> landed on an unrelated R5-era directory reading 13 997 colours. The measurement was never
+> wrong — it was unreproducible by anyone but its measurer, and it reproduced in one run once
+> the provenance arrived. **Field 5 earned its place on the gate at the top of REFERENCE.md.**
 
 **User's own verdict after playing it: "it's very bad, lots of work to be done."** The score
 trend measures convergence on measurable properties; it does not yet mean the game is fun or
@@ -424,6 +431,19 @@ Listed together so anyone acquiring frames knows what to look for. Both are **tr
   **silent no-op**: no error, no warning, the posterization simply does not happen. The R6
   world lane wrote it in the wrong block first and caught it only by grepping the consumer.
   Grep where a key is consumed before trusting that setting it did anything.
+- **R7: there IS a third, and it is that the duplicate is in a DIFFERENT DIRECTORY.** Every
+  sweep this project runs checks duplicates *within* a capture set; nothing checks *across*
+  sets, and a pooled figure is exactly where that matters. Live instance:
+  `tools/out/tl-verify-9-{1,2,3}` hold byte-identical frames (one invocation run three times as
+  an instrument check, then kept) — three directories carrying one directory's information, and
+  every within-set sweep passes. **Hash every frame of every set feeding a pooled figure and
+  report the cross-set duplicate count beside it.** With it, a naming convention that costs
+  nothing: **a control/smoke-test capture directory is named `-control` and no pooled figure may
+  include one** — or it is deleted. And the detector that found it, which works when names and
+  timestamps do not: **a capture set's age is visible in its content, and the component that
+  dates it is whichever one a lane most recently rebuilt** (sky 15 colours and jet 40 said
+  nothing; a 9 430-colour ground dated the set to before the stage-1 sea rebuild). All three in
+  REFERENCE.md, "Capture sets: sweep for duplicates ACROSS sets".
 - **Two capture-corruption causes are fixed; that is not proof there is no third.** Sweep
   every capture set for black frames **and for duplicates** — a stalled live frame
   double-counts in a pooled distribution and a black-frame sweep alone cannot see it.
