@@ -1,0 +1,16 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>HUD palette isolation harness</title>
+  <link rel="icon" href="data:,">
+  <style>
+    html, body { margin: 0; height: 100%; background: #ff00ff; overflow: hidden; }
+    canvas#screen { display: block; image-rendering: pixelated; }
+  </style>
+</head>
+<body>
+  <canvas id="screen"></canvas>
+  <script type="module" src="./hud-probe.mjs"></script>
+</body>
+</html>

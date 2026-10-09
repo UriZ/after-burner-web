@@ -216,8 +216,43 @@ const AMBER = '#f7b500';
 // round-4 finding: red spans coincide with no active bracket. No exact
 // hex measured for this specific red; close visual match to REFERENCE.md's
 // t175 "orange-red" dot description pending a dedicated measurement.
-const RED_LOCK = '#ff3b1f';
+// R6: snapped to the Sega ladder enumerated in REFERENCE.md "Criterion A".
+// The previous value was `#ff3b1f`, whose 0x3b (59) and 0x1f (31) are on
+// NEITHER native arcade frame's channel set — the ladder runs ... 25, 33 ...
+// and ... 58, 66 ... — so this one unmeasured colour was the HUD's only
+// off-ladder ink, and it put two channel values into every frame in which an
+// enemy was in play. 59->58 and 31->33 is a sub-level shift (the ladder's own
+// step here is 8), and the comment below still stands: the hue is a visual
+// match to REFERENCE.md's t175 "orange-red" description, not a measurement.
+const RED_LOCK = '#ff3a21';
 const KEYLINE = '#000000';
+
+// ---------------------------------------------------------------------
+// THE AUTHORED PALETTE, as one list.
+//
+// WHY THIS IS EXPORTED. "Every HUD pixel is an authored palette colour" is
+// only checkable against an enumeration of what "authored" means, and an
+// enumeration kept in a measurement tool is a copy that silently desyncs the
+// moment this file changes a hex — the same staleness class
+// `tools/hud_mask.py` exists to kill for HUD geometry. So the list lives
+// HERE, built out of the constants themselves rather than retyped, and
+// `tools/hud-probe.mjs` reads it over the wire. Adding a colour to this HUD
+// without adding it here makes the probe fail loudly, which is the intent.
+//
+// Every entry lands on the Sega ladder enumerated in REFERENCE.md
+// "Criterion A" (0, 16, 25, 33, 41, 49, 58, 66, 74, 82, 91, 99, 107, 115,
+// 123, 132, 140, 148, 156, 164, 173, 181, 189, 197, 206, 214, 222, 230, 239,
+// 247, 255) — checked value by value, including the RED_LOCK repair above.
+// The ladder is NOT the automated gate (REFERENCE.md says so: a +-1 level
+// difference is visually nil), but a HUD colour off it is a sign the value
+// came from a video upscale rather than from the board.
+// ---------------------------------------------------------------------
+export const HUD_PALETTE = [
+  HUD_RED, PLATE_WHITE, EMBLEM_BLUE, PALE_YELLOW, CREAM, THROTTLE_LETTER_BLUE,
+  ...BAR_BLUE_ROWS, ...BAR_AMBER_ROWS,
+  TICK_GREY, MISSILE_BODY, MISSILE_BAND, MISSILE_BASE,
+  LIFE_CYAN, LIFE_BODY, LIFE_WING, WHITE, AMBER, RED_LOCK, KEYLINE,
+].filter((c, i, a) => a.indexOf(c) === i);
 
 // Text that sits over the WORLD gets the full 1-px black ring; text on a
 // white plate gets the arcade's right+below drop shadow (a ring against
@@ -349,6 +384,43 @@ function drawEmblem(ctx, e) {
   drawText(ctx, e.text, e.textX, y + e.textDy, HUD_RED, 1, 1, BIG_ON_PLATE);
 }
 
+// Integer-only Bresenham. The attitude line is the one HUD element whose
+// direction is continuous, and a continuous direction on a fixed pixel grid
+// is exactly what Bresenham is for — it is the staircase the hardware would
+// have drawn, with no coverage value anywhere between "pixel" and "no pixel".
+function bresenham(x0, y0, x1, y1, put) {
+  const dx = Math.abs(x1 - x0);
+  const dy = -Math.abs(y1 - y0);
+  const sx = x0 < x1 ? 1 : -1;
+  const sy = y0 < y1 ? 1 : -1;
+  let err = dx + dy;
+  let x = x0;
+  let y = y0;
+  for (;;) {
+    put(x, y);
+    if (x === x1 && y === y1) return;
+    const e2 = 2 * err;
+    if (e2 >= dy) { err += dy; x += sx; }
+    if (e2 <= dx) { err += dx; y += sy; }
+  }
+}
+
+// Reticle pixel geometry, in whole native pixels. Each length below is the
+// 1-BIT RESOLUTION of the stroked path this function used to draw, and was
+// derived by working out which pixels that path covered COMPLETELY — see
+// the long note on drawReticle. They are not new art.
+const RET_ARM = 4;        // bracket leg, px, INCLUDING the shared corner px
+const RET_TICK_GAP = 2;   // blank px between the bracket edge and its tick
+const RET_TICK_SIDE = 5;  // left/right tick length, px
+const RET_TICK_VERT = 3;  // top/bottom tick length, px
+const RET_LINE_EXT = 3;   // attitude-line half-length is `half + this`
+
+// Scratch raster for the reticle, grown on demand and reused across frames.
+// The reticle is the only HUD element with continuous geometry, so it is the
+// only one that needs rasterising; everything else is a fixed bitmap drawn
+// straight to the context.
+let retBuf = null;
+
 // Fixed reticle: corner-bracket square + side ticks + center dot (unchanged
 // by world roll, per REFERENCE.md), PLUS an attitude line through the
 // centre that DOES rotate with worldRoll — GAME_SPEC.md §3 "Lock-on
@@ -356,49 +428,164 @@ function drawEmblem(ctx, e) {
 // one HUD element that SHOULD track roll while everything else structurally
 // cannot (screen.js's orthographic HUD camera never inherits the game
 // camera's rotation).
+//
+// ---------------------------------------------------------------------
+// R6: DRAWN AS PIXELS, NOT AS A STROKED PATH. This was the whole fix for
+// the Criterion A2 excursion, and the reason is a medium argument, not a
+// statistics argument.
+//
+// The old form built one Canvas2D path and stroked it twice (black at
+// lineWidth 3, white at lineWidth 1). Canvas2D has no non-antialiased
+// stroke: it computes fractional coverage and writes it to the alpha
+// channel. The HUD canvas is then composited over the world by a
+// `transparent: true` material (screen.js), so every fractional-coverage
+// pixel arrives on screen as a blend of an authored HUD colour with
+// whatever the sea or sky happened to put behind it. Measured on the
+// authored canvas over a 24-angle x 5-state sweep
+// (`node tools/hud_palette_probe.mjs`): up to 104 partial-alpha pixels in a
+// single frame carrying 62 distinct alpha values, and 135 distinct
+// off-palette OPAQUE colours in the union — those last ones are the white
+// 1-px stroke landing at partial alpha on top of the already-opaque black
+// 3-px stroke, which resolves to a solid grey like #7b7b7b that is in no
+// palette at all. Whole-frame channel values (Criterion A2, gate <= 32) ran
+// to 66 on the authored canvas alone.
+//
+// THE ARCADE CANNOT DO ANY OF THAT. Its HUD is 1-bit coverage on a fixed
+// palette; `ab2-arcade-desert.png` and `ab2-arcade-night-banking.png` carry
+// zero intermediate values anywhere in the HUD (font.js documents the same
+// read for the glyphs). A rotating line that fades its edge pixels is not a
+// near-miss on a gate, it is a rendering medium the board never had. So the
+// line is a Bresenham staircase and everything else is a pixel run, which is
+// how it would have been drawn in 1987.
+//
+// WHERE THE CONSTANTS CAME FROM, so this is auditable as a transcription
+// rather than a redraw. For every element I worked out which pixels the old
+// path covered with coverage EXACTLY 1, and reproduced that set:
+//   - corner L: the miter join filled the corner pixel, then each leg ran 3
+//     more full pixels and ended on a half-covered one. -> RET_ARM = 4,
+//     counting the corner.
+//   - side ticks: `moveTo(armX0 - 2, cy)` to `-tick` gave 5 full columns
+//     with a half at each end, two clear columns from the bracket.
+//     -> RET_TICK_GAP = 2, RET_TICK_SIDE = 5 (the old `tick = 6` was the
+//     path length, which is one more than the pixel run a butt cap leaves).
+//   - top/bottom ticks: `tick * 0.6` = 3.6 path px gave 3 full rows (and a
+//     0.1-coverage row at alpha 25, which is not a pixel). -> 3.
+//   - attitude line: `lineLen = half + 4` from a half-integer centre gave 25
+//     full pixels at roll 0, i.e. 12 each side of centre. -> half + 3.
+// The before/after diff at roll 0 changes ONLY pixels that were partially
+// covered; judging/R6/lane-hud-quantize.md has the per-pixel table.
+//
+// The black keyline is now a 3x3 DILATION of the white pixel set rather
+// than a lineWidth-3 stroke. For a 1-bit centreline those are the same
+// figure, and the dilation has the property the stroke did not: it cannot
+// put a partial-coverage black pixel under a partial-coverage white one,
+// which is what manufactured the opaque off-palette greys.
+// ---------------------------------------------------------------------
 function drawReticle(ctx, bb, worldRoll, enemiesInPlay, locked) {
-  // Half-integer snapping: Canvas2D centres a 1-px stroke ON the path, so a
-  // path at an integer y paints two half-covered rows — the antialiasing
-  // that CLAUDE.md's "Canvas2D fractional positions" bug class is about.
-  const S = (v) => Math.round(v) + 0.5;
-  const cx = S((bb.x0 + bb.x1) / 2);
-  const cy = S((bb.y0 + bb.y1) / 2);
+  const cx = Math.round((bb.x0 + bb.x1) / 2);
+  const cy = Math.round((bb.y0 + bb.y1) / 2);
   const half = Math.round((bb.y1 - bb.y0) * 0.39);
-  const armX0 = cx - half;
-  const armX1 = cx + half;
-  const armY0 = cy - half;
-  const armY1 = cy + half;
-  const arm = 4;
-  const tick = 6;
-  const lineLen = half + 4;
-  const dx = Math.cos(worldRoll) * lineLen;
-  const dy = Math.sin(worldRoll) * lineLen;
-  const path = () => {
-    ctx.beginPath();
-    ctx.moveTo(armX0, armY0 + arm); ctx.lineTo(armX0, armY0); ctx.lineTo(armX0 + arm, armY0);
-    ctx.moveTo(armX1 - arm, armY0); ctx.lineTo(armX1, armY0); ctx.lineTo(armX1, armY0 + arm);
-    ctx.moveTo(armX0, armY1 - arm); ctx.lineTo(armX0, armY1); ctx.lineTo(armX0 + arm, armY1);
-    ctx.moveTo(armX1 - arm, armY1); ctx.lineTo(armX1, armY1); ctx.lineTo(armX1, armY1 - arm);
-    ctx.moveTo(armX0 - 2, cy); ctx.lineTo(armX0 - 2 - tick, cy);
-    ctx.moveTo(armX1 + 2, cy); ctx.lineTo(armX1 + 2 + tick, cy);
-    ctx.moveTo(cx, armY0 - 2); ctx.lineTo(cx, armY0 - 2 - tick * 0.6);
-    ctx.moveTo(cx, armY1 + 2); ctx.lineTo(cx, armY1 + 2 + tick * 0.6);
-    // Attitude line: spans the full square, same sign convention as world
-    // roll elsewhere in this codebase (game.js: positive = banking right,
-    // horizon descends to the right on screen).
-    ctx.moveTo(cx - dx, cy - dy);
-    ctx.lineTo(cx + dx, cy + dy);
-    ctx.stroke();
+  const x0 = cx - half;
+  const x1 = cx + half;
+  const y0 = cy - half;
+  const y1 = cy + half;
+
+  // The reticle rasterises into a scratch buffer rather than painting as it
+  // goes, because its parts OVERLAP — the attitude line crosses the
+  // brackets and runs through both side ticks — and the keyline has to be a
+  // dilation of the finished figure, not of each part. Dilating per part
+  // would stamp black over a neighbouring part's white.
+  //
+  // 0 = empty, 1 = ink, 2 = keyline. The buffer is bounded by the reticle's
+  // own reach and kept between frames: this runs every frame from
+  // screen.js, and the alternative (a Set of pixel indices plus a 1x1
+  // fillRect per pixel) measured 0.223 ms against the old stroked form's
+  // 0.005 ms, which is 1.3 % of a 60 Hz frame spent on one HUD element.
+  // Spans bring that back to a fraction of it — see the figures in
+  // judging/R6/lane-hud-quantize.md.
+  const lineHalf = half + RET_LINE_EXT;
+  const reachX = Math.max(half + RET_TICK_GAP + RET_TICK_SIDE, lineHalf) + 1;
+  const reachY = Math.max(half + RET_TICK_GAP + RET_TICK_VERT, lineHalf) + 1;
+  const bx = cx - reachX;
+  const by = cy - reachY;
+  const bw = reachX * 2 + 1;
+  const bh = reachY * 2 + 1;
+  if (!retBuf || retBuf.length < bw * bh) retBuf = new Uint8Array(bw * bh);
+  retBuf.fill(0, 0, bw * bh);
+
+  const put = (x, y) => {
+    const u = x - bx;
+    const v = y - by;
+    if (u < 0 || v < 0 || u >= bw || v >= bh) return;
+    retBuf[v * bw + u] = 1;
   };
-  // Black under-stroke: the reticle sits in the sky in level flight but
-  // swings over ground and explosion pixels during banks, and a 1-px white
-  // line over cream desert is the same failure mode as the stage digit.
-  ctx.strokeStyle = KEYLINE;
-  ctx.lineWidth = 3;
-  path();
-  ctx.strokeStyle = WHITE;
-  ctx.lineWidth = 1;
-  path();
+  const run = (x, y, n, sx, sy) => {
+    for (let i = 0; i < n; i++) put(x + sx * i, y + sy * i);
+  };
+
+  for (const [ax, sx] of [[x0, 1], [x1, -1]]) {
+    for (const [ay, sy] of [[y0, 1], [y1, -1]]) {
+      run(ax, ay, RET_ARM, sx, 0);
+      run(ax, ay, RET_ARM, 0, sy);
+    }
+  }
+  run(x0 - RET_TICK_GAP - 1, cy, RET_TICK_SIDE, -1, 0);
+  run(x1 + RET_TICK_GAP + 1, cy, RET_TICK_SIDE, 1, 0);
+  run(cx, y0 - RET_TICK_GAP - 1, RET_TICK_VERT, 0, -1);
+  run(cx, y1 + RET_TICK_GAP + 1, RET_TICK_VERT, 0, 1);
+
+  // Attitude line: same sign convention as world roll elsewhere in this
+  // codebase (game.js: positive = banking right, horizon descends to the
+  // right on screen). Endpoints are rounded to the grid and the span between
+  // them is rasterised, so the line's LENGTH breathes by at most a pixel
+  // with angle — which is what a fixed-length line on a square grid does —
+  // while its coverage stays 1 bit at every angle.
+  const ex = Math.round(Math.cos(worldRoll) * lineHalf);
+  const ey = Math.round(Math.sin(worldRoll) * lineHalf);
+  bresenham(cx - ex, cy - ey, cx + ex, cy + ey, put);
+
+  // Keyline: the 3x3 dilation of the ink. The reticle sits in the sky in
+  // level flight but swings over ground and explosion pixels during banks,
+  // and a 1-px white line over cream desert is the same failure mode as the
+  // stage digit. Only cells still at 0 become 2, and only cells at 1 are
+  // sources, so the dilation cannot feed on itself.
+  for (let v = 0; v < bh; v++) {
+    for (let u = 0; u < bw; u++) {
+      if (retBuf[v * bw + u] !== 1) continue;
+      for (let dv = -1; dv <= 1; dv++) {
+        const nv = v + dv;
+        if (nv < 0 || nv >= bh) continue;
+        for (let du = -1; du <= 1; du++) {
+          const nu = u + du;
+          if (nu < 0 || nu >= bw) continue;
+          const i = nv * bw + nu;
+          if (retBuf[i] === 0) retBuf[i] = 2;
+        }
+      }
+    }
+  }
+
+  // Paint as horizontal spans, keyline first so the ink lands on top.
+  const paintSpans = (value, style) => {
+    ctx.fillStyle = style;
+    for (let v = 0; v < bh; v++) {
+      const y = by + v;
+      if (y < 0 || y >= GAME_H) continue;
+      const row = v * bw;
+      let u = 0;
+      while (u < bw) {
+        if (retBuf[row + u] !== value) { u++; continue; }
+        let e = u + 1;
+        while (e < bw && retBuf[row + e] === value) e++;
+        const sx = Math.max(0, bx + u);
+        const exx = Math.min(GAME_W, bx + e);
+        if (exx > sx) ctx.fillRect(sx, y, exx - sx, 1);
+        u = e;
+      }
+    }
+  };
+  paintSpans(2, KEYLINE);
+  paintSpans(1, WHITE);
 
   // Status dot — GAME_SPEC.md §3: ABSENT when no enemies are in play, then
   // holding YELLOW or RED for multi-second spans. The yellow=locked /
