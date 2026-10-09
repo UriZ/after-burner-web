@@ -254,6 +254,13 @@ function armBody(mode, ticks, readableGate, throttleIndex, startAt) {
     if (!c) continue;
 
     s.seen = c.enemies;
+    // TARGET SUPPLY. `Enemy` ids come from a monotonic counter, so the
+    // largest id ever seen divided by flight time is the rate at which the
+    // spawner PRODUCES aircraft — the denominator every kill rate in this
+    // project has been quoted without. If the player is killing most of what
+    // is emitted, the kill rate is set by the spawner and no change to a
+    // weapon can move it, which is a different gap from the one being fixed.
+    for (const e of c.enemies) if (e.id > s.maxEnemyId) s.maxEnemyId = e.id;
     s.jetX = f.jetNdcX ?? 0;
     s.jetY = f.jetNdcY ?? 0;
     s.ticks += 1;
@@ -361,6 +368,7 @@ function freshState() {
     lives: 0,
     throttleTicks: {},
     scrollSpeedSum: 0,
+    maxEnemyId: 0,
   };
 }
 
@@ -455,6 +463,11 @@ function summarise(mode, seed, st, secs, readableGate) {
       Object.entries(st.throttleTicks).map(([k, v]) => [k, Number((v / st.ticks).toFixed(4))])
     ),
     meanScrollSpeed: st.ticks ? Number((st.scrollSpeedSum / st.ticks).toFixed(3)) : 0,
+    maxEnemyId: st.maxEnemyId,
+    // Aircraft produced per second of flight. The id counter is global and
+    // monotonic across the run, so this is a count of EMISSIONS, not of
+    // survivors, and it is the supply the kill rate competes for.
+    spawnPerFlightS: st.flightTicks ? Number((st.maxEnemyId / (st.flightTicks / 60)).toFixed(4)) : 0,
   };
 }
 

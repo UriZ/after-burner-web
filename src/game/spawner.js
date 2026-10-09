@@ -1,5 +1,6 @@
 import { Enemy, APPROACH_SPAWN_DEPTH, FLY_PAST_DEPTH } from '../entities/enemy.js';
 import { AudioBus } from '../audio/index.js';
+import { gunTunable } from '../weapons/tunables.js';
 
 // Stage-1 wave choreography.
 //
@@ -118,16 +119,43 @@ const NEAR_BAND = [
   [0.95, -0.196], [1.0, -0.7],
 ];
 
-// How high a wave's near-field endpoint is allowed to finish. Derived, not
-// picked: the player's sight sits at playerNdcY + 0.30 and the measured
+// How high a wave's near-field endpoint is allowed to finish.
+//
+// R8: THE DERIVATION BELOW IS VOID AND THE CONSTANT IS NOT DERIVED ANY MORE.
+// It is kept, on a different and weaker basis, and labelled as such — the
+// R7 judge ranked this as gap 5 and the instruction was to fix the constant
+// and its comments together or it recurs. Every input the original argument
+// used has moved:
+//
+//   input                     comment says   SHIPPED
+//   player ndcY ceiling       +0.106         +0.4597  (ENVELOPE_Y_UP 1.1 -> 1.55, R7)
+//   lock radius               8.3 %W         22 %W    (lockSystem.js, since R3)
+//   re-derived ceiling        +0.64          +1.388
+//
+// +1.388 is past the top of the screen, so **the reachability argument no
+// longer binds at all** and 0.64 is now undocumented suppression of the
+// enemy altitude band rather than a reach bound.
+//
+// WHY IT IS STILL 0.64, stated honestly as a side effect rather than a
+// derivation: the statistic it suppresses is one that ALREADY MATCHES the
+// arcade. The comment two paragraphs down records it — all-enemy top-third
+// share 34.9 % against the arcade's 32.5 % — and REFERENCE ledger row 26
+// separately established that the arcade's own PLAYER top-third share is
+// 0.92 %, one observation in 109, so this band is not a quantile to chase.
+// Lifting the cap overshoots a matched figure. It is also not this lane's
+// number to move: the enemy-altitude distribution is scored by criteria the
+// world/criteria lanes own, and moving it without re-measuring both columns
+// is the "tuned a matched statistic to chase an unmatched one" failure mode.
+//
+// So: ADOPTED, retained on a measured side effect, reachability argument
+// WITHDRAWN. Do not re-derive it from the lock radius; that chain is broken.
+// Historical derivation, kept for the record only:
+// the player's sight sits at playerNdcY + 0.30 and the measured
 // player ndcY ceiling on this build is +0.106 (44.7 %H, the ENVELOPE_Y = 1.1
 // limit), so the sight tops out at +0.406; lockSystem.js's lock radius is
 // 8.3 %W, which is +-0.166 in x and, after the 224/320 aspect term the lock
 // and assist tests both apply, +-0.237 in y. +0.64 is the highest an enemy
-// can finish and still be engageable at all. Everything above that is an
-// aircraft the player can watch and cannot touch, which is not the arcade's
-// vertical dimension -- it is a different defect.
-// RAISE THIS when player.js ENVELOPE_Y does: at 1.9 the ceiling is +0.82.
+// can finish and still be engageable at all.
 //
 // APPLIED AT BOTH ENDS OF THE PATH, and that is a choice rather than an
 // oversight. The reachability argument only really binds on `ndcB` (where a
@@ -340,7 +368,37 @@ const TRAIN_START_GAP_S = 2.46;
 // bound and the measured cost, and can turn it on in one line with its eyes
 // open. A half-strength [0.92, 1.0, 1.10] is the obvious next arm and was
 // NOT measured.
-const THROTTLE_CLOSURE_MULT = [1, 1, 1];
+//
+// ---------------------------------------------------------------------------
+// R8: IT IS NOW LIVE, AT THE HALF-STRENGTH ARM THE R6 LANE NAMED AND DID NOT
+// RUN. The round-8 ask (judging/R7/report.md gap 4) is that the throttle have
+// a gameplay consequence at all: `flow.scrollSpeed` has exactly one consumer,
+// the ground mesh, so the lever moves the world and changes nothing the
+// player can win or lose with.
+//
+// M IS STILL THE DATUM AND ITS MULTIPLIER IS STILL EXACTLY 1, so every
+// MEASURED flight constant — the 4-6 s approach, the 62.50 %H horizon, the
+// ground-flow rate, passive accrual 3300/s — is reproduced bit for bit at the
+// middle detent. L and H are ADOPTED excursions. Approach durations:
+// 5.00/0.92 = 5.43 s at L and 5.00/1.10 = 4.55 s at H, both inside
+// GAME_SPEC.md §4's measured 4-6 s band with room either side; the full-
+// strength arm's 0.85/1.20 gave 5.88/4.17 s, inside the band but against its
+// edges.
+//
+// WHAT IT COSTS, measured on the R8 pilot harness rather than predicted (4
+// seeds x 180 s per arm, every tick, `?gun=closure=...`) — see
+// judging/R8/lane-combat.md for the table and the per-detent arms. The R6
+// lane's two objections were VOLUME (-7 %) and LETHALITY (+9 %) at full
+// strength; at half strength both roughly halve, and the volume objection is
+// the binding one because R4 gap 5 forbids losing enemy fire volume.
+//
+// THE DETENT DISTRIBUTION IS PART OF THE RESULT AND IS NOT A GAME PROPERTY.
+// A pilot who sits at M sees no change at all, by construction. The R6
+// figures were taken on `?demo=1`, whose THROTTLE_PATTERN cycles all three
+// detents, so they are the cost to a pilot who spends a third of the run at
+// each — which is a harsher population than any human, and the right one to
+// bound against.
+const THROTTLE_CLOSURE_MULT = [0.92, 1.0, 1.1];
 
 const ELITE_FRACTION_BY_STAGE = [0.12, 0.22, 0.30];
 
@@ -373,6 +431,18 @@ export class Spawner {
     // defaults to stage 1, which is what every judge capture is taken on.
     // src/entities/enemy.js owns the stage -> livery mapping.
     this.stageIndex = 0;
+
+    // Throttle closure, as an instance table so the R8 isolation can sweep
+    // its STRENGTH in one build (`?gun=closure=`, measurement-only):
+    // 0 reproduces the R6 inert arm exactly, 1 is the shipped half-strength
+    // excursion, 2 is the full-strength [0.84, 1, 1.20] arm the R6 lane
+    // measured and withdrew. Written as a blend about 1 so that M stays
+    // EXACTLY 1 at every strength — the datum must not move with the sweep,
+    // or the sweep re-bases every measured flight constant at once and no
+    // test would notice.
+    this.closureStrength = gunTunable('closure', 1);
+    this.closureMult = THROTTLE_CLOSURE_MULT.map((m) => 1 + (m - 1) * this.closureStrength);
+    this.closureScale = 1;
 
     this.trainGapTimer = 0;
     this.trainsStarted = 0;
@@ -423,7 +493,13 @@ export class Spawner {
   // when its telegraph lights (src/entities/enemy.js). `throttleIndex` is
   // 0/1/2 = L/M/H and scales enemy closure (THROTTLE_CLOSURE_MULT).
   update(dt, playerNdc = null, throttleIndex = 1) {
-    const closure = THROTTLE_CLOSURE_MULT[throttleIndex] ?? 1;
+    const closure = this.closureMult[throttleIndex] ?? 1;
+    // Published so combat.js's vulcan aim lead can use the SAME closure the
+    // enemies are actually advancing at. The lead is a closed form in the
+    // depth rate (exp(depthRate * closure * TRAVEL_S)); reading the
+    // multiplier off a second copy of this table would be the two-values-
+    // for-one-quantity defect the lock radius already cost this project.
+    this.closureScale = closure;
     if (this.solo) return this._updateSolo(dt);
     if (!this.openerDone) {
       this.openerDone = true;

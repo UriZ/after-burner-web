@@ -3,12 +3,19 @@ import { ScreenSpace } from '../effects/screenSpace.js';
 import { SmokeField } from '../effects/smoke.js';
 import { ExplosionField } from '../effects/explosions.js';
 import { Spawner } from '../game/spawner.js';
-import { Vulcan } from './vulcan.js';
+import { Vulcan, TRAVEL_S as VULCAN_TRAVEL_S } from './vulcan.js';
+import { gunTunable, gunTunableReport } from './tunables.js';
+import { createPrng } from '../core/prng.js';
 import { Missiles } from './missiles.js';
 import { EnemyShots, SPEED as ENEMY_SHOT_SPEED } from './enemyShots.js';
 import { LockSystem, MAX_LOCKS } from './lockSystem.js';
 import { Telegraphs } from './telegraph.js';
-import { TELEGRAPH_S as ENEMY_TELEGRAPH_S } from '../entities/enemy.js';
+import {
+  TELEGRAPH_S as ENEMY_TELEGRAPH_S,
+  ENEMY_WORLD_WIDTH,
+  FLY_PAST_DEPTH,
+  poseCensus,
+} from '../entities/enemy.js';
 import { AudioBus } from '../audio/index.js';
 
 // Combat facade: one object game.js constructs and ticks. Owns the enemy
@@ -49,11 +56,86 @@ const SIGHT_NDC_Y_OFFSET = 0.30;
 const SIGHT_FRAC = SIGHT_NDC_Y_OFFSET * 0.5 * (224 / 320);
 const SIGHT_DEPTH = 55;
 
-// Cone around the sight inside which a vulcan round's vertical ramp is
-// snapped to a target. Wider than the missile lock radius (8.3%W) because
-// the vulcan is the close-range weapon with the generous hitbox
-// (GAME_SPEC.md §3), but far from the whole screen.
+// --- THE AIM ASSIST, REBUILT IN R8 ---------------------------------------
+//
+// THE GAP THIS CLOSES, measured three times on three trees by three
+// reviewers: a pilot who never touched the stick scored 86.3 % (R6), 85.8 %
+// (R7 feel) and 71.7 % (R7 judge) of what a two-axis tracking pilot scored,
+// at 5.3-6.1x the arcade's own measured kill rate. This lane's own baseline:
+// 90.7 % (2.7722 against 3.0556 kills/s of flight, 4 seeds x 180 s, every
+// tick). The gun did not need the player.
+//
+// AND THE MECHANISM, WHICH IS NOT THE ONE THE GAP TEXT NAMES. R6 named the
+// missing reach cap in vulcan.resolveHits; the R7 feel critic's controlled
+// `gunonly` arm priced that at 4.2 % of the gun's kills and pointed instead
+// at the assist's own depth band. This lane measured the band directly and
+// it is worse than "three times too deep" — IT IS VERY NEARLY THE COMPLEMENT
+// OF THE BAND IN WHICH AN AIRCRAFT CAN BE SEEN:
+//
+//   an enemy of base wingspan reaches the 10 %W readable gate at depth 7.06
+//   the shipped band was 6 < d < 22, which is 1.83 s of approach
+//   of that, d in [6, 7.06] — the only readable part — is 0.23 s, 12.6 %
+//   and for d < 6, where the aircraft is 11.8-27 %W, the assist was OFF
+//
+// So the gun was given its aim exactly while the target was too small to
+// identify, and had it taken away exactly when the target became visible.
+// That is the whole of gap 1: 84.4 % of the neutral arm's gun kills were
+// below the readable gate, at a median span of 8.22 %W and median depth 8.16.
+//
+// WHAT IS LICENSED, and all three bounds are derived rather than chosen:
+//
+//  1. DEPTH. The assist (and the gun's reach) stop at the depth where the
+//     target is big enough for the project's own readability criterion to
+//     count it. Not a tuned constant — `readableDepth` below is computed
+//     from the live camera and ENEMY_WORLD_WIDTH.
+//  2. VERTICAL AIM. `ASSIST_Y_FRAC` of the target's offset from the sight,
+//     not all of it. The shipped behaviour was `ndcY: best.ndc.y` — the
+//     round's vertical aim point BECAME the enemy's own altitude, exactly,
+//     so for any target in the cone the player's vertical stick contributed
+//     nothing whatever. R7's flow lane opened the vertical envelope to the
+//     arcade's own extreme (27.02 %H) and the gun made it worth +7.2 %.
+//  3. CONE. Measured from the SIGHT in both axes. The shipped test measured
+//     dy from the sight and dx from the NOSE, which are 0.30 NDC apart, so
+//     the cone was not centred on anything the player could see.
+//
+// GAME_SPEC.md §3's own wording is the authority for all of this and it was
+// not being followed: "a round snaps its altitude/depth ramp to the nearest
+// enemy NEAR THE SIGHT LINE at spawn", and "the vulcan is effectively the
+// ANTI-CLOSE-RANGE weapon".
 const ASSIST_RADIUS_FRAC = 0.13;
+// Share of the target's own vertical offset from the sight that the assist
+// supplies. 1.0 is the shipped R7 behaviour — the gun aims for you.
+//
+// SHIPPED AT 0: THE ASSIST SNAPS THE DEPTH RAMP AND NOTHING ELSE, and that
+// is both the measured answer and, on re-reading, the only thing ADOPTED
+// #100 ever needed. The failure it was added for is "shots pass under
+// airborne enemies", and the cause of that failure is the DEPTH ramp, not
+// the altitude: an unassisted round ramps its depth to DEFAULT_TARGET_DEPTH
+// = 55, so when it is at depth 8 it is only 14.5 % of the way along its
+// screen path and passes under anything up at the sight. Snapping the depth
+// fixes that completely. The altitude snap was never the fix, and it is what
+// took the vertical axis off the player.
+//
+// Measured, 2 seeds x 180 s, this lever alone against the R7 build (every
+// other constant at its R7 value): it is the ONLY single lever that moves
+// the neutral/tracking ratio materially — 90.3 % -> 84.0 % — and it is the
+// only one that makes the sky FULLER rather than emptier at the same time
+// (readable-enemy presence 45.7 -> 58.6 % neutral, 19.0 -> 30.7 % tracking),
+// which is the constraint the gap text attaches to any fix.
+const ASSIST_Y_FRAC = 0;
+// The readability gate the gun's range is derived from: R3's density
+// criterion, "at least one enemy at >= 10 %W", which is also the gate both
+// R7 reviewers measured the kill-size distribution against.
+export const READABLE_SPAN_FRAC = 0.1;
+// Lead the target's closure over the round's time of flight. An enemy closes
+// by exp(depthRate * TRAVEL_S) during the 0.7 s a round is in the air — a
+// factor of 0.609 at the shipped depth rate — so snapping the round's depth
+// ramp to where the aircraft IS aims it behind where the aircraft will BE.
+// With the lead the round and its target arrive at the same depth at the end
+// of the ramp, which is also where the round reaches its aim point, so the
+// hit resolves AT the aim point instead of at whatever fraction of the way
+// there the depth arithmetic happened to cross.
+const ASSIST_DEPTH_LEAD = 1;
 
 // Player hit radius/depth window for checkPlayerHit (R4 game-flow addition),
 // pulled out to named top-level constants per combat-dev's request — these
@@ -103,7 +185,17 @@ export class Combat {
     this.smoke = new SmokeField(scene, this.space);
     this.explosions = new ExplosionField(scene, this.space);
     this.spawner = new Spawner(scene, this.space, rng);
-    this.vulcan = new Vulcan(scene, this.space);
+    // The gun's scatter stream. Seeded from the URL seed so `?seed=N` is
+    // still frame-exact, XORed with a constant so it is not the same
+    // sequence as any other stream, and created with `createPrng` rather
+    // than by taking a draw from `rng` — taking a draw here would rewind
+    // the spawner's stream by one and make every wave in the game a
+    // function of this line's existence.
+    const urlSeed = (() => {
+      const p = new URLSearchParams(typeof location === 'undefined' ? '' : location.search);
+      return p.has('seed') ? Number(p.get('seed')) : 1;
+    })();
+    this.vulcan = new Vulcan(scene, this.space, createPrng((urlSeed ^ 0x5ca77e4) >>> 0));
     this.missiles = new Missiles(scene, this.space, this.smoke);
     this.enemyShots = new EnemyShots(scene, this.space);
     this.locks = new LockSystem(scene, this.space);
@@ -121,6 +213,69 @@ export class Combat {
     this._up = { x: 0, y: 1 };
     this._aimAssist = (ndc) => this._findAssistTarget(ndc);
 
+    // --- R8: the gun's licensed range, DERIVED from the camera -----------
+    // `spanFrac(w, d) = w / (widthPerUnitDepth * d)`, so the depth at which a
+    // base-wingspan enemy spans READABLE_SPAN_FRAC is `spanFrac(w, 1) / R`.
+    // On the shipped camera: 1.05 / 1.4873344 / 0.10 = 7.0596.
+    //
+    // Written this way rather than as a literal 7.06 so it cannot go stale.
+    // This project has paid for that twice in the same quarter —
+    // `spawner.js`'s REACH_CEILING_NDC_Y is derived in its comment from a
+    // lock radius and a player ceiling that are both long gone, and
+    // `enemyShots.js`'s worked example reasons at 15 u/s while its own
+    // constant is 10. A derived number re-derives itself; a transcribed one
+    // does not.
+    this.readableDepth = this.space.spanFrac(ENEMY_WORLD_WIDTH, 1) / READABLE_SPAN_FRAC;
+    // --- AND THE SHIPPED GATE IS THE SPAN ITSELF, NOT A DEPTH ------------
+    //
+    // The R8 isolation sent me back here, and this is the refinement it
+    // asked for. A depth bound is a PROXY for "the target is big enough to
+    // see" and the proxy is wrong per aircraft type: `widthScale` runs 0.92
+    // (interceptor) to 1.35 (bomber), so one depth licences the gun against
+    // an interceptor that is 9.2 %W — under the gate — while forbidding it
+    // against a bomber that is already 13 %W. Testing the aircraft's OWN
+    // projected span is the criterion rather than a stand-in for it, costs
+    // nothing (`resolveHits` already computes `spanFrac` for the hit radius)
+    // and is immune to the camera, the depth rate and any future widthScale.
+    //
+    // IT ALSO GATES THE UNASSISTED ROUND, which the isolation showed is the
+    // term that actually mattered and which a depth bound on the ASSIST
+    // cannot touch. Running `assistmax` alone — the arm I expected to be the
+    // dominant fix — made the gun MORE lethal, not less (gun kills 584 ->
+    // 618 neutral, 699 -> 737 tracking), because switching the assist off
+    // just hands the work to rounds flying the bare sight line to
+    // DEFAULT_TARGET_DEPTH, and those had no bound of any kind. Main effects
+    // measured one at a time were actively misleading here: the assist band
+    // and the reach cap are not two independent fixes, they are two halves
+    // of one.
+    this.minKillSpan = gunTunable('minspan', READABLE_SPAN_FRAC);
+    // Retained ONLY as isolation levers, so the R7-equivalent control can be
+    // exact. Shipped wide open: the span gate above is the live mechanism and
+    // two mechanisms for one concept is how `lockSystem.js` came to hold
+    // three values for its lock radius.
+    this.assistDepthMax = gunTunable('assistmax', Infinity);
+    this.assistDepthMin = gunTunable('assistmin', FLY_PAST_DEPTH);
+    this.assistRadius = gunTunable('assistrad', ASSIST_RADIUS_FRAC);
+    this.assistYFrac = gunTunable('assistyfrac', ASSIST_Y_FRAC);
+    this.assistLead = gunTunable('assistlead', ASSIST_DEPTH_LEAD);
+    // The last two levers exist only so the ISOLATION CONTROL can be exact.
+    // Everything above is a magnitude; these two are the two behavioural
+    // changes R8 made to this function that no magnitude can express — which
+    // target is chosen, and where the cone is centred. Without them the
+    // "reproduce the baseline" arm would differ from the shipped R7 build in
+    // three ways at once and could not certify the instrument, and every
+    // single-lever arm would silently carry them too. Shipped at the R8
+    // values; set to 0 to recover the R7 function exactly.
+    this.assistPickNearestSight = gunTunable('assistpick', 1);
+    this.assistConeFromSight = gunTunable('assistfromsight', 1);
+    // Depth form of the reach cap: isolation lever only, shipped off. The
+    // span gate above subsumes it — `resolveHits`'s own depth-tolerance test
+    // already requires the round and its target to be at similar depths, so
+    // a round at depth 55 can only ever be near an aircraft at depth ~48-62,
+    // which the span gate rejects. Verified redundant rather than assumed:
+    // the shipped build's deepest vulcan kill is reported in §4.
+    this.vulcanReach = gunTunable('reach', Infinity);
+
     // Flight times of missiles that reached a target, kept for the
     // measurement probe (GAME_SPEC.md §3's 0.5-1.5 s launch->impact is an
     // acceptance number, so it has to be readable rather than eyeballed).
@@ -132,8 +287,34 @@ export class Combat {
       // on every missile kill, same tick, no gap (audio-dev).
       this.impactTimes.push(missile.age);
       if (this.impactTimes.length > 64) this.impactTimes.shift();
-      this._damage(enemy, 99);
+      this._damage(enemy, 99, 'missile');
     };
+
+    // R8 KILL LEDGER, measurement-only. Every kill's WEAPON, projected SIZE
+    // and DEPTH at the instant it died, recorded at the single funnel every
+    // kill passes through (_damage).
+    //
+    // It exists because the two R7 reviewers both had to INFER these and
+    // both said so. The feel critic matched each tick's `hits` delta against
+    // the enemies that left the live list and could attribute 97.8% of kills
+    // (counting the rest ambiguous rather than guessing); it could not
+    // attribute any of them to a WEAPON, and had to separate the gun from the
+    // missile by running single-weapon arms — which is a different game, not
+    // a decomposition of this one. Its central column ("killed beyond the
+    // assist cone's depth limit") then could not tell the gun's missing reach
+    // cap from the missile working exactly as licensed, and the obvious
+    // reading of it was wrong by a factor of seven. This hook makes both
+    // questions direct reads.
+    //
+    // Drained, not capped. `hitLog`'s 256-entry shift() silently dropped 83%
+    // of the R7 fairness evidence and had a plausible "0 unannounced" to show
+    // for it, so this one hands its entries over and empties itself: a probe
+    // cannot lose an entry by sampling too slowly, only by not calling.
+    // `killsDropped` is the backstop if nobody drains — a cap that announces
+    // itself rather than one that lies.
+    this.killLog = [];
+    this.killsDropped = 0;
+    this.killCounts = { vulcan: 0, missile: 0, other: 0 };
 
     // `?combatonly=a,b` — measurement-only isolation switch. Runs a single
     // combat subsystem against an otherwise empty sky so a sprite can be
@@ -301,8 +482,54 @@ export class Combat {
           sets,
         };
       };
+      // R8 kill ledger, drained. Returns every kill since the last call and
+      // empties the buffer; touches no RNG. See the constructor for why this
+      // is a drain and not a ring.
+      window.__killDrain = () => {
+        const out = this.killLog;
+        this.killLog = [];
+        return { kills: out, dropped: this.killsDropped, counts: { ...this.killCounts } };
+      };
+      // WHAT THE PAGE IS ACTUALLY RUNNING, read back rather than assumed.
+      // Every `?gun=` arm in judging/R8/lane-combat.md quotes this, because
+      // a lane that writes down the arm it MEANT to run is one typo away
+      // from a wrong table — and `?gun=` throws on an unknown key precisely
+      // so that typo cannot present as the shipped default.
+      // R8: which of the enemy sheet's five authored bank poses the game
+      // actually selected. `textureFor` dropped `bankDeg` for three rounds,
+      // so four of the five were never reachable; this makes "they are now
+      // selected" a read instead of a claim, and `levelOnlyTicks` separates
+      // "no pose was chosen" from "the sheet had not decoded".
+      window.__poseCensus = () => ({ ...poseCensus, byDeg: { ...poseCensus.byDeg } });
+      window.__gunTunables = () =>
+        gunTunableReport({
+          // Infinity through JSON.stringify becomes `null`, which reads as
+          // "unset" to anyone reading the probe output — and these two are
+          // Infinity ON PURPOSE in the shipped build (the span gate below
+          // subsumes both). Reported as the string so the readback says what
+          // it means.
+          assistmax: Number.isFinite(this.assistDepthMax) ? this.assistDepthMax : 'Infinity',
+          assistmin: this.assistDepthMin,
+          assistrad: this.assistRadius,
+          assistyfrac: this.assistYFrac,
+          assistlead: this.assistLead,
+          assistpick: this.assistPickNearestSight,
+          assistfromsight: this.assistConeFromSight,
+          reach: Number.isFinite(this.vulcanReach) ? this.vulcanReach : 'Infinity',
+          // The live gate. Omitting it from the readback while quoting it as
+          // the shipped mechanism is exactly the provenance gap REFERENCE's
+          // citation rule exists for.
+          minspan: this.minKillSpan,
+          scatter: this.vulcan.scatterFrac,
+          hitmult: this.vulcan.hitMult,
+          lockrad: this.locks.radius,
+          closure: this.spawner.closureStrength,
+          readableDepth: this.readableDepth,
+        });
       window.__fairness = () => ({
         t: this.t ?? 0,
+        killCounts: { ...this.killCounts },
+        killsDropped: this.killsDropped,
         shotsFired: this.shotsFired,
         telegraphsStarted: this.spawner.trainsStarted,
         telegraphsLit: this.telegraphs.live.length,
@@ -485,7 +712,12 @@ export class Combat {
         sight: this.sight,
         onFire: (side) => AudioBus.play('vulcan', { side }),
       });
-      this.vulcan.resolveHits(this.spawner.enemies, (e, dmg) => this._damage(e, dmg));
+      this.vulcan.resolveHits(
+        this.spawner.enemies,
+        (e, dmg) => this._damage(e, dmg, 'vulcan'),
+        this.vulcanReach,
+        this.minKillSpan
+      );
     }
 
     if (this._on('missiles')) this._updateMissiles(dt, !!input.missile);
@@ -587,28 +819,59 @@ export class Combat {
   _findAssistTarget(playerNdc) {
     const aspectY = 224 / 320;
     let best = null;
-    let bestD = Infinity;
+    // Named for what it is rather than for one of the two things it can hold:
+    // under the shipped rule it is a squared screen distance from the sight,
+    // under the R7-equivalent isolation arm it is a depth. Both are "smaller
+    // is better", which is the only property the loop uses.
+    let bestRank = Infinity;
+    const rad = this.assistRadius;
     for (const e of this.spawner.enemies) {
       if (!e.alive) continue;
-      // Assist only out to 22 units (>=3.2%W on screen). GAME_SPEC.md §3:
-      // "Vulcan is
-      // effectively the anti-close-range weapon". At the previous 80 the
-      // gun was deleting echelons while they were still 2-3%W dots, which
-      // is both wrong for the weapon and the main reason readable-size
-      // enemies were rare (measured: ~2/3 of spawns killed before reaching
-      // 10%W). Missiles remain the long-range answer, which is the arcade's
-      // division of labour.
-      if (e.d < 6 || e.d > 22) continue;
-      const dx = (e.ndc.x - playerNdc.x) * 0.5;
+      // THE LICENSED DEPTH BAND. Far bound: the depth at which this enemy
+      // is big enough to see, derived in the constructor from the live
+      // camera. Near bound: the fly-past depth, i.e. no near bound at all —
+      // the shipped `e.d < 6` switched the assist OFF across the whole
+      // close-range regime (11.8-27 %W) that GAME_SPEC.md §3 says this
+      // weapon exists for.
+      if (e.d > this.assistDepthMax || e.d < this.assistDepthMin) continue;
+      // THE LICENCE: the gun may aim at what the player can see. Same gate
+      // `resolveHits` applies, same number, read from the same place.
+      if (e.spanFrac(this.space) < this.minKillSpan) continue;
+      // BOTH axes from the SIGHT. The shipped test took dx from
+      // `playerNdc.x` and dy from `this.sight.y`, which are 0.30 NDC apart
+      // vertically, so the cone was centred on neither the nose nor the
+      // sight.
+      const coneX = this.assistConeFromSight ? this.sight.x : playerNdc.x;
+      const dx = (e.ndc.x - coneX) * 0.5;
       const dy = (e.ndc.y - this.sight.y) * 0.5 * aspectY;
-      if (dx * dx + dy * dy > ASSIST_RADIUS_FRAC * ASSIST_RADIUS_FRAC) continue;
-      if (e.d < bestD) {
-        bestD = e.d;
+      const r2 = dx * dx + dy * dy;
+      if (r2 > rad * rad) continue;
+      // NEAREST TO THE SIGHT, not nearest in depth. The round converges on
+      // a screen point near the sight, so the aircraft whose depth it should
+      // take is the one the sight is actually on. Picking by depth could
+      // snap the ramp to a near aircraft off to one side while the stream
+      // flew through a farther one dead ahead — and then miss both.
+      const rank = this.assistPickNearestSight ? r2 : e.d;
+      if (rank < bestRank) {
+        bestRank = rank;
         best = e;
       }
     }
     if (!best) return null;
-    return { ndcX: this.sight.x, ndcY: best.ndc.y, depth: best.d };
+    // Vertical aim: a bounded share of the target's offset from the sight,
+    // so the player's stick carries the rest. ASSIST_Y_FRAC = 1 reproduces
+    // the shipped R7 behaviour exactly, which is how the isolation arm for
+    // this lever is run.
+    const dyNdc = (best.ndc.y - this.sight.y) * this.assistYFrac;
+    // Depth lead: where the target will be when the round gets there. The
+    // enemy's depth advances geometrically (enemy.js: `d *= exp(depthRate *
+    // dt)`), so the closed-form lead over TRAVEL_S is exact, not an
+    // approximation — and `closureScale` is folded in because the throttle
+    // now scales that same rate (spawner.js THROTTLE_CLOSURE_MULT).
+    const lead = this.assistLead
+      ? Math.exp(best.depthRate * (this.spawner.closureScale ?? 1) * VULCAN_TRAVEL_S)
+      : 1;
+    return { ndcX: this.sight.x, ndcY: this.sight.y + dyNdc, depth: best.d * lead };
   }
 
   // Player hit radius, in the same NDC-ish fraction convention vulcan.js's
@@ -911,9 +1174,27 @@ export class Combat {
     this.salvoCooldown = 0;
   }
 
-  _damage(enemy, amount) {
+  _damage(enemy, amount, source = 'other') {
     if (!enemy.alive) return;
     if (!enemy.damage(amount)) return;
+    // Kill ledger (see the constructor). Written BEFORE spawner.remove(), so
+    // `enemy.d` and the projected span are the values the player's screen
+    // actually carried on the tick the aircraft died — read afterwards they
+    // would be whatever the retired object was left holding.
+    if (this.killLog.length < 8192) {
+      this.killLog.push({
+        t: Number(this.t.toFixed(3)),
+        src: source,
+        d: Number(enemy.d.toFixed(3)),
+        span: Number(enemy.spanFrac(this.space).toFixed(5)),
+        ndcX: Number(enemy.ndc.x.toFixed(4)),
+        ndcY: Number(enemy.ndc.y.toFixed(4)),
+        pattern: enemy.pattern,
+      });
+    } else {
+      this.killsDropped += 1;
+    }
+    this.killCounts[source] = (this.killCounts[source] ?? 0) + 1;
     const pos = new THREE.Vector3();
     this.space.ndcToWorld(enemy.ndc.x, enemy.ndc.y, enemy.d, pos);
     this.explosions.spawn(pos, enemy.d, this.rng, enemy.type === 'bomber' ? 1.4 : 1);

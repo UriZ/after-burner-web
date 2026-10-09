@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { makeBillboard } from '../effects/pixelTexture.js';
 import { lockBarTexture } from './projectileSprites.js';
+import { gunTunable } from './tunables.js';
 
 // Per-enemy lock brackets and the multi-lock salvo state.
 //
@@ -29,15 +30,39 @@ import { lockBarTexture } from './projectileSprites.js';
 
 export const MAX_LOCKS = 6; // t100: ~6 brackets on screen at once
 const LOCK_INTERVAL_S = 0.10; // locks accumulate while the button is held
-// Radius around the SIGHT within which an enemy can be locked. The
-// prototype's ADOPTED 80 px is on a 960-wide frame = 8.3%W; widened to 15%W
-// after measurement — at 8.3%W a 1.4 s hold against a full 6-enemy wave
-// accumulated only 4 locks (probe run, seed 2, t=4.1-5.0), against
-// GAME_SPEC.md §3's measured "~6 dashed corner-bracket lock boxes on-screen
-// at once" at t100. Measured from the sight, not from the jet: the sight IS
-// the crosshair the measurement refers to. The prototype's radius is ADOPTED
-// from its own tuning, not measured off the arcade, and the arcade's own
-// 6-locks-at-once behaviour implies a cone this generous.
+// Radius around the SIGHT within which an enemy can be locked.
+//
+// THE COMMENT THAT USED TO BE HERE SAID 15 %W AND THE CONSTANT HAS BEEN 0.22
+// SINCE THE DAY IT WAS WRITTEN (`git log -S`: e989c1a, R3; no 0.15 ever
+// existed in this file). The R7 judge found it as one of three different
+// values for one quantity living in the tree at once — this line, and
+// `combat.js`'s assist comment calling its 0.13 cone "wider than the missile
+// lock radius (8.3 %W)" when 0.13 is NARROWER than the real 0.22. Both are
+// now corrected; judging/R7/report.md gap 5.
+//
+// Provenance, stated honestly because the three readings are not equal in
+// standing: the only ARCADE-ANCHORED figure for this is the prototype's
+// ADOPTED 80 px on a 960-wide frame = **8.3 %W**, which is what GAME_SPEC.md
+// §3 records ("the crosshair near the enemy (prototype: 80 px radius, 0.5 s
+// grace — ADOPTED)"). 0.22 is tuning, and the tuning argument on the record
+// is that at 8.3 %W a 1.4 s hold against a full six-ship wave accumulated
+// only 4 locks against GAME_SPEC.md §3's measured "~6 brackets at once"
+// (t100). That argument does not establish 0.22: the arcade's six brackets
+// are six locks taken by a pilot who was SWEEPING the crosshair across the
+// wave, and reproducing them from a neutral stick is reproducing the count
+// while discarding the input that earned it. R8 measured the consequence —
+// the missile contributes a flat 1.08-1.26 kills/s to EVERY pilot policy,
+// neutral and tracking alike, and 100 % of its kills are below the readable
+// gate.
+//
+// It is NOT retuned here, and that is a scoping decision with a measurement
+// behind it rather than a shrug: R8 showed the missile's rate is set by the
+// STOCK BUDGET (flow.js restocks 50 at every stage boundary, ~1.56
+// missiles/s of budget) and not by how many targets the cone admits, so
+// narrowing the cone moves which targets are taken and not how many. The
+// ask is in judging/R8/lane-combat.md.
+// Measured from the sight, not from the jet: the sight IS the crosshair the
+// measurement refers to.
 const LOCK_RADIUS_FRAC = 0.22;
 // Lockable depth window. The NEAR end is a timing constraint, not a range
 // limit: a target closer than ~28 units is reached in under half a second,
@@ -165,6 +190,11 @@ export class LockSystem {
     // the smoke trail, so they have to be removable to measure the trail.
     this.bracketsVisible = true;
 
+    // Instance field so the R8 isolation can sweep it (`?gun=lockrad=...`,
+    // measurement-only) without a second constant appearing in the tree —
+    // which is exactly how this quantity came to have three values.
+    this.radius = gunTunable('lockrad', LOCK_RADIUS_FRAC);
+
     this.sightCorners = this._makeCorners(29);
   }
 
@@ -269,7 +299,7 @@ export class LockSystem {
       if (e.d < LOCK_DEPTH_MIN || e.d > LOCK_DEPTH_MAX) continue;
       const dx = (e.ndc.x - sightNdc.x) * 0.5;
       const dy = (e.ndc.y - sightNdc.y) * 0.5 * aspectY;
-      if (dx * dx + dy * dy > LOCK_RADIUS_FRAC * LOCK_RADIUS_FRAC) continue;
+      if (dx * dx + dy * dy > this.radius * this.radius) continue;
       if (e.d < bestD) {
         bestD = e.d;
         best = e;

@@ -104,7 +104,25 @@ import { enemyShotTexture } from './projectileSprites.js';
 // lag (TELEGRAPH_S + timeOfFlight, see src/entities/enemy.js) that can grow
 // without shrinking the depth budget an enemy needs to pay out a full train
 // — raising the firing band's floor buys lag and costs budget, whereas
-// slowing the round buys lag for free. At 15 units/s a round from the 52..24
+// slowing the round buys lag for free.
+//
+// R8, correcting the paragraph that follows: IT IS ONE REVISION STALE AND
+// THE SHIPPED FIGURES ARE THE FIRST LINE BELOW, not the second. The R7 judge
+// ranked this (gap 8 item 1): the arithmetic a later agent reads for the lag
+// budget was computed on a dead value of SPEED.
+//
+//   SHIPPED, SPEED = 10:  time of flight 2.24-5.04 s, fairness lag 3.24-6.04 s
+//   superseded, 15:       time of flight 1.49-3.36 s, fairness lag 2.49-4.36 s
+//   superseded, 24:                                   fairness lag 1.93-3.10 s
+//
+// R8 re-measured the shipped end of that independently, from the pilot
+// harness rather than from the constant: mean rounds in air / (rounds fired
+// per second of flight) by Little's law gives a mean screen life of
+// 2.7-3.0 s across every pilot policy, inside the 2.24-5.04 s the constant
+// predicts. The band is right; what is NOT settled is whether the band
+// itself is right, and that is still the measurement this file names below
+// and nobody has taken. The historical line, for the record:
+// At 15 units/s a round from the 52..24
 // band is in the air 1.49-3.36 s, putting the lag at 2.49-4.36 s against the
 // 1.93-3.10 s that 24 gave.
 //

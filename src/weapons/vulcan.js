@@ -1,6 +1,7 @@
 import { makeBillboard } from '../effects/pixelTexture.js';
 import { sizeSprite } from '../effects/smoke.js';
 import { vulcanTexture, muzzleFlashTexture } from './projectileSprites.js';
+import { gunTunable } from './tunables.js';
 
 // Player vulcan cannon.
 //
@@ -75,20 +76,123 @@ const PUFF_FRAC_FAR = 0.0095; // 3.0 px of 320
 // Depth the stream reaches when nothing is aim-assisted. 55 units over
 // TRAVEL_S is 111 world units/s, which is the depth rate that matches the
 // measured screen speed above.
+//
+// THIS IS A RENDERING CONSTANT AND IS NOT THE GUN'S RANGE. R8: it was both,
+// and that was the defect. `resolveHits` tested every round against every
+// enemy with no cap on the round's own depth, so an unassisted round swept
+// to 55 and could kill whatever it passed — measured directly off the R8
+// kill ledger at baseline, the deepest vulcan kill in EVERY ONE of nine
+// pilot arms sits at depth 59.4-60.2, where a fighter spans 1.17-1.19 %W
+// (less than four native pixels of 320). The reach is now a separate,
+// derived number (see REACH_MAX below); this one still governs how fast the
+// puffs climb the screen, which is what it was measured for.
 const DEFAULT_TARGET_DEPTH = 55;
 
 // Generous hitbox (GAME_SPEC.md §3: "Vulcan is effectively the anti-close-
 // range weapon; generous hitbox"). Floor keeps distant dots hittable at all.
-const HIT_RADIUS_SPAN_MULT = 0.8;
+//
+// R8: 0.8 -> 0.5, AND THE CHANGE IS THAT THE KILL CIRCLE IS NOW THE
+// AIRCRAFT. A radius of `0.8 x span` is a circle of DIAMETER 1.6 x the
+// target's own wingspan — 60 % wider than the thing being shot at, in every
+// direction. At 0.5 the diameter is exactly the wingspan: the hitbox is the
+// silhouette's own footprint. It is still generous against a 3-4 native-px
+// projectile and it is still the most forgiving hit test in the game; it is
+// no longer forgiveness the player cannot miss.
+//
+// 0.8 was never measured against anything. GAME_SPEC.md §3's "generous
+// hitbox" is tagged ASSUMED and gives no number.
+//
+// WHY IT MATTERS MORE AFTER THE OTHER CHANGES THAN BEFORE THEM. Once the gun
+// is licensed only against aircraft at or above the 10 %W readable gate, the
+// targets it engages are 10-27 %W, where a 1.6x-span circle is 16-43 % of
+// the frame WIDE and 23-62 points of H TALL. The licence that made the gun
+// kill only visible things also made its hitbox enormous in the band it was
+// left with, and a neutral stick cannot miss a circle that size. Measured,
+// arcade-missile-rate pilots, 180 s per seed, everything else at the shipped
+// value so the arms differ in this constant alone:
+//
+//   hitmult   neutral kills/s   tracking kills/s   neutral/tracking   gun only
+//     0.8       2.354 +-0.017     3.049 +-0.028       77.2 %          72.4 %   (4 seeds)
+//     0.5       1.642 +-0.016     2.558 +-0.026       64.2 %          56.0 %   (4 seeds)
+//     0.3       1.206             2.006               60.1 %          46.3 %   (1 seed)
+//
+// 0.3 scores better on the ratio and is NOT shipped: it puts the kill circle
+// INSIDE the drawn silhouette (diameter 0.6 x span), so visibly centred hits
+// would fail to register — a worse and more confusing defect than the one
+// being fixed, and one I could not verify without a pixel pass I did not
+// have. 0.5 is the principled stopping point because it is the only value in
+// the sweep that corresponds to a statable rule.
+//
+// The FLOOR is kept only as a guard: `spanFrac` -> 0 as depth -> 0 and this
+// test should not be exposed to that division. No kill depends on it any
+// more — a 0.02 floor would bind below a 4 %W span, and the readable gate
+// stops the gun at 10 %W.
+const HIT_RADIUS_SPAN_MULT = 0.5;
 const HIT_RADIUS_FLOOR_FRAC = 0.02;
+
+// --- R8: AIM SCATTER ------------------------------------------------------
+//
+// The gun had NO error term of any kind, in either axis, and that is the
+// shared root of two separate R7 findings. GAME_SPEC.md §3's own vulcan
+// entry has carried it since round 1 and it was never implemented here:
+// "rounds fly along the sight line into depth (prototype: 3.5 depth-units/s,
+// converging laterally on the crosshair aim with SLIGHT SPREAD 0.025)".
+// This restores it rather than inventing it, which is why the magnitude
+// below is tagged ADOPTED and not ASSUMED.
+//
+// SHIPPED WIRED AND INERT AT 0, WITH THE MEASURED COST, because it does the
+// OPPOSITE of what it was asked for. It is the lever the R7 feel critique
+// named as untried — "an aim scatter term would let the gun's rate come down
+// without the sky emptying" — and the R8 brief said to measure it rather
+// than assume it. Measured, on BOTH builds, it makes the gun MORE lethal:
+//
+//   build                        arm            neutral gun kills   tracking gun kills
+//   R7 gun (isolation)           scatter 0      292 /seed           350 /seed
+//   R7 gun                       scatter 0.025  302  (+3.4 %)       353  (+1.0 %)
+//   R7 gun                       scatter 0.05   309  (+5.8 %)       387  (+10.7 %)
+//   R8 shipped gun (2 seeds)     scatter 0      398                 704
+//   R8 shipped gun (2 seeds)     scatter 0.025  424  (+6.5 %)       761  (+8.1 %)
+//
+// and it does not move the neutral/tracking ratio (65.5 % -> 64.0 % on the
+// shipped build, inside seed noise). THE MECHANISM, which inverts the
+// proposal: with a hit radius proportional to the target and 12 rounds/s in
+// the air, widening the dispersion grows the SWEPT AREA faster than it
+// shrinks the per-round hit probability. Scatter is a shotgun, not a
+// handicap. I first expected it to bite once the hitbox was tightened to the
+// target's own span; it does not — the sign is the same in both regimes.
+//
+// It is NOT deleted, for the same reason R6 left the throttle closure wired
+// and inert: it is a GAME_SPEC.md §3 element with provenance, the next lane
+// should get the interface, the bound and the measured cost, and it is one
+// character away. What must not happen is anyone reaching for it as a
+// difficulty lever.
+//
+// Expressed in frame-WIDTH fractions, the isotropic unit every hit test in
+// this project uses, and converted to NDC at the point of use (1 NDC x =
+// 0.5 frame widths; y additionally carries the 224/320 aspect term).
+const SCATTER_FRAC = 0;
 
 const FLASH_LIFE_S = 0.05;
 const FLASH_FRAC = 0.03;
 
 export class Vulcan {
-  constructor(scene, space) {
+  // `rng` is the gun's OWN stream, not the shared gameplay one, and that is
+  // a hard requirement rather than hygiene. This project's named bug class:
+  // "adding one conditional draw silently shifts every later draw" — the
+  // spawner, the liveries and the explosion shapes all draw from the shared
+  // PRNG, so taking scatter draws from it would make every wave in the game
+  // a function of how often the player pulled the trigger, and would make
+  // the before/after measurement of this very change incomparable (different
+  // waves, not a different gun). combat.js constructs it from the URL seed
+  // with a fixed offset, so it is seed-reproducible and consumes nothing.
+  // The draws are also UNCONDITIONAL per round (never "only if assisted"),
+  // which is the other half of the same rule.
+  constructor(scene, space, rng = null) {
     this.scene = scene;
     this.space = space;
+    this.rng = rng;
+    this.scatterFrac = gunTunable('scatter', SCATTER_FRAC);
+    this.hitMult = gunTunable('hitmult', HIT_RADIUS_SPAN_MULT);
     this.rounds = [];
     this.pool = [];
     this.flashes = [];
@@ -166,8 +270,27 @@ export class Vulcan {
     if (onFire) onFire(side);
 
     const target = aimAssist ? aimAssist(playerNdc) : null;
-    const targetNdcX = target ? target.ndcX : sight.x;
-    const targetNdcY = target ? target.ndcY : sight.y;
+    // Scatter draws are taken UNCONDITIONALLY — before the branch, same
+    // count every round, assisted or not. Conditional draws are this
+    // project's named PRNG bug class, and a stream whose consumption depends
+    // on whether a target happened to be in the cone is exactly that bug.
+    // Three uniforms summed, not Box-Muller: it is a bounded triangular-ish
+    // spread (so no round ever flies off to the edge of the frame), it costs
+    // a fixed three draws, and the gun does not need a Gaussian tail.
+    let jx = 0;
+    let jy = 0;
+    if (this.rng) {
+      const ux = this.rng() + this.rng() + this.rng() - 1.5;
+      const uy = this.rng() + this.rng() + this.rng() - 1.5;
+      // frame-width fractions -> NDC. 1 NDC x = 0.5 frame widths; y carries
+      // the same 224/320 term every hit test in this project applies, so a
+      // scatter of n %W is n %W on screen in both axes rather than being
+      // 1.43x taller than it is wide.
+      jx = (ux * this.scatterFrac) / 0.5;
+      jy = (uy * this.scatterFrac) / (0.5 * (224 / 320));
+    }
+    const targetNdcX = (target ? target.ndcX : sight.x) + jx;
+    const targetNdcY = (target ? target.ndcY : sight.y) + jy;
     const targetDepth = target ? target.depth : DEFAULT_TARGET_DEPTH;
 
     const sprite = this._acquire(this.pool, vulcanTexture(), 12);
@@ -202,20 +325,50 @@ export class Vulcan {
 
   // Resolves rounds against live enemies. `onKill(enemy)` is called for each
   // enemy destroyed. Returns nothing; the manager owns scoring and effects.
-  resolveHits(enemies, onHit) {
+  //
+  // `reachMax` is the deepest depth at which a round is allowed to resolve a
+  // hit — the gun's RANGE, as opposed to how far its puffs travel. Supplied
+  // by the weapon manager because the number is derived from the enemy's
+  // wingspan and the camera (combat.js `readableDepth`), neither of which is
+  // this file's business. Defaulting to Infinity keeps the solo harnesses
+  // that call this with two arguments behaving as before.
+  resolveHits(enemies, onHit, reachMax = Infinity, minSpanFrac = 0) {
     const aspectY = 224 / 320; // NDC y -> width-fraction conversion
     for (let i = this.rounds.length - 1; i >= 0; i--) {
       const r = this.rounds[i];
+      // THE REACH CAP. Before R8 this loop had no bound on the round's own
+      // depth, and the R8 kill ledger shows what that cost directly rather
+      // than by inference: at baseline the deepest vulcan kill in all nine
+      // pilot arms is depth 59.4-60.2, against a cap of 7.06. R4's fix for
+      // "the gun deletes echelons at 2-3 %W" went into the assist cone's
+      // depth band and never into hit resolution, so an UNASSISTED round —
+      // one flying the sight line to DEFAULT_TARGET_DEPTH — kept killing
+      // whatever it happened to pass at any range.
+      //
+      // The round is retired by age, not here: it still FLIES the full
+      // stream (that is what t214 shows and what TRAVEL_S was measured for),
+      // it simply cannot score outside the band the weapon is licensed for.
+      if (r.depth > reachMax) continue;
       const depthTol = Math.max(2.0, r.depth * 0.12);
       for (const e of enemies) {
         if (!e.alive) continue;
         if (Math.abs(e.d - r.depth) > depthTol) continue;
+        // THE GUN'S LICENCE, R8: it may not kill what the player cannot see.
+        // Gated on the AIRCRAFT'S OWN projected span rather than on a depth,
+        // because `widthScale` runs 0.92 to 1.35 across the enemy types and
+        // one depth is therefore the wrong bound for two of the three. The
+        // span is already needed for the hit radius two lines down, so this
+        // is the same read, not an extra one.
+        //
+        // This is the gate that also binds the UNASSISTED round, which the
+        // R8 isolation showed was the term doing the damage: switching the
+        // assist off made the gun MORE lethal, because rounds flying the
+        // bare sight line to DEFAULT_TARGET_DEPTH had no bound at all.
+        const span = e.spanFrac(this.space);
+        if (span < minSpanFrac) continue;
         const dx = (e.ndc.x - r.ndcX) * 0.5;
         const dy = (e.ndc.y - r.ndcY) * 0.5 * aspectY;
-        const radius = Math.max(
-          e.spanFrac(this.space) * HIT_RADIUS_SPAN_MULT,
-          HIT_RADIUS_FLOOR_FRAC
-        );
+        const radius = Math.max(span * this.hitMult, HIT_RADIUS_FLOOR_FRAC);
         if (dx * dx + dy * dy <= radius * radius) {
           this._retire(i);
           onHit(e, 1);

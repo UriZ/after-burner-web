@@ -80,9 +80,55 @@ function liveryFor(stageIndex, role, pattern) {
 // rather than throwing, so a key typo in LIVERY_BY_STAGE above shows up as a
 // silently un-swapped sprite, not an error. Check a stage capture after
 // editing that table, not just that the page loads.
-function textureFor(aspect, livery, detail) {
-  return enemySprite.enemyTexture(aspect, livery.key, detail, livery.night);
+function textureFor(aspect, livery, detail, bankDeg = 0) {
+  return enemySprite.enemyTexture(aspect, livery.key, detail, livery.night, bankDeg);
 }
+
+// --- R8: the authored bank poses were unreachable ------------------------
+//
+// `enemySprite.enemyTexture()` has taken a `bankDeg` and selected one of the
+// near sheet's five bank poses since R5 interface I1. `textureFor` above did
+// not pass it, so every enemy in the game was drawn on the LEVEL cell and
+// FOUR OF THE FIVE AUTHORED POSES PER ASPECT WERE NEVER SELECTED BY ANYTHING.
+// Flagged in R6 and again in R7; the art was built, measured and dead.
+//
+// THE BANK WAS ALREADY BEING SHOWN, as a pure image-plane rotation of the
+// level cell (`sprite.material.rotation = this.bank`), so naively passing
+// bankDeg through would have drawn a 30-degree pose AND rotated it 30
+// degrees: a 60-degree apparent bank. The pose therefore carries what it can
+// and the rotation carries the RESIDUAL, which is the same technique
+// player.js uses for the jet (quantised drawn pose + continuous remainder)
+// and keeps the bank continuous past the sheet's +-30 limit, where the
+// enemy's own BANK_MAX_RAD of 57 degrees still reaches.
+//
+// THIS LADDER IS A MIRROR OF enemySprite.js's PRIVATE `SHEET_BANK_ANGLES`
+// ([-30, -15, 0, 15, 30]) AND THAT IS A KNOWN RISK, stated rather than
+// hidden: enemySprite.js belongs to the art lane and exports neither the
+// table nor its nearest-index function, so the residual cannot be computed
+// from the selector itself. If the art lane re-authors the sheet at a
+// different ladder this mirror goes stale and the symptom is an enemy banked
+// by the wrong few degrees — a visual defect, not an error. The owed fix is
+// a one-line export from enemySprite.js; requested in
+// judging/R8/lane-combat.md rather than reached into.
+//
+// WHAT IS NOT ASSUMED is whether a posed cell was actually selected. The
+// sheet path is near-LOD only and silently falls back to the procedural
+// drawing if a sheet has not decoded, and the procedural cache key ignores
+// bankDeg — so `enemyTexture(.., bankDeg)` returns the SAME OBJECT as
+// `enemyTexture(.., 0)` exactly when no posed cell was available. Comparing
+// the two is a direct read of "did we get a pose", so with no sheet loaded
+// this code is byte-identical in behaviour to the level-only build.
+const SHEET_BANK_STEP_DEG = 15;
+const SHEET_BANK_MAX_DEG = 30;
+
+function poseDegFor(bankDeg) {
+  const q = Math.round(bankDeg / SHEET_BANK_STEP_DEG) * SHEET_BANK_STEP_DEG;
+  return THREE.MathUtils.clamp(q, -SHEET_BANK_MAX_DEG, SHEET_BANK_MAX_DEG);
+}
+
+// Cumulative census of which poses the game actually selected, so "the art
+// is now reachable" is a read rather than a claim. Measurement-only.
+export const poseCensus = { byDeg: {}, posedTicks: 0, levelOnlyTicks: 0 };
 
 // ---------------------------------------------------------------------------
 // Enemy aircraft entity.
@@ -514,6 +560,12 @@ export class Enemy {
     this.sprite = makeBillboard(this.texFar, this.worldWidth);
     this.sprite.renderOrder = 10;
     this._prevNdcX = ndcA[0];
+    // `_detail` starts undefined so the first update() always runs the
+    // handover and assigns a texture; `_poseDeg` likewise. `_posedCell`
+    // starts false so the rotation carries the whole bank until a posed
+    // cell is actually selected.
+    this._poseDeg = null;
+    this._posedCell = false;
   }
 
   // Fraction of frame width this enemy currently spans. Used by the lock
@@ -604,12 +656,12 @@ export class Enemy {
     // Zoom-level handover. Both levels share the sprite's quad and aspect,
     // so this changes the texture and nothing else — the measured span is
     // continuous across it (verified frame by frame in the solo harness).
+    //
+    // R8: the ASSIGNMENT moved below the bank calculation, because the
+    // texture now depends on the bank (see poseDegFor). The decision is
+    // still made here, unchanged, so the switch depth is untouched.
     const nativePx = space.spanFrac(this.worldWidth, this.d) * 320;
     const wantDetail = nativePx >= DETAIL_SWITCH_NATIVE_PX;
-    if (wantDetail !== this._detail) {
-      this._detail = wantDetail;
-      this.sprite.material.map = wantDetail ? this.texDetail : this.texFar;
-    }
 
     // Bank into the on-screen drift. material.rotation is a pure image-plane
     // rotation, which is what a camera-facing billboard needs (the same
@@ -627,7 +679,40 @@ export class Enemy {
     );
     const step = BANK_SLEW_RAD_PER_S * dt;
     this.bank += THREE.MathUtils.clamp(target - this.bank, -step, step);
-    this.sprite.material.rotation = this.bank;
+
+    // --- Pose selection + residual rotation (R8). See poseDegFor above. ---
+    const bankDeg = (this.bank * 180) / Math.PI;
+    const poseDeg = poseDegFor(bankDeg);
+    if (wantDetail !== this._detail || poseDeg !== this._poseDeg) {
+      this._detail = wantDetail;
+      this._poseDeg = poseDeg;
+      if (wantDetail) {
+        const aspect = this.pattern === 'overtake' ? 'rear' : 'headOn';
+        const posed = textureFor(aspect, this.livery, true, poseDeg);
+        const level = textureFor(aspect, this.livery, true, 0);
+        // Identity comparison, not a flag: equal means no posed cell was
+        // available (the sheet has not decoded, or failed), so the level
+        // texture is what is on screen and the rotation must carry the
+        // whole bank — which is the pre-R8 behaviour exactly.
+        this._posedCell = posed !== level;
+        this.sprite.material.map = posed;
+      } else {
+        // The far LOD has no bank poses by declared design (enemySprite.js:
+        // at 3-9 native px a transparent row is a frame where the aircraft
+        // vanishes, so it is a fully opaque value-read texture). Rotation
+        // carries the whole bank there.
+        this._posedCell = false;
+        this.sprite.material.map = this.texFar;
+      }
+      if (this._posedCell) {
+        poseCensus.byDeg[poseDeg] = (poseCensus.byDeg[poseDeg] ?? 0) + 1;
+      }
+    }
+    this.sprite.material.rotation = this._posedCell
+      ? ((bankDeg - poseDeg) * Math.PI) / 180
+      : this.bank;
+    if (this._posedCell) poseCensus.posedTicks += 1;
+    else poseCensus.levelOnlyTicks += 1;
 
     // --- Firing: TELEGRAPH, then a train of 4/6/8 shots 1.5-2 s apart
     // (GAME_SPEC.md §4 / REFERENCE.md "Projectile palettes / Enemy shots").
