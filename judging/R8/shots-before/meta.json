@@ -1,0 +1,406 @@
+[
+ {
+  "tick": 900,
+  "file": "judging/R8/shots-before/t00900.png",
+  "hits": 33,
+  "alive": 12,
+  "vulcanRounds": 8,
+  "missilesInFlight": 0,
+  "state": "flight",
+  "stageIndex": 0,
+  "jetNdcY": -0.11200000000000025,
+  "enemies": [
+   {
+    "spanPctW": 10.81,
+    "depth": 6.53,
+    "ndcX": 0.197,
+    "ndcY": 0.139,
+    "readable": true
+   },
+   {
+    "spanPctW": 6.98,
+    "depth": 10.11,
+    "ndcX": 0.24,
+    "ndcY": 0.244,
+    "readable": false
+   },
+   {
+    "spanPctW": 6.09,
+    "depth": 10.67,
+    "ndcX": -0.23,
+    "ndcY": -0.347,
+    "readable": false
+   },
+   {
+    "spanPctW": 5.98,
+    "depth": 11.81,
+    "ndcX": -0.147,
+    "ndcY": 0.201,
+    "readable": false
+   },
+   {
+    "spanPctW": 4.08,
+    "depth": 15.91,
+    "ndcX": -0.106,
+    "ndcY": -0.415,
+    "readable": false
+   },
+   {
+    "spanPctW": 3.21,
+    "depth": 22.02,
+    "ndcX": 0.188,
+    "ndcY": -0.435,
+    "readable": false
+   },
+   {
+    "spanPctW": 2.69,
+    "depth": 26.26,
+    "ndcX": -0.036,
+    "ndcY": -0.479,
+    "readable": false
+   },
+   {
+    "spanPctW": 2.47,
+    "depth": 26.35,
+    "ndcX": 0.515,
+    "ndcY": 0.199,
+    "readable": false
+   },
+   {
+    "spanPctW": 2.27,
+    "depth": 31.1,
+    "ndcX": 0.095,
+    "ndcY": -0.489,
+    "readable": false
+   },
+   {
+    "spanPctW": 1.98,
+    "depth": 32.83,
+    "ndcX": 0.508,
+    "ndcY": 0.293,
+    "readable": false
+   },
+   {
+    "spanPctW": 1.67,
+    "depth": 38.87,
+    "ndcX": 0.515,
+    "ndcY": 0.233,
+    "readable": false
+   },
+   {
+    "spanPctW": 1.64,
+    "depth": 43.12,
+    "ndcX": 0.023,
+    "ndcY": -0.515,
+    "readable": false
+   }
+  ],
+  "tunables": {
+   "assistmax": 22,
+   "assistmin": 6,
+   "assistrad": 0.13,
+   "assistyfrac": 1,
+   "assistlead": 0,
+   "assistpick": 0,
+   "assistfromsight": 0,
+   "reach": 1000000,
+   "scatter": 0,
+   "hitmult": 0.8,
+   "lockrad": 0.22,
+   "closure": 0,
+   "readableDepth": 7.059609316619035,
+   "_overridden": [
+    "assistmax",
+    "assistmin",
+    "assistyfrac",
+    "assistlead",
+    "assistpick",
+    "assistfromsight",
+    "reach",
+    "minspan",
+    "scatter",
+    "hitmult",
+    "closure"
+   ]
+  },
+  "poseCensus": {
+   "byDeg": {
+    "15": 8,
+    "-15": 9,
+    "-30": 1
+   },
+   "posedTicks": 1163,
+   "levelOnlyTicks": 6224
+  }
+ },
+ {
+  "tick": 1500,
+  "file": "judging/R8/shots-before/t01500.png",
+  "hits": 61,
+  "alive": 13,
+  "vulcanRounds": 8,
+  "missilesInFlight": 0,
+  "state": "flight",
+  "stageIndex": 0,
+  "jetNdcY": -0.11200000000000025,
+  "enemies": [
+   {
+    "spanPctW": 22.76,
+    "depth": 3.1,
+    "ndcX": 0.662,
+    "ndcY": 0.459,
+    "readable": true
+   },
+   {
+    "spanPctW": 18.78,
+    "depth": 3.76,
+    "ndcX": 0.337,
+    "ndcY": 0.459,
+    "readable": true
+   },
+   {
+    "spanPctW": 18.4,
+    "depth": 3.53,
+    "ndcX": -0.44,
+    "ndcY": 0.495,
+    "readable": true
+   },
+   {
+    "spanPctW": 6.85,
+    "depth": 9.48,
+    "ndcX": 0.302,
+    "ndcY": 0.61,
+    "readable": false
+   },
+   {
+    "spanPctW": 6.35,
+    "depth": 10.23,
+    "ndcX": 0.263,
+    "ndcY": 0.576,
+    "readable": false
+   },
+   {
+    "spanPctW": 5.7,
+    "depth": 11.4,
+    "ndcX": 0.314,
+    "ndcY": 0.559,
+    "readable": false
+   },
+   {
+    "spanPctW": 2.99,
+    "depth": 23.65,
+    "ndcX": -0.043,
+    "ndcY": 0.163,
+    "readable": false
+   },
+   {
+    "spanPctW": 2.05,
+    "depth": 34.52,
+    "ndcX": 0.083,
+    "ndcY": 0.199,
+    "readable": false
+   },
+   {
+    "spanPctW": 2.03,
+    "depth": 46.86,
+    "ndcX": -0.083,
+    "ndcY": 0.191,
+    "readable": false
+   },
+   {
+    "spanPctW": 1.83,
+    "depth": 35.49,
+    "ndcX": 0.05,
+    "ndcY": -0.37,
+    "readable": false
+   },
+   {
+    "spanPctW": 1.42,
+    "depth": 49.62,
+    "ndcX": -0.113,
+    "ndcY": -0.357,
+    "readable": false
+   },
+   {
+    "spanPctW": 1.39,
+    "depth": 50.76,
+    "ndcX": -0.06,
+    "ndcY": -0.361,
+    "readable": false
+   },
+   {
+    "spanPctW": 0.94,
+    "depth": 69.33,
+    "ndcX": -0.008,
+    "ndcY": -0.371,
+    "readable": false
+   }
+  ],
+  "tunables": {
+   "assistmax": 22,
+   "assistmin": 6,
+   "assistrad": 0.13,
+   "assistyfrac": 1,
+   "assistlead": 0,
+   "assistpick": 0,
+   "assistfromsight": 0,
+   "reach": 1000000,
+   "scatter": 0,
+   "hitmult": 0.8,
+   "lockrad": 0.22,
+   "closure": 0,
+   "readableDepth": 7.059609316619035,
+   "_overridden": [
+    "assistmax",
+    "assistmin",
+    "assistyfrac",
+    "assistlead",
+    "assistpick",
+    "assistfromsight",
+    "reach",
+    "minspan",
+    "scatter",
+    "hitmult",
+    "closure"
+   ]
+  },
+  "poseCensus": {
+   "byDeg": {
+    "15": 19,
+    "30": 2,
+    "-15": 16,
+    "-30": 4
+   },
+   "posedTicks": 2983,
+   "levelOnlyTicks": 11491
+  }
+ },
+ {
+  "tick": 2100,
+  "file": "judging/R8/shots-before/t02100.png",
+  "hits": 10,
+  "alive": 11,
+  "vulcanRounds": 5,
+  "missilesInFlight": 0,
+  "state": "flight",
+  "stageIndex": 1,
+  "jetNdcY": -0.11200000000000025,
+  "enemies": [
+   {
+    "spanPctW": 18.27,
+    "depth": 3.55,
+    "ndcX": 0.43,
+    "ndcY": 0.589,
+    "readable": true
+   },
+   {
+    "spanPctW": 14.75,
+    "depth": 4.4,
+    "ndcX": 0.251,
+    "ndcY": 0.607,
+    "readable": true
+   },
+   {
+    "spanPctW": 12.45,
+    "depth": 5.22,
+    "ndcX": 0.128,
+    "ndcY": 0.591,
+    "readable": true
+   },
+   {
+    "spanPctW": 8.34,
+    "depth": 11.42,
+    "ndcX": -0.163,
+    "ndcY": 0.593,
+    "readable": false
+   },
+   {
+    "spanPctW": 8.23,
+    "depth": 7.89,
+    "ndcX": -0.488,
+    "ndcY": -0.132,
+    "readable": false
+   },
+   {
+    "spanPctW": 8.17,
+    "depth": 8.64,
+    "ndcX": -0.062,
+    "ndcY": 0.506,
+    "readable": false
+   },
+   {
+    "spanPctW": 7.92,
+    "depth": 8.92,
+    "ndcX": 0.157,
+    "ndcY": 0.483,
+    "readable": false
+   },
+   {
+    "spanPctW": 6.37,
+    "depth": 11.09,
+    "ndcX": 0.067,
+    "ndcY": 0.145,
+    "readable": false
+   },
+   {
+    "spanPctW": 5.8,
+    "depth": 12.17,
+    "ndcX": -0.136,
+    "ndcY": 0.521,
+    "readable": false
+   },
+   {
+    "spanPctW": 3.88,
+    "depth": 16.72,
+    "ndcX": -0.42,
+    "ndcY": 0.084,
+    "readable": false
+   },
+   {
+    "spanPctW": 3.43,
+    "depth": 18.93,
+    "ndcX": -0.412,
+    "ndcY": -0.039,
+    "readable": false
+   }
+  ],
+  "tunables": {
+   "assistmax": 22,
+   "assistmin": 6,
+   "assistrad": 0.13,
+   "assistyfrac": 1,
+   "assistlead": 0,
+   "assistpick": 0,
+   "assistfromsight": 0,
+   "reach": 1000000,
+   "scatter": 0,
+   "hitmult": 0.8,
+   "lockrad": 0.22,
+   "closure": 0,
+   "readableDepth": 7.059609316619035,
+   "_overridden": [
+    "assistmax",
+    "assistmin",
+    "assistyfrac",
+    "assistlead",
+    "assistpick",
+    "assistfromsight",
+    "reach",
+    "minspan",
+    "scatter",
+    "hitmult",
+    "closure"
+   ]
+  },
+  "poseCensus": {
+   "byDeg": {
+    "15": 25,
+    "30": 5,
+    "-15": 25,
+    "-30": 8
+   },
+   "posedTicks": 4897,
+   "levelOnlyTicks": 16897
+  }
+ }
+]

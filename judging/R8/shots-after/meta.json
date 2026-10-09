@@ -1,0 +1,364 @@
+[
+ {
+  "tick": 900,
+  "file": "judging/R8/shots-after/t00900.png",
+  "hits": 21,
+  "alive": 11,
+  "vulcanRounds": 8,
+  "missilesInFlight": 0,
+  "state": "flight",
+  "stageIndex": 0,
+  "jetNdcY": -0.11200000000000025,
+  "enemies": [
+   {
+    "spanPctW": 11.06,
+    "depth": 5.87,
+    "ndcX": 0.053,
+    "ndcY": 0.251,
+    "readable": true
+   },
+   {
+    "spanPctW": 8.72,
+    "depth": 7.44,
+    "ndcX": -0.128,
+    "ndcY": 0.298,
+    "readable": false
+   },
+   {
+    "spanPctW": 6.3,
+    "depth": 10.31,
+    "ndcX": 0.002,
+    "ndcY": 0.554,
+    "readable": false
+   },
+   {
+    "spanPctW": 5.86,
+    "depth": 11.09,
+    "ndcX": -0.371,
+    "ndcY": 0.451,
+    "readable": false
+   },
+   {
+    "spanPctW": 2.53,
+    "depth": 27.89,
+    "ndcX": -0.047,
+    "ndcY": 0.547,
+    "readable": false
+   },
+   {
+    "spanPctW": 1.99,
+    "depth": 35.46,
+    "ndcX": 0.114,
+    "ndcY": -0.422,
+    "readable": false
+   },
+   {
+    "spanPctW": 1.83,
+    "depth": 38.49,
+    "ndcX": -0.105,
+    "ndcY": 0.544,
+    "readable": false
+   },
+   {
+    "spanPctW": 1.39,
+    "depth": 50.9,
+    "ndcX": -0.004,
+    "ndcY": -0.463,
+    "readable": false
+   },
+   {
+    "spanPctW": 1.23,
+    "depth": 52.98,
+    "ndcX": 0.055,
+    "ndcY": -0.464,
+    "readable": false
+   },
+   {
+    "spanPctW": 1.18,
+    "depth": 59.95,
+    "ndcX": -0.052,
+    "ndcY": -0.478,
+    "readable": false
+   },
+   {
+    "spanPctW": 0.85,
+    "depth": 82.89,
+    "ndcX": -0.095,
+    "ndcY": -0.497,
+    "readable": false
+   }
+  ],
+  "tunables": {
+   "assistmax": null,
+   "assistmin": 2.6,
+   "assistrad": 0.13,
+   "assistyfrac": 0,
+   "assistlead": 1,
+   "assistpick": 1,
+   "assistfromsight": 1,
+   "reach": null,
+   "scatter": 0.025,
+   "hitmult": 0.5,
+   "lockrad": 0.22,
+   "closure": 1,
+   "readableDepth": 7.059609316619035,
+   "_overridden": []
+  },
+  "poseCensus": {
+   "byDeg": {
+    "15": 12,
+    "30": 4,
+    "-15": 14,
+    "-30": 5
+   },
+   "posedTicks": 2683,
+   "levelOnlyTicks": 7328
+  }
+ },
+ {
+  "tick": 1500,
+  "file": "judging/R8/shots-after/t01500.png",
+  "hits": 35,
+  "alive": 13,
+  "vulcanRounds": 8,
+  "missilesInFlight": 0,
+  "state": "flight",
+  "stageIndex": 0,
+  "jetNdcY": -0.11200000000000025,
+  "enemies": [
+   {
+    "spanPctW": 31.24,
+    "depth": 3.05,
+    "ndcX": -0.512,
+    "ndcY": 0.511,
+    "readable": true
+   },
+   {
+    "spanPctW": 26.27,
+    "depth": 2.69,
+    "ndcX": 0.415,
+    "ndcY": 0.548,
+    "readable": true
+   },
+   {
+    "spanPctW": 18.17,
+    "depth": 3.89,
+    "ndcX": -0.262,
+    "ndcY": 0.342,
+    "readable": true
+   },
+   {
+    "spanPctW": 17.08,
+    "depth": 3.8,
+    "ndcX": 0.342,
+    "ndcY": 0.423,
+    "readable": true
+   },
+   {
+    "spanPctW": 11.47,
+    "depth": 5.66,
+    "ndcX": 0.118,
+    "ndcY": 0.487,
+    "readable": true
+   },
+   {
+    "spanPctW": 11.44,
+    "depth": 6.17,
+    "ndcX": 0.358,
+    "ndcY": 0.077,
+    "readable": true
+   },
+   {
+    "spanPctW": 8.91,
+    "depth": 7.92,
+    "ndcX": -0.144,
+    "ndcY": 0.525,
+    "readable": false
+   },
+   {
+    "spanPctW": 8.57,
+    "depth": 8.23,
+    "ndcX": -0.019,
+    "ndcY": 0.52,
+    "readable": false
+   },
+   {
+    "spanPctW": 5.38,
+    "depth": 12.07,
+    "ndcX": -0.313,
+    "ndcY": 0.604,
+    "readable": false
+   },
+   {
+    "spanPctW": 3.98,
+    "depth": 16.32,
+    "ndcX": -0.427,
+    "ndcY": 0.569,
+    "readable": false
+   },
+   {
+    "spanPctW": 1.35,
+    "depth": 52.25,
+    "ndcX": -0.015,
+    "ndcY": 0.454,
+    "readable": false
+   },
+   {
+    "spanPctW": 1.15,
+    "depth": 61.14,
+    "ndcX": -0.076,
+    "ndcY": 0.451,
+    "readable": false
+   },
+   {
+    "spanPctW": 0.96,
+    "depth": 73.23,
+    "ndcX": 0.023,
+    "ndcY": 0.456,
+    "readable": false
+   }
+  ],
+  "tunables": {
+   "assistmax": null,
+   "assistmin": 2.6,
+   "assistrad": 0.13,
+   "assistyfrac": 0,
+   "assistlead": 1,
+   "assistpick": 1,
+   "assistfromsight": 1,
+   "reach": null,
+   "scatter": 0.025,
+   "hitmult": 0.5,
+   "lockrad": 0.22,
+   "closure": 1,
+   "readableDepth": 7.059609316619035,
+   "_overridden": []
+  },
+  "poseCensus": {
+   "byDeg": {
+    "15": 19,
+    "30": 4,
+    "-15": 27,
+    "-30": 11
+   },
+   "posedTicks": 5023,
+   "levelOnlyTicks": 13070
+  }
+ },
+ {
+  "tick": 2100,
+  "file": "judging/R8/shots-after/t02100.png",
+  "hits": 7,
+  "alive": 11,
+  "vulcanRounds": 7,
+  "missilesInFlight": 0,
+  "state": "flight",
+  "stageIndex": 1,
+  "jetNdcY": -0.11200000000000025,
+  "enemies": [
+   {
+    "spanPctW": 14.21,
+    "depth": 4.57,
+    "ndcX": -0.219,
+    "ndcY": 0.121,
+    "readable": true
+   },
+   {
+    "spanPctW": 10.96,
+    "depth": 5.92,
+    "ndcX": -0.034,
+    "ndcY": 0.167,
+    "readable": true
+   },
+   {
+    "spanPctW": 10.26,
+    "depth": 6.33,
+    "ndcX": -0.055,
+    "ndcY": 0.137,
+    "readable": true
+   },
+   {
+    "spanPctW": 10.06,
+    "depth": 7.02,
+    "ndcX": 0.087,
+    "ndcY": 0.04,
+    "readable": true
+   },
+   {
+    "spanPctW": 8.03,
+    "depth": 8.09,
+    "ndcX": 0.198,
+    "ndcY": 0.004,
+    "readable": false
+   },
+   {
+    "spanPctW": 5.33,
+    "depth": 13.23,
+    "ndcX": -0.069,
+    "ndcY": 0.159,
+    "readable": false
+   },
+   {
+    "spanPctW": 3.6,
+    "depth": 19.63,
+    "ndcX": 0.001,
+    "ndcY": 0.193,
+    "readable": false
+   },
+   {
+    "spanPctW": 2.94,
+    "depth": 22.08,
+    "ndcX": 0.434,
+    "ndcY": -0.105,
+    "readable": false
+   },
+   {
+    "spanPctW": 2.48,
+    "depth": 26.21,
+    "ndcX": 0.413,
+    "ndcY": -0.154,
+    "readable": false
+   },
+   {
+    "spanPctW": 2.37,
+    "depth": 29.76,
+    "ndcX": -0.008,
+    "ndcY": 0.441,
+    "readable": false
+   },
+   {
+    "spanPctW": 1.98,
+    "depth": 48.15,
+    "ndcX": -0.056,
+    "ndcY": 0.441,
+    "readable": false
+   }
+  ],
+  "tunables": {
+   "assistmax": null,
+   "assistmin": 2.6,
+   "assistrad": 0.13,
+   "assistyfrac": 0,
+   "assistlead": 1,
+   "assistpick": 1,
+   "assistfromsight": 1,
+   "reach": null,
+   "scatter": 0.025,
+   "hitmult": 0.5,
+   "lockrad": 0.22,
+   "closure": 1,
+   "readableDepth": 7.059609316619035,
+   "_overridden": []
+  },
+  "poseCensus": {
+   "byDeg": {
+    "15": 25,
+    "30": 5,
+    "-15": 39,
+    "-30": 18
+   },
+   "posedTicks": 7067,
+   "levelOnlyTicks": 18602
+  }
+ }
+]
