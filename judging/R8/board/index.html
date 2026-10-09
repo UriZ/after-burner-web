@@ -70,25 +70,31 @@
   <div class="meta">
     <span><b>build</b> e269635</span>
     <span><b>previous verdict</b> R7 — 8/10 HOLD</span>
-    <span><b>R8 verdict</b> gate not yet run</span>
+    <span><b>R8 verdict</b> 8.5/10 — up from 8</span>
     <span><b>lanes</b> 5, all closed</span>
   </div>
 </header>
 
 <div class="tldr">
   <h2>Where we are</h2>
-  <p class="trend">Judge trend &nbsp; 3 → 4 → 6 → 7 → 7.5 → 8 → 8 → <em>R8 pending</em></p>
-  <p>
-    R7 held at 8/10 on one sentence: <em>every closure was in the rendering, and everything a
-    player meets in the first three minutes is in the playing.</em> <strong>Round 8 went after
-    the playing.</strong> The gun no longer kills what the player cannot see, the stage counter
-    counts past 3, the last three objects are on the hardware ladder, and the owner's enemy-art
-    blocker is closed.
-  </p>
+  <p class="trend">Judge trend &nbsp; 3 → 4 → 6 → 7 → 7.5 → 8 → 8 → <b>8.5</b> &nbsp;·&nbsp; still FAIL</p>
   <p style="color:var(--text);border-left:2px solid var(--amber);padding-left:14px">
-    <em>And the one gate still missed turns out not to be a weapons problem at all: the spawner
-    emits 2.71–3.27 aircraft per second and a good pilot kills 94% of them. No weapon change can
-    reach the arcade's rate — ~67% of traffic has to fly past untouched. That is pacing.</em>
+    <em>A player would not mistake stage 1 for After Burner II, and the reason is no longer
+    subtle: <strong>the arcade puts two aircraft in front of you and we put seven.</strong></em>
+  </p>
+  <p>
+    Round 8 went after the playing rather than the rendering, and it worked: the gun no longer
+    kills what the player cannot see, the sky is fuller rather than emptier, the stage counter
+    counts, the last objects are on the hardware ladder, and the owner's enemy-art blocker is
+    closed. Criterion A is now satisfied <em>by construction</em> — a module-load assertion on the
+    authored constants — and the judge could not break it across 275 frames.
+  </p>
+  <p>
+    It moves half a point because three of the round's own gates are missed, and because its
+    deepest finding was <strong>right by the wrong argument</strong>. The combat lane concluded
+    the kill rate is the spawner's, not the gun's — correct — and reasoned that the arcade must
+    let ~67% of traffic fly past. <strong>It does not. There is simply far less of it:</strong>
+    the arcade emits 0.4–0.74 aircraft/s and kills most of them; we emit 2.83–3.20/s.
   </p>
 </div>
 
@@ -143,12 +149,12 @@
 <h2 class="sec">Round 9 — the list</h2>
 
 <ol class="next">
-  <li><span class="tag t-new">new</span><b>The kill rate is the spawner's, not the gun's.</b> 2.71–3.27 aircraft/s emitted, 94.1% of them killed. Reaching the arcade's 0.42–0.45/s needs ~67% of traffic to survive. <b>And the arcade's own emission rate has never been counted</b> — that is the denominator every kill-rate comparison in this project has been quoted without.</li>
-  <li><span class="tag t-new">new</span><b>The missile is aim-independent</b> — a flat 1.08–1.26 kills/s to every policy, limited by a per-stage restock of 50 rather than by aim. Largest remaining term in the rate.</li>
-  <li><span class="tag t-carry">carried</span><b>Neutral stick still scores 64% of a tracking pilot</b> against a ≤40% gate. Three levers were measured and refuted, including aim scatter, which makes the gun <em>more</em> lethal.</li>
-  <li><span class="tag t-carry">carried</span><b>The throttle's parallax half</b> — closure is now wired, but nearer clouds still crawl as the ground speeds up.</li>
-  <li><span class="tag t-carry">carried</span><b>Head-on enemies are a swept V where the arcade's is an X of separated blades</b>; the death hulk's top 5% is short by a sheet change; content is 3 of 23 stages.</li>
-  <li><span class="tag t-new">acquire</span><b>Five items blocked on footage we do not have</b>, now including arcade aircraft-emission counts over verified spans. Two measurement programmes and three retired criteria are waiting on frames.</li>
+  <li><span class="tag t-new">one constant</span><b>We put seven aircraft on screen; the arcade puts two.</b> <code>MAX_ALIVE = 14</code> was swept against one of <em>our own</em> gates with no arcade side ever measured. Worse: its justification — "two thirds of spawns are shot down before they reach readable size" — <b>was removed by Round 8's own fix</b>, which makes it impossible for the gun to kill below 10 %W at all. R8 deleted the reason for its own spawn rate and did not revisit it.</li>
+  <li><span class="tag t-new">new</span><b>You cannot find your own aircraft.</b> 19.5% of flight frames have &gt;30% of the player hidden behind another sprite; worst 60.7%. The art critic misidentified an enemy as the player in its own first frame and wrote it down. A consequence of a <em>correct</em> fix — the enemy's black cage had to go — so the answer is composition, not colour.</li>
+  <li><span class="tag t-new">new</span><b>The jet's drawing, not its values.</b> At the same wingspan ours uses <b>1.80× the ink and 2.55× the pale area</b> of the arcade's, with 25.1% dark accents against 44.7%. Every value, palette, keyline and budget statistic passes. This is what carries the owner's "still not good enough".</li>
+  <li><span class="tag t-new">new</span><b>Colour is right nearly everywhere; drawing is wrong nearly everywhere</b> that is not the sea, HUD or sky. The title's palette is perfect and its lettering is a placeholder; the hulk passes every gate and is a flat silhouette with no highlight, smoke or debris; the carrier is "visually identical" to before.</li>
+  <li><span class="tag t-new">new</span><b>44.8% of enemy sprites are drawn by five nested rectangles.</b> <code>drawRearFar()</code> is a rectangle by construction — and it was never caught because it is a <em>declared exception</em> in the source, "so every audit that read the comment stopped reading".</li>
+  <li><span class="tag t-carry">carried</span><b>Neutral stick still scores 64%</b> of a tracking pilot against a ≤40% gate; the missile is aim-independent; the throttle's parallax half is owed.</li>
 </ol>
 
 <footer>
