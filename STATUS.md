@@ -1,7 +1,8 @@
 # STATUS — where the rebuild stands
 
-**Last updated**: 2026-10-09, Round 7 in flight (build lanes live in `src/`, work uncommitted
-in the tree; criteria lane editing this file).
+**Last updated**: 2026-10-09, **Round 8 in flight** (five build lanes live in `src/`, work
+uncommitted in the tree; criteria lane editing this file). R8 criteria work and its evidence:
+`judging/R8/lane-criteria.md`.
 **Judge score trend**: R1 3/10 → R2 4/10 → R3 6/10 → R4 7/10 → R5 7.5/10 → **R6 8/10** (still
 FAIL against the arcade bar). Full reports in `judging/R1..R6/report.md`; R6's is the scoring
 baseline, measured on clean checkout `e8fed58`. R6 also ran an art critique
@@ -15,20 +16,36 @@ below. Everything else in this file is downstream of those.
 > Every our-side row of the Criterion A/B table was a frame with **no enemies, no shots, no
 > explosions and no lock brackets on screen**, and the table did not say so. Every arcade-side
 > row is a frame **in combat** — the desert native frame carries two enemy aircraft, in-flight
-> missiles, smoke puffs and the nose sight; the night native frame carries a **33.4 %W fireball
-> and debris spray** and still reads
-> **79 colours / 17 channel values**. Same build, same commit `e8fed58`, same instrument:
+> missiles, smoke puffs and the nose sight; the night native frame carries a **37.8 %W fireball
+> and debris spray** (restated R8 with its box; the R7 figure of 33.4 %W / 809 px is withdrawn
+> as unreproducible, ledger row 30) and still reads
+> **79 colours / 17 channel values** — which, R8 adds, is **every other rung of the hardware's
+> own 31-value ladder** and not an act of restraint; see ledger row 31 before quoting it as a
+> licence. Same build, same commit `e8fed58`, same instrument:
 > **21 channel values with combat off, 28–98 (median 53) in ordinary play, failing on 48 of 49
 > digit-verified stage-1 frames.** Criterion **B** was separately shown population-*insensitive*
 > (80.8 → 80.6 H, 56.4 → 56.3 V), so the caveat binds **A only**. REFERENCE ledger row 21.
 >
-> **R7 FINAL TREE (`5913af6`): the composite PASSES in ordinary play — 12 frames at three
-> spacings with combat on, stage digit read 1 on every one, 62–70 colours and 26–30 channel
-> values, 0 of 12 over either gate.** Measured by the team lead, **independently re-derived by
-> this lane on its own instrument, agreeing exactly**; captures
-> `tools/out/tl-r7-final-{97,137,211}`, 0 cross-directory duplicates. **Quote that row.** The
-> `e8fed58` numbers stay on the record because they are what the population defect (ledger row
-> 21) was diagnosed from.
+> **R7 FINAL TREE (`5913af6`): the composite PASSES — 12 frames at three spacings, stage digit
+> read 1 on every one, 62–70 colours and 26–30 channel values, 0 of 12 over either gate.**
+> Captures `tools/out/tl-r7-final-{97,137,211}`, 0 cross-directory duplicates.
+>
+> > **R8 CORRECTION, AND IT IS THE ROUND'S HEADLINE: those twelve frames were labelled "with
+> > combat on" and hold no player weapon, no kill and no explosion.** `?fixed=1` without
+> > `?demo` injects **no input at all**. The R7 judge read the simulation's counters over 900
+> > ticks of that URL (vulcan 0, missiles 0, hits 0) and R8 reproduced it **from the pixels**
+> > (`tools/assert_population.py`: weapon 0/12, explosion 0/12, enemy fire 12/12; the frames
+> > print **HIT 0** on their own HUD). **The conclusion survives on the judge's own re-measure
+> > of the real population** — `?demo=1`, 3 seeds × 1 200 consecutive ticks, **55 kills in the
+> > window, 0 of 3 600 frames over either gate.** What did not survive is the evidence, and
+> > this is **ledger row 21's defect inside the repair for ledger row 21, in the same table,
+> > one round later, published by the lane enforcing that rule on everyone else and confirmed
+> > twice by the same invocation.** Ledger row 32. **Binding from R8: a population claim is
+> > verified by an assertion over the captured frames, never by the invocation intended to
+> > produce them.**
+>
+> The `e8fed58` numbers stay on the record because they are what the population defect (ledger
+> row 21) was diagnosed from.
 >
 > **It is also the round's worked example of citation field 5.** The figure was first circulated
 > without its capture directory or commit; this lane declined to confirm it, went looking, and
@@ -74,8 +91,8 @@ Cross-lane agreements and every lead ruling are in `judging/R5/interfaces.md` (I
 
 ## Criteria repair came first, and it was the biggest finding of the round
 
-**Twenty-nine acceptance criteria have now been retired or repaired** as non-discriminating or
-plain wrong. The maintained ledger is in REFERENCE.md ("The defective-criteria ledger") —
+**Thirty-six acceptance criteria have now been retired or repaired** as non-discriminating or
+plain wrong (R8 added seven: rows 30–36). The maintained ledger is in REFERENCE.md ("The defective-criteria ledger") —
 add rows there rather than re-counting. R5 added four: the cloud size/presence figures (a
 correct operator over a 90 %-non-cloud population), the zero-cloud/HUD-overlap control, the
 sea anisotropy ratio, and the aliased `?demo=1` canyon sd; R5c added the gap-5 deaths/minute
@@ -130,7 +147,7 @@ written down first. Worth copying.
 |---|---|
 | **20** restated | fireball brightest-decile saturation **stays dropped, the published reason was wrong.** The 0.952 that justified dropping it came from a different operator than the criterion's own numbers. Under the criterion's own operator (not-background largest component, deciles ranked by **R+G+B**, saturation of the decile's **mean colour**) **ours reads 0.062 against the arcade's 0.066 — we pass, and we land on the arcade's core colour.** Under the FIRE-MASK/V-ranked reading **the arcade fails too, at 0.632.** It is under-specified, not a false negative. **The decile ladder is a win nobody claimed**: our ends match the arcade's to a level; only the middle rungs run hot |
 | **21** new | **the Criterion A/B scoreboard was stated without its population** — see the box at the top of this file |
-| **22** new | **VALUE-STAT never said whether `V = 0` pixels are kept.** The anchor keeps them, the sprite lane's V-CENSUS drops them, and the two agreeing at 0.8392 is a coincidence (one ladder rung), not corroboration. Ours reads **0.643** under the band's own operator. See gap 2 |
+| **22** new | **VALUE-STAT never said whether `V = 0` pixels are kept.** The anchor keeps them, the sprite lane's V-CENSUS drops them, and the two agreeing at 0.8392 is a coincidence (one ladder rung), not corroboration. ~~Ours reads **0.643** under the band's own operator.~~ **R8: that 0.643 was `e8fed58` and went stale the same round — on the shipped tree ours reads 0.8392 (black share 18.9 %) and all three clauses of the band are met.** The rule stands; the figure attached to it did not |
 | **23** new | **the published arcade HUD reticle rect is fitted to level flight and the attitude line rotates out of it** — measured `y` 0.067–0.299 at native against a rect stopping at 0.219. **Promoted out of the cloud block into a standing rule**: every operator that counts or classifies objects blanks the HUD first, both sides, and says it did. The upper-right HUD has now been counted as a cloud, a cloud bank, a false horizon and **twice** as an enemy aircraft |
 | **24** new | **JET-SIL's afterburner mask was validated on a NIGHT crop only**, where the keyline is blue-grey and cannot enter a red-hue mask. The arcade's **daylight** keyline `#840000` is hue 0.0°, S 1.000, **V 0.518** and walks through the published `V ≥ 0.45` floor, so our day nozzle separation read **15.3 % instead of 30.6 %** — a published discriminator lost to mask contamination, not to the art. **Floor raised to `V ≥ 0.70`**; nothing measured lives between 0.52 and 0.90. **The deciding test, now a general rule: the arcade's own control returns 30.0 % under BOTH floors.** An operator change that moves our number and leaves the arcade's untouched is the right kind; one that moves both is retuning the criterion to the build |
 | **25** new | **Criterion A3's "aircraft ≤ 8 colours" was derived from the NIGHT jet** and applied to every aircraft, while the same table's daylight row records **14 total / 7 at 95 %** — it failed the arcade's own daylight aircraft (13 colours, reproduced independently). **Re-licensed per variant, not loosened**: the gate becomes **`n95 ≤ 8`**, which the arcade passes on both variants (daylight 6–7, night ≤8) and we pass on both shipped sheets (day 7, night 6). Totals are published per variant as licensed facts. **The roll sheet's `n95 = 9` is a flagged exception with no arcade target** — see acquisition item 3 |
@@ -265,9 +282,13 @@ Three of the eleven are closed or withdrawn; the rest stand.
    centroid of a median-cut quantization* quoted as the brightest *pixel*, and it capped us
    **below the reference aircraft's own median**. The arcade's daylight jet is **white**:
    achromatic V median **0.816–0.922** across five stage-verified stage-1 frames and **0.839**
-   on the true-native frame, with **45–65 %** of pixels above V 0.80. Ours: median **0.643**,
-   maximum **0.773** (`#c5c5ad`), **5.3 %** above V 0.80. New band: **V median 0.78–0.92,
-   brightest body colour ≥0.90**, daylight stages. Carried forward from R5 and still true:
+   on the true-native frame, with **45–65 %** of pixels above V 0.80. ~~Ours: median 0.643,
+   maximum 0.773 (`#c5c5ad`), 5.3 % above V 0.80.~~ **R8 — THIS IS CLOSED AND THE STALE FIGURE
+   WOULD HAVE SENT A LANE TO FIX IT TWICE.** On the shipped tree (`82365e9`, re-derived
+   independently from the R7 judge's `jet-on`/`jet-off` captures) ours reads median **0.8392**,
+   max **1.000**, **63.4 %** above V 0.80 — the arcade's 0.839 / 1.000 / 59.5 % on all three.
+   The 0.643 and 0.773 above were measured at `53ce86b` and `e8fed58`. New band: **V median
+   0.78–0.92, brightest body colour ≥0.90**, daylight stages — **met**. Carried forward from R5 and still true:
    our blades are shorter and less canted, **our wings sweep DOWN outboard where the arcade's
    RISE** (corrected R7 — see below), nacelle pods are smaller — but geometry is third-order
    against a 10× difference in highlight share.
@@ -280,12 +301,15 @@ Three of the eleven are closed or withdrawn; the rest stand.
    (b) **"Ours 0.839 = arcade 0.839" is two different operators** (REFERENCE ledger row 22).
    VALUE-STAT never said whether `V = 0` pixels are kept; the published anchor keeps them and
    the sprite lane's V-CENSUS drops them, and the exact agreement at 0.8392 is a coincidence —
-   214/255 is one ladder rung both landed on. **Under the band's own operator our airframe
-   reads 0.643 against the arcade's 0.839 and the median clause is still missed.** What did
-   improve is real: brightest body colour 0.773 → **1.000**, share above V 0.80 5.3 → **48.2 %**.
-   The lever is dark **role area**: **30.7 %** of our achromatic airframe mask is a pure-black
-   1–2 px keyline around every edge, against the arcade's **22.2 %** clustered in the nacelle
-   rings and belly shadow.
+   214/255 is one ladder rung both landed on. ~~Under the band's own operator our airframe
+   reads 0.643 against the arcade's 0.839 and the median clause is still missed.~~
+   **STALE — STRUCK R8.** That reading is `e8fed58`, taken before the R7 sprite sheet landed in
+   the same tree. On the shipped tree the band's own operator reads **0.8392**, the median
+   clause is **met**, and the lever named below has already moved: the black share of the
+   achromatic mask is **18.9 %**, not 30.7 %, against the arcade's 22.2 % — **we are now on the
+   arcade's side of it.** Brightest body colour 0.773 → **1.000**, share above V 0.80 5.3 →
+   **63.4 %**. Publish the black share beside any reading-A figure: the median is a **step
+   function** of it (REFERENCE's VALUE-STAT box has the sweep and the window).
 3. **HUD typography** — **the contrast half is CLOSED (R6).** The ≥3:1 criterion was run on
    the arcade's own bottom strip by two independent operators and **the arcade fails it on its
    own red ink on stages 1 and 2**; it is retired (REFERENCE.md ledger row 10) and replaced by
@@ -415,17 +439,28 @@ Three of the eleven are closed or withdrawn; the rest stand.
   Three of those four are **retired for want of it**, not for want of effort. Neither 686×480
   nor 1028×720 is an integer multiple of 320×224, so decimation cannot substitute.
 
-### THE ACQUISITION LIST — two measurement programmes are now blocked on footage we do not have
+### THE ACQUISITION LIST — FIVE measurement programmes are blocked on footage we do not have
 
-Listed together so anyone acquiring frames knows what to look for. Both are **true-native
-320×224 screenshots**; a video frame at any resolution satisfies neither, because neither
+Listed together so anyone acquiring frames knows what to look for. **All five are true-native
+320×224 screenshots**; a video frame at any resolution satisfies none of them, because neither
 686×480 nor 1028×720 is an integer multiple of 320×224.
+
+**The one candidate in the repo has been tested twice and fails.**
+`reference/ab2-arcade-desert-explosions.png` is 400×280 = **exactly 1.25×** of native, which
+would be recoverable *if* it were a nearest-neighbour upscale (a 5/4 nearest scale duplicates
+every fifth column, so dropping those columns reconstructs the original). It is not. R8 tested
+all five phases: **column duplication rate 0.013–0.025, row duplication 0.000**, and the file
+carries **34 969 colours / all 256 channel values**. It is filtered, unrecoverable, and useless
+for anything cardinality- or palette-shaped. Independently reproduces the R7 criteria lane's
+finding; recorded here so it is not re-tested a third time.
 
 | # | what to acquire | what it unblocks |
 |---|---|---|
 | **1** | a true-native **stage-1** frame (sea) | the `#009eff` sky level, Criterion B's floor on a stage-1 sea patch, ledger rows 16 and 17. **Three of the four are retired for want of it.** |
 | **2** | a true-native **LEVEL astern** frame of the player jet, any daylight stage (**NEW, R7**) | **every true-native frame in this repo is a BANKED pose.** `ab2-arcade-desert.png` and `ab2-arcade-night-banking.png` both are, and the authoritative level crop (`stage3-night-level-t175.png`) is a 686×480 video upscale carrying **3 133 unique colours over 5 147 px** — fine for shape, useless for a colour census. The sprite lane tried it and discarded it rather than publish off it. Blocks: comparing our black **role area** against the arcade's 18 % on a level cell (the arcade's 18 % is measured on a banked pose where the nozzle discs face the camera and read as large filled circles, which our 2-D-rotated planform cannot reproduce); and any per-variant `n95` check on a level daylight sprite |
 | **3** | an isolated arcade **barrel-roll** sprite (**NEW, R7**, lower priority) | the roll sheet's `n95 = 9` has **no arcade target at all** (ledger row 25). The only roll reference is `stage4-barrel-roll-t222.png`, 1028×720 video. Until this exists, **do not tune the roll sheet's palette to a number** |
+| **4** | a true-native **DAYLIGHT frame holding an explosion** (**NEW, R8**) | **what it does NOT block, stated first, because R7's gap list had this backwards:** it does **not** block Criterion A2's licence. A2's ≤32 is the width of the hardware's colour ladder (REFERENCE ledger row 31), so no 1987 frame of this game could exceed it, explosion or not. What it **does** block is the **colour** half: the only arcade fireball palette anchor we hold is `ab2-arcade-huge-explosion.jpg` at **181×127**, and the only native blast is a **night** one whose warm pixels cost **0** channel values but **27 of 79 colours**. The one daylight native in combat spends **138 of 256** colours *with no explosion in it*, and daylight-with-explosions is the population our build is scored in. Blocks: a daylight fireball colour budget, and the fireball's palette against a bright sky |
+| **5** | a true-native **NEAR-ASPECT enemy aircraft** (**NEW, R8**) | both true-native frames carry only **distant** enemies — measured, ~10 × 12 px of aircraft inside a 19 × 20 crop — and every near-aspect enemy reference (`ab2-arcade-closeup-enemies.jpg` 1440×1080, `stage1-missile-salvo-t100.75.png` 1028×720) is a video upscale with thousands of colours, on which a **single-colour-component operator cannot run at all**. That is why `enemysil.py`'s feature gate has never been checked against the reference and is now retired rather than tuned to (ledger row 36). Also the only route to a stage-1 enemy livery target that is not a video upscale |
 - **`hazeSteps` is read by `paramsFor()` out of `stage.terrain`, NOT out of `stage.haze`.**
   Putting it under `haze` beside `bandHeightFrac` — where it reads as if it belongs — is a
   **silent no-op**: no error, no warning, the posterization simply does not happen. The R6
