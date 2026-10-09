@@ -27,6 +27,45 @@ import { GAME_W, GAME_H } from '../../render/screen.js';
 // ship would be a backdrop, and the whole complaint was that the opening was
 // static.
 //
+// R7 RULING — WHICH ARCADE SHOT THIS SEQUENCE REPRODUCES. The sprite lane's
+// judging/R7/ask-sprite-art.md B1 is right that carrier.js's header describes a
+// camera that is not in the frame it cites, and it correctly declined to
+// re-derive the framing. The framing is this lane's, so: **the sequence opens
+// on t84 and the placement landmarks stay t84's.**
+//
+// Evidence, judging/R7/flow-04-carrier-launch-ours-TOP-arcade-BOT.png: at
+// sequence start our ship sits small across the horizon with the jet on it,
+// which is t84's composition; by +2.0 s it has grown into a large deck mass
+// with the island to starboard, which is a t89-like scale. **t89 is a later
+// moment of the same overfly, not a different shot** — our sprite reaches it by
+// growing. Re-deriving the landmarks from t89 would anchor the OPENING
+// composition on a frame the sequence merely passes through, and it would
+// discard a four-landmark fit that reproduces on our own capture to <=0.38
+// points (deck span 51.25 vs 50.87 %W, centre 49.95 vs 49.85, top 53.12 vs
+// 53.33 %H, near edge 72.62 vs 72.71).
+//
+// WHAT IS WRONG AND MUST BE CORRECTED IN carrier.js's HEADER (sprite lane's
+// file this round, so asked rather than edited — judging/R7/ask-flow.md A13):
+// t84 is NOT "seen from ASTERN and slightly above, looking forward along the
+// deck, bow away from the camera". Its hull is visible along its full length as
+// a long dark slab on a FLAT HORIZONTAL waterline with the deck overhanging
+// both sides, which only happens from off the beam or quarter; the ship's long
+// axis lies ACROSS the frame. (tools/out/flow-r7/t84-ship.png, 3x.) The
+// proportions measured off it are fine — they are deck-quad ratios — but the
+// camera the header claims is not the camera in the frame.
+//
+// TWO CONSEQUENCES, both the sprite lane's to act on, both stated here so the
+// next reader does not re-derive them:
+//   * our texture is a SYMMETRIC trapezoid, i.e. an axial astern view, and
+//     matches neither frame's axis. Giving it t84's diagonal axis and visible
+//     hull side is an art change that alters the SILHOUETTE, so the four
+//     landmarks must be re-measured against the new quad if it is made — the
+//     placement maths is anchored on the deck quad, not on the outline.
+//   * the texture now carries t89's detail on t84's placement. That is a
+//     compromise, not an error: the detail is right when the ship is large and
+//     most visible (late in the overfly) and at the wrong perspective when it
+//     is small (the opening). Worth keeping until the axis is fixed.
+//
 // First attempt reused DeathSequence's respawn trick verbatim (oversized +
 // dropped BELOW baseY, same as RESPAWN_DROP) and held it static for the
 // whole onDeck phase — on capture it reads as the jet having crashed

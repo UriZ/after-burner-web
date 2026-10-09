@@ -277,6 +277,14 @@ export class Game {
         poseSource: this.player.poseSource,
         spriteRotationDeg: (this.player.sprite.material.rotation * 180) / Math.PI,
         worldRollDeg: (this.worldRoll * 180) / Math.PI,
+        // R7, same measurement-only family and for the usual reason — it is
+        // NOT inferable from pixels without the inference being wrong. The
+        // post-respawn invincibility flash (flow.js, measured off the arcade
+        // this round) hides the player sprite for ~3 frames in 8 for 2.0 s
+        // after every respawn, so a frame that reads "no jet" may be a flash
+        // frame rather than a defect. True = the sprite is hidden BY THE
+        // FLASH on this tick.
+        graceFlashHidden: this.flow.state === 'flight' && !this.player.sprite.visible,
         ...this._playerNdc(),
       });
     }

@@ -106,8 +106,57 @@ const CANYON_X_A = 0.149;
 // composition reading taken from a random ?demo=1 frame is now a mixture of
 // two populations — split it by regime (phase = simTime % 16 < 11 is cruise)
 // or capture cruise only. Called out in judging/R5/ask-player-feel.md.
-const CRUISE_Y_MEAN = 0.205;
-const CANYON_Y_MEAN = -0.349;
+//
+// R7 RE-SOLVE. player.js's vertical envelope became ASYMMETRIC this round
+// (ENVELOPE_Y_UP 1.55 / ENVELOPE_Y_DOWN 1.10, see that file's note), so every
+// stickY above is in a different unit than when it was solved and the two means
+// had to be re-derived or the composition would have moved. They were re-solved
+// by BISECTION on the measured transfer function, not by scaling: the target is
+// that the per-regime MEAN screen altitude is unchanged to three decimals from
+// the committed build —
+//     cruise 51.601 %H (anchor)   canyon 61.501 %H (anchor)
+// — which is the thing REFERENCE.md's #122 roam figures and every composition
+// capture are about. Verified in the browser, not only in the model
+// (judging/R7/lane-flow.md §4): cruise 51.60, canyon 61.50.
+//
+// WHAT CHANGED IS THE SPREAD, and that is the gap being closed. Pooled over 109
+// independent hand observations by two readers, the ARCADE pilot's altitude runs
+// 27.0 to 67.0 %H with sd 7.73; the committed attract flight ran 44.7 to 62.6
+// with sd 6.13 in cruise — the same MEAN, HALF the spread, and a hard ceiling
+// 8 points below the arcade's. So the cruise wander gets a second component, the
+// way the LATERAL wander already has one and for the same stated reason ("so the
+// path isn't a pure sine"): a single sine is arcsine-distributed and piles its
+// mass at the two extremes, which is the worst available shape for matching a
+// centrally-peaked distribution. 0.22 rad/s (28.56 s) is kept; 0.68 rad/s
+// (9.24 s) is the added one — incommensurate with the 16.000 s regime cycle
+// (1.73x) and with the 11 s cruise window (1.19x).
+//
+// AMPLITUDES CHOSEN BY A STATED RULE, not by eye: minimise the worst absolute
+// deviation across {p5, p95, sd} of the CRUISE regime against the arcade's 109
+// observations. Candidates and their worst deviation, 40-cycle window
+// (tools/out/flow-r7/solve_roam.mjs --solve --cycles=40):
+//     0.34/0.15 -> 3.2    0.40/0.18 -> 1.4    0.43/0.19 -> 2.2    0.46/0.20 -> 3.0
+// 0.40/0.18 wins and lands cruise at p5 37.6 / p95 63.4 / sd 8.16 against the
+// arcade's 36.4 / 62.0 / 7.73. Honest caveat: the hand-count operator resolves
+// to +-2-3 points, so the four candidates are not really distinguishable by
+// their p5 — the rule is there to make the choice reproducible, not to claim
+// 0.40 is uniquely right.
+//
+// WHY THE COMPARISON IS CRUISE-ONLY. Neither hand count sampled an arcade canyon
+// stage (they are 8 and 17; R6 read 1/4/6/7/12/19 and R7 read 2/3/9/14/20), so
+// the 109 observations are a CRUISE population. Comparing them against a pooled
+// ?demo=1 figure would mix them with our canyon regime, which is 31.25 % of the
+// cycle and sits 10 points lower by construction. Split by regime
+// (simTime % 16 < 11 is cruise) or the number means nothing.
+//
+// The canyon vertical amplitude drops 0.08 -> 0.06 for the same reason the
+// canyon exists: it is the TIGHT, straight regime, and the up-rail change would
+// otherwise have widened it along with cruise.
+const CRUISE_Y_MEAN = 0.1285;
+const CRUISE_Y_A1 = 0.40;
+const CRUISE_Y_A2 = 0.18;
+const CANYON_Y_MEAN = -0.3352;
+const CANYON_Y_A = 0.06;
 
 // Throttle (R5 feel fix, feel-critique.md §4/§10 rank 7): the attract
 // timeline has no keyboard to drive Q/E, so it cycles the lever itself —
@@ -153,7 +202,10 @@ export function demoTimeline(simTime) {
     // "constant-amplitude weaving") — two incommensurate periods (0.35,
     // 0.93) never repeat the same combined shape within the regime window.
     x = Math.sin(t * 0.35) * CRUISE_X_A + Math.sin(t * 0.93 + 1.7) * CRUISE_X_B;
-    y = CRUISE_Y_MEAN + Math.sin(t * 0.22 + 0.6) * 0.32;
+    y =
+      CRUISE_Y_MEAN +
+      Math.sin(t * 0.22 + 0.6) * CRUISE_Y_A1 +
+      Math.sin(t * 0.68 + 2.1) * CRUISE_Y_A2;
   } else {
     // Canyon: tighter and straighter — smaller lateral amplitude, lower and
     // flatter vertically, matching the measured cy 63.5%H / sd 2.59%W band
@@ -167,7 +219,7 @@ export function demoTimeline(simTime) {
     // offset, putting a step discontinuity on the regime boundary.
     const ct = phase - CRUISE_S;
     x = Math.sin(ct * 0.55) * CANYON_X_A;
-    y = CANYON_Y_MEAN + Math.sin(ct * 0.4) * 0.08;
+    y = CANYON_Y_MEAN + Math.sin(ct * 0.4) * CANYON_Y_A;
   }
 
   // Barrel-roll slam (see ROLL_SLAM_AT_S). Overrides the wander for 0.3s.

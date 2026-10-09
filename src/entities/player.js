@@ -48,7 +48,51 @@ import { CAMERA_HEIGHT, CAMERA_PITCH } from '../core/cameraGeom.js';
 // world units at the jet's fixed depth in front of the camera — placeholder
 // values, to be tuned against reference video once banked-turn roll lands.
 const ENVELOPE_X = 2.6;
-const ENVELOPE_Y = 1.1;
+
+// R7 (R6 judge gap 5). The vertical envelope is now ASYMMETRIC, and the single
+// `ENVELOPE_Y = 1.1` it replaces is the clamp behind the judge's finding that
+// "our pilot occupies the top third of the screen 0.00 % of 20 970 flight ticks".
+//
+// WHY ASYMMETRIC, which is the part that is not obvious. The arcade player's
+// own screen altitude has now been hand-counted TWICE independently — 61
+// observations (judging/R6/lane-combat.md, stages 1/4/6/7/12/19) and 48 more
+// this round by a different reader on different stages and a different grid
+// (judging/R7/lane-flow.md §2, stages 2/3/9/14/20). The two agree: their means
+// are 0.69 points of H apart. Pooled, n = 109:
+//
+//     min 27.0   p5 36.4   p50 50.0   p95 62.0   max 67.0   sd 7.73  %H
+//
+// Our rails, committed, measured on this build (tools/out/flow-r7/map_probe.mjs,
+// stick held to the stop until settled): full UP 35.09 %H, full DOWN 77.31 %H,
+// neutral 55.60 %H. So the DOWN rail already sits **10 points past the deepest
+// dive the arcade pilot was ever observed to make**, while the UP rail falls
+// **8 points short of his highest climb**. There is no arcade evidence for more
+// downward authority and a lot for more upward authority, so only the up rail
+// moves. 1.55 is not rounded to: it is solved so full stick lands on the
+// arcade's observed ceiling, and it measures back at **27.02 %H** against the
+// arcade's 27.0.
+//
+// And the down rail is not merely unsupported, it is actively WRONG to raise,
+// which a capture settles and arithmetic would not have (tools/out/flow-r7/
+// rails/rails-montage.png — look at it before changing these). ui/hud.js's
+// bottom strip occupies y 198..218 of 224 = 88.4..97.3 %H. The jet is ~15.5 %H
+// tall, so at the committed 1.10 down rail its lower edge reaches 85.0 %H and
+// clears the strip by 3.4 points; at 1.55 it is 6 points INSIDE it, and at the
+// 1.90 that judging/R6/ask-combat.md asked for, the airframe's own CENTRE
+// (93.91 %H) is inside the HUD band and the jet is drawn across the SPEED bar,
+// the STAGE digit and the missile stock. The committed 1.10 turns out to be
+// almost exactly the largest down rail that keeps the airframe clear.
+//
+// Upward there is headroom: at 1.55 the fin tips reach 19.3 %H against the top
+// HUD row's 11.2 %H lower edge. The top band only becomes the binding
+// constraint past about 2.1.
+//
+// Exported because src/game/spawner.js derives its own `REACH_CEILING_NDC_Y`
+// from this number and its comment says in capitals to re-derive when this
+// moves — three hand-synced copies of a constant is what core/cameraGeom.js
+// exists to stop happening again. See judging/R7/ask-flow.md A1.
+export const ENVELOPE_Y_UP = 1.55;
+export const ENVELOPE_Y_DOWN = 1.1;
 const FOLLOW_RATE = 6.0; // 1/s exponential approach toward the stick target
 
 // Jet-sprite bank, R5 feel fix (feel-critique.md §3/§10 rank 3). MEASURED
@@ -378,7 +422,10 @@ export class Player {
   // see the axis derivation above.
   update(dt, input, worldRoll = 0) {
     const targetX = input.x * ENVELOPE_X;
-    const targetY = input.y * ENVELOPE_Y;
+    // Piecewise and continuous at input.y = 0 (both branches give 0), so the
+    // only thing the asymmetry costs is a gain step across neutral — 1.41x in
+    // world units, 1.33x on screen once the perspective term is folded in.
+    const targetY = input.y * (input.y >= 0 ? ENVELOPE_Y_UP : ENVELOPE_Y_DOWN);
     const t = 1 - Math.exp(-FOLLOW_RATE * dt);
     this.x += (targetX - this.x) * t;
     this.y += (targetY - this.y) * t;

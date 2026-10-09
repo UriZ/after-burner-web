@@ -95,6 +95,34 @@ const CONTINUE_COUNTDOWN_S = 10; // gp t261: "CONTINUE PLAY / 10 / INSERT COIN"
 // first landed.
 const RESPAWN_INVINCIBLE_S = 2.0;
 
+// ...and R7 found the arcade's own version of it, which GAME_SPEC §2 says does
+// not exist: *"No visible invincibility flash after respawn in any of the four
+// instances ... if post-respawn invincibility exists it is short and
+// unindicated. The prototype's 2 s flashing window stays ADOPTED as a
+// usability choice, not arcade-verified."*
+//
+// IT IS ARCADE-VERIFIED NOW. `ab2-gameplay.mp4`'s gp t198-218 death — the same
+// instance that section is built on — decoded CONTIGUOUSLY (single-frame
+// `-ss` seeking on this file returns duplicates; judging/R7/ask-flow.md A10)
+// and measured by counting bright-desaturated pixels in a jet-sized box that
+// excludes both HUD strips: the player jet BLINKS from **t207.567**, the frame
+// the respawn reaches normal scale, to **t209.233**, after which it is present
+// in every frame for 6.77 s straight. Eight clean on/off alternations, period
+// **0.267 s** (8 frames at 30 fps), roughly 5 frames on to 3 off. Per-frame
+// counts go ~2 000-2 900 <-> 0-60; there is no ambiguity in the middle.
+//
+// Why four passes over this footage missed it: each state lasts 0.10-0.13 s,
+// so ANY sampling coarser than ~0.1 s aliases it away. My own first pass, at
+// 0.25 s, missed it too.
+//
+// **1.67 s measured against our ADOPTED 2.0 s** — so the window above is now
+// supported to within 0.33 s and is NOT changed on the strength of this:
+// "it flashes" implies "it is invulnerable" by convention, not by measurement,
+// and shortening a grace window on an inference while gap 5's lethality gate
+// is already failing is the wrong direction to act in.
+const GRACE_FLASH_PERIOD_S = 0.267;
+const GRACE_FLASH_ON_S = 0.167; // 5 frames on, 3 off, at the measured 30 fps
+
 // Low idle engine hum kept running through death/continue instead of the
 // previous hard stopEngine() cut (feel-critique.md §8: "the game goes
 // silent exactly when it goes blank"). Below the 0.75 afterburner threshold
@@ -325,6 +353,34 @@ export class GameFlow {
   // title/launch/death frames drew a gauge reading nothing the simulation
   // ever held. Called from the constructor and from update()'s tail so
   // every state is covered by one call site.
+  // Post-respawn invincibility flash — the arcade behaviour measured beside
+  // RESPAWN_INVINCIBLE_S above. Driven off the SAME timer that gates the hit
+  // test, so the thing the player sees and the thing that protects him cannot
+  // drift apart; when the timer reaches 0 the sprite is restored on that tick.
+  //
+  // READ THIS BEFORE MEASURING ANYTHING OFF A FRAME OF PLAIN `?demo=1`:
+  // the player sprite is now ABSENT from roughly 3 frames in 8 for 2.0 s after
+  // every respawn, which at our death rate is a few per cent of all frames. A
+  // single-frame jet measurement that lands in one reads "no jet", and that is
+  // not a defect. Two defences, both deliberate:
+  //   * `?invincible=1` suppresses the flash entirely, and that is already the
+  //     documented path for roam/composition measurement (demoTimeline.js's
+  //     OPERATOR note says why deaths must be suppressed for those anyway);
+  //   * `window.__flowState().graceFlashHidden` reports it per tick, so a
+  //     probe can exclude those ticks instead of inferring from pixels.
+  _applyGraceFlash() {
+    const s = this.player && this.player.sprite;
+    if (!s) return;
+    const flashing = this.invincibleTimer > 0 && !this._debugInvincible;
+    if (flashing) {
+      const elapsed = RESPAWN_INVINCIBLE_S - this.invincibleTimer;
+      s.visible = elapsed % GRACE_FLASH_PERIOD_S < GRACE_FLASH_ON_S;
+    } else if (this._graceFlashing) {
+      s.visible = true; // the tick the window closes, whatever phase it ended on
+    }
+    this._graceFlashing = flashing;
+  }
+
   _publishThrottle() {
     this.hudState.throttle = THROTTLE_LETTER[this.throttleIndex];
     this.hudState.throttleFraction = THROTTLE_BAR_FRAC[this.throttleIndex];
@@ -478,6 +534,7 @@ export class GameFlow {
 
     if (this.invincibleTimer > 0) this.invincibleTimer = Math.max(0, this.invincibleTimer - dt);
     const invincible = this._debugInvincible || this.invincibleTimer > 0;
+    this._applyGraceFlash();
 
     if (this.combat) {
       if (this._forceDeathAt !== null && !this._forcedDeathDone && simTime >= this._forceDeathAt) {
