@@ -98,11 +98,116 @@ function worldYForScreenFrac(targetFrac, z) {
 // and S<0.35, n=30514) reads modal #fdfafe, p50 (249,246,250), p25
 // (244,241,245), p2 (210,207,211) — white with a faint lavender cast and
 // shading that bottoms out around the third rung.
+// R6 gap 1 — CLOUDS WERE THE WHOLE REMAINING CRITERION A FAILURE, and the
+// sea rebuild is what exposed it. Once the ground stopped emitting
+// continuous tone, a per-region split of a six-frame stage-1 run read:
+//
+//   frame   sky+cloud rows [0,130)        ground rows [145,224)
+//           colours / channel values      colours / channel values
+//   0           17 /  23                      42 / 18
+//   3           86 / 105                      41 / 18
+//   4          714 / 221                      42 / 18
+//
+// The ground is invariant at 18 channel values on every frame; the whole
+// 55 -> 753 colour / 31 -> 221 channel-value swing that fails the frame
+// gate lives in the cloud sprites, and it switches on with cloud SIZE.
+// Two mechanisms, both continuous-tone by construction:
+//
+//   1. MINIFICATION. makeCloudTexture keeps magFilter NEAREST but leaves
+//      minFilter at three's mipmapped trilinear default, deliberately: R3
+//      measured that nearest minification shatters a shrinking cloud into
+//      12-14 disconnected components (target max 6) and crushes its width
+//      to ~1.9%W against 9.26. That fix is correct and stays. But trilinear
+//      blends palette rungs against each other, so a cloud smaller than its
+//      texture emits arbitrary intermediate colours — which is exactly why
+//      frames 0/1/2/5 (one large, magnified cloud) read 17 colours and
+//      frames 3/4 (smaller, minified) read 86 and 714.
+//   2. ALPHA BLENDING. The soft perimeter blends cloud against #009fff sky
+//      across a one-pixel ramp, generating a fresh continuum at every edge.
+//      1987 sprite hardware cannot do this at all: a sprite pixel is either
+//      an opaque palette index or the transparent index. The soft edge was
+//      never arcade-correct, it was a three.js default.
+//
+// The fix keeps the filtering (so the silhouette stays coherent) and
+// removes the continuum AFTER it: snap the filtered texel to the nearest
+// entry of this cloud's own 6-colour palette, and make coverage 1-bit.
+// Snapping to the PALETTE rather than to the 31-rung hardware ladder is
+// the stronger choice — a ladder snap would still let two palette rungs
+// interpolate into a third, valid-but-unauthored rung, whereas a palette
+// snap also satisfies Criterion A3 ("<=8 colours for an aircraft, vehicle
+// or cloud sprite") by construction, against the arcade cloud puff's
+// measured 5.
+//
+// The comparison runs in LINEAR working space, not sRGB. palUniform is
+// built with THREE.Color's sRGB->linear decode and the texture is tagged
+// SRGBColorSpace, so map_fragment hands us a decoded texel and both sides
+// of the distance test are in the same space; the renderer re-encodes on
+// write. Getting this backwards is this project's most-repeated bug, so it
+// is verified by measurement rather than by reading: cloud pixels must come
+// back EXACTLY the authored hexes, not near them.
 const CLOUD_PALETTES = {
   day: ['#f7f7f7', '#e6e6f7', '#d6d6e6', '#c5c5d6', '#b5b5c5', '#a4a4b5'],
   desert: ['#f7f7e6', '#f7f7b5', '#e6e6a4', '#d6d694', '#c5c584', '#b5b573'],
   night: ['#f7f7f7', '#e6d6e6', '#d6c5d6', '#c5b5c5', '#b5a4b5', '#a494a4'],
 };
+
+// The palette as a linear-space uniform, shared by every bank's material so
+// setStage() can repoint all of them with one write. Length is fixed at
+// PAL_N because a GLSL array size must be a constant; every CLOUD_PALETTES
+// entry is exactly that long.
+const PAL_N = 6;
+
+function makePaletteUniform(palette) {
+  return {
+    value: palette.map((hex) => {
+      const c = new THREE.Color().setStyle(hex, THREE.SRGBColorSpace);
+      return new THREE.Vector3(c.r, c.g, c.b);
+    }),
+  };
+}
+
+function setPaletteUniform(uniform, palette) {
+  palette.forEach((hex, i) => {
+    const c = new THREE.Color().setStyle(hex, THREE.SRGBColorSpace);
+    uniform.value[i].set(c.r, c.g, c.b);
+  });
+}
+
+// Patch three's built-in sprite shader rather than replacing the material:
+// THREE.Sprite's billboarding lives in that shader's vertex stage, so a
+// hand-rolled ShaderMaterial would have to reimplement it. The hook point is
+// <alphatest_fragment>, which runs after <map_fragment> has sampled and
+// decoded the texture into diffuseColor.
+function applyArcadeSpriteQuantization(material, palUniform) {
+  material.onBeforeCompile = (shader) => {
+    shader.uniforms.uPal = palUniform;
+    shader.fragmentShader = shader.fragmentShader
+      .replace('void main() {', `uniform vec3 uPal[${PAL_N}];\nvoid main() {`)
+      .replace(
+        '#include <alphatest_fragment>',
+        `
+        // 1-bit coverage, as the hardware has. 0.5 on the trilinear-filtered
+        // alpha is a coverage threshold, so the silhouette tracks the
+        // filtered shape instead of fragmenting the way a nearest-minified
+        // alpha did in R3.
+        if ( diffuseColor.a < 0.5 ) discard;
+        diffuseColor.a = 1.0;
+        vec3 qBest = uPal[0];
+        float qBestD = 1e9;
+        for ( int qi = 0; qi < ${PAL_N}; qi++ ) {
+          vec3 qd = diffuseColor.rgb - uPal[qi];
+          float qdd = dot( qd, qd );
+          if ( qdd < qBestD ) { qBestD = qdd; qBest = uPal[qi]; }
+        }
+        diffuseColor.rgb = qBest;
+        `
+      );
+  };
+  // Changing onBeforeCompile after a material has been used requires a
+  // recompile; set it before first render and three picks it up on the
+  // initial program build.
+  material.needsUpdate = true;
+}
 
 // Cumulus texture. AUTHORED FROM THE NATIVE-RESOLUTION REFERENCE, not from
 // a shading model: ab2-arcade-desert.png and ab2-arcade-night-banking.png
@@ -398,11 +503,13 @@ export function createClouds(stage, camera, seed = 1) {
   const rngCosmetic = createPrng(seed + 7919); // offset, not derived from rngStruct's output
   const group = new THREE.Group();
   let palette = CLOUD_PALETTES[stage.cloudPalette] || CLOUD_PALETTES.day;
+  const palUniform = makePaletteUniform(palette);
 
   const banks = [];
   for (let b = 0; b < BANK_SLOTS; b++) {
     const texture = makeCloudTexture(rngCosmetic, palette);
     const material = new THREE.SpriteMaterial({ map: texture, transparent: true });
+    applyArcadeSpriteQuantization(material, palUniform);
     const sprite = new THREE.Sprite(material);
     sprite.visible = false;
     group.add(sprite);
@@ -468,6 +575,7 @@ export function createClouds(stage, camera, seed = 1) {
       const next = CLOUD_PALETTES[newStage.cloudPalette] || CLOUD_PALETTES.day;
       if (next === palette) return;
       palette = next;
+      setPaletteUniform(palUniform, palette);
       for (const bank of banks) {
         bank.material.map.dispose();
         bank.material.map = makeCloudTexture(rngCosmetic, palette);

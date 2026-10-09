@@ -1,0 +1,16 @@
+import { createServer } from 'vite';
+import puppeteer from 'puppeteer';
+const server = await createServer({ root: '/Users/urizonens/dev/afterburner-three', server:{hmr:false}, logLevel:'error' });
+await server.listen();
+const port = server.config.server.port || server.httpServer.address().port;
+const b = await puppeteer.launch({ headless:'new', args:['--no-sandbox','--disable-setuid-sandbox'] });
+const p = await b.newPage();
+const errs=[];
+p.on('pageerror', e=>errs.push('PAGEERROR: '+(e && e.stack || e)));
+p.on('console', m=>{ if(m.type()==='error') errs.push('CONSOLE: '+m.text()); });
+await p.goto(`http://localhost:${port}/?fixed=1&seed=1&nocombat=1`, {waitUntil:'load'});
+await new Promise(r=>setTimeout(r,3000));
+console.log('frameReady =', await p.evaluate(()=>window.__frameReady));
+console.log('has __step =', await p.evaluate(()=>typeof window.__step));
+console.log(errs.join('\n') || '(no errors)');
+await b.close(); await server.close();

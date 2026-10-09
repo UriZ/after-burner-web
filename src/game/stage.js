@@ -46,18 +46,26 @@ export const STAGE_1 = {
   // #fdfafe, p50 (249,246,250), p2 (210,207,211)).
   cloudPalette: 'day',
 
-  // Sea (R1 gap 1 — replaces the flat-checker ocean/green-island fill).
-  // H=235deg S=1.00 from stage_data.gd #124 (hue-histogram percentile pass,
-  // V25/V75 0.796/0.925 — descriptive percentiles, NOT the texture's
-  // extremes). R3 gap-2 (REFERENCE.md "Sea texture, stage 1 — direction and
-  // contrast"): binding contrast stats are p5-p95 value spread 0.302-0.329
-  // and 23.4-38.8% of sea pixels above V 0.95 (foam) — far wider than the
-  // V25/V75 band, which only described the MIDDLE 50%. vLo/vHi here are
-  // widened accordingly (base gradient, BEFORE ground.js's separate foam
-  // layer pushes a fraction toward 1.0); anisotropy orientation is
-  // CROSS-track, magnitude >=2.5x.
-  // R5: these values and ground.js's whole 'sea' code path are UNCHANGED —
-  // they carry the R4 judge's passing 6.51x anisotropy measurement.
+  // Sea. R6 gap 1 REBUILD — the R5 judge, the art critic and the feel critic
+  // each measured the old continuous-tone HSV field independently and it
+  // failed REFERENCE.md's Criteria A and B by two orders of magnitude
+  // (14 344 colours / 238 channel values against 138 / 31; 28.3% H and 3.3% V
+  // adjacent-pixel identity against 68.7 / 68.5). The colour decisions now
+  // live in ground.js's `seaRamp`/`seaCap`, which are measured, enumerated
+  // arcade-ladder palettes; what stays here is the geometry of the field.
+  //
+  // hueDeg/satLo/satHi/vLo/vHi are NO LONGER READ on this stage — the sea
+  // branch addresses a palette instead of composing HSV. They are kept
+  // because `paramsFor()` feeds every uniform for every mode and because the
+  // measured values are the provenance of the palette itself (H 235deg
+  // S 1.00 from stage_data.gd #124; REFERENCE.md's p5-p95 value spread
+  // 0.302-0.329 is reproduced by the ramp's own endpoints, #000084 V 0.518
+  // to #0010f7 V 0.969).
+  //
+  // freqX/freqZ/grainFreqX/grainFreqZ are UNCHANGED. They carry the
+  // cross-track orientation and the common-resolution anisotropy figure
+  // (ours 4.95x vs arcade 5.21x at 686x480), and nothing in the rebuild
+  // needed them moved — the defect was colour and sampling, not frequency.
   terrain: {
     hueDeg: 235,
     hueJitterDeg: 14, // +/-7deg
@@ -70,6 +78,52 @@ export const STAGE_1 = {
     grainFreqX: 1.12,
     grainFreqZ: 0.366,
     coarsenPower: 0.0, // R4 gap-10 depth refinement stays OFF here, see ground.js
+    // Coarse swell: the only base layer still above Nyquist in the mid and
+    // far field (see ground.js's fbmLod). Long across-track, shorter
+    // along-track — the same cross-track orientation as the wave layer.
+    swellFreqX: 3.2,
+    swellFreqZ: 9.0,
+    // Index-field amplification. seaWaveAmp/seaGrainAmp are the constants
+    // the old path used to drive its value channel (1.8 / 1.3), kept so the
+    // spatial character of the field is unchanged; they now address
+    // seaRamp's 16 entries instead of an HSV triple.
+    seaSwellAmp: 2.0,
+    seaWaveAmp: 2.7,
+    seaGrainAmp: 0.5,
+    // Hard ceiling on the base stack at ramp index 11 (t < 0.75), so the
+    // brightest rung (#0010f7 and up, V > 0.95) can only come from the
+    // sparse crest scatter. See the clamp's comment in render/ground.js:
+    // without it the swell layer's broad bands landed at the top of the
+    // ramp and produced an 84x16 bright blob where the arcade's largest is
+    // 82 px in total.
+    seaBaseCeil: 0.74,
+    seaLodBoost: 2.6,
+    // White/cream cap DASHES, two non-commensurate sparse scatter layers.
+    // Sized in native pixels at d = 8.58 against the arcade's measured dash
+    // geometry (w p90 9 px / h p90 4 px, nothing above 38 x 8, foam 19.5%
+    // of the 280x48 near patch — tools/measure_sea_dashes.py). The previous
+    // values here were 2.2 / 0.5 / 9.0 / 3.2 and that 9.0 is 225 native
+    // columns wide in the near field: it painted one pale slab across the
+    // whole patch. See the shader comment in render/ground.js.
+    capFreqX: 0.40,
+    capFreqZ: 0.70,
+    capFreq2X: 0.27,
+    capFreq2Z: 0.40,
+    capThreshold: 0.89,
+    capWaveGate: 0.30,
+    // Haze band posterization. 7 steps over a band 9.2%H tall is ~3 native
+    // rows per step, which is the step height t116's own band shows.
+    hazeSteps: 7.0,
+    // Ragged, 1-bit haze coverage (R6 gap 1). See the long comment at the
+    // hazeMix site in render/ground.js: the arcade's haze/sea boundary is a
+    // jagged contour, ours was a horizontal cliff with a 100% slab above it.
+    // hazeFalloff 0 (against the 0.72 default) / hazeEnd 0.63: the ragged contour runs from the
+    // horizon row (140 of 224) down to row 153, which is where the arcade's
+    // own measured coverage reaches zero. 0.63 of a 9.2%H (20.6-row) band
+    // is 13 rows.
+    hazeDither: 1.0,
+    hazeFalloff: 0.0,
+    hazeEnd: 0.63,
   },
 
   // Horizon haze band (R1 gap 8). MEASURED REFERENCE.md "Horizon", t116
@@ -130,6 +184,10 @@ export const STAGE_2 = {
   skyTop: srgbHex('#e67300'),
   skyHorizon: srgbHex('#f7ce00'),
   skyGlowElevDeg: 4.0,
+  // Posterize + 4x4-dither the glow (R6 gap 1). See render/sky.js: the
+  // continuous ramp was emitting 111 channel values in the horizon band
+  // against Criterion A's <=32 for the whole frame.
+  skySteps: 7,
   // MEASURED ab2-arcade-desert.png (native, STAGE 2): the clouds are
   // CREAM, not white — y[92,122] x[200,232] and y[110,140] x[240,275] run
   // #f7f7e6 / #f7f7b5 / #e6e6a4 / #d6d694 / #c5c584 / #b5b573.
@@ -161,8 +219,9 @@ export const STAGE_2 = {
     // ~2.7 px of 686 = 1.26 NATIVE px, near-isotropic (horiz 0.851/0.609/
     // 0.454 vs vert 0.824/0.557/0.421 at lags 1/2/3). Far finer and far
     // less directional than stage 1's sea.
-    grainFreqX: 0.19,
-    grainFreqZ: 0.72,
+    grainFreqX: 0.07,
+    grainFreqZ: 0.20,
+    stipLodBoost: 0.35,
     // Depth refinement (R4 gap 10) stays OFF on every stage — see the
     // freqBoost comment in ground.js for the ill-conditioning that makes
     // it produce per-pixel noise rather than finer detail.
@@ -184,12 +243,45 @@ export const STAGE_2 = {
     // (~9.8 world units, where the visible half-width is ~7.3 units) a
     // period of 6.5 puts about two band centres across the near frame,
     // matching the reference's one road plus one partial.
-    bandPeriod: 11.0,
-    bandWander: 3.0,
-    bandWaveLen: 34.0,
-    roadHalfWidth: 0.085,
-    roadFeather: 0.075,
-    roadEdgeJitter: 0.26,
+    // R6 gap 5, the other half. These were 11.0 / 3.0 / 34.0 / 0.085 and
+    // the R5 judge costed the result as a RACETRACK: lanes radiating from
+    // the vanishing point, symmetric about the flight axis.
+    //
+    // The band model is right and the measurement behind it is right — the
+    // arcade's ground IS organised into strips running along the flight
+    // axis. What was wrong is the SCALE, and the reason it was wrong is a
+    // perspective argument the original note missed. The period was fitted
+    // against ab2-arcade-desert.png, which is a STEEP/TOP-DOWN frame (it
+    // has no sky at all, which is why Criterion B's operator special-cases
+    // it): from above you see a wide swath of ground, so several strips
+    // are in frame at once and a short period reproduces that. The LEVEL
+    // forward view sees a narrow corridor instead, and
+    // reference/stage2-flight-t140.png shows what that looks like: ONE
+    // vegetation mass with one irregular edge, plus one road. Both frames
+    // are consistent with a period far larger than 11 world units; only
+    // the top-down one is consistent with 11.
+    //
+    // Sized from the view frustum rather than refitted by eye. Visible
+    // ground half-width is d * halfTanFov * aspect = 0.744 * d, so it is
+    // 7.3 world units at the near field (d = 9.8) and 45 at d = 60 where
+    // the haze takes over. A period of 90 puts at most one band boundary
+    // across the whole visible wedge, which is the "one chunky mass" the
+    // reference shows, and leaves the near field entirely inside a single
+    // band. Wander is raised to 22 over a 150-unit wavelength so that one
+    // boundary MEANDERS across depth into a diagonal rather than standing
+    // as a straight line down the middle.
+    //
+    // roadHalfWidth and roadEdgeJitter are fractions of the HALF-PERIOD,
+    // so they are rescaled to hold their world size: the road in t140 is
+    // ~9% of frame width, which at the near field is ~1.1 world units of
+    // half-width, i.e. 1.1/45 = 0.024. Keeping the old 0.085 against a
+    // 45-unit half-period would have painted a 96-native-pixel road.
+    bandPeriod: 90.0,
+    bandWander: 22.0,
+    bandWaveLen: 150.0,
+    roadHalfWidth: 0.024,
+    roadFeather: 0.020,
+    roadEdgeJitter: 0.072,
     // Road surface: MEASURED ab2-arcade-desert.png #d6b584 (y=180 x20-36,
     // S 0.38 V 0.84), #c59463 (y=100 x59-64, S 0.50 V 0.77), #b58463
     // (y=180 x97-101), #946352 (y=180 x91-94, S 0.44 V 0.58). Mid of that
@@ -204,8 +296,18 @@ export const STAGE_2 = {
     plainColor: srgbHex('#e67300'),
     vegHalfWidth: 0.74,
     vegFeather: 0.10,
-    openWaveLen: 34.0,
+    openWaveLen: 150.0,
     openAmp: 0.42,
+    // R6 gap 1: posterize the gold horizon band, the same mechanism stage 1
+    // uses. It was 15 channel values / 31 colours on its own (native rows
+    // 145-160). NOTE this key lives in `terrain`, not in `haze`, because
+    // ground.js's paramsFor() only reads stage.terrain — putting it under
+    // `haze` beside bandHeightFrac, which is where it reads as if it
+    // belongs, is a silent no-op.
+    // Steps only, no 1-bit dither: stage 2's band is a genuine gradient in
+    // the reference, unlike stage 1's, whose boundary into the sea is a
+    // ragged contour.
+    hazeSteps: 6.0,
   },
 
   // Ground-side horizon haze. MEASURED ab2-arcade-desert.png: the gold band
@@ -239,6 +341,10 @@ export const STAGE_3 = {
   skyTop: srgbHex('#000005'),
   skyHorizon: srgbHex('#000331'),
   skyGlowElevDeg: 1.5,
+  // Same fix as stage 2; its band was 46 channel values. Fewer steps
+  // because the whole ramp is #000005 -> #000331, three ladder rungs of
+  // travel, so more steps would only re-emit intermediate values.
+  skySteps: 4,
   // MEASURED ab2-arcade-night-banking.png (native): white with a
   // lavender-grey ramp — #f7f7f7 / #e6d6e6 / #d6c5d6 / #c5b5c5 / #b5a4b5 /
   // #a494a4 over the cloud at y[48,90] x[58,102].

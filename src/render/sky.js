@@ -51,11 +51,65 @@ export function createSky(camera, stage) {
     uniform vec3 uTop;
     uniform vec3 uHorizon;
     uniform float uGlowElev; // radians of elevation over which the glow fades out
+    uniform float uSkySteps; // 0 = continuous ramp; >0 = posterized + dithered
     varying vec3 vWorldDir;
+
+    // 4x4 ordered (Bayer) threshold in [0,1). gl_FragCoord is in NATIVE
+    // 320x224 pixels here -- ARCHITECTURE.md D3 renders at native and blits
+    // nearest-neighbour -- so this is a true 4x4 pixel cell, not a cell
+    // smeared across the upscale.
+    float bayer4(vec2 p) {
+      int x = int(mod(p.x, 4.0));
+      int y = int(mod(p.y, 4.0));
+      int i = x + y * 4;
+      float m[16];
+      m[0]=0.0;  m[1]=8.0;  m[2]=2.0;  m[3]=10.0;
+      m[4]=12.0; m[5]=4.0;  m[6]=14.0; m[7]=6.0;
+      m[8]=3.0;  m[9]=11.0; m[10]=1.0; m[11]=9.0;
+      m[12]=15.0;m[13]=7.0; m[14]=13.0;m[15]=5.0;
+      float v = 0.0;
+      for (int k = 0; k < 16; k++) { if (k == i) v = m[k]; }
+      return (v + 0.5) / 16.0;
+    }
+
     void main() {
       float elev = asin(clamp(normalize(vWorldDir).y, -1.0, 1.0));
       float t = uGlowElev > 0.0 ? clamp(elev / uGlowElev, 0.0, 1.0) : 1.0;
-      gl_FragColor = vec4(mix(uHorizon, uTop, smoothstep(0.0, 1.0, t)), 1.0);
+      float s = smoothstep(0.0, 1.0, t);
+      // R6 gap 1 — THE SKY GLOW WAS THE WHOLE CRITERION A FAILURE ON
+      // STAGES 2 AND 3, and it was being blamed on the ground.
+      //
+      // MEASURED on the clouds-preview harness at native, splitting the
+      // frame by region (channel values, union over RGB):
+      //
+      //   region                    stage 1   stage 2   stage 3
+      //   sky rows 0-120                 21        22        16
+      //   HORIZON rows 120-145           12       111        46
+      //   ground rows 145-195            13        16         9
+      //   whole frame                    30       121        63
+      //
+      // Stage 1 passes at 30 and stages 2 and 3 fail at 121 and 63 —
+      // entirely in the horizon band, and their GROUNDS are the cleanest
+      // part of the frame (16 and 9). What differs is that stage 1's sky
+      // is a flat fill (skyGlowElevDeg 0, so this ramp is inert) while 2
+      // and 3 run a real gradient here: #e67300 -> #f7ce00 over 4 deg of
+      // elevation, and #000005 -> #000331 over 1.5 deg. ground.js
+      // quantizes its own output to the arcade ladder; this file never
+      // did, so a smooth mix of two ladder colours emitted every value
+      // between them.
+      //
+      // Posterize plus a 4x4 ordered dither rather than posterize alone:
+      // the glow is only a few degrees tall, so N flat bands across it
+      // would be N visible hard lines across the sky. The dither spreads
+      // each boundary over a 4-pixel cell, which is what the hardware does
+      // and what the arcade's own skies show, and it costs no extra
+      // colours — the output is still exactly N+1 mixes of two colours.
+      if (uSkySteps > 0.0) {
+        float f = s * uSkySteps;
+        float base = floor(f);
+        s = clamp((base + step(bayer4(gl_FragCoord.xy), f - base)) / uSkySteps, 0.0, 1.0);
+      }
+      gl_FragColor = vec4(mix(uHorizon, uTop, s), 1.0);
     }
   `;
   const material = new THREE.ShaderMaterial({
@@ -63,6 +117,7 @@ export function createSky(camera, stage) {
       uTop: { value: stage.skyTop },
       uHorizon: { value: stage.skyHorizon },
       uGlowElev: { value: THREE.MathUtils.degToRad(stage.skyGlowElevDeg ?? 0) },
+      uSkySteps: { value: stage.skySteps ?? 0 },
     },
     vertexShader,
     fragmentShader,
@@ -91,6 +146,7 @@ export function createSky(camera, stage) {
     material.uniforms.uTop.value = newStage.skyTop;
     material.uniforms.uHorizon.value = newStage.skyHorizon;
     material.uniforms.uGlowElev.value = THREE.MathUtils.degToRad(newStage.skyGlowElevDeg ?? 0);
+    material.uniforms.uSkySteps.value = newStage.skySteps ?? 0;
   };
   return mesh;
 }
