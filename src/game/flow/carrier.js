@@ -8,6 +8,7 @@ import {
   bufferToTexture,
 } from '../../render/spriteFactory.js';
 import { worldYForScreenFrac, worldWidthAtDepth } from '../../core/cameraGeom.js';
+import { assertOnLadder } from '../../ui/ladder.js';
 
 // The carrier the game launches off. feel-critique.md §7.2 / §10 rank 5: "the
 // carrier catapult launch has no carrier in it ... it spends the opening on
@@ -52,6 +53,24 @@ import { worldYForScreenFrac, worldWidthAtDepth } from '../../core/cameraGeom.js
 // ship is grey, so the error is a small uniform brightening rather than a hue
 // shift; if a native frame ever lands, re-sample rather than scaling these.
 //
+// R8, AND THE PARAGRAPH ABOVE IS WHY THIS CHANGE IS AS SMALL AS IT IS. The
+// R7 art critique ranked the carrier the second-largest off-ladder object in
+// the build, and the launch measures 19-31 channel values with 1-13 off the
+// ladder (tools/out/ladder-r8/before-launch-{3,5,11}, 40 frames at each of
+// three tick spacings). Twelve of those thirteen are these six constants; the
+// thirteenth is the stage-1 sky's 159, which is not a defect. So each one is
+// snapped to its NEAREST rung -- max delta 3/255, nothing scaled, nothing
+// inferred -- which is exactly what the sentence above asks for and is the
+// same rule titleScreen.js and cards.js now state at length. A level
+// de-expansion was considered and rejected there for a reason that applies
+// here too: REFERENCE's own two measurements of the expansion disagree about
+// its slope (x0.969 on HUD white, x0.950 on stage 2's sky), so dividing it
+// back out would be a model the repo's own data contradicts. The deck's
+// #ffffff is already on the ladder and is left alone.
+//
+// Nothing structural moved: the trapezoid, the island placement, the deck
+// markings and the keyline call are untouched.
+//
 // NOT REPRODUCED, deliberately: the arcade paints "SEGA" and "ENTERPRISE"
 // across the deck in blue and green. That is SEGA's trade dress and
 // CLAUDE.md's assets rule is absolute, so our deck carries an abstract
@@ -59,13 +78,16 @@ import { worldYForScreenFrac, worldWidthAtDepth } from '../../core/cameraGeom.js
 // proportions and the palette are measured; the lettering is not copied.
 // ---------------------------------------------------------------------------
 
-const DECK_LIGHT = '#c6c4e7';
-const DECK_MID = '#b5b3c5';
-const ISLAND_MID = '#9294b3';
-const ISLAND_DARK = '#505065';
-const HULL_DARK = '#201f26';
+const DECK_LIGHT = '#c5c5e6';
+const DECK_MID = '#b5b5c5';
+const ISLAND_MID = '#9494b5';
+const ISLAND_DARK = '#525263';
+const HULL_DARK = '#212129';
 const MARKING = '#ffffff';
-const KEYLINE = '#12121a';
+const KEYLINE = '#101019';
+
+const CARRIER_PALETTE = [DECK_LIGHT, DECK_MID, ISLAND_MID, ISLAND_DARK, HULL_DARK, MARKING, KEYLINE];
+assertOnLadder(CARRIER_PALETTE, 'carrier');
 
 // Texture is authored at 208x124 so one authored texel is ~1.6 native px at
 // the opening framing (50.87 %W of a 320-wide render = 163 px across the 188

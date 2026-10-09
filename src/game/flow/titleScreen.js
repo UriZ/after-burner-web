@@ -1,5 +1,6 @@
 import { drawText, textWidth } from '../../ui/font.js';
 import { drawTitleText, titleTextWidth, TITLE_GLYPH_H } from '../../ui/titleFont.js';
+import { assertOnLadder } from '../../ui/ladder.js';
 
 // Title screen. R5 rebuild for judge-R4 gap 8 ("a layout match with
 // placeholder typography"). Everything below is sized and positioned from
@@ -25,26 +26,77 @@ import { drawTitleText, titleTextWidth, TITLE_GLYPH_H } from '../../ui/titleFont
 // card (step 3). The II itself is no longer a stand-in — it is rendered as
 // the real sphere matrix with molten cores.
 
+// ---------------------------------------------------------------------
+// THE PALETTE, R8. Every value below moved, and the rule that moved it is
+// stated once here rather than per constant.
+//
+// WHY. The R7 art critique measured this screen at **26 colours, 53 channel
+// values, 44 of them off the Sega ladder — the most off-ladder surface in
+// the build, failing Criterion A2 by 21 values** — and nobody had seen it,
+// because `?showtitle=1` is in no lane's isolation grid. Reproduced here
+// exactly on a clean worktree of 82365e9 (`tools/out/ladder-r8/before-title-*`,
+// 8 frames at each of three tick spacings: 26 / 53 / 44, every frame).
+//
+// THE RULE, and it is deliberately the dull one. t74 is a 686x480 frame of
+// `ab2-longplay.mp4` — the exact chain REFERENCE.md ("THE LONGPLAY VIDEO IS
+// NOT LEVEL-ACCURATE") measured a level expansion on, so every constant here
+// was read too bright, which is why none of them landed on a rung. The
+// tempting fix is to divide the expansion back out. **Do not: REFERENCE's own
+// two measurements of it disagree about its slope.** Native/video `#f7f7f7` ->
+// `#ffffff` is x0.969, and stage 2's sky `#e67300` -> `#f27500` is x0.950 —
+// "12 levels brighter in R", that document's words. A linear de-expansion is
+// therefore a model this repo's own data contradicts, and it was tried here
+// and withdrawn rather than shipped.
+//
+// What ships instead uses measurements only:
+//   1. where REFERENCE publishes the native counterpart of that exact ink,
+//      the published native value wins —
+//        board white  #f5f2f6 -> #f7f7f7
+//        board red    #ff1600 -> #f70000  (#ff1500 and the molten core are
+//                                          the same ink, measured through the
+//                                          same chain, and `#ff19xx` would be
+//                                          this chain's chroma lift preserved)
+//   2. everything else gets the MINIMAL nearest-rung snap and nothing
+//      inferred. Deltas are 1-4 levels, which REFERENCE.md itself calls
+//      visually nil.
+// The seven in group 2 keep t74's video provenance and a true-native title
+// screenshot would settle them outright — logged in judging/R8/ask-ladder.md
+// as an acquisition item, in the form of STATUS.md's existing two.
+//
+// The screen's channel-value set is now 14 values, all on the ladder.
+// ---------------------------------------------------------------------
 const BLACK = '#000000';
-// t74 letter interiors x[260,546] y[109,200], min-channel>180 class: #f5f2f6.
-const WHITE = '#f5f2f6';
+// t74 letter interiors x[260,546] y[109,200], min-channel>180 class: #f5f2f6
+// -> the board's own white. The read is also non-neutral (245/242/246) where
+// a hardware white is neutral by construction, which is upscale blur against
+// the blue sphere field behind the lettering.
+const WHITE = '#f7f7f7';
 // t74 leading "A" x[150,235]: #0096fb.  Leading "B" x[99,180]: #ff1600.
-const BLUE_A = '#0096fb';
-const RED_B = '#ff1600';
-// t74 "INSERT COIN!" x[257,435] y[392,412]: #ff1500.
-const RED_COIN = '#ff1500';
+const BLUE_A = '#0094f7';
+const RED_B = '#f70000';
+// t74 "INSERT COIN!" x[257,435] y[392,412]: #ff1500 — the same board red.
+const RED_COIN = '#f70000';
 // t74 "CREDIT 0" x[30,172] y[443,462]: #ffc4ff.
-const PINK = '#ffc4ff';
+const PINK = '#ffc5ff';
 // t74 "(c)SEGA 1987" x[494,652] y[443,462]: #00a9ff.
-const BLUE_COPY = '#00a9ff';
+const BLUE_COPY = '#00adff';
 // t74 sphere field, blue-dominant class inside x[279,486]: #7285d8 modal.
 // Highlight and rim are the lit/shaded poles of the same sphere shading.
-const SPHERE = '#7285d8';
-const SPHERE_HI = '#bcc6f4';
-const SPHERE_RIM = '#404d9e';
+const SPHERE = '#7384d6';
+const SPHERE_HI = '#bdc5f7';
+const SPHERE_RIM = '#424a9c';
 // t74 molten cores, red class: #ff1600 modal (n=1683) with an orange mantle.
-const MOLTEN = '#ff1600';
-const MOLTEN_HOT = '#ff8a00';
+const MOLTEN = '#f70000';
+const MOLTEN_HOT = '#ff8c00';
+// The molten sphere's shaded rim, previously an inline literal #8c1400 in
+// drawSphere(). Hoisted so the whole palette is in one list for assertOnLadder.
+const MOLTEN_RIM = '#8c1000';
+
+const TITLE_PALETTE = [
+  BLACK, WHITE, BLUE_A, RED_B, RED_COIN, PINK, BLUE_COPY,
+  SPHERE, SPHERE_HI, SPHERE_RIM, MOLTEN, MOLTEN_HOT, MOLTEN_RIM,
+];
+assertOnLadder(TITLE_PALETTE, 'titleScreen');
 
 // Native-320x224 layout, all derived from the fractions above.
 const TITLE_SCALE = 3; // 14 rows * 3 = 42 native px cap height (t74: 42.4)
@@ -62,7 +114,7 @@ const SPHERE_PITCH = 7;
 function drawSphere(ctx, x, y, hot) {
   const base = hot ? MOLTEN : SPHERE;
   const hi = hot ? MOLTEN_HOT : SPHERE_HI;
-  const rim = hot ? '#8c1400' : SPHERE_RIM;
+  const rim = hot ? MOLTEN_RIM : SPHERE_RIM;
   ctx.fillStyle = base;
   ctx.fillRect(x + 1, y, 5, 7);
   ctx.fillRect(x, y + 1, 7, 5);
@@ -88,10 +140,33 @@ function insideII(px, py) {
   return Math.abs(localX - halfW / 2) <= stemHalf;
 }
 
+// THE HALF-PIXEL ROW STAGGER WAS MOST OF THIS SCREEN'S OFF-LADDER COUNT, and
+// it is not a palette defect at all — it is CLAUDE.md's named "Canvas2D
+// fractional positions silently antialias chunky pixel art into blur".
+//
+// `(row % 2) * (SPHERE_PITCH / 2)` is 3.5 on every odd row, so every fillRect
+// in drawSphere() on half the rows landed on a half-pixel x and Canvas2D
+// feathered both vertical edges. Measured on the committed build
+// (tools/out/ladder-r8/before-title-*): the screen holds **26 colours, of
+// which only 12 are authored constants**. The other 14 are exact 50/50 blends
+// of pairs of them — #97a5e6 is (SPHERE+SPHERE_HI)/2 to the level, #5969bb is
+// (SPHERE+SPHERE_RIM)/2, #39426c is (BLACK+SPHERE)/2, #ff5000 is
+// (MOLTEN+MOLTEN_HOT)/2 — over **867 px**, and they carried **24 of the 44
+// off-ladder channel values**. So snapping the palette alone, which is what
+// the critique prescribed, would have fixed barely half of it and the rest
+// would have regenerated itself off the snapped colours every redraw. It is
+// the same defect class as the alpha ramp the fx lane killed in R7: an
+// operator that MIXES authored colours puts new colours on screen no matter
+// how clean the authored ones are.
+//
+// 3 rather than 3.5: the stagger exists so the packed balls do not read as a
+// square grid, and 3-vs-4 against a 7 px pitch is a half-pixel of asymmetry
+// in a 7 px ball, which is below what native resolution can express. The
+// grid's appearance is unchanged; only the feathering is gone.
 function drawSphereII(ctx) {
   let row = 0;
   for (let py = II.y; py < II.y + II.h; py += SPHERE_PITCH, row++) {
-    const xOff = (row % 2) * (SPHERE_PITCH / 2);
+    const xOff = (row % 2) * Math.floor(SPHERE_PITCH / 2);
     for (let px = II.x + xOff; px < II.x + II.w; px += SPHERE_PITCH) {
       if (!insideII(px + 3, py + 3)) continue;
       // Molten band through the middle of the matrix, its edge wobbled by a
