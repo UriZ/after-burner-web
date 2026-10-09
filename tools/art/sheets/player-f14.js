@@ -430,7 +430,24 @@ function levelOps(c) {
   poly([[41, 24], [59, 24], [52.6, 30.8], [47.4, 30.8]], c.lightNeutral);
   // The dark slot between the engine bodies, at 76.6%H on the crop (a ~2.8%
   // of span gap in that row's runs), not a full-height hole.
-  poly([[46.0, 22.2], [54.0, 22.2], [52.6, 25.8], [47.4, 25.8]], c.key);
+  //
+  // R8 SHRINKS IT, because at 8x3.6 px it was not a slot, it was a MOUTH.
+  // The owner's reading of the whole aircraft was "still not good enough",
+  // and a black bar of maximum contrast sitting centred between two round
+  // orange glows with a magenta fleck above is a face before it is a jet --
+  // which is R4's own "two glowing eyes" defect arriving from the other side.
+  // Re-measured on the authoritative level crop, stage3-night-level-t175.png
+  // x[295,400] y[240,320] (a 2.144x upscale, so this is a PROPORTION read and
+  // not a colour one): the arcade's slot is ~7.6 x 1.6 NATIVE px on a jet of
+  // SPAN 117 and H 36 -- 6.5 % of span and 4.4 % of H. Ours was 8.2 % of span
+  // and 11.6 % of H, i.e. the right width and 2.6x the height.
+  // 6.4 x 1.6 local units is 6.5 % / 5.2 %; the height is held one notch above
+  // the arcade's because a 1.4 px box on this grid rasterizes to a dotted line.
+  // The flanking warmMid pair is the other half of the fix: the arcade's slot
+  // sits in a SHADED part of the body, so the step from body to black is two
+  // rungs, where ours went from the second-brightest cream straight to #000000.
+  poly([[45.4, 22.0], [54.6, 22.0], [53.4, 24.2], [46.6, 24.2]], c.warmMid);
+  poly([[46.8, 22.2], [53.2, 22.2], [52.4, 23.8], [47.6, 23.8]], c.key);
 
   // Canopy fleck — topmost body element, the only non-grey/non-orange
   // accent. REFERENCE.md's canopy-coverage bound: a fleck, never a shape.

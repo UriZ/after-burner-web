@@ -1,0 +1,163 @@
+<title>Round 7 Board</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@600;700&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+
+<style>
+  :root {
+    --ink:#0a0c11; --panel:#12161f; --panel2:#171d29; --rule:#262f3e; --rule2:#3a465c;
+    --text:#dde4f0; --dim:#8291a8; --dimmer:#5d6a7e;
+    --red:#f23a2e; --sky:#009fff; --amber:#f7ce00; --green:#3fc98a;
+    --display:"Chakra Petch","Trebuchet MS",sans-serif;
+    --body:"IBM Plex Sans","Helvetica Neue",Arial,sans-serif;
+    --mono:"IBM Plex Mono",ui-monospace,Menlo,monospace;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--ink);color:var(--text);font:400 15.5px/1.6 var(--body);padding:0 20px 80px}
+  .wrap{max-width:1000px;margin:0 auto}
+  code{font-family:var(--mono);font-size:.87em;color:#b9c6dc;background:#0e131c;border:1px solid var(--rule);border-radius:3px;padding:1px 5px}
+
+  header{padding:48px 0 22px;border-bottom:1px solid var(--rule)}
+  .eyebrow{font-family:var(--mono);font-size:11px;letter-spacing:.22em;text-transform:uppercase;color:var(--dimmer);margin-bottom:12px}
+  h1{font-family:var(--display);font-weight:700;font-size:clamp(30px,5vw,46px);line-height:1.03;margin:0 0 10px;letter-spacing:-.015em}
+  .meta{font-family:var(--mono);font-size:12px;color:var(--dimmer);display:flex;flex-wrap:wrap;gap:6px 24px}
+  .meta b{color:var(--dim);font-weight:500}
+
+  .tldr{margin:26px 0 0;background:var(--panel2);border:1px solid var(--rule2);border-left:4px solid var(--amber);border-radius:3px;padding:18px 20px}
+  .tldr h2{margin:0 0 8px;font-family:var(--display);font-size:19px;font-weight:600}
+  .tldr p{margin:0 0 8px;color:#c9d3e4;max-width:72ch}
+  .tldr p:last-child{margin:0}
+  .trend{font-family:var(--mono);font-size:12.5px;color:var(--dim);font-variant-numeric:tabular-nums}
+  .trend b{color:var(--amber)}
+
+  h2.sec{font-family:var(--display);font-weight:600;font-size:12.5px;letter-spacing:.2em;text-transform:uppercase;color:var(--dimmer);margin:46px 0 16px;padding-bottom:9px;border-bottom:1px solid var(--rule)}
+
+  table{border-collapse:collapse;width:100%;font-size:14px;margin:0 0 8px}
+  th,td{border-bottom:1px solid var(--rule);padding:7px 10px;text-align:left}
+  th{font-family:var(--mono);font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--dimmer);font-weight:600}
+  td.n{font-family:var(--mono);font-variant-numeric:tabular-nums;white-space:nowrap}
+  .ok{color:var(--green)} .miss{color:var(--red)} .arc{color:var(--dim)}
+  .tablewrap{overflow-x:auto}
+
+  .pairs{display:grid;gap:14px;grid-template-columns:repeat(auto-fit,minmax(290px,1fr))}
+  .pair{background:var(--panel);border:1px solid var(--rule);border-radius:4px;overflow:hidden}
+  .pair h3{margin:0;padding:11px 14px;font-family:var(--display);font-size:15px;font-weight:600;border-bottom:1px solid var(--rule)}
+  .pair .two{display:grid;grid-template-columns:1fr 1fr;gap:1px;background:var(--rule)}
+  .shot{position:relative;background:#000}
+  .shot img{display:block;width:100%;aspect-ratio:10/7;object-fit:contain;background:#000;image-rendering:pixelated}
+  .shot span{position:absolute;left:0;top:0;font-family:var(--mono);font-size:9.5px;letter-spacing:.14em;text-transform:uppercase;padding:3px 7px;background:rgba(8,10,14,.82)}
+  .shot.ours span{border-bottom:1px solid var(--sky)}
+  .shot.arc2 span{border-bottom:1px solid var(--amber)}
+  .pair p{margin:0;padding:11px 14px;font-size:13.5px;color:var(--dim);line-height:1.5}
+
+  ol.next{margin:0;padding-left:20px}
+  ol.next li{margin-bottom:9px;color:#c9d3e4}
+  ol.next li b{color:var(--text)}
+  .tag{font-family:var(--mono);font-size:9.5px;letter-spacing:.1em;text-transform:uppercase;border-radius:2px;padding:1px 6px;margin-right:7px;white-space:nowrap}
+  .t-new{color:#ffd6d2;border:1px solid color-mix(in srgb,var(--red) 55%,transparent)}
+  .t-carry{color:#ffeeb0;border:1px solid color-mix(in srgb,var(--amber) 45%,transparent)}
+
+  footer{margin-top:44px;padding-top:20px;border-top:1px solid var(--rule);color:var(--dimmer);font-size:13px}
+  footer a{color:var(--sky)}
+  @media(max-width:620px){.pair .two{grid-template-columns:1fr}}
+</style>
+
+<div class="wrap">
+
+<header>
+  <div class="eyebrow">After Burner II rebuild · round board</div>
+  <h1>Round 7</h1>
+  <div class="meta">
+    <span><b>build</b> 82365e9</span>
+    <span><b>previous verdict</b> R6 — 8/10 FAIL</span>
+    <span><b>R7 verdict</b> 8/10 — HOLD, FAIL</span>
+    <span><b>lanes</b> 5, all closed</span>
+  </div>
+</header>
+
+<div class="tldr">
+  <h2>Where we are</h2>
+  <p class="trend">Judge trend &nbsp; 3 → 4 → 6 → 7 → 7.5 → 8 → <b>8</b> (held)</p>
+  <p>
+    The judge confirmed five closures on its own instruments, several to the decimal, and said
+    <strong>the build now renders frames a player would accept as After Burner II</strong>. It
+    still refused to raise the score, in one sentence:
+  </p>
+  <p style="color:var(--text);border-left:2px solid var(--amber);padding-left:14px">
+    <em>Every closure I confirmed is in the rendering, and everything a player meets in the
+    first three minutes is in the playing, and none of that moved.</em>
+  </p>
+  <p>
+    A player sitting down would, in order: <strong>discover the game plays itself</strong>
+    (trigger held, stick centred, 71.7% of a tracking pilot and 5.35× the arcade's kill rate);
+    <strong>see "STAGE 1" again 102 seconds in</strong>; and <strong>find the throttle does
+    nothing</strong> — <code>scrollSpeed</code> has exactly one consumer, the ground mesh.
+  </p>
+</div>
+
+<h2 class="sec">What Round 7 changed</h2>
+
+<div class="tablewrap">
+<table>
+  <tr><th>measure</th><th>R6</th><th>R7</th><th>arcade / gate</th></tr>
+  <tr><td>Criterion A, ordinary play <em>with combat</em></td><td class="n">36–98 chan</td><td class="n ok">30 worst</td><td class="n arc">≤32</td></tr>
+  <tr><td>explosion arm</td><td class="n">21–230</td><td class="n ok">20–22</td><td class="n arc">≤32</td></tr>
+  <tr><td>stage-3 night ground, background identity</td><td class="n">45.2%</td><td class="n ok">91.2%</td><td class="n arc">93.9%</td></tr>
+  <tr><td>player jet value — three readings</td><td class="n">0.643 / 0.839 / 0.839</td><td class="n ok">0.839 / 1.000 / 0.969</td><td class="n arc">identical</td></tr>
+  <tr><td>player altitude spread</td><td class="n">6.07</td><td class="n ok">8.22</td><td class="n arc">7.73</td></tr>
+  <tr><td>flight share of wall clock</td><td class="n">78.2%</td><td class="n ok">70.7%</td><td class="n arc">69.4–73.5%</td></tr>
+  <tr><td>deaths / min, wall clock</td><td class="n">2.229</td><td class="n miss">2.114 — missed</td><td class="n arc">≤2.0</td></tr>
+  <tr><td>criteria ledger</td><td class="n">20 rows</td><td class="n">29 rows</td><td class="n arc">—</td></tr>
+</table>
+</div>
+
+<h2 class="sec">The build now</h2>
+
+<div class="pairs">
+  <div class="pair">
+    <h3>Stage 1 — cruise</h3>
+    <div class="two">
+      <div class="shot ours"><span>ours</span><img src="img/ours-stage1.png" alt="Our stage 1: dithered blue sea with white caps, cream jet, cloud bank"></div>
+      <div class="shot arc2"><span>arcade</span><img src="img/arc-stage1.png" alt="Arcade stage 1 reference frame"></div>
+    </div>
+    <p>Sea rebuilt from a continuous-tone shader into pixel art — 8,055 colours in a patch down to 15 — and the jet's black outline replaced with the arcade's one-sided dark-red shadow edge.</p>
+  </div>
+
+  <div class="pair">
+    <h3>Explosion</h3>
+    <div class="two">
+      <div class="shot ours"><span>ours</span><img src="img/ours-explosion.png" alt="Our explosion: white-hot core, yellow lobes, orange body, ragged red rim"></div>
+      <div class="shot arc2"><span>arcade</span><img src="img/arc-night.png" alt="Arcade night frame with the player jet inside a fireball"></div>
+    </div>
+    <p>Was the last continuous-tone object, blowing the colour gate by an order of magnitude the moment anything fired. Now 20–22 channel values — and the fire survived quantization.</p>
+  </div>
+
+  <div class="pair">
+    <h3>Stage 3 — night</h3>
+    <div class="two">
+      <div class="shot ours"><span>ours</span><img src="img/ours-stage3.png" alt="Our stage 3: flat black ground with dense coloured city lights"></div>
+      <div class="shot arc2"><span>arcade</span><img src="img/arc-desert.png" alt="Arcade native still, stage 2 desert"></div>
+    </div>
+    <p>The mottled navy field is gone; flat black carrying a dense scatter of coloured lights, within 2 points of the arcade's own background identity. <em>Arcade panel is the stage-2 native still — we hold no native stage-3 daylight frame.</em></p>
+  </div>
+</div>
+
+<h2 class="sec">Round 8 — the list</h2>
+
+<ol class="next">
+  <li><span class="tag t-new">gap 1</span><b>The gun plays the game.</b> Trigger held with the stick centred scores 71.7% of a two-axis tracking pilot, at <b>5.35× the arcade's own measured kill rate</b> (0.420/s, re-read off the HIT counter on 4 of 4 spans). The vertical stick — the dimension Round 6 was celebrated for adding — is worth +7.2%. And the consequence nobody priced: <em>playing well empties the sky.</em></li>
+  <li><span class="tag t-new">gap 2</span><b>The stage digit never exceeds 3.</b> It is <code>stageIndex % 3 + 1</code>. The arcade's counts 1, 2, 3, 4 … 6, extracted and read off the longplay at HIT-verified spans. A player sees the repeat inside 102 seconds.</li>
+  <li><span class="tag t-new">gap 3</span><b>Criterion A fails at every stage boundary</b> — 336 of 12,000 consecutive ticks over the gate, ~59 at each transition, caused by the tally overlay. <b>Every Criterion A capture taken this round was shorter than one stage</b>, so no method used could see it.</li>
+  <li><span class="tag t-new">gap 4</span><b>The throttle's only cue points the wrong way.</b> No weapon, spawner, enemy or cloud reads <code>scrollSpeed</code>; at H the ground runs 2.34× faster while nearer clouds crawl slower.</li>
+  <li><span class="tag t-new">gap 5</span><b><code>REACH_CEILING_NDC_Y</code> is derived from numbers that no longer exist</b> — including a lock radius absent from <code>lockSystem.js</code> — and Round 7 made it worse.</li>
+  <li><span class="tag t-carry">owner</span><b>Enemy jets look very bad; the player jet is still not good enough.</b> Raised by the owner after playing. The enemies are rimmed in heavy pure black — the exact treatment measured off the arcade and removed from the <em>player</em> jet last round, never applied to the enemy — and have holes of literal sky in the wing roots. In flight now.</li>
+  <li><span class="tag t-carry">carried</span><b>Three objects still off the hardware ladder</b>, two of which no isolation harness reaches: the death hulk, the carrier launch, and the title (53 channel values, 44 off-ladder).</li>
+</ol>
+
+<footer>
+  <p><b>The process finding that outranks any number here.</b> The headline claim — "Criterion A passes in ordinary play with combat" — <em>is true, and the lane's evidence for it did not support it</em>: its captures contained no weapon, no kill and no explosion, because <code>?fixed=1</code> without <code>?demo</code> injects no input at all. That is ledger row 21's own defect — a Criterion A figure quoted without its real population — recurring inside the repair for row 21, in the same table, one round later, by the lane that spent the round enforcing that rule on everyone else.</p>
+  <p><b>Blocked on footage we do not have.</b> No true-native stage-1 frame (three retired criteria wait on it) and no true-native level-astern frame — every native frame we hold is a banked pose.</p>
+  <p>Full reports: <code>judging/R7/report.md</code>, <code>art-critique.md</code>, <code>feel-critique.md</code>, <code>lane-*.md</code>. Ledger and gates: <code>REFERENCE.md</code>.</p>
+</footer>
+
+</div>

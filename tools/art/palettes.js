@@ -345,9 +345,34 @@ export const HUD = {
 // enemies ARE dark against a bright sky (reference/ab2-arcade-desert-
 // explosions.png). The defect was applying stage 2's polarity to stage 1,
 // so the fix must not apply stage 1's polarity to stage 2.
-function liveryOf(shadow, dominant, mid, highlight, specular, night) {
+// R8: THE KEYLINE IS NO LONGER THE PERIMETER, ON ANY LIVERY.
+// `keyline` below is still '#000000' and is still DRAWN -- but only inside
+// the nose intake and the nozzle housing, which is the only place the arcade
+// puts near-black on an aircraft (measured on the stage-1 enemy at t104 and
+// on the player's own native desert crop, two different frames, two different
+// aircraft, same answer). The outer silhouette is now a ONE-SIDED lower edge
+// in `shadow`, the livery's own darkest airframe tone, via
+// PixelCanvas.outlineSouth(). There is deliberately no separate `rim` role:
+// the arcade's rim IS its darkest airframe band (stage-1 enemy, bottom-most
+// row median V 0.661 against an interior median of 0.788 and a top-most row
+// of 0.953), so inventing a ninth colour for it would be inventing a colour
+// the arcade does not have and would blow the 8-per-sheet budget.
+//
+// R8b: `rim` IS A ROLE NOW, and it defaults to `shadow` so nothing changes by
+// day. Night needed the split and the reason is measured. The night ramps'
+// darkest rung sits at V 0.388 where the day ramps' sits at 0.580, so putting
+// the one-sided rim on rung 1 at night painted ~40 % of the sprite in a blue
+// that is almost invisible against stage 3's BLACK sky -- and it took the
+// rear sheet's median from 0.643 to 0.388 against R6's arcade figure of 0.675
+// (reference/stage3-night-lockon-t186.png, HUD digit 3). That is a
+// readability loss and a worse number at the same time, which is the signal
+// that it is wrong rather than a trade. `nightRim` therefore names rung 2.
+// A rim role costs no colour: it always aliases a rung the sheet already has.
+function liveryOf(shadow, dominant, mid, highlight, specular, night, rims = []) {
+  const [dayRim = shadow, nightRim = night[0]] = rims;
   return {
     keyline: '#000000',
+    rim: L(dayRim),
     shadow: L(shadow),
     dominant: L(dominant),
     mid: L(mid),
@@ -358,6 +383,7 @@ function liveryOf(shadow, dominant, mid, highlight, specular, night) {
     nozzleCore: L('#ef7308'),
     nozzleHot: L('#ffd600'),
     night: {
+      rim: L(nightRim),
       shadow: L(night[0]),
       dominant: L(night[1]),
       mid: L(night[2]),
@@ -370,22 +396,90 @@ function liveryOf(shadow, dominant, mid, highlight, specular, night) {
 export const ENEMY_LIVERIES = {
   // stage 1 (ocean, #009eff sky). Pale grey-white MiG-types, which is also
   // what GAME_SPEC §4 says they are ("white/grey MiG-types (stage 1+)").
-  // V ladder 0.322 / 0.549 / 0.741 / 0.902 / 1.000.
-  grey: liveryOf('#3a4252', '#737b8c', '#a4adbd', '#ced6e6', '#f7f7ff',
-    ['#101963', '#2131a4', '#3a5bc5', '#6b8ce6', '#adc5ff']),
+  //
+  // ===================== R8: MEASURED OFF THE ARCADE ======================
+  // R6 lifted this livery's polarity but set the ladder by bracketing two
+  // blur-biased medians rather than by reading the arcade's own ramp. The
+  // ramp is readable, and the five values below ARE it.
+  //
+  // OPERATOR (re-runnable): ab2-longplay-60fps.mp4 at t=104s -- inside the
+  // VERIFIED stage-1 span 88-120 of STAGE_MAP.md, and the HUD stage digit in
+  // the frame reads 1. Frame written with `-frames:v 1` (no -ss sequence, per
+  // CLAUDE.md). Crop x[400,575] y[290,400] holds one rear-aspect enemy.
+  // Airframe = S<0.30 AND V>0.176, largest 8-connected component, then
+  // ERODED TWICE 8-connectedly -- the erosion is the whole point, because the
+  // source is a 3.2125x AV1 upscale and the boundary ring is blur-mixed with
+  // a V=1.0 sky. 2 496 interior px survive. Reported as quintile means (the
+  // decile/quintile-mean operator REFERENCE.md I6 specifies, because a single
+  // percentile moves tens of levels on mask-boundary detail):
+  //
+  //     q1 V 0.587 (145,143,143)   q4 V 0.910 (224,221,223)
+  //     q2 V 0.687 (169,165,169)   q5 V 0.988 (248,241,244)
+  //     q3 V 0.790 (194,193,192)
+  //
+  //   interior median V 0.788, 47.0 % above V 0.8, and **0.0 % below V 0.4**.
+  //
+  // Every band is NEUTRAL (max channel spread 4/255 at q1, 7/255 at q5).
+  // The arcade's stage-1 enemy is a neutral white-grey, and that is also the
+  // readability axis against the player, whose measured airframe is WARM
+  // cream (#ffffef / #f7e6b5). Ours was #737b8c-blue and two rungs darker.
+  //
+  // Snapped onto the Sega ladder the five bands are 148 / 173 / 197 / 230 /
+  // 255 -- deltas -0.007, -0.009, -0.017, -0.008, +0.012 of V. That is this
+  // table, with `dominant` taking the band at the arcade's MEDIAN (0.773)
+  // because `dominant` is the largest-area role in the drawing, and `mid`
+  // taking the band below it because the two are the lit and shaded sides of
+  // one aeroplane.
+  //
+  // AND THE RIM. Same operator, un-eroded, topmost and bottommost airframe
+  // pixel per column (160 columns):
+  //
+  //     TOP-most row    median V 0.953   0.0 % below V 0.5
+  //     interior                  0.788
+  //     BOTTOM-most row median V 0.661   5.6 % below V 0.5
+  //
+  // The arcade's stage-1 enemy is lit from above and shaded below, and it has
+  // NO KEYLINE: mapping the dark rim pixels (tools/out/enemy-art/
+  // ARC-t104-rimmap-5x.png) puts every one of them around the NOZZLE
+  // HOUSING, and leaves the entire outer perimeter bare against the sky.
+  // This is the same finding R7 published for the player's daylight jet,
+  // on a different aircraft, from a different frame.
+  //
+  // So `rim` is not a new colour: the one-sided lower edge is drawn in the
+  // livery's own darkest airframe tone (`shadow`), which is what the arcade
+  // does and what keeps every sheet inside its 8-colour budget. See
+  // liveryOf() above.
+  //
+  // ROLE->RUNG, and this is where the first R8 draft got it wrong. Snapping
+  // the five rungs is not enough: the sprite's VALUE DISTRIBUTION is set by
+  // which role draws how many pixels, and `shadow` carries the one-sided rim
+  // plus the under-bands (43 % of the cell). A first pass that mapped
+  // dominant->0.773 and mid->0.678 put 58 % of the sprite at or below 0.678
+  // and read median 0.678 with only 17 % above V 0.8 -- further from the
+  // arcade on the brightness share than the sheet it replaced, while every
+  // individual rung was correct. Measured, not guessed: the census is in the
+  // delivery report. The mapping below puts the two largest interior masses on
+  // 0.902 and leaves 0.580 to the rim and the under-bands, which is where the
+  // arcade's dark is.
+  grey: liveryOf('#949494', '#e6e6e6', '#c5c5c5', '#adadad', '#ffffff',
+    ['#101963', '#6b8ce6', '#3a5bc5', '#2131a4', '#adc5ff'],
+    ['#adadad', '#2131a4']),
   // stage 2 (desert, orange sky). Dark green camo — MEASURED dominant
   // #102910 at V0.16 on ab2-arcade-closeup-enemies.jpg, which IS a stage-2
   // frame and so is the right source for this livery. Left dark on purpose.
   camo: liveryOf('#081008', '#102910', '#294a21', '#5a3a19', '#8cad31',
-    ['#080c21', '#102142', '#214a5a', '#4a6b6b', '#8cad9c']),
+    ['#080c21', '#102142', '#214a5a', '#4a6b6b', '#8cad9c'],
+    ['#102910', '#102142']),
   // red/orange-fuselage interceptors (t102.5, t172). Flown as the ELITE on
   // stage 1 as well as stage 2 (src/entities/enemy.js LIVERY_BY_STAGE), so it
   // gets the stage-1 lift too: dominant V 0.290 -> 0.549.
   interceptor: liveryOf('#4a1010', '#8c2910', '#d64a19', '#ef8429', '#ffce84',
-    ['#210810', '#6b1931', '#a53a5a', '#d6738c', '#ffb5c5']),
+    ['#210810', '#6b1931', '#a53a5a', '#d6738c', '#ffb5c5'],
+    ['#8c2910', '#6b1931']),
   // silver/blue prop types, stage 2 open only. Orange sky — left dark.
   prop: liveryOf('#21293a', '#313a4a', '#525b6b', '#848c9c', '#b5bdc5',
-    ['#101829', '#21293a', '#3a425a', '#5b6b84', '#8c9cbd']),
+    ['#101829', '#21293a', '#3a425a', '#5b6b84', '#8c9cbd'],
+    ['#313a4a', '#21293a']),
 };
 
 // Which SILHOUETTE each livery flies. R4 gap 1 criterion (d) wants ">=2

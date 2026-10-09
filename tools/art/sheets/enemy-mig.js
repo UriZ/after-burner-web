@@ -34,6 +34,29 @@
 // Neither resembles the player's twin-nacelle twin-blade F-14, which is the
 // other readability requirement (art critique §2.2).
 //
+// ============================ R8 RIM REWRITE ============================
+// Every one of these four draw functions ended with `c.outline4(p.keyline)`,
+// a full 8-adjacent ring of pure #000000. Measured over the exported sheets
+// that produced, on ALL SIXTEEN of them (4 liveries x 2 aspects x day/night),
+// a perimeter that is 100.0 % near-black and a sprite that is 20-50 % black
+// by area. R7 established for the PLAYER's daylight jet that the arcade does
+// not outline its aircraft at all; the enemy kept the old treatment, which is
+// this project's recurring "the named object got fixed and the class did
+// not" failure (R4 sprites -> sea, R5 sea -> explosion, R7 player -> enemy).
+//
+// Re-measured on the ENEMY rather than taken from the player's result, since
+// a criterion has to be checked against the arcade before it is tuned to:
+// ab2-longplay-60fps.mp4 t=104s, verified stage 1 (HUD digit read in the
+// frame), one rear-aspect enemy, airframe = largest 8-connected component of
+// S<0.30 & V>0.176. Topmost airframe row per column has median V 0.953,
+// the interior 0.788, the bottommost row 0.661 -- lit above, shaded below --
+// and the dark rim pixels are ALL around the nozzle housing, none on the
+// outer perimeter (tools/out/enemy-art/ARC-t104-rimmap-5x.png).
+//
+// So: `outlineSouth(p.shadow)` replaces `outline4(p.keyline)`. Black survives
+// where the arcade has it -- the nozzle housing and the nose intake, below.
+// The sheets stay at 8 colours because the rim reuses `shadow`.
+//
 // ORIGINAL pixel art per ARCHITECTURE.md D5 — drawn from the measurements
 // and reference crops named above, no SEGA sprite data copied or traced.
 import { PixelCanvas, buildStrip } from '../canvas.js';
@@ -90,8 +113,15 @@ function drawMigHead(c, bankDeg, p) {
   const shL = [ax - 3, 13];
   const tipR = [61 - Math.round(14 * far), 21 + Math.round(3 * near)];
   const tipL = [2 + Math.round(14 * near), 21 + Math.round(3 * far)];
+  // R8: BOTH wings on `dominant`. R5b split them dominant/mid as a left-right
+  // lighting cue; the arcade's stage-1 enemy is lit from ABOVE, not from one
+  // side (topmost airframe row median V 0.953, interior 0.788, bottommost
+  // 0.661, measured at t=104s), so the chordwise specular/shadow bands are the
+  // modelling and the left-right split was only moving 15 % of the sprite down
+  // a rung. The bank cells still read apart because their CONTROL POINTS
+  // differ, which was always the stronger cue.
   c.polygon(bladePolygon(shR, tipR, 5, 1.4), p.dominant);
-  c.polygon(bladePolygon(shL, tipL, 5, 1.4), p.mid);
+  c.polygon(bladePolygon(shL, tipL, 5, 1.4), p.dominant);
   // Underside SHADOW band along each wing's trailing edge (see drawMigRear).
   c.polygon(bladePolygon([shR[0], shR[1] + 3], [tipR[0], tipR[1] + 2], 2.0, 0.8), p.shadow);
   c.polygon(bladePolygon([shL[0], shL[1] + 3], [tipL[0], tipL[1] + 2], 2.0, 0.8), p.shadow);
@@ -105,7 +135,7 @@ function drawMigHead(c, bankDeg, p) {
   c.polygon([[ax - 3, 24], [ax + 3, 24], [ax + 2, 27], [ax - 2, 27]], p.shadow);
 
   noseIntake(c, ax, 9, p);
-  c.outline4(p.keyline);
+  c.outlineSouth(p.rim);
 }
 
 // Rear: tail toward camera, nozzle low on the body, wings sweeping out and UP.
@@ -125,7 +155,7 @@ function drawMigRear(c, bankDeg, p) {
   const tipR = [61 - Math.round(14 * far), 8 - Math.round(3 * near)];
   const tipL = [2 + Math.round(14 * near), 8 - Math.round(3 * far)];
   c.polygon(bladePolygon(shR, tipR, 5, 1.4), p.dominant);
-  c.polygon(bladePolygon(shL, tipL, 5, 1.4), p.mid);
+  c.polygon(bladePolygon(shL, tipL, 5, 1.4), p.dominant); // R8: see drawMigHead
   // R6: an underside SHADOW band along each wing's trailing edge, and the
   // specular on the leading edge. Five airframe tones instead of four — the
   // sheet was one colour under its own 8-budget, and the dark share is what
@@ -141,7 +171,7 @@ function drawMigRear(c, bankDeg, p) {
   c.polygon([[ax - 3, 23], [ax + 3, 23], [ax + 2, 26], [ax - 2, 26]], p.shadow);
 
   nozzle(c, ax, 23, p);
-  c.outline4(p.keyline);
+  c.outlineSouth(p.rim);
 }
 
 // --- DELTA -------------------------------------------------------------
@@ -154,6 +184,14 @@ function drawDeltaHead(c, bankDeg, p) {
 
   // Delta: apex at the nose, straight trailing edge. Leading-edge angle is
   // atan(17/29) = 30 deg, comfortably past criterion (b).
+  // R8 NOTE: the delta halves stay on DIFFERENT rungs, unlike the mig's wings.
+  // Unifying them (as the mig's were) merges the whole triangle into one
+  // 8-connected single-colour component and ENEMY-SIL's compact-feature gate
+  // goes 4.4 % -> 12.9 % of area against a <=12 % target on cells 0 and 4 --
+  // the triangle is compact enough to pass the aspect/fill test that a swept
+  // wing fails. Measured both ways; the split is load-bearing here and the
+  // stage-1 lighting measurement that motivates the mig change was taken on a
+  // mig-type aircraft, not on this one.
   c.polygon([[ax, 5], [tipRx, 22], [tipRx - 4, 24], [ax, 20]], p.dominant);
   c.polygon([[ax, 5], [tipLx, 22], [tipLx + 4, 24], [ax, 20]], p.mid);
   // Shadowed trailing edge of the delta (see drawMigRear's R6 note).
@@ -167,7 +205,7 @@ function drawDeltaHead(c, bankDeg, p) {
   c.polygon(bladePolygon([ax, 10], [ax + Math.round(3 * s), 1], 3.4, 1.4), p.dominant);
 
   noseIntake(c, ax, 9, p);
-  c.outline4(p.keyline);
+  c.outlineSouth(p.rim);
 }
 
 function drawDeltaRear(c, bankDeg, p) {
@@ -177,7 +215,7 @@ function drawDeltaRear(c, bankDeg, p) {
   const tipLx = 2 + Math.round(16 * near);
 
   c.polygon([[ax, 25], [tipRx, 9], [tipRx - 4, 7], [ax, 21]], p.dominant);
-  c.polygon([[ax, 25], [tipLx, 9], [tipLx + 4, 7], [ax, 21]], p.mid);
+  c.polygon([[ax, 25], [tipLx, 9], [tipLx + 4, 7], [ax, 21]], p.mid); // see drawDeltaHead
   c.polygon([[ax, 26], [tipRx - 1, 10], [tipRx, 9], [ax, 25]], p.shadow);
   c.polygon([[ax, 26], [tipLx + 1, 10], [tipLx, 9], [ax, 25]], p.shadow);
   c.line(ax, 25, tipRx, 9, p.specular);
@@ -188,7 +226,7 @@ function drawDeltaRear(c, bankDeg, p) {
   c.polygon(bladePolygon([ax, 12], [ax + Math.round(3 * s), 2], 3.4, 1.4), p.dominant);
 
   nozzle(c, ax, 23, p);
-  c.outline4(p.keyline);
+  c.outlineSouth(p.rim);
 }
 
 // --- Shared features ----------------------------------------------------
@@ -196,20 +234,54 @@ function drawDeltaRear(c, bankDeg, p) {
 // 19%-of-span red disc, "a bullseye". Outer radius 2.6 on a ~59 px span is
 // 8.8%, and under tools/art/enemysil.py's compact-component gate it is a
 // few per cent of silhouette area against the <=12% criterion.
+//
+// R8: the SIZE was fine and the STRUCTURE was inside out. Measured on the
+// head-on MiG's nose in reference/ab2-arcade-closeup-enemies.jpg (4.5x
+// upscale of native; this is a STAGE-2 frame and only its GEOMETRY is
+// licensed here -- the camo colours stay on the camo livery, which is ledger
+// row 12's rule), crop x[1080,1180] y[750,840]:
+//
+//     near-black housing   bbox 77x68   (merges into the camo airframe, so
+//                                        this over-reads -- bound, not value)
+//     red annulus          bbox 31x28   -> 6.9 native px across
+//     pale core            bbox 18x19   -> 4.0 native px across, SOLID
+//
+// So the arcade's nose is dark OUTSIDE, red ring, pale core, and the core is
+// 0.58 of the red's diameter. Ours drew the red as the OUTERMOST element with
+// no dark housing at all, and then put a #000000 dot in the MIDDLE of the
+// pale core -- which is why it reads as a red-rimmed eye rather than an
+// intake. Dark outside, nothing black in the centre, core/red = 2.8/5.2 =
+// 0.54 against the arcade's 0.58.
 function noseIntake(c, x, y, p) {
-  c.ring(x, y, 2.6, 1.7, p.intakeRing);
-  c.disc(x, y, 1.5, p.intakeCore);
-  c.disc(x, y, 0.6, p.keyline);
+  c.disc(x, y, 3.4, p.keyline); // housing, 11.5 % of a ~59 px span
+  c.ring(x, y, 2.6, 1.4, p.intakeRing);
+  c.disc(x, y, 1.4, p.intakeCore);
 }
 
 // R5 interfaces I2, measured on stage1-missile-salvo-t100.75.png: "near-black
 // nozzle rings with a hot orange centre". The ring is thick and the orange
 // is small — the dark ring has to win, or the two pods read as eyes (art
 // critique §2.2: "they are insects").
+//
+// R8: the RATIO is now measured instead of asserted. Same t104 stage-1 enemy
+// as the rim measurement above (ab2-longplay-60fps.mp4, HUD digit 1), largest
+// 8-connected component of V<=0.30 for the housing and of (S>0.45 AND
+// R>B+50 AND V>0.39) for the glow:
+//
+//     housing      39 x 38 px      orange core  19 x 20 px      ratio 2.05
+//
+// Span-normalised the housing is 23.5 % of that aircraft's 166 px bbox width,
+// but THAT NUMBER IS NOT USED: the subject is banked (bbox aspect 1.5 against
+// a level enemy's ~3), so span under-reads and 23.5 % would scale to a 14 px
+// bell on our level cell. The scale-free DIAMETER RATIO is the measurement
+// that survives the pose, and ours was 8 : 4.8 = 1.67 -- the glow too large
+// inside too thin a ring, which is the R4 "glowing eyes" direction. 11 : 5.4
+// = 2.04 reproduces the arcade's and grows the whole assembly from 12.5 % to
+// 17.2 % of the cell, which is between ours and the banked bound.
 function nozzle(c, x, y, p) {
-  c.disc(x, y, 4.0, p.keyline);
-  c.disc(x, y, 2.4, p.nozzleCore);
-  c.disc(x, y, 1.0, p.nozzleHot);
+  c.disc(x, y, 5.5, p.keyline);
+  c.disc(x, y, 2.7, p.nozzleCore);
+  c.disc(x, y, 1.1, p.nozzleHot);
 }
 
 const DRAW = {

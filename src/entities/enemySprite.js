@@ -4,7 +4,7 @@ import {
   fillPolygonHard,
   fillRectHard,
   fillCircleHard,
-  addKeyline,
+  addUnderKeyline,
   bufferToTexture,
 } from '../render/spriteFactory.js';
 // Real authored sheets, shipped by the pixel-artist lane
@@ -65,6 +65,19 @@ import { ENEMY_LIVERIES as GENERATED_LIVERIES } from '../assets/sprites/enemy-pa
 // black, same hard-pixel/keyline treatment as the player jet (no Canvas2D
 // antialiasing feeding the colour-cardinality gate -- see the big comment
 // in render/spriteFactory.js).
+//
+// R8 OVERTURNS TWO HALVES OF THAT PARAGRAPH, and leaves it standing so the
+// correction is legible. (a) "dark-DOMINANT airframe": the arcade's STAGE-1
+// enemy is a neutral white-grey -- interior median V 0.788, 47 % above 0.8,
+// 0.0 % below 0.4, measured on ab2-longplay-60fps.mp4 t=104s with the HUD
+// stage digit read in the frame. Dark-dominant was derived from
+// ab2-arcade-closeup-enemies.jpg, which is a stage-2 orange-sky frame; R6
+// caught that for the palette and the drawing kept the rest. (b) "same
+// keyline treatment as the player jet" was true and became the bug: R7 moved
+// the PLAYER off a black ring onto a one-sided shaded edge and the enemy was
+// never moved with it, so this sentence pointed at a treatment that no longer
+// existed. Both aircraft now carry the one-sided lower edge, and it is
+// re-measured on the enemy rather than inherited from the player.
 //
 // GAME_SPEC.md §4 "Liveries observed": white/grey MiG-types (stage 1+),
 // dark green/black camo (stage 2), red/orange-fuselage interceptors
@@ -172,6 +185,7 @@ export const DETAIL_SWITCH_NATIVE_PX = 10;
 function toDrawRoles(l) {
   return {
     key: l.keyline,
+    rim: l.rim,
     shadow: l.shadow,
     dominant: l.dominant,
     mid: l.mid,
@@ -181,6 +195,7 @@ function toDrawRoles(l) {
     core: l.intakeCore,
     hot: l.nozzleCore,
     night: {
+      rim: l.night.rim,
       shadow: l.night.shadow,
       dominant: l.night.dominant,
       mid: l.night.mid,
@@ -305,10 +320,21 @@ function drawRearFar(buf, pal) {
   fillRectHard(buf, 9, 3, 1, 2, pal.hot);
 }
 
+// R8: the near-aspect PROCEDURAL fallback carried the same pure-black
+// 8-adjacent ring the authored sheets did -- `addKeyline(buf, pal.key)` with
+// pal.key === '#000000'. Measured on the arcade's own stage-1 enemy
+// (ab2-longplay-60fps.mp4 t=104s, HUD digit 1), the aircraft has NO perimeter
+// keyline: its topmost airframe row reads median V 0.953, its interior 0.788
+// and its bottommost row 0.661, and every dark rim pixel sits around the
+// nozzle housing. So this path takes the same one-sided lower edge in the
+// livery's own `shadow` tone that tools/art/sheets/enemy-mig.js now uses --
+// otherwise an enemy spawned in the few frames before the sheets decode is
+// drawn in the treatment this round exists to remove, and nothing would say
+// so. See tools/art/palettes.js ENEMY_LIVERIES for the operator.
 function buildTexture(drawFn, w, h, pal, { keyline = true } = {}) {
   const buf = createPixelBuffer(w, h);
   drawFn(buf, pal);
-  if (keyline) addKeyline(buf, pal.key);
+  if (keyline) addUnderKeyline(buf, pal.rim ?? pal.shadow ?? pal.key);
   const tex = bufferToTexture(buf);
   // Asserted rather than inherited: the filtering choice is the subject of
   // the note above and a silent change in bufferToTexture would bring the

@@ -5,25 +5,28 @@
 export const ENEMY_LIVERIES = {
   "grey": {
     "keyline": "#000000",
-    "shadow": "#3a4252",
-    "dominant": "#737b8c",
-    "mid": "#a4adbd",
-    "highlight": "#ced6e6",
-    "specular": "#f7f7ff",
+    "rim": "#adadad",
+    "shadow": "#949494",
+    "dominant": "#e6e6e6",
+    "mid": "#c5c5c5",
+    "highlight": "#adadad",
+    "specular": "#ffffff",
     "intakeRing": "#e61000",
     "intakeCore": "#f7efa4",
     "nozzleCore": "#ef7300",
     "nozzleHot": "#ffd600",
     "night": {
+      "rim": "#2131a4",
       "shadow": "#101963",
-      "dominant": "#2131a4",
+      "dominant": "#6b8ce6",
       "mid": "#3a5bc5",
-      "highlight": "#6b8ce6",
+      "highlight": "#2131a4",
       "specular": "#adc5ff"
     }
   },
   "camo": {
     "keyline": "#000000",
+    "rim": "#102910",
     "shadow": "#001000",
     "dominant": "#102910",
     "mid": "#294a21",
@@ -34,6 +37,7 @@ export const ENEMY_LIVERIES = {
     "nozzleCore": "#ef7300",
     "nozzleHot": "#ffd600",
     "night": {
+      "rim": "#102142",
       "shadow": "#001021",
       "dominant": "#102142",
       "mid": "#214a5b",
@@ -43,6 +47,7 @@ export const ENEMY_LIVERIES = {
   },
   "interceptor": {
     "keyline": "#000000",
+    "rim": "#8c2910",
     "shadow": "#4a1010",
     "dominant": "#8c2910",
     "mid": "#d64a19",
@@ -53,6 +58,7 @@ export const ENEMY_LIVERIES = {
     "nozzleCore": "#ef7300",
     "nozzleHot": "#ffd600",
     "night": {
+      "rim": "#6b1931",
       "shadow": "#210010",
       "dominant": "#6b1931",
       "mid": "#a43a5b",
@@ -62,6 +68,7 @@ export const ENEMY_LIVERIES = {
   },
   "prop": {
     "keyline": "#000000",
+    "rim": "#313a4a",
     "shadow": "#21293a",
     "dominant": "#313a4a",
     "mid": "#525b6b",
@@ -72,6 +79,7 @@ export const ENEMY_LIVERIES = {
     "nozzleCore": "#ef7300",
     "nozzleHot": "#ffd600",
     "night": {
+      "rim": "#21293a",
       "shadow": "#101929",
       "dominant": "#21293a",
       "mid": "#3a425b",
