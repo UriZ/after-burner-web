@@ -115,6 +115,8 @@ async function main() {
   // Hoisted out of the try so the `finally` dump can see it — see the
   // comment on that dump below.
   const errors = [];
+  const manifest = [];
+  let tick = 0;
 
   try {
     const page = await browser.newPage();
@@ -150,15 +152,46 @@ async function main() {
       // adding preserveDrawingBuffer to screen.js keeps the game's renderer
       // flags out of it — the capture tool should not change what is rendered,
       // and screen.js belongs to another lane.
-      const dataUrl = await page.evaluate((n) => {
+      // The same evaluate also reads the SIMULATION STATE it just rendered.
+      // That is not a convenience -- it closes a silent-wrong-number class
+      // that every other check in this project is blind to.
+      //
+      // Two readers compared "tick 1950" and disagreed by one channel value.
+      // Four experiments ruled out the readback path, stepping granularity
+      // and tree drift; the cause was that one run carried `?demo=1` and the
+      // other did not, so the two samples were the same TICK INDEX in two
+      // different populations -- the attract autopilot on stage 1 versus live
+      // input still in the death cycle on stage 0. Both instruments were
+      // right, both agreed with themselves, both agreed with a second
+      // implementation, and both were stable on repetition. NOTHING WE RUN
+      // COULD SEE IT, because a tick index looks like a reportable quantity
+      // and is not one without the URL that produced it.
+      //
+      // `probe.mjs` logged the state it sampled and capture.mjs did not, and
+      // that asymmetry is why it took four experiments instead of one. So the
+      // manifest below makes a capture set self-describing: every frame
+      // carries the URL, the tick and the flow state it was taken in.
+      const shot = await page.evaluate((n) => {
         window.__step(n);
-        return document.querySelector('#screen').toDataURL('image/png');
+        const png = document.querySelector('#screen').toDataURL('image/png');
+        let state = null;
+        try {
+          state = typeof window.__flowState === 'function' ? window.__flowState() : null;
+        } catch (e) {
+          state = { error: String(e) };
+        }
+        return { png, state };
       }, args.every);
 
-      const b64 = dataUrl.slice(dataUrl.indexOf(',') + 1);
-      const file = path.join(args.out, `frame-${String(i).padStart(4, '0')}.png`);
+      const b64 = shot.png.slice(shot.png.indexOf(',') + 1);
+      const name = `frame-${String(i).padStart(4, '0')}.png`;
+      const file = path.join(args.out, name);
       await writeFile(file, Buffer.from(b64, 'base64'));
-      console.log('captured', file);
+      tick += args.every;
+      manifest.push({ frame: name, tick, state: shot.state });
+      const st = shot.state || {};
+      const tag = st.state ? ` [${st.state}${st.stage !== undefined ? ' stage ' + st.stage : ''}]` : '';
+      console.log('captured', file + tag);
     }
 
   } finally {
@@ -169,6 +202,12 @@ async function main() {
     // thrown away. That cost the world lane a diagnosis cycle on a break in
     // another lane's file, and it had to write its own puppeteer probe to
     // recover a stack this tool already had in hand.
+    // Written even on failure: a partial set still needs to say what it is.
+    await writeFile(
+      path.join(args.out, 'capture-manifest.json'),
+      JSON.stringify({ url: url.toString(), page: args.page, every: args.every, frames: manifest }, null, 2)
+    ).catch(() => {});
+
     if (errors.length) {
       console.error(`${errors.length} page error(s) during capture:`);
       for (const e of errors) console.error(' ', e);
