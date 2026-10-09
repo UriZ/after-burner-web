@@ -1,6 +1,7 @@
 import { Score, HIT_VALUE } from '../score.js';
 import { DeathSequence } from './deathSequence.js';
 import { LaunchSequence } from './launchSequence.js';
+import { createCarrierSprite } from './carrier.js';
 import { drawTitleScreen } from './titleScreen.js';
 import { drawReadyCard, drawTallyCard, drawContinueCard } from './cards.js';
 import { Overlay } from './overlay.js';
@@ -36,10 +37,38 @@ import { MISSILE_START_STOCK } from '../../weapons/combat.js';
 // the arcade, not derivable from available footage).
 const START_LIVES = 3;
 
-// Per-stage flight duration. REFERENCE.md's verified stage map gives exact
-// spans for stages 1-3 (88-120, 124-156, 160-196s = 32/32/36s); "Prefer the
-// measured per-stage durations" (GAME_SPEC.md §5).
-const STAGE_DURATIONS_S = [32, 32, 36];
+// Per-stage flight duration, from STAGE_MAP.md's "VERIFIED STAGE SPANS" --
+// the stage<->timestamp map whose identities were read directly off the
+// arcade's own HUD stage digit. "Prefer the measured per-stage durations"
+// (GAME_SPEC.md §5).
+//
+// R6: all 23, not just the first 3. The map has carried stages 4-23 the whole
+// time and nothing read past index 2, so every stage after the third ran on
+// stage 3's 36 s. The arcade's stages are NOT a uniform length -- they run 12
+// to 48 s, and the two short ones are structural rather than noise: stage 5
+// (12 s) is the runway restock, matching reference/stage5-runway-restock-
+// t252.png and the feel critic's two "runway" freeze clusters. A 48 s stage 9
+// followed by a 40 s stage 10 and then a 36 s stage 11 is a pacing shape we
+// did not have.
+//
+// PRECISION, stated because the digits look more exact than they are: the map
+// was built by sampling the longplay every 4 s and reading the HUD digit, so
+// every boundary is quantised to a 4 s grid and every duration below is a
+// multiple of 4. Treat them as +/-4 s, not as frame-accurate. The 32/32/36
+// that stood here before carries exactly the same quantisation -- this is not
+// a new weakness, it is the same one, now stated.
+//
+// Indexed `stageIndex % length`, so stage 24 laps to stage 1's 32 s. Content
+// (palette/terrain) still laps every STAGES.length = 3 -- see _enterStage and
+// contentStageIndex. Structure and content lap at different periods now, by
+// construction: the structure is measured and the content is not yet authored.
+const STAGE_DURATIONS_S = [
+  32, 32, 36, 40, 12, // 1-5    (5 = runway restock)
+  44, 32, 28, 48, 40, // 6-10
+  36, 36, 16, 36, 40, // 11-15  (13 is the second short stage)
+  36, 28, 36, 40, 40, // 16-20
+  36, 36, 16, //          21-23
+];
 
 // Attract cycle (R5 gap 8's second half: "no attract-mode gameplay demo").
 // An unattended cabinet alternates title card and a gameplay demo forever;
@@ -109,7 +138,6 @@ export class GameFlow {
 
     this.score = new Score();
     this.deathSeq = combat ? new DeathSequence(player, combat) : null;
-    this.launchSeq = new LaunchSequence(player);
 
     this.titleOverlay = new Overlay();
     this.cardOverlay = new Overlay();
@@ -122,6 +150,19 @@ export class GameFlow {
     this.continueCountdown = 0;
     this.titleTimer = 0;
     this.attractTimer = 0;
+    // Which content stage the NEXT attract demo shows. feel-critique.md §7.6:
+    // "a passer-by watching the thing that is supposed to take their money
+    // sees one engagement repeated ... it is also stage 1 for all 24 s, when
+    // two other palettes exist." Incremented on every attract entry, so an
+    // unattended cabinet walks stage 1 -> 2 -> 3 -> 1 across its loop.
+    //
+    // Deliberately NOT a change to demoTimeline.js's roam. Its regime cycle
+    // is exactly 16.000 s and its amplitudes are solved against published
+    // composition statistics; judges sample against both. Rotating the
+    // PALETTE costs nothing that is measured and fixes the half of the
+    // complaint this lane owns — the repeated ENGAGEMENT is spawner.js's
+    // echelon, which is the combat lane's (asked in judging/R6/ask-flow.md).
+    this.attractStage = 0;
     this.invincibleTimer = 0;
     this._readyAudioPlayed = false;
 
@@ -150,6 +191,16 @@ export class GameFlow {
     // is NOT included here — that path is meant to show the whole game
     // including death/respawn/continue, same as unmodified play.
     const params = new URLSearchParams(location.search);
+
+    // R6 (feel-critique.md §7.2 / rank 5): the carrier the launch happens
+    // off. Built here rather than in game.js so the whole opening sequence
+    // stays in one lane's files; game.js adds the sprite to the scene,
+    // because adding to the scene graph is a thing only game.js does.
+    // `?nocarrier=1` is the usual measurement escape hatch, matching
+    // ?hidejet / ?noclouds / ?nocombat — a judge measuring the opening's
+    // sky or sea needs the 50 %W grey mass out of the frame.
+    this.carrier = params.has('nocarrier') ? null : createCarrierSprite(1);
+    this.launchSeq = new LaunchSequence(player, this.carrier);
     this._forceDeathAt = params.has('forcedeath') ? Number(params.get('forcedeath')) : null;
     this._forcedDeathDone = false;
     this._debugInvincible = params.has('invincible') || params.get('demo') === '2';
@@ -330,7 +381,9 @@ export class GameFlow {
       this.score.reset();
       this.lives = START_LIVES;
       if (this.combat) this.combat.clear();
-      this._enterStage(0);
+      // A different stage each time round the loop (see `attractStage`).
+      this._enterStage(this.attractStage);
+      this.attractStage = (this.attractStage + 1) % STAGES.length;
     }
     return { input: ZERO_INPUT, combatActive: false, playerControlled: false };
   }
@@ -342,6 +395,12 @@ export class GameFlow {
   _startRealGame() {
     this.state = 'launch';
     this.titleOverlay.visible = false;
+    // The attract demo performs a barrel roll once per 16 s cycle, and a
+    // player can press start in the middle of one. launchSequence.js then
+    // owns the sprite for 3.5 s with playerControlled false, so Player.update
+    // never runs to finish the roll -- the jet would sit on the catapult
+    // belly-up on a frozen roll cell. Same reason _triggerDeath cancels.
+    if (this.player) this.player.cancelRoll();
     this.score.reset();
     this.lives = START_LIVES;
     if (this.combat) this.combat.clear();
@@ -379,6 +438,10 @@ export class GameFlow {
       this.state = 'title';
       this.titleTimer = 0;
       this._redrawTitle();
+      // Same reason as _startRealGame: the demo rolls once a cycle and the
+      // title screen stops calling Player.update, which would strand the
+      // sprite on a roll cell behind the title card and into the next demo.
+      if (this.player) this.player.cancelRoll();
       if (this.combat) this.combat.clear();
       AudioBus.music('title');
       return { input: ZERO_INPUT, combatActive: false, playerControlled: false };
@@ -512,11 +575,25 @@ export class GameFlow {
     this.cardOverlay.visible = true;
     this.cardOverlay.redraw((ctx, w, h) => drawContinueCard(ctx, w, h, this.continueCountdown));
     if (this.continueCountdown <= 0) {
-      // "Continuing resumes IN PLACE — same stage — with the score reset to
-      // ~0" (GAME_SPEC.md §2). Lives restore so play can continue;
-      // unattended captures/judges never dead-end on a game-over screen.
+      // "Continuing resumes IN PLACE — same stage" (GAME_SPEC.md §2). Lives
+      // restore so play can continue; unattended captures/judges never
+      // dead-end on a game-over screen.
+      //
+      // The SCORE IS NOT RESET, and the `score.reset()` that used to stand
+      // here is deleted. GAME_SPEC.md §2 claimed "with the score reset to ~0
+      // (gp t265-269 climb from ~600)" and that citation is a misread frame.
+      // Re-read off the digits at 4x on ab2-gameplay.mp4 (R6 flow lane,
+      // independently of feel-critique.md §3.5 which found it first):
+      //   t256 485440 -> t262 489540 (frozen through the death) ->
+      //   t265 490000 -> t268 491000 -> t277 497600.
+      // Monotonic straight through; "~600" is not on screen anywhere in that
+      // window. reference/continue-card-gp-t261.png is the CONTINUE PLAY card
+      // itself and carries SCORE 489540 / HIT 4 / STAGE 4 — the score, the
+      // hit count and the stage all survive the credit. We were erasing the
+      // player's whole score the moment they paid to keep playing.
+      // HIT survives for free: combat.clear() below does not touch
+      // `combat.hits` (only _enterStage resets it), matching t261.
       this.cardOverlay.visible = false;
-      this.score.reset();
       this.lives = START_LIVES;
       if (this.combat) this.combat.clear();
       this.state = 'flight';

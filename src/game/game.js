@@ -13,8 +13,18 @@ import { combatDemoTimeline } from '../weapons/combatDemo.js';
 import { GameFlow } from './flow/flow.js';
 import { trailPaletteFor, TRAIL_NIGHT } from '../effects/trailPalette.js';
 
-const FOV_DEG = 55;
-const CAMERA_HEIGHT = 2.2;
+// R6: the four camera numbers and the two screen<->world solvers moved to
+// src/core/cameraGeom.js so player.js (which had transcribed two of them by
+// hand) and flow/carrier.js (which needed worldYForScreenFrac) read ONE copy.
+// The derivations stay here, below, because this is the file that owns the
+// camera's behaviour; only the storage moved.
+import {
+  FOV_DEG,
+  CAMERA_HEIGHT,
+  CAMERA_PITCH,
+  horizonFracFor,
+  worldYForScreenFrac,
+} from '../core/cameraGeom.js';
 
 // R1 judge gap 2: ARCHITECTURE.md D2 originally said "upper third"; corrected
 // to 50-65%H, cruise constant 62.5%H (REFERENCE.md "Horizon": t116 50.0%H,
@@ -24,7 +34,7 @@ const CAMERA_HEIGHT = 2.2;
 // NDC_y = -tan(pitch)/tan(vFov/2), screenFrac = (1-NDC_y)/2) for
 // screenFrac=0.625 at FOV 55deg: pitch = 0.12941 rad (+7.415deg). Matches the
 // R1 judge's own cited check (tan(pitch)=-0.130, ~+7.4deg) to 4 decimals.
-const CAMERA_PITCH = 0.12941440818613054;
+// (The constant itself now lives in core/cameraGeom.js — imported above.)
 
 // R1 judge gap 3: world roll on banking (ARCHITECTURE.md D7 item 2 / REFERENCE.md
 // "Horizon tilt when banking", ADOPTED #128). Full stick deflection ramps
@@ -59,30 +69,6 @@ const PLAYER_CRUISE_SCREEN_FRAC = 0.556;
 // update() below) so a dead jet never fires/launches while the world
 // around the tumbling hulk keeps ticking.
 const DEATH_COMBAT_INPUT = { fire: false, missile: false };
-
-function horizonFracFor(pitchRad, fovDeg) {
-  const halfTan = Math.tan(THREE.MathUtils.degToRad(fovDeg) / 2);
-  const ndcY = -Math.tan(pitchRad) / halfTan;
-  return (1 - ndcY) / 2;
-}
-
-// Inverse of horizonFracFor for a FINITE point, not just the horizon
-// (jethud-dev derivation, independently re-derived and cross-checked here:
-// plugging dy=0 collapses this to horizonFracFor exactly). Camera-space
-// coordinates of a world point at (0, worldY, z) under a camera at height
-// CAMERA_HEIGHT pitched up by `pitch` around local X:
-//   dy = worldY - CAMERA_HEIGHT
-//   localY = dy*cos(pitch) + z*sin(pitch)
-//   localZ = -dy*sin(pitch) + z*cos(pitch)
-//   ndcY = (localY / -localZ) / tan(vFov/2)
-// Solved algebraically for worldY given a target screenFrac and fixed z:
-function worldYForScreenFrac(targetFrac, z, pitchRad, fovDeg) {
-  const halfTan = Math.tan(THREE.MathUtils.degToRad(fovDeg) / 2);
-  const ndcY = 1 - 2 * targetFrac;
-  const k = ndcY * halfTan;
-  const dy = (-z * (Math.sin(pitchRad) + k * Math.cos(pitchRad))) / (Math.cos(pitchRad) - k * Math.sin(pitchRad));
-  return CAMERA_HEIGHT + dy;
-}
 
 function moveTowards(current, target, maxStep) {
   const diff = target - current;
@@ -197,6 +183,14 @@ export class Game {
       demoActive: skipTitle,
     });
     this.screen.overlays.push(this.flow.titleOverlay, this.flow.cardOverlay);
+
+    // R6: the carrier the opening launches off (flow/carrier.js, built by
+    // flow.js). It is a 3D sprite rather than an overlay because the player
+    // jet has to draw IN FRONT of it, and overlays composite on top of
+    // everything. Added here because adding to the scene graph is this
+    // file's job alone — same wiring pattern as the cloud group above.
+    // It starts invisible and is only shown by LaunchSequence.
+    if (this.flow.carrier) this.scene.add(this.flow.carrier);
 
     this.loop = new FixedLoop(
       (dt, simTime) => this.update(dt, simTime),
