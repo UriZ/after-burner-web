@@ -47,29 +47,44 @@
 // ORIGINAL pixel art per ARCHITECTURE.md D5.
 import { PixelCanvas, buildStrip } from '../canvas.js';
 import { PLAYER_ROLL as R } from '../palettes.js';
-import { levelOps, CELL_W, CELL_H, LOCAL_W, LOCAL_H } from './player-f14.js';
+import { levelOps, assertRoles, CELL_W, CELL_H, LOCAL_W, LOCAL_H } from './player-f14.js';
 
 const FRAMES = 8;
 
-// levelOps() asks for the role names the astern drawing uses. Each of the
-// three sets below is drawn from the SAME eight colours, so which set a
-// frame uses never changes the sheet's palette count.
+// levelOps() asks for the role names the astern drawing uses, and it is the
+// SAME function the level sheet calls -- so every role it reads must exist in
+// all three sets below or the polygon using it is drawn with an undefined hex
+// and PixelCanvas.set() ERASES those pixels instead of filling them. That is
+// not hypothetical: R7 added three roles to levelOps and this sheet grew
+// silent holes (see the R7 note on PLAYER_ROLL in ../palettes.js). Each set
+// is still drawn from the SAME eleven colours, so which set a frame uses
+// never changes the sheet's palette count.
+//
+// The DORSAL family has only two measured blues, so its five airframe rungs
+// collapse onto them in pairs. That is a real loss of modelling on the
+// dorsal frames and it is the measurement's limit, not a shortcut: the blue
+// ladder was read as VALUE-BAND MEANS over quintiles of a 1028x720 upscale
+// (see PLAYER_ROLL's header) and only bands 2 and 5 survived as distinct.
 const VENTRAL = {
   key: R.keyline,
+  rim: R.rimline,
   lightTop: R.greyLight,
+  lightNeutral: R.greyCream,
   midNeutral: R.greyMid,
+  warmMid: R.greyWarm,
   coolDark: R.greyDark,
-  deepShadow: R.greyDark,
   canopy: R.blueDark,
   flame: R.nozzleCore,
   flameCore: R.nozzleHot,
 };
 const DORSAL = {
   key: R.keyline,
+  rim: R.rimline,
   lightTop: R.blueLight,
+  lightNeutral: R.blueLight,
   midNeutral: R.blueDark,
+  warmMid: R.blueDark,
   coolDark: R.blueDark,
-  deepShadow: R.keyline,
   canopy: R.greyDark,
   flame: R.nozzleCore,
   flameCore: R.nozzleHot,
@@ -78,10 +93,12 @@ const DORSAL = {
 // top lit and the grey flank below it at once.
 const EDGE = {
   key: R.keyline,
+  rim: R.rimline,
   lightTop: R.blueLight,
+  lightNeutral: R.blueLight,
   midNeutral: R.greyMid,
+  warmMid: R.greyWarm,
   coolDark: R.greyDark,
-  deepShadow: R.blueDark,
   canopy: R.greyDark,
   flame: R.nozzleCore,
   flameCore: R.nozzleHot,
@@ -122,7 +139,7 @@ function rolesFor(w) {
 function drawRollFrame(canvas, index) {
   const theta = (index / FRAMES) * Math.PI * 2;
   const w = (1 - Math.cos(theta)) / 2; // 0 = ventral/astern, 1 = dorsal
-  const c = rolesFor(w);
+  const c = assertRoles(rolesFor(w), `player-f14-roll frame ${index}`);
   const xf = rollTransform(theta);
   for (const op of levelOps(c)) {
     if (op.kind === 'poly') {
@@ -132,12 +149,12 @@ function drawRollFrame(canvas, index) {
       canvas.disc(cx, cy, op.r * xf.scale, op.hex);
     }
   }
-  canvas.outline4(c.key);
+  canvas.outlineSouth(c.rim);
 }
 
 export function buildPlayerF14RollSheet() {
   return buildStrip(CELL_W, CELL_H, FRAMES, drawRollFrame, {
-    maxColours: 8,
+    maxColours: 11,
     label: 'player-f14-roll',
   });
 }

@@ -32,7 +32,11 @@ FALLBACK = ROOT / "src/render/spriteFactory.js"
 
 # The two files' names for the same eight palette roles.
 ROLE_ALIASES = {"slate": "coolDark"}
-ROLES = {"key", "lightTop", "midNeutral", "coolDark", "deepShadow", "canopy", "flame", "flameCore"}
+# R7: ten roles. `deepShadow` is gone (the arcade's daylight airframe has no
+# tone darker than #948463 outside the nozzle throats) and `rim`,
+# `lightNeutral` and `warmMid` are new.
+ROLES = {"key", "rim", "lightTop", "lightNeutral", "midNeutral", "warmMid",
+         "coolDark", "canopy", "flame", "flameCore"}
 
 # Constant names that mean the same anchor in each file.
 CONST_NAMES = [
@@ -132,11 +136,13 @@ def main():
     for fn in ("bladePoly", "wingPoly", "podPoly"):
         compare(fn, tokens(body(SHEET, fn)), tokens(body(FALLBACK, fn)), fails)
     # The keyline is the one legitimate structural difference: the sheet
-    # applies it in drawFrame() via canvas.outline4(c.key) AFTER levelOps has
-    # been transformed into the cell, while the fallback has no transform step
-    # and calls addKeyline() at the end of the drawing itself. Both grow one
-    # outward ring of `key`; only the call site differs, so that single call
-    # is dropped before the comparison rather than papered over.
+    # applies it in drawFrame() via canvas.outlineSouth(c.rim) AFTER levelOps
+    # has been transformed into the cell, while the fallback has no transform
+    # step and calls addUnderKeyline() at the end of the drawing itself. Both
+    # grow one downward rank of `rim`; only the call site differs, so that
+    # single call is dropped before the comparison rather than papered over.
+    # (R7 renamed both halves together; the pre-R7 addKeyline/outline4 pair is
+    # still stripped so this check keeps working on an older tree.)
     # Compare the DRAWING PROGRAM only. Each function opens with its own local
     # helper definitions -- levelOps pushes ops onto an array, drawJetSilhouette
     # rasterizes straight into a buffer with a +Y offset -- and those preambles
@@ -144,7 +150,7 @@ def main():
     # starts at the first blade in both, so both bodies are sliced from there.
     MARK = "poly(bladePoly(-1)"
     sb = body(SHEET, "levelOps")
-    fb = re.sub(r"addKeyline\([^)]*\);", "", body(FALLBACK, "drawJetSilhouette"))
+    fb = re.sub(r"add(Under)?Keyline\([^)]*\);", "", body(FALLBACK, "drawJetSilhouette"))
     sb, fb = sb[sb.index(MARK):], fb[fb.index(MARK):]
     compare("drawing program", tokens(sb), tokens(fb), fails)
     if fails:

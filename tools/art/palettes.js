@@ -69,13 +69,49 @@ export const HAZE = [L('#73b5f7'), L('#a5d6ff'), L('#c5e6ff'), L('#d6f7f7'), L('
 // arcade's 0.969, and that gap is a known, stated under-shoot, not a
 // measurement. See judging/R6/lane-sprite-art.md.
 //
-// Keyline #000000 is kept: the arcade's own native jet crop carries 135 px
-// of exact #000000 (nozzle throats and outline).
+// ========================= R7: THE RIM, MEASURED =========================
+// R6 kept #000000 as BOTH the outline and the nozzle throat, on the grounds
+// that "the arcade's own native jet crop carries 135 px of exact #000000".
+// That is true and it was the wrong conclusion, because it did not ask WHERE
+// those 135 px are. Operator (tools/art/value_census.py, --selftest PASS):
+// airframe = S<0.35, largest 8-connected component, on the same true-native
+// crop; RIM = the pixels 4-adjacent to that mask and outside it.
+//
+//   arcade airframe  751 px, 18.0 % of it #000000 -- and the mask dump shows
+//                    that black is TWO NOZZLE DISCS, nothing else.
+//   arcade RIM       444 px: 49.5 % #840000, 14.6 % #e67300 (the desert
+//                    ground), ... and 0.0 % near-black. There is no black
+//                    outline on the arcade's daylight jet at all.
+//   ours R6          airframe 1100 px, 32.8 % #000000; RIM 0.0 % near-black
+//                    because our black is INSIDE the mask -- it is the ring.
+//
+// #840000 is the player sprite's OWN colour, not a stage tint and not the
+// ground: it occurs 224 times in the whole 320x224 frame and 222 of those
+// are on the aircraft (the other 2 are the wing continuing past the crop
+// box). tools/out/sprite-r7/arcade/desert-840000-map-8x.png maps them: a
+// one-sided dark-red keyline down the LOWER edge of every element, with the
+// upper edges left bare. The arcade shades its edge; R6 outlined it, which
+// is judging/R6/art-critique.md rank 2 ("ringed in pure black") and judge
+// gap 4 ("the keyline and shadow tones carry too much of the sprite") seen
+// from two sides -- they are one defect.
+//
+// STAGE LICENCE, per REFERENCE.md "every palette criterion names its stage":
+// measured on ab2-arcade-desert.png, HUD digit 2, licensed for DAYLIGHT
+// stages. The night sheet keeps its own measured darkest blue-grey as its
+// rim, exactly as the arcade's night palette does -- see PLAYER_NIGHT.
 export const PLAYER = {
-  keyline: '#000000',
-  lightTop: L('#ffffef'), // V1.000 -- MEASURED arcade dominant, 35.6% of its airframe
-  lightNeutral: L('#f7e6b5'), // V0.969 -- MEASURED arcade second, 26.5% (unused by the 8-role sheet)
-  midNeutral: L('#d6d6a4'), // V0.839 -- MEASURED arcade mid tone, 8.3%. The
+  keyline: '#000000', // nozzle throats ONLY now, which is where the arcade's is
+  rimline: L('#840000'), // V0.518 S1.000 -- MEASURED, 49.5 % of the arcade's rim
+  lightTop: L('#ffffef'), // V1.000 -- MEASURED arcade dominant, 31.8% of its airframe
+  lightNeutral: L('#f7e6b5'), // V0.969 -- MEASURED arcade SECOND tone, 23.7%.
+  // R6 left this one out of the 8-role sheet, and that omission is most of
+  // what kept the median a step low: the arcade puts a QUARTER of its
+  // airframe on a tone our sprite did not carry at all. Note S=0.267, which
+  // is just outside VALUE-STAT's S<0.25 gate -- it counts in reading C and
+  // not in A or B, and that asymmetry is why all three readings have to be
+  // published together.
+  warmMid: L('#ceb59c'), // V0.808 -- MEASURED, 5.5% (new to the sheet in R7)
+  midNeutral: L('#d6d6a4'), // V0.839 -- MEASURED arcade mid tone, 7.5%. The
   // first R6 draft used #e6e6c5 (V0.902) to put the achromatic MEDIAN at the
   // very top of the judge's 0.78-0.92 band. Cropped and looked, per the
   // standing rule, and the lead flagged the same thing independently: at
@@ -85,8 +121,8 @@ export const PLAYER = {
   // 0.839 -- mid-band and exactly the figure the R5 judge quotes for the
   // arcade's stage-1 jet. A median one step lower with real form beats a
   // median at the top of the band with none.
-  coolDark: L('#a48484'), // V0.643 -- MEASURED arcade shadow tone, 14.3%
-  warmShadow: L('#948463'), // V0.580 -- MEASURED, 3.1% (unused by the 8-role sheet)
+  coolDark: L('#a48484'), // V0.643 -- MEASURED arcade shadow tone, 12.8%
+  warmShadow: L('#948463'), // V0.580 -- MEASURED, 0.4% (3 px; too small to author)
   deepWarmShadow: L('#635252'), // V0.388 -- MEASURED; the arcade jet has NO airframe tone
   // darker than this. The old #422921 (V0.259) was darker than anything on
   // the arcade's aircraft except its nozzle throat.
@@ -109,12 +145,27 @@ export const PLAYER = {
 // colour — there is no orange/yellow in the verified crop, so this is the
 // measured ground truth, not an invented substitute; see the delivery
 // report for the reasoning.
+// R7: the six measured blue-greys are now ALL used, mapped onto the day
+// sheet's ramp POSITION BY POSITION, so the two sheets are the same drawing
+// with the same role areas and differ only in which ladder they index:
+//
+//   lightTop  #c5d6f7 0.969 <-> #ffffef 1.000      warmMid  #7384b5 0.710 <-> #ceb59c 0.808
+//   lightNtrl #a4b5e6 0.902 <-> #f7e6b5 0.969      coolDark #6373a4 0.643 <-> #a48484 0.643
+//   midNeutrl #8494c5 0.773 <-> #d6d6a4 0.839      rim/key  #425284 0.518 <-> #840000 / #000000
+//
+// `coolDark` moves one step down the measured ramp (#7384b5 -> #6373a4) so
+// the index correspondence holds; both were already in the measured 8.
+// The rim and the keyline are the SAME hex at night, which is the arcade's
+// own night palette (there is no black in the measured night set) -- so the
+// night sheet's colour count does not rise with R7's one-sided rim.
 export const PLAYER_NIGHT = {
   keyline: L('#425284'),
+  rimline: L('#425284'),
   lightTop: L('#c5d6f7'),
   lightNeutral: L('#a4b5e6'),
   midNeutral: L('#8494c5'),
-  coolDark: L('#7384b5'),
+  warmMid: L('#7384b5'),
+  coolDark: L('#6373a4'),
   warmShadow: L('#6373a4'),
   deepWarmShadow: L('#425284'),
   canopy: L('#c594f7'),
@@ -155,10 +206,27 @@ export const PLAYER_NIGHT = {
 // R6: the three greys track PLAYER's retired V<=0.77 ceiling (gap 4). They
 // are the same measured arcade ladder, so the roll cannot read darker than
 // the level poses it interrupts.
+// R7: ELEVEN colours, and the two new greys are not decoration. The roll
+// sheet calls levelOps() -- the SAME drawing program as the level poses -- so
+// when R7 added the #f7e6b5 and #ceb59c rungs to that program, every polygon
+// using them arrived here with an UNDEFINED hex. PixelCanvas.set() treats a
+// null/undefined hex as "erase to transparent", so the roll sheet silently
+// grew holes: cell 0 lost 104 of its 1 176 opaque pixels and cell 2 lost 39
+// of 407, with no error, no warning, and assertPalette still passing because
+// the colour COUNT went down rather than up. sheet_visibility.py passed it
+// too -- a sprite with bites out of it is still visible.
+//
+// So: the roll's grey ramp now carries all five day rungs, and it takes the
+// day sheet's #840000 rim as well. A roll interrupts the level poses; if it
+// keyed in black while they key in dark red it would read as a different
+// aircraft for the eight frames it is on screen. (It is still unwired.)
 export const PLAYER_ROLL = {
   keyline: '#000000',
+  rimline: L('#840000'),
   greyLight: L('#ffffef'),
+  greyCream: L('#f7e6b5'),
   greyMid: L('#d6d6a4'),
+  greyWarm: L('#ceb59c'),
   greyDark: L('#a48484'),
   blueLight: L('#8f9fcf'),
   blueDark: L('#525f8b'),

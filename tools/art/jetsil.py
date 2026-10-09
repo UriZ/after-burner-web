@@ -69,7 +69,36 @@ def airframe_mask(im, v_thresh, sky_mode):
     return m
 
 
-def nozzle_mask(im):
+# R7: THE NOZZLE MASK'S V FLOOR IS AN OPEN DEFECT, AND IT IS DEMONSTRATED.
+#
+# REFERENCE.md publishes the afterburner mask as "hue 5-55 deg, S >= 0.45,
+# V >= 0.45" and the nozzle-separation figure it feeds was only ever taken on
+# reference/stage3-night-level-t175.png -- a NIGHT crop, whose keyline is the
+# measured blue-grey #425284 and cannot enter a red-hue mask.
+#
+# The arcade's DAYLIGHT jet is keylined in #840000 (V 0.518, S 1.000, hue 0),
+# which passes that mask. Run on our R7 day cell at the published floor, the
+# two largest 8-connected components are a 128 px lump of KEYLINE and one
+# 52 px nozzle, and the statistic returns 15.3 % of SPAN against a 25-35 %
+# band. At V >= 0.70 the mask is exactly the two 52 px nozzles and it returns
+# 30.0 %. Nothing about the drawing changed between those two lines.
+#
+# The floor has no measured support at 0.45: every afterburner colour this
+# project has measured on an arcade frame is V >= 0.902 (#e67300 0.902,
+# #f78400 and #f7b500 0.969 on the native desert frame; #ff7500 on t175), and
+# ours are #ef7308 0.937 / #ffd600 1.000. A floor of 0.70 therefore clears
+# every measured glow by >= 0.20 and clears #840000 by 0.18 -- it is a gap in
+# the middle of nothing, not a threshold tuned to a sprite.
+#
+# This tool does NOT silently move the published operator. --nozzle-v defaults
+# to 0.45, and show() prints BOTH readings whenever they disagree, so the
+# figure that fails is on the page next to the figure that passes. The
+# criteria lane owns which one REFERENCE.md keeps; see judging/R7/ask-sprite-art.md.
+NOZZLE_V_PUBLISHED = 0.45
+NOZZLE_V_ALT = 0.70
+
+
+def nozzle_mask(im, v_floor=NOZZLE_V_PUBLISHED):
     w, h = im.size
     px = im.load()
     m = [[False] * w for _ in range(h)]
@@ -80,7 +109,7 @@ def nozzle_mask(im):
                 continue
             hh, ss, vv = colorsys.rgb_to_hsv(r / 255, g / 255, b / 255)
             deg = hh * 360
-            if (deg <= 55 or deg >= 355) and ss >= 0.45 and vv >= 0.45:
+            if (deg <= 55 or deg >= 355) and ss >= 0.45 and vv >= v_floor:
                 m[y][x] = True
     return m
 
@@ -193,13 +222,15 @@ def measure(path, box=None, v_thresh=30, sky_mode=False, label=""):
         if a and b:
             cant = a / b
 
-    nz = components8(nozzle_mask(im))
-    nozzle_sep = None
-    if len(nz) >= 2:
-        cs = []
-        for comp in nz[:2]:
-            cs.append(sum(x for x, _ in comp) / len(comp))
-        nozzle_sep = abs(cs[0] - cs[1])
+    def sep_at(v_floor):
+        nz = components8(nozzle_mask(im, v_floor))
+        if len(nz) < 2:
+            return None, None
+        cs = [sum(x for x, _ in comp) / len(comp) for comp in nz[:2]]
+        return abs(cs[0] - cs[1]), [len(c) for c in nz[:2]]
+
+    nozzle_sep, nz_sizes = sep_at(NOZZLE_V_PUBLISHED)
+    nozzle_sep_alt, nz_sizes_alt = sep_at(NOZZLE_V_ALT)
 
     res = {
         "label": label or path,
@@ -211,6 +242,9 @@ def measure(path, box=None, v_thresh=30, sky_mode=False, label=""):
         "two_blade_pct": 100.0 * two_blade / len(fin_rows) if fin_rows else 0.0,
         "fin_extent_pct": 100.0 * fin_extent / SPAN,
         "nozzle_sep_pct": 100.0 * nozzle_sep / SPAN if nozzle_sep else None,
+        "nozzle_sep_alt_pct": 100.0 * nozzle_sep_alt / SPAN if nozzle_sep_alt else None,
+        "nozzle_comp_px": nz_sizes,
+        "nozzle_comp_alt_px": nz_sizes_alt,
         "cant": cant,
         "aspect": SPAN / H,
         "span_pct_frame": 100.0 * SPAN / w,
@@ -229,7 +263,12 @@ def show(r):
     print(f"    two-blade fin rows   {r['two_blade_pct']:.1f}%  ({r['fin_rows']} rows in band)")
     print(f"    fin-pair extent      {r['fin_extent_pct']:.1f}% of SPAN")
     sep = r["nozzle_sep_pct"]
-    print(f"    nozzle separation    {sep:.1f}% of SPAN" if sep else "    nozzle separation    n/a")
+    alt = r.get("nozzle_sep_alt_pct")
+    print(f"    nozzle separation    {sep:.1f}% of SPAN  [V>=0.45, published]"
+          if sep else "    nozzle separation    n/a  [V>=0.45, published]")
+    if alt is not None and (sep is None or abs(alt - sep) > 0.05):
+        print(f"                         {alt:.1f}% of SPAN  [V>=0.70, see the header]"
+              f"   components {r['nozzle_comp_px']} px -> {r['nozzle_comp_alt_px']} px")
     print(f"    blade cant           {r['cant']:.2f}" if r["cant"] else "    blade cant           n/a")
     print(f"    aspect SPAN/H        {r['aspect']:.2f}   (sanity 3.0-3.6)")
     print(f"    fin max row width    {r['fin_maxrow_pct_of_S']:.1f}% of S (description only)")

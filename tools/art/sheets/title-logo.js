@@ -1,3 +1,26 @@
+// ============================ UNUSED. READ THIS FIRST. ============================
+// R7: THIS MODULE IS DEAD CODE AND EDITING IT CHANGES NOTHING ON SCREEN.
+//
+// Nothing imports it, tools/art/build.js does not list it, and there is no
+// src/assets/sprites/title-logo.png. The title wordmark the game actually
+// draws lives in src/ui/titleFont.js (glyph outlines) and
+// src/game/flow/titleScreen.js (layout and placement), which are the Player &
+// HUD lane's files, not the sprite lane's.
+//
+// It is left in place rather than deleted because deleting another round's
+// work unasked is not this lane's call -- but it is a SECOND COPY of the
+// wordmark, which is the exact defect class R6 spent a day removing from the
+// enemy palettes ("a drifted fallback is invisible precisely because the
+// fallback only runs where nobody captures"). The two copies have ALREADY
+// diverged: this file's cap height is 42 px for both words, and so is
+// titleFont.js's -- but the arcade's are 47.6 and 54.1, and whoever fixes
+// that must fix titleFont.js, not this.
+//
+// R7's measurement of the arcade's letterforms, with the operator, is in
+// judging/R7/lane-sprite-art.md §4 and the hand-over spec is in
+// judging/R7/ask-sprite-art.md. Either wire this module up and delete
+// titleFont.js's glyphs, or delete this file -- do not edit both.
+// =================================================================================
 // title-logo.png — 228x91, "AFTER" / "BURNER" wordmark, one image, colours
 // baked per letter (leading A blue, leading B red, rest cream), transparent
 // background. Dimensions and colours per presentation-r5's corrected

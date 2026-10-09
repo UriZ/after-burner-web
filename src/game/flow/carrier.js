@@ -135,6 +135,7 @@ function drawCarrier(buf) {
   // Two lighter bands: a stern transom and a waterline shadow. Without them
   // the hull is a featureless silhouette and the whole ship reads as a
   // cardboard cut-out at every scale the overfly passes through.
+  fillRectHard(buf, 40, DECK_NEAR_Y + 1, 120, 2, ISLAND_MID); // sheer line
   fillRectHard(buf, 44, DECK_NEAR_Y + 6, 112, 3, ISLAND_DARK);
   fillRectHard(buf, 50, DECK_NEAR_Y + 17, 100, 2, ISLAND_DARK);
   // Sponson boxes along the hull side, which is what gives the arcade's hull
@@ -193,28 +194,115 @@ function drawCarrier(buf) {
       setPixel(buf, Math.round(x0 + (x1 - x0) * t), Math.round(y0 + (y1 - y0) * t) + 1, hex);
     }
   };
+  // R7: the landing strip is a BAND, not a line. On t89 the deck reads as a
+  // broad pale runway with a darker deck either side of it and a dashed
+  // centreline down the middle; R6 drew the centreline and nothing else, and
+  // the launch capture is one flat plate of #c6c4e7 as a result.
+  fillPolygonHard(
+    buf,
+    [[96, DECK_FAR_Y + 2], [126, DECK_FAR_Y + 2], [60, DECK_NEAR_Y - 2], [12, DECK_NEAR_Y - 2]],
+    DECK_MID
+  );
   strip(104, DECK_FAR_Y + 4, 30, DECK_NEAR_Y - 6, ISLAND_DARK, 0);
   strip(118, DECK_FAR_Y + 4, 58, DECK_NEAR_Y - 8, MARKING, 7);
   // Deck-edge line along the starboard side, under the island.
   strip(DECK_FAR_X1 + 2, DECK_FAR_Y + 2, DECK_NEAR_X1 - 6, DECK_NEAR_Y - 7, ISLAND_DARK, 0);
 
   // --- island (superstructure), starboard side ----------------------------
-  fillRectHard(buf, ISLAND_X0, ISLAND_Y0, islandW, islandH, ISLAND_MID);
-  fillRectHard(buf, ISLAND_X0 + 4, ISLAND_Y0 + 7, islandW - 8, 4, ISLAND_DARK); // bridge windows
-  fillRectHard(buf, ISLAND_X0 + 4, ISLAND_Y0 + 17, 22, 3, ISLAND_DARK);
-  fillRectHard(buf, ISLAND_X0 + 31, ISLAND_Y0 + 3, 13, 12, ISLAND_DARK); // funnel
-  fillRectHard(buf, ISLAND_X0 + 5, ISLAND_Y1 - 10, islandW - 12, 10, ISLAND_DARK); // shadowed base
-  // Hull number on the island face, two 3x5 blocks. Deliberately not the
-  // arcade's "128" -- see the header's note on trade dress.
-  fillRectHard(buf, ISLAND_X0 + 11, ISLAND_Y1 - 8, 3, 5, MARKING);
-  fillRectHard(buf, ISLAND_X0 + 17, ISLAND_Y1 - 8, 3, 5, MARKING);
+  //
+  // R7 REDRAW. The R6 island was one flat rectangle with four darker
+  // rectangles on it, and judge gap 10 is exactly that: "a grey wedge with
+  // one box beside the arcade's detailed ship". Drawn here against
+  // reference/carrier-launch-t89.png x[470,686] y[110,340] viewed at 3x
+  // (tools/out/sprite-r7/arcade/t89-island-3x.png), which is the LAUNCH
+  // shot -- the island is ~90 px tall there against ~25 px in the distant
+  // t84, so it is the frame that actually shows the structure. What that
+  // crop holds, and what each block below is:
+  //
+  //   * a multi-storey bridge block whose face is a REGULAR GRID of small
+  //     dark windows, roughly 6 columns by 5 rows. This is the single
+  //     feature that makes the mass read as a ship rather than a box, and
+  //     R6 had none of it.
+  //   * TWO rounded tower caps, the aft one larger, each ringed with a band
+  //     of dark vent/window ticks and lit along its top.
+  //   * a lattice mast carrying two long yardarms and, above them, a
+  //     horizontal air-search radar bar.
+  //   * a large pale hull number on a dark panel at the island's base.
+  //
+  // The arcade's number is 128 and its deck carries SEGA/ENTERPRISE; neither
+  // is reproduced (CLAUDE.md's assets rule). The number here is 07, drawn
+  // from this file's own 6x9 segment table.
+  const lit = (x, y, w, h) => fillRectHard(buf, x, y, w, h, DECK_MID);
+  const mid = (x, y, w, h) => fillRectHard(buf, x, y, w, h, ISLAND_MID);
+  const dark = (x, y, w, h) => fillRectHard(buf, x, y, w, h, ISLAND_DARK);
 
-  // --- mast and radar, in the 10 rows above the island --------------------
-  fillRectHard(buf, 152, SHIP_TOP_Y, 2, ISLAND_Y0 - SHIP_TOP_Y, ISLAND_DARK);
-  fillRectHard(buf, 139, SHIP_TOP_Y + 1, 29, 1, ISLAND_DARK); // upper yardarm
-  fillRectHard(buf, 144, SHIP_TOP_Y + 5, 20, 1, ISLAND_DARK); // lower yardarm
-  fillRectHard(buf, 130, SHIP_TOP_Y + 6, 15, 2, ISLAND_MID); // air-search radar bar
-  fillRectHard(buf, 176, SHIP_TOP_Y + 4, 2, ISLAND_Y0 - SHIP_TOP_Y - 1, ISLAND_DARK);
+  // Bridge block, two value planes across: the face toward the deck catches
+  // the light, the outboard half is in shade.
+  const BRIDGE_Y = ISLAND_Y0 + 17;
+  mid(ISLAND_X0, BRIDGE_Y, islandW, ISLAND_Y1 - BRIDGE_Y);
+  lit(ISLAND_X0, BRIDGE_Y, 19, ISLAND_Y1 - BRIDGE_Y);
+  // The window grid. 6 x 4 of 3x2 lights with 2 px mullions -- at the
+  // opening framing one window is ~2 native px, which is the smallest
+  // feature that survives, and the GRID is what reads, not any one light.
+  for (let r = 0; r < 4; r += 1) {
+    for (let col = 0; col < 6; col += 1) {
+      dark(ISLAND_X0 + 2 + col * 5, BRIDGE_Y + 3 + r * 4, 3, 2);
+    }
+  }
+  // A dark band under the windows and the shadowed base the deck sits on.
+  dark(ISLAND_X0, ISLAND_Y1 - 11, islandW, 2);
+
+  // Two rounded tower caps. canvas-side there is no ellipse primitive, so
+  // each is a flat-topped octagon -- the same construction the player jet's
+  // nacelles use, and at 14-22 texels it reads round.
+  const cap = (cx, cy, rx, ry) => {
+    const cut = Math.round(rx * 0.5);
+    fillPolygonHard(
+      buf,
+      [
+        [cx - rx + cut, cy - ry], [cx + rx - cut, cy - ry],
+        [cx + rx, cy - ry + cut], [cx + rx, cy + ry],
+        [cx - rx, cy + ry], [cx - rx, cy - ry + cut],
+      ],
+      ISLAND_MID
+    );
+    lit(cx - rx + cut, cy - ry, 2 * (rx - cut), 2); // lit crown
+    for (let t = -rx + 2; t < rx - 2; t += 4) dark(cx + t, cy + 1, 2, 2); // vent ring
+  };
+  cap(ISLAND_X0 + 13, ISLAND_Y0 + 11, 10, 6);
+  cap(ISLAND_X0 + 37, ISLAND_Y0 + 8, 13, 9);
+
+  // --- mast, yardarms and radar, above the caps ---------------------------
+  dark(ISLAND_X0 + 22, SHIP_TOP_Y, 2, ISLAND_Y0 + 6 - SHIP_TOP_Y);
+  dark(ISLAND_X0 + 8, SHIP_TOP_Y + 2, 31, 1); // upper yardarm
+  dark(ISLAND_X0 + 13, SHIP_TOP_Y + 6, 21, 1); // lower yardarm
+  mid(ISLAND_X0 + 2, SHIP_TOP_Y + 8, 17, 2); // air-search radar bar
+  fillRectHard(buf, ISLAND_X0 + 7, SHIP_TOP_Y + 3, 3, 3, MARKING); // signal board
+  dark(ISLAND_X0 + 47, SHIP_TOP_Y + 5, 2, ISLAND_Y0 - SHIP_TOP_Y);
+
+  // --- hull number, large, on a dark panel at the island base -------------
+  // 6x9 digits from a seven-segment table. The arcade's are the biggest
+  // single piece of lettering on the ship and they are what a player reads
+  // first; R6's were two 3x5 white blocks, i.e. not digits at all.
+  const SEG = { 0: 0b1110111, 7: 0b1010010 };
+  const drawDigit = (d, x, y) => {
+    const s = SEG[d];
+    const bar = (i, bx, by, w, h) => { if (s & (1 << i)) fillRectHard(buf, x + bx, y + by, w, h, MARKING); };
+    bar(6, 0, 0, 6, 2); // top
+    bar(5, 0, 0, 2, 5); // upper left
+    bar(4, 4, 0, 2, 5); // upper right
+    bar(3, 0, 4, 6, 2); // middle
+    bar(2, 0, 4, 2, 5); // lower left
+    bar(1, 4, 4, 2, 5); // lower right
+    bar(0, 0, 7, 6, 2); // bottom
+  };
+  // Lifted onto the island FACE rather than its base: the base's last rows
+  // sit behind the deck's near edge at the launch framing, and the first
+  // R7 draft put the digits exactly there -- the capture showed a dark panel
+  // with nothing in it.
+  dark(ISLAND_X0 + 28, ISLAND_Y1 - 22, 22, 11);
+  drawDigit(0, ISLAND_X0 + 30, ISLAND_Y1 - 21);
+  drawDigit(7, ISLAND_X0 + 40, ISLAND_Y1 - 21);
 
   // --- parked aircraft ----------------------------------------------------
   // Clustered at the bow, outboard of the strip, and aft of the island, as in
@@ -222,28 +310,37 @@ function drawCarrier(buf) {
   // as a DARK chevron with a light core -- a white chevron on the #c6c4e7
   // deck was invisible in the first capture, same defect as the markings.
   const PARKED = [
-    [68, 42],
-    [84, 42],
-    [110, 46],
-    [128, 50],
-    [16, 70],
-    [36, 74],
-    [146, 66],
-    [164, 72],
+    [10, 62], [30, 68], [50, 74], [8, 78],
+    [60, 40], [76, 40], [92, 42], [108, 44],
+    [150, 70], [168, 76], [134, 64],
   ];
+  // R7: light body, DARK outline, 13 px across. R6 drew them as dark
+  // chevrons with a 2 px light core and the launch capture shows why that
+  // fails -- against #c6c4e7 at the opening scale a 9 px dark mark is one
+  // smudge, while the arcade's parked aircraft are pale bodies with a hard
+  // dark edge, which is what survives the downscale. Placed outboard and
+  // forward of the catapult so the player's own jet does not sit on them.
   for (const [px0, py0] of PARKED) {
+    // Size with DEPTH. The deck is a perspective trapezoid, so an aircraft
+    // parked at its far end must be smaller; drawing them all one size is
+    // what made the first R7 draft read as a row of identical arrows. k runs
+    // 0.62 at the far edge to 1.0 at the near one, from the same
+    // DECK_FAR_Y/DECK_NEAR_Y the deck itself is built from.
+    const k = 0.62 + 0.38 * ((py0 - DECK_FAR_Y) / (DECK_NEAR_Y - DECK_FAR_Y));
+    const W = 13 * k;
+    const H = 5 * k;
     fillPolygonHard(
       buf,
-      [
-        [px0, py0 + 4],
-        [px0 + 4, py0],
-        [px0 + 9, py0 + 4],
-        [px0 + 4, py0 + 2],
-      ],
+      [[px0, py0 + H], [px0 + W / 2, py0], [px0 + W, py0 + H], [px0 + W / 2, py0 + H * 0.6]],
       ISLAND_DARK
     );
-    setPixel(buf, px0 + 4, py0 + 1, MARKING);
-    setPixel(buf, px0 + 4, py0 + 2, MARKING);
+    fillPolygonHard(
+      buf,
+      [[px0 + W * 0.15, py0 + H * 0.8], [px0 + W / 2, py0 + H * 0.2],
+       [px0 + W * 0.85, py0 + H * 0.8], [px0 + W / 2, py0 + H * 0.6]],
+      MARKING
+    );
+    fillRectHard(buf, px0 + W / 2 - 1, py0 + H * 0.2, 2, H, ISLAND_DARK); // fuselage
   }
 
   // --- bow wave / waterline foam ------------------------------------------

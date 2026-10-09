@@ -158,6 +158,36 @@ export class PixelCanvas {
    * becomes `hex`. Run BEFORE painting interior details that should sit on
    * top of the keyline, or after — caller's choice; this only touches
    * currently-transparent pixels, never opaque ones. */
+  /** ONE-SIDED keyline, grown DOWNWARD only: an empty pixel is marked when any
+   * of its three NORTHERN neighbours is opaque. Three, not one, so the line
+   * stays unbroken across a steep diagonal (a wing leading edge climbs faster
+   * than one row per column and a strict due-north test leaves gaps in it).
+   *
+   * MEASURED, not a style choice. The arcade's daylight player jet is not
+   * outlined; it is SHADED on one edge. On the true-native desert frame its
+   * rim is 49.5 % #840000 and 0.0 % near-black, and mapping every #840000
+   * pixel in the frame (tools/out/sprite-r7/arcade/desert-840000-map-8x.png)
+   * puts all 222 of them along the LOWER edge of each element, with the upper
+   * edges bare against the background. A full ring is ~2x the perimeter this
+   * marks, which is the other half of why R6's sprite carried 32.8 % black
+   * where the arcade carries 18 %.
+   */
+  outlineSouth(hex) {
+    const toMark = [];
+    for (let y = 0; y < this.height; y++) {
+      for (let x = 0; x < this.width; x++) {
+        if (this.isOpaque(x, y)) continue;
+        if (
+          this.isOpaque(x - 1, y - 1) || this.isOpaque(x, y - 1) ||
+          this.isOpaque(x + 1, y - 1)
+        ) {
+          toMark.push([x, y]);
+        }
+      }
+    }
+    for (const [x, y] of toMark) this.set(x, y, hex);
+  }
+
   outline4(hex) {
     const toMark = [];
     for (let y = 0; y < this.height; y++) {
