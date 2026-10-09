@@ -75,14 +75,26 @@ async function main() {
     // without killing it, which is how the player-feel lane got one frozen,
     // score-0 capture set that a re-run did not reproduce. A capture must
     // measure the tree as it was when the run started, not a moving target.
-    server: { strictPort: false, hmr: false, watch: null },
+    // host is PINNED, not left to vite's default. The client below connects to
+    // 127.0.0.1 explicitly; if the server were left to bind ::1 (or the
+    // default), `localhost` on macOS resolves ::1 first and a run can silently
+    // attach to ANOTHER AGENT'S server on a neighbouring port -- which the R6
+    // feel critic hit, at the cost of a full set of arms, with plausible stable
+    // numbers and no error. Pin both ends or neither is deterministic.
+    server: { host: '127.0.0.1', strictPort: false, hmr: false, watch: null },
     logLevel: 'error',
   });
   await server.listen();
   const address = server.httpServer.address();
   const port = address.port;
 
-  const url = new URL(args.page, `http://localhost:${port}/`);
+  // 127.0.0.1, NOT localhost. Vite binds the IPv4 loopback; on macOS
+  // `localhost` resolves ::1 first, so with two agents running their own
+  // servers a capture can silently drive ANOTHER AGENT'S TREE. The R6 feel
+  // critic hit this: it cost a full set of arms and produced plausible,
+  // stable numbers with no error of any kind. Same failure class as every
+  // other silent-corruption bug in this tool's history.
+  const url = new URL(args.page, `http://127.0.0.1:${port}/`);
   // `fixed` and `seed` are DEFAULTS, applied only if the caller did not set
   // them. The previous form built the query as `fixed=1&seed=1${extra}`,
   // which APPENDS a second `seed` when the caller passes one in

@@ -51,6 +51,18 @@ Two lessons for this repo's tooling, both cheap:
   than from the bound socket, so a tool that *did* fail to bind would quietly drive whoever did.
   I hit that too, as a 404 I was lucky enough to see.
 
+**Verification status of every arm quoted below** — all carry `SERVED_CHECK`
+`["const ENVELOPE_Y = 1.1"]`, and all reproduce their pre-R7 originals **seed for seed**:
+
+| arm | seeds × duration | verified |
+|---|---|---|
+| `demo` mortal | 5 × 300 s | ✓ 12/10/13/10/9 deaths, 259/230/222/247/242 kills |
+| `evade` mortal | 5 × 300 s | ✓ 12/9/11/10/10 deaths |
+| `jinkx` / `jinky` / `still` mortal | 5 × 300 s each | ✓ 103 / 128 / 139 deaths |
+| `still` / `lat` / `trk` / `vert` invincible | 4 × 180 s each | ✓ 2 007 / 2 237 / 2 325 / 2 035 kills |
+| `control_probe` envelope, latency, sight | 3 repeats | ✓ 42.2248 H range, three times |
+| `b-*` arms (round life, occlusion, missile share) | 3 × 150 s each | ✓ round life 2.90–3.05 s, occlusion 0.736–0.757, 1 236 vs 992 kills |
+
 **What this means for the numbers here**: everything is from runs carrying the assertion above,
 or from a pre-R7 run that a verified re-run reproduced **seed for seed** (e.g. `still` seed 1 =
 501 kills; `evade` seed 1 = 12 deaths / 504 kills, in both). Anything I could not confirm that
@@ -117,6 +129,12 @@ with a worst run of **30.6 s**, against **14.1 %** under the `?demo=1` autopilot
 down about a sixth of the time. The emptiness R5 spent a round removing comes straight back the
 moment a real player holds the gun down, and no gate in the project can see it, because every
 density figure in the project is measured on that autopilot.
+
+On fairness, separately: **0 of 476 fatal hits across five pilot policies were unannounced**, and
+the minimum warning any of them ever had was **2.88 s**. The build is not merely fair, it is
+over-announced — and a reactive pilot that uses all that warning dies at **2.08/min** against the
+non-reactive autopilot's **2.16**, i.e. **reacting buys about 4 %**. The usual framing, that our
+autopilot overstates difficulty because it cannot dodge, does not hold here (§4.1).
 
 **Would a player enjoy 60 seconds? Yes.** It is busy, loud, fast, legible, and it kills you
 fairly.
@@ -459,9 +477,14 @@ Five pilot policies, 5 seeds × 300 s each, mortal:
 | *arcade, two independent measurements* | *1.91 / 2.04* | *2.78 – 2.94* | *69.4 – 73.5 %* | — |
 
 **`still` reads `pHit` = 100 %: every single enemy round that reached the player's plane hit
-him.** I cropped that one and looked before believing it, as the rules require; it is exactly
-right and it is the whole difficulty model in one number — the aim is *perfect*, and the only
-thing that ever makes a round miss is the player having moved since the snapshot.
+him.** A clean 100 % is exactly the shape of this project's false alarms, so I did not take it on
+the number: the arm's own control holds (116–139 crossings inside the kill radius, equal to
+`playerHitsTaken` exactly), and the mechanism in `enemy.js` predicts it — the train is fired at a
+snapshot of the player's NDC with **no error term**, so against a player who never moves the
+centre round of every train is a perfect shot by construction. It is right, and it is the whole
+difficulty model in one number: **the aim is perfect, and the only thing that ever makes a round
+miss is the player having moved since the snapshot.** I did not inspect it in pixels; this is a
+telemetry result with a mechanism behind it, not a frame reading.
 
 **The standing framing — "an autopilot that cannot dodge should die far more than a human who
 can, so our figure overstates difficulty" — is backwards on this build.** Of the four

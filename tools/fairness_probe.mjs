@@ -75,7 +75,8 @@ async function runSeed(browser, port, seed, args) {
   const search = new URLSearchParams(args.urlParams);
   search.set('fixed', '1');
   search.set('seed', String(seed));
-  await page.goto(`http://localhost:${port}/?${search}`, { waitUntil: 'load' });
+  // 127.0.0.1, not localhost -- see the note at the server setup below.
+  await page.goto(`http://127.0.0.1:${port}/?${search}`, { waitUntil: 'load' });
   await page.waitForFunction('window.__frameReady === true', { timeout: 20000 });
 
   const samples = Math.round(args.seconds / (args.every * TICK));
@@ -267,7 +268,13 @@ async function main() {
   const server = await createServer({
     root: ROOT,
     configFile: path.join(ROOT, 'vite.config.js'),
-    server: { strictPort: false, hmr: false, watch: null },
+    // host is PINNED, not left to vite's default. The client below connects to
+    // 127.0.0.1 explicitly; if the server were left to bind ::1 (or the
+    // default), `localhost` on macOS resolves ::1 first and a run can silently
+    // attach to ANOTHER AGENT'S server on a neighbouring port -- which the R6
+    // feel critic hit, at the cost of a full set of arms, with plausible stable
+    // numbers and no error. Pin both ends or neither is deterministic.
+    server: { host: '127.0.0.1', strictPort: false, hmr: false, watch: null },
     logLevel: 'error',
   });
   await server.listen();
