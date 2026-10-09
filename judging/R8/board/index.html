@@ -1,0 +1,160 @@
+<title>Round 8 Board</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@600;700&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+
+<style>
+  :root {
+    --ink:#0a0c11; --panel:#12161f; --panel2:#171d29; --rule:#262f3e; --rule2:#3a465c;
+    --text:#dde4f0; --dim:#8291a8; --dimmer:#5d6a7e;
+    --red:#f23a2e; --sky:#009fff; --amber:#f7ce00; --green:#3fc98a;
+    --display:"Chakra Petch","Trebuchet MS",sans-serif;
+    --body:"IBM Plex Sans","Helvetica Neue",Arial,sans-serif;
+    --mono:"IBM Plex Mono",ui-monospace,Menlo,monospace;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--ink);color:var(--text);font:400 15.5px/1.6 var(--body);padding:0 20px 80px}
+  .wrap{max-width:1000px;margin:0 auto}
+  code{font-family:var(--mono);font-size:.87em;color:#b9c6dc;background:#0e131c;border:1px solid var(--rule);border-radius:3px;padding:1px 5px}
+
+  header{padding:48px 0 22px;border-bottom:1px solid var(--rule)}
+  .eyebrow{font-family:var(--mono);font-size:11px;letter-spacing:.22em;text-transform:uppercase;color:var(--dimmer);margin-bottom:12px}
+  h1{font-family:var(--display);font-weight:700;font-size:clamp(30px,5vw,46px);line-height:1.03;margin:0 0 10px;letter-spacing:-.015em}
+  .meta{font-family:var(--mono);font-size:12px;color:var(--dimmer);display:flex;flex-wrap:wrap;gap:6px 24px}
+  .meta b{color:var(--dim);font-weight:500}
+
+  .tldr{margin:26px 0 0;background:var(--panel2);border:1px solid var(--rule2);border-left:4px solid var(--amber);border-radius:3px;padding:18px 20px}
+  .tldr h2{margin:0 0 8px;font-family:var(--display);font-size:19px;font-weight:600}
+  .tldr p{margin:0 0 8px;color:#c9d3e4;max-width:72ch}
+  .tldr p:last-child{margin:0}
+  .trend{font-family:var(--mono);font-size:12.5px;color:var(--dim);font-variant-numeric:tabular-nums}
+  .trend b{color:var(--amber)}
+
+  h2.sec{font-family:var(--display);font-weight:600;font-size:12.5px;letter-spacing:.2em;text-transform:uppercase;color:var(--dimmer);margin:46px 0 16px;padding-bottom:9px;border-bottom:1px solid var(--rule)}
+
+  table{border-collapse:collapse;width:100%;font-size:14px;margin:0 0 8px}
+  th,td{border-bottom:1px solid var(--rule);padding:7px 10px;text-align:left}
+  th{font-family:var(--mono);font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--dimmer);font-weight:600}
+  td.n{font-family:var(--mono);font-variant-numeric:tabular-nums;white-space:nowrap}
+  .ok{color:var(--green)} .miss{color:var(--red)} .arc{color:var(--dim)}
+  .tablewrap{overflow-x:auto}
+
+  .pairs{display:grid;gap:14px;grid-template-columns:repeat(auto-fit,minmax(290px,1fr))}
+  .pair{background:var(--panel);border:1px solid var(--rule);border-radius:4px;overflow:hidden}
+  .pair h3{margin:0;padding:11px 14px;font-family:var(--display);font-size:15px;font-weight:600;border-bottom:1px solid var(--rule)}
+  .pair .two{display:grid;grid-template-columns:1fr 1fr;gap:1px;background:var(--rule)}
+  .shot{position:relative;background:#000}
+  .shot img{display:block;width:100%;aspect-ratio:10/7;object-fit:contain;background:#000;image-rendering:pixelated}
+  .shot span{position:absolute;left:0;top:0;font-family:var(--mono);font-size:9.5px;letter-spacing:.14em;text-transform:uppercase;padding:3px 7px;background:rgba(8,10,14,.82)}
+  .shot.ours span{border-bottom:1px solid var(--sky)}
+  .shot.arc2 span{border-bottom:1px solid var(--amber)}
+  .pair p{margin:0;padding:11px 14px;font-size:13.5px;color:var(--dim);line-height:1.5}
+
+  ol.next{margin:0;padding-left:20px}
+  ol.next li{margin-bottom:9px;color:#c9d3e4}
+  ol.next li b{color:var(--text)}
+  .tag{font-family:var(--mono);font-size:9.5px;letter-spacing:.1em;text-transform:uppercase;border-radius:2px;padding:1px 6px;margin-right:7px;white-space:nowrap}
+  .t-new{color:#ffd6d2;border:1px solid color-mix(in srgb,var(--red) 55%,transparent)}
+  .t-carry{color:#ffeeb0;border:1px solid color-mix(in srgb,var(--amber) 45%,transparent)}
+
+  footer{margin-top:44px;padding-top:20px;border-top:1px solid var(--rule);color:var(--dimmer);font-size:13px}
+  footer a{color:var(--sky)}
+  @media(max-width:620px){.pair .two{grid-template-columns:1fr}}
+</style>
+
+<div class="wrap">
+
+<header>
+  <div class="eyebrow">After Burner II rebuild · round board</div>
+  <h1>Round 8</h1>
+  <div class="meta">
+    <span><b>build</b> e269635</span>
+    <span><b>previous verdict</b> R7 — 8/10 HOLD</span>
+    <span><b>R8 verdict</b> gate not yet run</span>
+    <span><b>lanes</b> 5, all closed</span>
+  </div>
+</header>
+
+<div class="tldr">
+  <h2>Where we are</h2>
+  <p class="trend">Judge trend &nbsp; 3 → 4 → 6 → 7 → 7.5 → 8 → 8 → <em>R8 pending</em></p>
+  <p>
+    R7 held at 8/10 on one sentence: <em>every closure was in the rendering, and everything a
+    player meets in the first three minutes is in the playing.</em> <strong>Round 8 went after
+    the playing.</strong> The gun no longer kills what the player cannot see, the stage counter
+    counts past 3, the last three objects are on the hardware ladder, and the owner's enemy-art
+    blocker is closed.
+  </p>
+  <p style="color:var(--text);border-left:2px solid var(--amber);padding-left:14px">
+    <em>And the one gate still missed turns out not to be a weapons problem at all: the spawner
+    emits 2.71–3.27 aircraft per second and a good pilot kills 94% of them. No weapon change can
+    reach the arcade's rate — ~67% of traffic has to fly past untouched. That is pacing.</em>
+  </p>
+</div>
+
+<h2 class="sec">What Round 8 changed</h2>
+
+<div class="tablewrap">
+<table>
+  <tr><th>measure</th><th>before</th><th>after</th><th>gate / arcade</th></tr>
+  <tr><td>gun kills below the 10 %W readable gate</td><td class="n">79.1%</td><td class="n ok">0.0%</td><td class="n arc">≤10%</td></tr>
+  <tr><td>deepest gun kill in 720 s</td><td class="n">depth 59.8</td><td class="n ok">9.4</td><td class="n arc">readable band</td></tr>
+  <tr><td>ticks with a readable aircraft on screen</td><td class="n miss">27.3%</td><td class="n ok">79.6%</td><td class="n arc">≥60%</td></tr>
+  <tr><td>worst drought with nothing to shoot</td><td class="n">6.45 s</td><td class="n ok">2.40 s</td><td class="n arc">autopilot 3.30</td></tr>
+  <tr><td>neutral stick vs tracking pilot</td><td class="n">80.6%</td><td class="n miss">64.0% — missed</td><td class="n arc">≤40%</td></tr>
+  <tr><td>stage digit at 300 s</td><td class="n miss">"2"</td><td class="n ok">STAGE 9</td><td class="n arc">counts to 15+</td></tr>
+  <tr><td>title screen</td><td class="n miss">53 chan / 44 off-ladder</td><td class="n ok">15 / 0</td><td class="n arc">≤32 / 0</td></tr>
+  <tr><td>Criterion A across stage boundaries</td><td class="n miss">118 of 4,200 ticks over</td><td class="n ok">0 of 12,600</td><td class="n arc">0</td></tr>
+  <tr><td>enemy sprites rimmed in pure black</td><td class="n miss">16 of 16 sheets, 100%</td><td class="n ok">0.0–2.1%</td><td class="n arc">arcade has none</td></tr>
+</table>
+</div>
+
+<h2 class="sec">The build now</h2>
+
+<div class="pairs">
+  <div class="pair">
+    <h3>Combat</h3>
+    <div class="two">
+      <div class="shot ours"><span>ours</span><img src="img/ours-combat.png" alt="Our combat frame: enemy at readable size being hit, fireball, trail, lit player jet over pixel-art sea"></div>
+      <div class="shot arc2"><span>arcade</span><img src="img/arc-combat.png" alt="Arcade missile salvo reference frame"></div>
+    </div>
+    <p>Kills now happen where the player can see them: median kill size 8.20 → 11.05 %W, and nothing below the readable gate. The sky is fuller after the fix, not emptier.</p>
+  </div>
+
+  <div class="pair">
+    <h3>Enemy art — the owner's blocker</h3>
+    <div class="two">
+      <div class="shot ours"><span>before → after</span><img src="img/enemy-before-after.png" alt="Enemy sprite before and after: heavy black outline removed, replaced with a one-sided dark-red shadow edge"></div>
+      <div class="shot arc2"><span>in play</span><img src="img/ours-enemy.png" alt="Our enemy in play after the fix"></div>
+    </div>
+    <p>All sixteen enemy sheets were 100% near-black on their perimeter while the player jet beside them was 0%. The arcade has no black outline on any aircraft — R7 measured that and applied it to the player only.</p>
+  </div>
+
+  <div class="pair">
+    <h3>Stage counter</h3>
+    <div class="two">
+      <div class="shot ours"><span>ours at 300 s</span><img src="img/ours-stagedigit.png" alt="Our bottom HUD strip reading STAGE 9"></div>
+      <div class="shot arc2"><span>arcade</span><img src="img/arc-combat.png" alt="Arcade reference"></div>
+    </div>
+    <p>Was <code>stageIndex % 3 + 1</code> — capped at 3, so a 300-second run displayed "2". The arcade's counter reads 1, 2, 3, 4, 6, 8, 10 … 15 and goes two digits.</p>
+  </div>
+</div>
+
+<h2 class="sec">Round 9 — the list</h2>
+
+<ol class="next">
+  <li><span class="tag t-new">new</span><b>The kill rate is the spawner's, not the gun's.</b> 2.71–3.27 aircraft/s emitted, 94.1% of them killed. Reaching the arcade's 0.42–0.45/s needs ~67% of traffic to survive. <b>And the arcade's own emission rate has never been counted</b> — that is the denominator every kill-rate comparison in this project has been quoted without.</li>
+  <li><span class="tag t-new">new</span><b>The missile is aim-independent</b> — a flat 1.08–1.26 kills/s to every policy, limited by a per-stage restock of 50 rather than by aim. Largest remaining term in the rate.</li>
+  <li><span class="tag t-carry">carried</span><b>Neutral stick still scores 64% of a tracking pilot</b> against a ≤40% gate. Three levers were measured and refuted, including aim scatter, which makes the gun <em>more</em> lethal.</li>
+  <li><span class="tag t-carry">carried</span><b>The throttle's parallax half</b> — closure is now wired, but nearer clouds still crawl as the ground speeds up.</li>
+  <li><span class="tag t-carry">carried</span><b>Head-on enemies are a swept V where the arcade's is an X of separated blades</b>; the death hulk's top 5% is short by a sheet change; content is 3 of 23 stages.</li>
+  <li><span class="tag t-new">acquire</span><b>Five items blocked on footage we do not have</b>, now including arcade aircraft-emission counts over verified spans. Two measurement programmes and three retired criteria are waiting on frames.</li>
+</ol>
+
+<footer>
+  <p><b>Four of this round's eight commits are about measurement, not the game.</b> The build passes nearly every gate it has; what keeps biting is the gap between a number being right and meaning what it is read as. R8 added three new ways that happens: a population that was never asserted, a tick index without its URL, and a guard that hid the miss it was written to catch.</p>
+  <p><b>A fourth class of silent wrong number, found this round.</b> Two readers disagreed by one channel value at "tick 1950". Both instruments were right, both agreed with themselves, both agreed with a second implementation, both were stable on repetition — and they were measuring two different moments, because one run carried <code>?demo=1</code> and the launch sequence displaces every stage boundary by 211 ticks. Cross-validating implementations is the standard remedy for a bad operator, and it actively reinforces this one.</p>
+  <p>Full reports: <code>judging/R8/lane-*.md</code>. Ledger and gates: <code>REFERENCE.md</code>.</p>
+</footer>
+
+</div>
