@@ -206,13 +206,16 @@ export function bufferToTexture(buf) {
 //   - canopy fleck, the topmost body element.
 //
 // *** THIS GEOMETRY IS MIRRORED IN tools/art/sheets/player-f14.js. ***
-// That module's levelOps() is the same drawing; it generates the 9-pose
-// sheet used for DAY banking, while this function serves night, the barrel
-// roll and the pre-sheet-load fallback. R5b shipped a sheet whose level
-// cell was a DIFFERENT, much worse aircraft, which is why daylight showed a
-// mangled two-airframe shape while night (this function) looked correct.
-// Keeping one drawing in two files is the cost of the tools/src split --
-// change both or neither, and re-run the JET-SIL check on both.
+// That module's levelOps() is the same drawing; it generates the 9-pose day
+// and night sheets player.js selects in flight, while this function serves
+// createJetSprite's initial texture and the pre-decode fallback. R5b shipped a
+// sheet whose level cell was a DIFFERENT, much worse aircraft, which is why
+// daylight showed a mangled two-airframe shape while night looked correct.
+// Keeping one drawing in two files is the cost of the tools/src split, and R6
+// stopped relying on discipline for it: `python3 tools/art/mirror_check.py`
+// compares the anchor constants, the three polygon helpers and the drawing
+// program token by token and exits non-zero on any difference. Run it after
+// touching either file, and re-run JET-SIL on both.
 const JET_W = 100;
 // Texture/quad height. The airframe itself is 31 rows (LOCAL_H) -- the
 // arcade's own SPAN/H aspect of 3.24-3.30 at a 100 px span -- but the
@@ -224,7 +227,11 @@ const JET_W = 100;
 // row is the same number of screen pixels either way.
 const JET_H = 72;
 const JET_LOCAL_H = 31;
-const JET_DRAW_Y = Math.round((JET_H - JET_LOCAL_H) / 2); // 20
+// NOT rounded: the sheet's poseTransform places local y=0 at
+// (CELL_H-1)/2 - (LOCAL_H-1)/2 = 35.5 - 15 = 20.5, and Math.round(20.5) is 21
+// in JS, so rounding here put the fallback half a pixel below the sheet cell
+// it is supposed to be identical to.
+const JET_DRAW_Y = (JET_H - JET_LOCAL_H) / 2; // 20.5
 
 // Player F-14 palette (REFERENCE.md / art-critique.md §3, already snapped to
 // the Sega 5-bit ladder). EIGHT tones, which is REFERENCE.md Criterion A's
@@ -255,12 +262,22 @@ const JET_DRAW_Y = Math.round((JET_H - JET_LOCAL_H) / 2); // 20
 // never reached this. Two tables, two owners, one concept: the fix is to
 // make this one a transcription with a stated source rather than a second
 // independent set of judgements.
+// R6: the V<=0.77 ceiling is retired (R5 judge gap 4; art-critique.md §3.2).
+// Every airframe value here is MEASURED off reference/ab2-arcade-desert.png
+// x[85,182] y[82,140] -- a TRUE-NATIVE 320x224 arcade frame, so no video
+// blur -- under the achromatic mask S<0.35 AND V>0.08 (JET-SIL's own sky-mode
+// form), n=672. The arcade ladder and its shares are in tools/art/palettes.js.
+// Our sheet's achromatic V median is now 0.839 with a maximum of 1.000,
+// against R5's 0.643 / 0.773 -- our brightest tone used to sit BELOW the
+// arcade jet's median.
 const PLAYER_PALETTE_DAY = {
-  lightTop: '#c5c5ad', // V0.77 -- lightest top surface (NOT white)
-  midNeutral: '#a49c8c', // V0.65
-  slate: '#6b737b', // V0.48 cool dark slate (fins, ventral fins)
-  deepShadow: '#422921', // V0.26 deep warm shadow (boat-tail belly, wing underside)
-  canopy: '#9c3ace',
+  lightTop: '#ffffef', // V1.000 -- arcade dominant (35.6% of its airframe)
+  midNeutral: '#d6d6a4', // V0.839 -- arcade mid tone
+  coolDark: '#a48484', // V0.643 -- arcade shadow tone (fins, ventral fins)
+  deepShadow: '#635252', // V0.388 -- the darkest tone the arcade's airframe
+  // carries. The old '#422921' (V0.259) was darker than anything on the
+  // arcade's aircraft except its nozzle throat.
+  canopy: '#e694f7', // REFERENCE.md's own daylight-jet 95% set
   flame: '#ef7300',
   flameCore: '#ffd600',
   key: '#000000',
@@ -272,7 +289,7 @@ const PLAYER_PALETTE_DAY = {
 const PLAYER_PALETTE_NIGHT = {
   lightTop: '#c5d6f7',
   midNeutral: '#8494c5',
-  slate: '#7384b5',
+  coolDark: '#7384b5',
   deepShadow: '#425284',
   canopy: '#c594f7',
   flame: '#ff7300',
@@ -281,92 +298,164 @@ const PLAYER_PALETTE_NIGHT = {
 };
 
 const JET_CX = 50;
-const JET_ROOT_Y = 13; // fin root / nacelle-saddle top
-const JET_TOP_HALF = 16.5;
-const JET_ROOT_HALF = 13; // cant = TOP_HALF / ROOT_HALF = 1.269
-const JET_BLADE_HALF_W = 1.5;
-const JET_NAC_X = [35, 65];
+// R6: see the long derivation in tools/art/sheets/player-f14.js. Every anchor
+// is read off reference/stage3-night-level-t175.png x[207,487] y[227,306] with
+// the ROW-RUNS operator stated there.
+const JET_ROOT_Y = 18; // fin root; the fin band is 58% of H, as the arcade's is
+const JET_FIN_TOP_OUT = 18.2;
+const JET_FIN_TOP_IN = 16.0;
+const JET_FIN_ROOT_OUT = 16.1;
+const JET_FIN_ROOT_IN = 10.5; // cant = 17.1/13.3 = 1.286 (arcade 1.28)
+const JET_NAC_X = [35, 65]; // nozzle-centre separation 30.0% of span
+const JET_NAC_Y = 22.4;
+const JET_POD_R = 5.2;
+const JET_LOCAL_W = 100;
+const JET_WING_ROOT_IN = 31;
+const JET_WING_LE_ROOT_Y = 21.0;
+const JET_WING_TE_ROOT_Y = 27.0;
+const JET_WING_LE_TIP_Y = 17.7;
+const JET_WING_TE_TIP_Y = 20.6;
+const JET_WING_TIP_X = 99;
+
+// *** bladePoly / wingPoly / podPoly and drawJetSilhouette below are MIRRORED
+// *** from tools/art/sheets/player-f14.js. `tools/art/mirror_check.py`
+// *** compares the two token-by-token and fails if they drift; run it after
+// *** touching either. A comment saying "change both or neither" stood over
+// *** this code in R5 and the two diverged anyway, shipping a different,
+// *** worse daylight aircraft for a whole round.
+function bladePoly(sign) {
+  const s = sign;
+  return [
+    [JET_CX + s * JET_FIN_TOP_IN, 0],
+    [JET_CX + s * JET_FIN_TOP_OUT, 0],
+    [JET_CX + s * JET_FIN_ROOT_OUT, JET_ROOT_Y],
+    [JET_CX + s * JET_FIN_ROOT_IN, JET_ROOT_Y],
+  ];
+}
+
+function wingPoly(sign) {
+  const s = sign;
+  const xin = JET_CX + s * (JET_LOCAL_W / 2 - JET_WING_ROOT_IN);
+  const xtip = JET_CX + s * (JET_WING_TIP_X - JET_CX);
+  return [
+    [xin, JET_WING_LE_ROOT_Y],
+    [xtip, JET_WING_LE_TIP_Y],
+    [xtip, JET_WING_TE_TIP_Y],
+    [xin - s * 1, JET_WING_TE_ROOT_Y],
+  ];
+}
+
+function podPoly(nx, ny, rx, ry, cut) {
+  return [
+    [nx - rx, ny - ry + cut], [nx - rx + cut, ny - ry],
+    [nx + rx - cut, ny - ry], [nx + rx, ny - ry + cut],
+    [nx + rx, ny + ry - cut], [nx + rx - cut, ny + ry],
+    [nx - rx + cut, ny + ry], [nx - rx, ny + ry - cut],
+  ];
+}
 
 function drawJetSilhouette(buf, pal) {
-  const cx = JET_CX;
   const Y = JET_DRAW_Y;
-  const ROOT_Y = JET_ROOT_Y;
-
-  const bladeHalfSepAt = (y) =>
-    JET_TOP_HALF + (JET_ROOT_HALF - JET_TOP_HALF) * (y / ROOT_Y);
   const poly = (points, hex) => fillPolygonHard(buf, points.map(([x, y]) => [x, y + Y]), hex);
-  const rect = (x, y, w, h, hex) => fillRectHard(buf, x, y + Y, w, h, hex);
-  const disc = (x, y, r, hex) => fillCircleHard(buf, x, y + Y, r, hex);
+  const rect = (x, y, w, h, hex) =>
+    poly([[x, y], [x + w, y], [x + w, y + h], [x, y + h]], hex);
+  const c = pal;
 
-  // --- fins: two canted blades, never touching ---
+  // --- fin blades: near-vertical outer edge, raked inner edge, never touching
+  poly(bladePoly(-1), c.coolDark);
+  poly(bladePoly(+1), c.coolDark);
   for (const s of [-1, 1]) {
     poly(
-      [
-        [cx + s * (bladeHalfSepAt(0) - JET_BLADE_HALF_W), 0],
-        [cx + s * (bladeHalfSepAt(0) + JET_BLADE_HALF_W), 0],
-        [cx + s * (bladeHalfSepAt(ROOT_Y) + JET_BLADE_HALF_W), ROOT_Y],
-        [cx + s * (bladeHalfSepAt(ROOT_Y) - JET_BLADE_HALF_W), ROOT_Y],
-      ],
-      pal.slate
+      [[JET_CX + s * JET_FIN_TOP_OUT, 0], [JET_CX + s * (JET_FIN_TOP_OUT - 1), 0],
+       [JET_CX + s * (JET_FIN_ROOT_OUT - 1), JET_ROOT_Y], [JET_CX + s * JET_FIN_ROOT_OUT, JET_ROOT_Y]],
+      c.midNeutral
     );
   }
 
-  // --- swept, tapered wings. The root chord x=30..33 spans rows 16-22 and
-  // sits INSIDE the fuselage box below; that overlap is load-bearing. An
-  // earlier draft joined wing to body through one 1px row, and under
-  // JET-SIL's own mask (the keyline fails max(RGB)>30) the outer panels
-  // fell off the largest 8-connected component -- SPAN read 68 on a 100 px
-  // aircraft. The dark underside band is kept thin because a large
-  // warm-shadow region also satisfies the nozzle-glow hue/sat/val test and
-  // would be picked up as a false third "nozzle". ---
-  poly([[30, 16], [1, 22], [1, 25], [33, 22]], pal.lightTop);
-  poly([[70, 16], [98, 22], [98, 25], [66, 22]], pal.lightTop);
-  poly([[32, 20], [1, 24], [1, 25], [33, 22]], pal.midNeutral);
-  poly([[68, 20], [98, 24], [98, 25], [67, 22]], pal.midNeutral);
+  // --- wings: swept, tapered, RISING outboard (the crop's tips sit 10.3% of
+  // H above its wing roots; R5's dropped 17.5% the other way). The root chord
+  // overlaps the pods and the centre body; that overlap is load-bearing --
+  // under JET-SIL's mask the keyline fails max(RGB)>30, and an earlier draft
+  // that joined wing to body through one 1 px row lost the outer panels off
+  // the largest 8-connected component and read SPAN 68 on a 100 px aircraft.
+  poly(wingPoly(-1), c.lightTop);
+  poly(wingPoly(+1), c.lightTop);
+  poly([[32, 23.2], [1, 19.0], [1, 20.6], [31, 27]], c.midNeutral);
+  poly([[68, 23.2], [99, 19.0], [99, 20.6], [69, 27]], c.midNeutral);
+  poly([[31.5, 25.6], [1, 19.9], [1, 20.6], [31, 27]], c.coolDark);
+  poly([[68.5, 25.6], [99, 19.9], [99, 20.6], [69, 27]], c.coolDark);
+  for (const s of [-1, 1]) {
+    poly([[JET_CX + s * 40, 17.6], [JET_CX + s * 41, 17.6], [JET_CX + s * 41, 20.6], [JET_CX + s * 40, 20.6]], c.coolDark);
+    poly([[JET_CX + s * 41, 17.4], [JET_CX + s * 49, 17.1], [JET_CX + s * 49, 20.5], [JET_CX + s * 41, 20.7]], c.lightTop);
+  }
 
-  // --- body: nacelle saddle, then the fuselage box the wings root into.
-  // One connected mass -- the fuselage reads as visible BETWEEN the
-  // nacelles via the centre body below, not as a gap (a real gap would
-  // split the silhouette into two components and the mask operator keeps
-  // only the largest one). ---
-  poly([[JET_NAC_X[0], ROOT_Y], [JET_NAC_X[1], ROOT_Y], [69, 16], [31, 16]], pal.midNeutral);
-  poly([[31, 16], [69, 16], [72, 22], [28, 22]], pal.lightTop);
-  poly([[44, ROOT_Y], [56, ROOT_Y], [50, 17]], pal.midNeutral);
-  rect(28, 18, 44, 1, pal.midNeutral); // chord break along the wing root
+  // --- dorsal deck, with shaded flanks: the crop's body is three value planes
+  // across, not one.
+  poly([[47, 15.5], [53, 15.5], [61, 19], [39, 19]], c.lightTop);
+  poly([[47, 15.8], [44.5, 15.8], [39, 19], [43, 19]], c.midNeutral);
+  poly([[53, 15.8], [55.5, 15.8], [61, 19], [57, 19]], c.midNeutral);
+  rect(45.5, 17.4, 9, 1.4, c.deepShadow);
 
-  // canopy fleck, topmost body element, on the nacelle saddle.
-  rect(48, 14, 4, 2, pal.canopy);
+  // --- engine bodies below the nozzles, sweeping down and inward so the
+  // lower aircraft closes to a V rather than ending in a bar.
+  poly([[29, 23], [42, 23], [47, 30.2], [39, 30.2]], c.lightTop);
+  poly([[71, 23], [58, 23], [53, 30.2], [61, 30.2]], c.lightTop);
 
-  // --- boat-tail: the shadowed bays either side of the centre fuselage.
-  // NOT edge to edge: t175 shows a grey centre body running down between
-  // the pods with a small dark notch, and a full-width dark bar reads as a
-  // hole punched through the aircraft. ---
-  poly([[31, 20], [69, 20], [66, 25], [34, 25]], pal.deepShadow);
-  poly([[44, 18], [56, 18], [54, 30], [46, 30]], pal.midNeutral);
-  rect(47, 21, 6, 3, pal.key);
+  // --- centre fuselage: widest at the wing line, tapering to a point.
+  poly([[39, 19], [61, 19], [59, 24], [41, 24]], c.lightTop);
+  poly([[39, 19], [42, 19], [43.5, 24], [41, 24]], c.midNeutral);
+  poly([[61, 19], [58, 19], [56.5, 24], [59, 24]], c.midNeutral);
+  poly([[41, 24], [59, 24], [52.6, 30.8], [47.4, 30.8]], c.midNeutral);
+  poly([[46.2, 22.4], [53.8, 22.4], [50, 26.4]], c.key);
 
-  // --- small ventral fins flanking the nozzles ---
-  poly([[JET_NAC_X[0] - 3, 24], [JET_NAC_X[0] - 8, 28], [JET_NAC_X[0] - 1, 25]], pal.slate);
-  poly([[JET_NAC_X[1] + 3, 24], [JET_NAC_X[1] + 8, 28], [JET_NAC_X[1] + 1, 25]], pal.slate);
+  // canopy fleck, topmost body element
+  rect(48, 15.8, 4, 1.6, c.canopy);
 
-  // --- nacelle pods + nozzles. The grey POD overlaps the fuselage box; a
-  // bare flame disc inside a closed black ring is an ISLAND under any
-  // brightness mask (the ring fails max(RGB)>30) and collapses the
-  // measured silhouette height. The black throat ring is the dark anchor
-  // of the whole sprite (art critique §2.1: the R4 jet had soft glowing
-  // donuts and no black anywhere). ---
+  // --- ventral fins, outboard of and below each pod
+  poly([[JET_NAC_X[0] - 2, 25.5], [JET_NAC_X[0] - 7, 29.5], [JET_NAC_X[0], 26.5]], c.coolDark);
+  poly([[JET_NAC_X[1] + 2, 25.5], [JET_NAC_X[1] + 7, 29.5], [JET_NAC_X[1], 26.5]], c.coolDark);
+
+  // --- nacelle pods + nozzles, LAST so they stand proud of the wing root and
+  // the centre body. Rounded SQUARES, not discs: the crop's pod is 12% of span
+  // wide by 9.3% of H tall, and a circle big enough to be the right width put
+  // the pod's top inside the fin band, where JET-SIL then measured `cant`
+  // between a blade and a pod. The pod shell is airframe-bright and overlaps
+  // both wing root and body -- a bare flame disc inside a closed black ring is
+  // an ISLAND under any brightness mask (the ring fails max(RGB)>30) and
+  // collapses the measured silhouette height.
   for (const nx of JET_NAC_X) {
-    disc(nx, 24, 6, pal.midNeutral);
-    disc(nx, 24, 5.2, pal.slate);
-    disc(nx, 25, 4.2, pal.key);
-    disc(nx, 25, 2.9, pal.flame);
-    disc(nx, 25, 1.2, pal.flameCore);
+    poly(podPoly(nx, JET_NAC_Y, 6.0, 4.7, 2.0), c.lightTop);
+    poly(podPoly(nx, JET_NAC_Y + 1.2, 5.6, 3.8, 1.8), c.coolDark);
+    poly(podPoly(nx, JET_NAC_Y + 0.3, 4.9, 3.9, 1.6), c.key);
+    poly(podPoly(nx, JET_NAC_Y + 0.4, 3.3, 2.9, 1.1), c.flame);
+    poly(podPoly(nx, JET_NAC_Y + 1.1, 1.5, 1.2, 0.5), c.flameCore);
   }
 
   addKeyline(buf, pal.key);
 }
 
+// The eight role names drawJetSilhouette() reads. Checked explicitly because
+// the alternative is what actually happened in R6: a role was renamed in the
+// drawing (`slate` -> `coolDark`, to match the sheet generator so
+// tools/art/mirror_check.py could compare them) and not in these tables, and
+// the only symptom was `TypeError: Cannot read properties of undefined
+// (reading 'slice')` ten frames deep inside hexToRgb, at module construction,
+// with the whole game failing to boot. `vite build` passes that happily --
+// it is a property access, not a syntax error -- so the type checker is a
+// capture, and a capture is a slow way to find a typo.
+const JET_PALETTE_ROLES = [
+  'key', 'lightTop', 'midNeutral', 'coolDark', 'deepShadow', 'canopy', 'flame', 'flameCore',
+];
+
 function buildJetTexture(pal) {
+  const missing = JET_PALETTE_ROLES.filter((r) => !pal[r]);
+  if (missing.length) {
+    throw new Error(
+      `spriteFactory: jet palette is missing role(s) ${missing.join(', ')}. ` +
+      'drawJetSilhouette() and tools/art/sheets/player-f14.js roles() must ' +
+      'agree on these eight names -- see tools/art/mirror_check.py.'
+    );
+  }
   const buf = createPixelBuffer(JET_W, JET_H);
   drawJetSilhouette(buf, pal);
   return bufferToTexture(buf);

@@ -90,15 +90,19 @@ function drawMigHead(c, bankDeg, p) {
   const shL = [ax - 3, 13];
   const tipR = [61 - Math.round(14 * far), 21 + Math.round(3 * near)];
   const tipL = [2 + Math.round(14 * near), 21 + Math.round(3 * far)];
-  c.polygon(bladePolygon(shR, tipR, 5, 1.4), p.mid);
-  c.polygon(bladePolygon(shL, tipL, 5, 1.4), p.dominant);
+  c.polygon(bladePolygon(shR, tipR, 5, 1.4), p.dominant);
+  c.polygon(bladePolygon(shL, tipL, 5, 1.4), p.mid);
+  // Underside SHADOW band along each wing's trailing edge (see drawMigRear).
+  c.polygon(bladePolygon([shR[0], shR[1] + 3], [tipR[0], tipR[1] + 2], 2.0, 0.8), p.shadow);
+  c.polygon(bladePolygon([shL[0], shL[1] + 3], [tipL[0], tipL[1] + 2], 2.0, 0.8), p.shadow);
   // 1 px specular on the LEADING (upper) edge of each wing.
   c.line(shR[0], shR[1] - 2, tipR[0], tipR[1] - 1, p.specular);
   c.line(shL[0], shL[1] - 2, tipL[0], tipL[1] - 1, p.specular);
 
   // Low tailplanes — the feature that separates this family from 'delta'.
   c.polygon(bladePolygon([ax + 2, 23], [ax + 10 - Math.round(4 * far), 25], 3, 1.2), p.highlight);
-  c.polygon(bladePolygon([ax - 2, 23], [ax - 10 + Math.round(4 * near), 25], 3, 1.2), p.mid);
+  c.polygon(bladePolygon([ax - 2, 23], [ax - 10 + Math.round(4 * near), 25], 3, 1.2), p.highlight);
+  c.polygon([[ax - 3, 24], [ax + 3, 24], [ax + 2, 27], [ax - 2, 27]], p.shadow);
 
   noseIntake(c, ax, 9, p);
   c.outline4(p.keyline);
@@ -120,13 +124,21 @@ function drawMigRear(c, bankDeg, p) {
   const shL = [ax - 3, 19];
   const tipR = [61 - Math.round(14 * far), 8 - Math.round(3 * near)];
   const tipL = [2 + Math.round(14 * near), 8 - Math.round(3 * far)];
-  c.polygon(bladePolygon(shR, tipR, 5, 1.4), p.mid);
-  c.polygon(bladePolygon(shL, tipL, 5, 1.4), p.dominant);
-  c.line(shR[0], shR[1] + 2, tipR[0], tipR[1] + 1, p.specular);
-  c.line(shL[0], shL[1] + 2, tipL[0], tipL[1] + 1, p.specular);
+  c.polygon(bladePolygon(shR, tipR, 5, 1.4), p.dominant);
+  c.polygon(bladePolygon(shL, tipL, 5, 1.4), p.mid);
+  // R6: an underside SHADOW band along each wing's trailing edge, and the
+  // specular on the leading edge. Five airframe tones instead of four — the
+  // sheet was one colour under its own 8-budget, and the dark share is what
+  // the arcade carries on the underside rather than over the whole airframe.
+  c.polygon(bladePolygon([shR[0], shR[1] + 2], [tipR[0], tipR[1] + 2], 2.0, 0.8), p.shadow);
+  c.polygon(bladePolygon([shL[0], shL[1] + 2], [tipL[0], tipL[1] + 2], 2.0, 0.8), p.shadow);
+  c.line(shR[0], shR[1] - 1, tipR[0], tipR[1] - 1, p.specular);
+  c.line(shL[0], shL[1] - 1, tipL[0], tipL[1] - 1, p.specular);
 
   c.polygon(bladePolygon([ax + 2, 22], [ax + 10 - Math.round(4 * far), 20], 3, 1.2), p.highlight);
-  c.polygon(bladePolygon([ax - 2, 22], [ax - 10 + Math.round(4 * near), 20], 3, 1.2), p.mid);
+  c.polygon(bladePolygon([ax - 2, 22], [ax - 10 + Math.round(4 * near), 20], 3, 1.2), p.highlight);
+  // Belly shadow under the fuselage.
+  c.polygon([[ax - 3, 23], [ax + 3, 23], [ax + 2, 26], [ax - 2, 26]], p.shadow);
 
   nozzle(c, ax, 23, p);
   c.outline4(p.keyline);
@@ -142,8 +154,11 @@ function drawDeltaHead(c, bankDeg, p) {
 
   // Delta: apex at the nose, straight trailing edge. Leading-edge angle is
   // atan(17/29) = 30 deg, comfortably past criterion (b).
-  c.polygon([[ax, 5], [tipRx, 22], [tipRx - 4, 24], [ax, 20]], p.mid);
-  c.polygon([[ax, 5], [tipLx, 22], [tipLx + 4, 24], [ax, 20]], p.dominant);
+  c.polygon([[ax, 5], [tipRx, 22], [tipRx - 4, 24], [ax, 20]], p.dominant);
+  c.polygon([[ax, 5], [tipLx, 22], [tipLx + 4, 24], [ax, 20]], p.mid);
+  // Shadowed trailing edge of the delta (see drawMigRear's R6 note).
+  c.polygon([[ax, 19], [tipRx - 1, 23], [tipRx - 4, 24], [ax, 20]], p.shadow);
+  c.polygon([[ax, 19], [tipLx + 1, 23], [tipLx + 4, 24], [ax, 20]], p.shadow);
   c.line(ax, 5, tipRx, 22, p.specular);
   c.line(ax, 5, tipLx, 22, p.specular);
 
@@ -161,8 +176,10 @@ function drawDeltaRear(c, bankDeg, p) {
   const tipRx = 61 - Math.round(16 * far);
   const tipLx = 2 + Math.round(16 * near);
 
-  c.polygon([[ax, 25], [tipRx, 9], [tipRx - 4, 7], [ax, 21]], p.mid);
-  c.polygon([[ax, 25], [tipLx, 9], [tipLx + 4, 7], [ax, 21]], p.dominant);
+  c.polygon([[ax, 25], [tipRx, 9], [tipRx - 4, 7], [ax, 21]], p.dominant);
+  c.polygon([[ax, 25], [tipLx, 9], [tipLx + 4, 7], [ax, 21]], p.mid);
+  c.polygon([[ax, 26], [tipRx - 1, 10], [tipRx, 9], [ax, 25]], p.shadow);
+  c.polygon([[ax, 26], [tipLx + 1, 10], [tipLx, 9], [ax, 25]], p.shadow);
   c.line(ax, 25, tipRx, 9, p.specular);
   c.line(ax, 25, tipLx, 9, p.specular);
 
@@ -200,18 +217,30 @@ const DRAW = {
   delta: { headOn: drawDeltaHead, rear: drawDeltaRear },
 };
 
-/** Builds one 5-cell strip for a (livery, aspect) pair. The silhouette
- *  family is looked up from the livery, so callers never pick a family
- *  directly and the sheet file name fully determines the art. */
-export function buildEnemySheet(livery, aspect) {
+// R6: the night ramp is the SAME drawing with five airframe tones swapped,
+// generated by the same function, so a night sheet cannot drift from its day
+// sheet the way the player's day and night sheets did in R5. Night exists at
+// all because judging/R5/report.md's "what nobody had looked at" found that
+// `if (detail && !night)` in src/entities/enemySprite.js sent EVERY stage-3
+// enemy to the procedural fallback — the R5 redraw covered daylight only.
+function paletteFor(livery, night) {
   const p = ENEMY_LIVERIES[livery];
+  if (!night) return p;
+  return { ...p, ...p.night };
+}
+
+/** Builds one 5-cell strip for a (livery, aspect, night) triple. The
+ *  silhouette family is looked up from the livery, so callers never pick a
+ *  family directly and the sheet file name fully determines the art. */
+export function buildEnemySheet(livery, aspect, night = false) {
+  const p = paletteFor(livery, night);
   const draw = DRAW[ENEMY_FAMILY[livery]][aspect];
   return buildStrip(
     CELL_W,
     CELL_H,
     BANK_ANGLES.length,
     (cell, i) => draw(cell, BANK_ANGLES[i], p),
-    { maxColours: 8, label: `enemy-${livery}-${aspect}` }
+    { maxColours: 8, label: `enemy-${livery}-${aspect}${night ? '-night' : ''}` }
   );
 }
 
@@ -221,5 +250,6 @@ export const ENEMY_SHEET_ASPECTS = ['headOn', 'rear'];
 // Back-compat names used by the previous build manifest.
 export const buildEnemyMigHeadSheet = () => buildEnemySheet('grey', 'headOn');
 export const buildEnemyMigRearSheet = () => buildEnemySheet('grey', 'rear');
+export const ENEMY_SHEET_NIGHT = [false, true];
 
 export { BANK_ANGLES, CELL_W, CELL_H };
