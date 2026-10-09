@@ -2,6 +2,9 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
+  <!-- Suppresses the automatic /favicon.ico request. capture.mjs treats any
+       page error as a failed capture, and a missing favicon is one. -->
+  <link rel="icon" href="data:," />
   <title>Clouds preview harness</title>
   <style>
     html, body { margin: 0; height: 100%; background: #000; overflow: hidden; }

@@ -97,7 +97,19 @@ export const STAGE_1 = {
     // ramp and produced an 84x16 bright blob where the arcade's largest is
     // 82 px in total.
     seaBaseCeil: 0.74,
-    seaLodBoost: 2.6,
+    // R7: 2.6 -> 3.2, and it is a COST OF THE GAP-3 FIX, not an improvement
+    // in its own right. Holding the dash's screen size with depth means
+    // smaller cells, which means more foam/non-foam boundaries, and a mixed
+    // vertical pair contributes 0 to Criterion B by construction. At 2.6 the
+    // 280x48 near patch fell to V 48.24% on the worst of 67 digit-verified
+    // stage-1 frames, i.e. UNDER the 50% floor; 3.2 puts the worst frame at
+    // 52.23%. The trade is the value p5-p95 spread, which moves from a
+    // median of 0.451 to 0.259 against the arcade's 0.302-0.329 -- i.e. from
+    // one ladder rung above the band to one below it. Both statistics are
+    // quantized to multiples of a rung (0.0646), and the published spread
+    // band is narrower than one rung, so the two cannot both be centred.
+    // See judging/R7/lane-world.md and ask-world.md.
+    seaLodBoost: 3.2,
     // White/cream cap DASHES, two non-commensurate sparse scatter layers.
     // Sized in native pixels at d = 8.58 against the arcade's measured dash
     // geometry (w p90 9 px / h p90 4 px, nothing above 38 x 8, foam 19.5%
@@ -105,12 +117,54 @@ export const STAGE_1 = {
     // values here were 2.2 / 0.5 / 9.0 / 3.2 and that 9.0 is 225 native
     // columns wide in the near field: it painted one pale slab across the
     // whole patch. See the shader comment in render/ground.js.
-    capFreqX: 0.40,
-    capFreqZ: 0.70,
-    capFreq2X: 0.27,
-    capFreq2Z: 0.40,
+    // R7 GAP 3 — all six cap/crest cell sizes are the R6 values x 0.58, and
+    // the 0.58 is swept, not chosen (tools/sweep_dash.py). Why they had to
+    // move at all: with dashRefDist on, the ladder below holds the cell at
+    // its AUTHORED screen size at every depth instead of magnifying it in
+    // the near field — and the authored size, 10.0 x 2.0 native px, turns
+    // out to be far too big to be the arcade's typical dash. Held constant
+    // at that size the component count collapsed to 15/kpx against the
+    // arcade's 29-32. The arcade's dash population is dominated by one- and
+    // two-pixel specks (w p50 2) with a long tail to 38 px, and 0.58 is the
+    // scale that reproduces its DENSITY. MEASURED, three published row
+    // offsets clipped at the HUD (tools/sweep_dash.py):
+    //
+    //            components per 1000 patch px      w p50/p90/max   area p50/max
+    //   R6         32.6 -> 24.2 -> 18.4            2/8/38 .. 4/13/36   3/112
+    //   now        28.9 -> 28.4 -> 26.8            3/11/37 .. 3/11/35  3/96
+    //   arcade     28.9 -> 30.8 -> 32.4            2/9/38  .. 2/8/27   2/78
+    //
+    // R6's density fell 44% across the depth sweep; it now falls 7% against
+    // the arcade's own slight RISE.
+    capFreqX: 0.232,
+    capFreqZ: 0.406,
+    capFreq2X: 0.1566,
+    capFreq2Z: 0.232,
     capThreshold: 0.89,
     capWaveGate: 0.30,
+    // R7 gap 3 — hold the dash's SCREEN size with depth. 8.58 is the
+    // distance the cap/crest cell sizes above are authored at (the shader's
+    // own analytic control gives worldPerRow 0.12 / worldPerCol 0.0399
+    // there), so the ladder is a no-op at that distance and steps in powers
+    // of two away from it. See the dashLod() comment in render/ground.js
+    // for the measurement that forced this and for why the ladder is
+    // discrete rather than continuous.
+    dashRefDist: 8.58,
+    dashLodMax: 3.0,
+    // Crest-sparkle cell size, promoted here from ground.js's defaults so
+    // stage 1's dash geometry is all in one place and all sweepable. See the
+    // crest-sparkle comment in render/ground.js for the native-pixel
+    // derivation at d = 8.58, and the cap block above for the x0.58 rescale.
+    // crestDensity 0.24 -> 0.32 restores the foam fraction the smaller cells
+    // cost: swept, 0.24 gives 13.9% against REFERENCE.md's 19.5-21.7% on the
+    // same patches, 0.29 gives 17.7% with the dash geometry matching the
+    // arcade exactly (w p90 9/9, area max 82/82), 0.32 gives 20.4% with the
+    // geometry 20% coarse (w p90 11, area max 96). 0.32 is taken because the
+    // foam FRACTION is a published REFERENCE.md statistic and both geometry
+    // figures stay far inside the gate; the 0.29 row is published beside it.
+    crestDensity: 0.32,
+    crestFreqX: 0.1856,
+    crestFreqZ: 0.2436,
     // Haze band posterization. 7 steps over a band 9.2%H tall is ~3 native
     // rows per step, which is the step height t116's own band shows.
     hazeSteps: 7.0,
@@ -188,6 +242,11 @@ export const STAGE_2 = {
   // continuous ramp was emitting 111 channel values in the horizon band
   // against Criterion A's <=32 for the whole frame.
   skySteps: 7,
+  // R7 gap 9: snap the posterized glow to the enumerated hardware ladder.
+  // Posterizing the ramp PARAMETER left the band emitting mixes of two
+  // ladder colours, which are not ladder colours -- 14 of the frame's 18
+  // off-ladder channel values were in this band. See render/sky.js.
+  skyLadder: true,
   // MEASURED ab2-arcade-desert.png (native, STAGE 2): the clouds are
   // CREAM, not white — y[92,122] x[200,232] and y[110,140] x[240,275] run
   // #f7f7e6 / #f7f7b5 / #e6e6a4 / #d6d694 / #c5c584 / #b5b573.
@@ -345,6 +404,7 @@ export const STAGE_3 = {
   // because the whole ramp is #000005 -> #000331, three ladder rungs of
   // travel, so more steps would only re-emit intermediate values.
   skySteps: 4,
+  skyLadder: true, // R7 gap 9, same reason as stage 2; see render/sky.js
   // MEASURED ab2-arcade-night-banking.png (native): white with a
   // lavender-grey ramp — #f7f7f7 / #e6d6e6 / #d6c5d6 / #c5b5c5 / #b5a4b5 /
   // #a494a4 over the cloud at y[48,90] x[58,102].
@@ -357,15 +417,39 @@ export const STAGE_3 = {
   // pixels at B exactly 0 and 40.0% below B 8. Corroborated on t186
   // y[330,420] x[20,300]: mean RGB (0.22, 0.20, 12.25), V p50 0.024 /
   // p90 0.137 / p95 0.173.
-  // vHi + nightGamma reproduce that distribution: for t roughly uniform,
-  // v = vHi * t^gamma gives v(p50)/v(p95) = (0.50/0.95)^2.2 = 0.246
-  // against the measured 0.047/0.192 = 0.245, and vHi 0.216 =
-  // 0.192/0.95^2.2 anchors the p95 itself.
   // The native-resolution ladder on ab2-arcade-night-banking.png confirms
   // the blue-only reading exactly: #000000/#000010/#000021/#000031/#000042/
   // #000052/#000063/#000073, R and G pinned at 0 on every rung.
   // This REPLACES R4's cream speckle field on near-black, which the R4
   // judge costed directly.
+  //
+  // R7 GAP 2 — THE VALUE DISTRIBUTION ABOVE IS A VIDEO ARTEFACT AND THE
+  // CONSTANTS FITTED TO IT WERE WRONG. The paragraph above solved vHi and
+  // nightGamma against t175's percentiles ("v(p50)/v(p95) = 0.047/0.192").
+  // Re-measured here, t175's ground band contains 664 DISTINCT COLOURS with
+  // B taking 1, 2, 4, 6, 11, 12 ... — values that are not on the hardware
+  // ladder at all. Those percentiles are a codec's smear of the true
+  // distribution plus the halo of every city light, and they are biased
+  // upward precisely in the dark end the fit was anchored to. Snapped to the
+  // ladder, t175 reads 42.5% pure black and t186 57.3%.
+  //
+  // The only TRUE-NATIVE stage-3 frame we hold says something different and
+  // REFERENCE.md's own rule gives it precedence. MEASURED on
+  // ab2-arcade-night-banking.png, ground band rows [140,195), pixels at
+  // V < 0.25 (the judge's background population), n = 14 291:
+  //
+  //   #000000  91.97%     #000031  3.08%     #000010  2.60%   #000021  2.34%
+  //
+  // against ours before this change: #000010 34.8 / #000000 27.4 /
+  // #000021 20.2 / #000031 17.6. Same four colours, opposite arrangement —
+  // which is the whole of the R6 judge's gap 2, and why Criterion A could
+  // not see it.
+  //
+  // So the field is now a DOMINANT FLAT BLACK BASE with sparse patches
+  // (nightPatchCut), filtered before it is coloured (nightLodBoost), which
+  // is the same two-part structure the sea was rebuilt into in R6.
+  // See render/ground.js's night branch for the mechanism and
+  // judging/R7/lane-world.md for the sweeps.
   terrain: {
     hueDeg: 240,
     hueJitterDeg: 0, // R=G=0 on every measured rung: no hue jitter at all
@@ -373,7 +457,34 @@ export const STAGE_3 = {
     satHi: 1.0,
     vLo: 0.0,
     vHi: 0.216,
-    nightGamma: 2.2,
+    // R7 gap 2, all three SWEPT against the native frame's structure, not
+    // chosen (tools/sweep_night.py, isolated on the stage-3 preview harness;
+    // every row a fresh directory, capture stderr never suppressed, rows
+    // returning byte-identical frames discarded):
+    //   nightPatchCut   the fraction of the index field that is held at
+    //                   exactly #000000. 0.45 -> 0.90 moves background-only
+    //                   V-identity 79.7 -> 91.7 and the dominant-colour
+    //                   share 43.7 -> 84.1. It saturates there and the
+    //                   residual is NOT the ground: it is the full-width
+    //                   horizon glow band, which the arcade's only native
+    //                   stage-3 frame does not have across the whole row
+    //                   because that frame is BANKED. On the glow-free
+    //                   sub-band rows [160,195) ours reads 97.1% dominant
+    //                   and 97.7% background V against the arcade's 94.6 /
+    //                   96.3 — see judging/R7/lane-world.md.
+    //   nightLodBoost   filters both noise layers against a pixel
+    //                   deliberately larger than one native pixel, the sea's
+    //                   uSeaLodBoost lever. 1.0 -> 1.6 is worth 2 points of
+    //                   background V; 2.4 buys 0.6 more and is not taken,
+    //                   because band H-identity is already 7 points above
+    //                   the arcade's and smoothing further is the degenerate
+    //                   direction ledger row 18 warns about.
+    //   nightGamma      1.0: the rung mix inside the 10% of the field that
+    //                   is not black. The old 2.2 belonged to the retired
+    //                   whole-field gamma above and has no meaning here.
+    nightGamma: 1.0,
+    nightLodBoost: 1.6,
+    nightPatchCut: 0.93,
     // Clump scale: t175's ground-band autocorrelation falls to 0.5 by lag
     // ~3.3 px of 686 = 1.54 NATIVE px horizontally and ~3.1 px = 1.45
     // native vertically, decaying to 0.25 by lag 12 horiz / 8 vert — i.e.
@@ -413,7 +524,16 @@ export const STAGE_3 = {
     // thin with distance. Light colours MEASURED on night-banking (pixels
     // V>0.6 in y[150,190] x[10,310], n=1114): #f7f7f7 dominates (58%), then
     // #00d6d6, #f7f700/#c5d600, #f70000/#a40000, #f7a400, #00f7a4.
-    lightDensity: 0.055,
+    // R7 gap 2: 0.055 -> 0.14. The judge's crop note was "the arcade's
+    // lights are denser and clustered into short runs over flat black; ours
+    // are isolated single pixels over a mottled dark-blue field", and the
+    // density half of that is measurable on REFERENCE.md's own band.
+    // MEASURED, y[150,190] x[10,310], V > 0.5, 4-connected components:
+    //   arcade  9.38%  717 comps  p90 3 px  max 14
+    //   ours before   3.51%  372 comps  p90 2  max  5
+    //   ours now      8.99%  804 comps  p90 2  max 11
+    // Swept; 0.09 gives 5.7% and 0.20 gives 12.8%.
+    lightDensity: 0.14,
     lightCell: 0.055,
     lightCellZ: 0.30,
     lightNearDist: 5.0,

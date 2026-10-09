@@ -46,8 +46,28 @@ import sys
 import numpy as np
 from PIL import Image
 
-# The judge's near-field patch, in native rows/cols.
+# THE PATCH, PUBLISHED. R7 gap 3.
+#
+# The R6 judge's finding was that this criterion "names a 280x48 native
+# near-field patch and DOES NOT NAME THE PATCH'S ROWS", that the R5 judge used
+# rows 150-198, 160-208 and 170-218 interchangeably, and that three reviewers
+# consequently produced three different largest-component figures (34-95, 125,
+# 233-304) for the same build. An under-specified operator is this project's
+# house defect class and it had recurred inside the fix for it.
+#
+# So the patch is now named here and the gate is stated over ALL THREE row
+# offsets the R5 judge used, not one of them:
+#
+#   PATCH_ROWS = 150, 160, 170; each patch is 48 rows tall and x[20,300).
+#
+# The three are not redundant. They sample ground distances d = 48.3 -> 8.6,
+# 24.9 -> 7.2 and 16.3 -> 6.5 respectively (this project's own camera: height
+# 2.2, pitch 0.1294 rad, FOV 55), so sweeping the offset sweeps DEPTH, and the
+# arcade's dash geometry is nearly invariant under it while a world-space
+# noise field's is not. That invariance is the real criterion.
 PATCH = (150, 198, 20, 300)
+PATCH_ROWS = (150, 160, 170)
+PATCH_H, PATCH_X = 48, (20, 300)
 REF_T116 = 'reference/stage1-level-flight-t116.png'
 
 
@@ -202,14 +222,44 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument('frames', nargs='*', help='our capture PNGs (integer upscale of 320x224)')
     ap.add_argument('--patch', default=','.join(str(v) for v in PATCH),
-                    help='native y0,y1,x0,x1 (default the judge 280x48 near patch)')
+                    help='native y0,y1,x0,x1 (default the published patch, rows 150-198)')
+    ap.add_argument('--dir', help='a directory of frame-*.png')
+    ap.add_argument('--stage', type=int, help='keep only frames whose HUD digit reads this stage')
+    ap.add_argument('--rows', help='patch top row; the patch is 48 rows tall and x[20,300)')
+    ap.add_argument('--all-offsets', action='store_true',
+                    help='measure every published row offset (150/160/170) -- the gate')
+    ap.add_argument('--quiet-frames', action='store_true')
     ap.add_argument('--selftest', action='store_true')
     ap.add_argument('--crop-out', help='write an OURS-over-ARCADE native comparison PNG here')
     a = ap.parse_args()
     if a.selftest:
         return selftest()
+    if a.dir:
+        import glob as _g
+        a.frames = sorted(_g.glob(a.dir.rstrip('/') + '/frame-*.png')) + list(a.frames)
+    if a.stage is not None:
+        import os as _o
+        sys.path.insert(0, _o.path.dirname(_o.path.abspath(__file__)))
+        from measure_stage_identity import read_digit, to_native as _tn
+        a.frames = [f for f in a.frames if read_digit(_tn(f))[0] == a.stage]
     if not a.frames:
         ap.error('give at least one frame, or --selftest')
+    if a.rows:
+        a.patch = f'{int(a.rows)},{int(a.rows) + PATCH_H},{PATCH_X[0]},{PATCH_X[1]}'
+    if a.all_offsets:
+        rc = 0
+        for r in PATCH_ROWS:
+            print(f'\n===== patch offset rows [{r},{r + PATCH_H}) =====')
+            sub = argparse.Namespace(**vars(a))
+            sub.all_offsets = False
+            sub.patch = f'{r},{r + PATCH_H},{PATCH_X[0]},{PATCH_X[1]}'
+            sub.crop_out = None
+            rc |= _run(sub)
+        return rc
+    return _run(a)
+
+
+def _run(a):
     y0, y1, x0, x1 = (int(v) for v in a.patch.split(','))
     patch = (y0, y1, x0, x1)
 
@@ -220,7 +270,8 @@ def main():
         arr = to_native(np.array(Image.open(f).convert('RGB')))
         d = describe(arr[y0:y1, x0:x1], f.split('/')[-1])
         rows.append(d)
-        show(d)
+        if not getattr(a, 'quiet_frames', False):
+            show(d)
     if len(rows) > 1:
         med = dict(label=f'MEDIAN of {len(rows)}', n=int(np.median([r['n'] for r in rows])),
                    foam=np.median([r['foam'] for r in rows]))

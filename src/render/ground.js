@@ -96,6 +96,8 @@ export function createGround(stage, horizonFrac) {
     uniform float uMacroAmp;
     uniform float uDetailAmp;
     uniform float uNightGamma;
+    uniform float uNightLodBoost;
+    uniform float uNightPatchCut;
     uniform float uLightDensity;
     uniform float uLightCell;
     uniform float uLightCellZ;
@@ -132,6 +134,8 @@ export function createGround(stage, horizonFrac) {
     uniform float uCrestFreqZ;
     uniform float uCrestNearDist;
     uniform float uCrestFarDist;
+    uniform float uDashRefDist;
+    uniform float uDashLodMax;
     uniform float uHazeSteps;
     uniform float uHazeFalloff;
     uniform float uHazeEnd;
@@ -202,6 +206,18 @@ export function createGround(stage, horizonFrac) {
     float fbm2(vec2 p) {
       return (0.5 * valueNoise(p) + 0.25 * valueNoise(p * 2.03)) / 0.75;
     }
+    // LOD-faded form of fbm2, for the night field (R7 gap 2). Same fade law
+    // as fbmLod below, same reason: each octave is taken toward the noise's
+    // own mean once its lattice cell drops below the filter's pixel. The
+    // normalising /0.75 is applied after the fade, so a fully faded layer
+    // returns exactly 0.5 and the "deviation from 0.47" amplitudes
+    // downstream keep their meaning at every depth.
+    float fbm2Lod(vec2 p, float cellsPerPixel) {
+      float keep0 = 1.0 - smoothstep(0.35, 0.80, cellsPerPixel);
+      float keep1 = 1.0 - smoothstep(0.35, 0.80, cellsPerPixel * 2.03);
+      return (0.5 * mix(0.5, valueNoise(p), keep0)
+            + 0.25 * mix(0.5, valueNoise(p * 2.03), keep1)) / 0.75;
+    }
 
     // R6 gap 1. LOD-faded fbm: each octave is faded toward the noise's own
     // mean once that octave's lattice cell drops below the Nyquist limit of
@@ -233,6 +249,71 @@ export function createGround(stage, horizonFrac) {
     // without bound, so scaling (z + uScroll) by anything that varies across
     // the screen turns a smooth factor into violent sampling noise. Fading
     // the amplitude touches no coordinate and cannot do that.
+    // R7 gap 3 — DASH LOD. The sparse scatter layers (the sea's crest sparkle
+    // and its white caps) are sized in NATIVE PIXELS at one reference ground
+    // distance, which means they are sized in WORLD units everywhere, which
+    // means their screen size is proportional to 1/d. The arcade's is not:
+    // its ground is a scaled raster layer, so a dash is about the same number
+    // of pixels wherever it appears.
+    //
+    // MEASURED with tools/measure_sea_dashes.py, same operator both sides,
+    // sweeping ONLY the patch's row offset (each patch 48 rows, x[20,300)):
+    //
+    //   rows        150-198        160-208        170-218
+    //   ours      435 comps      294 comps      200 comps   (gate >= 300)
+    //             area max 119   area max 233   area max 243 (gate <= 200)
+    //   arcade    389 comps      414 comps      459 comps
+    //             area max  82   area max  88   area max 127
+    //
+    // The arcade is nearly invariant under the offset and we fall apart. The
+    // three offsets sample d = 48.3 -> 8.6, 24.9 -> 7.2 and 16.3 -> 6.5, so
+    // the sweep is a depth sweep and the invariance is the real criterion.
+    //
+    // The fix is a LOD LADDER IN POWERS OF TWO, not a continuous rescale, and
+    // that is forced rather than preferred. Multiplying the sampling
+    // coordinate by a factor that varies CONTINUOUSLY across the screen is
+    // the ill-conditioned operation documented under freqBoost below: uScroll
+    // grows without bound (3200 by t=47s), so a 0.0007 change in the factor
+    // between adjacent pixels moves the sample a whole lattice cell and the
+    // layer becomes per-pixel noise. A factor that is piecewise constant in
+    // distance has no such derivative: within a band every fragment divides
+    // by the same number, and exp2 of an integer is exact in binary floating
+    // point, so no precision is lost either.
+    //
+    // The band boundary would be a visible horizontal seam, so the two
+    // bracketing octaves are crossfaded BY DENSITY rather than by blending
+    // their noise: each octave's threshold is relaxed in proportion to its
+    // weight, the weights sum to 1, and a layer at weight 0 contributes
+    // nothing. Blending the noise values instead would halve the field's
+    // variance in the crossfade and collapse the dash count there.
+    // THE LADDER IS ONE-SIDED, and that is a correction made by measurement
+    // after the two-sided version was built and failed.
+    //
+    // The first version held screen size at EVERY depth, growing the world
+    // cell beyond the reference distance as well as shrinking it inside.
+    // Measured, it made all three patches worse (components 195 / 188 / 162
+    // against the 435 / 294 / 200 it replaced, foam down to 14%), because the
+    // premise was wrong: the arcade's dash population is NOT constant-size.
+    // On t116 it runs w p50 2 / p90 7-9 / max 38-40 with area p50 2, i.e. it
+    // is dominated by one- and two-pixel specks with a long tail, and it gets
+    // slightly DENSER and finer toward the camera (389 -> 459 components over
+    // the three offsets), not coarser. Growing our far-field cells to a
+    // constant screen size replaced that speck population with 8-10 px dashes
+    // and the count collapsed.
+    //
+    // What is actually broken is only the near field, where our world-sized
+    // cell is magnified past anything the arcade shows. So the ladder only
+    // ever steps DOWN: beyond the reference distance it is identically 1 and
+    // the R6 behaviour (which passes at rows 150-198 and matches the arcade's
+    // speck statistics) is untouched; inside it, the cell halves per octave.
+    void dashLod(float d, float refDist, out float s0, out float s1, out float w1) {
+      float lodF = clamp(log2(max(d, 0.25) / max(refDist, 0.25)), -3.0, uDashLodMax);
+      float k0 = floor(lodF);
+      w1 = smoothstep(0.0, 1.0, lodF - k0);
+      s0 = exp2(k0);
+      s1 = exp2(min(k0 + 1.0, uDashLodMax));
+    }
+
     float fbmLod(vec2 p, float cellsPerPixel) {
       float v = 0.0;
       float amp = 0.5;
@@ -286,8 +367,46 @@ export function createGround(stage, horizonFrac) {
     // dithering rather than a smooth procedural gradient: adjacent noise
     // values collapse onto the same rung and form flat patches with hard
     // edges, which is the texture the reference frames actually show.
+    //
+    // R7: THE FORMULA DID NOT REPRODUCE THE TABLE DIRECTLY ABOVE IT, and
+    // this is the exact trap REFERENCE.md warns about under "The ladder,
+    // enumerated" ("you cannot generate it with the obvious quantizer").
+    // floor(c*15 + 0.5) * 247/15 evaluates to 164.67, 197.6 and 230.53 at
+    // rungs 10, 12 and 14, which the 8-bit write rounds to 165, 198 and 231
+    // where the hardware has 164 (0xa4), 197 (0xc5) and 230 (0xe6). MEASURED
+    // on our own captures before this change: the sea's modal body colour
+    // rendered as #0010e7, not the #0010e6 its own palette comment claims,
+    // and 198/231 appear in the off-ladder list of every stage-2 frame.
+    // Three of sixteen rungs wrong by +1 is visually nil on its own, but it
+    // puts our values one step off every OTHER subsystem's (the HUD's 22
+    // colours are all on the ladder, and the sky now is too), which doubles
+    // entries in Criterion A2's union for nothing. Snap to the table.
     vec3 quantizeToArcadePalette(vec3 c) {
-      return floor(clamp(c, 0.0, 1.0) * 15.0 + 0.5) * (247.0 / (15.0 * 255.0));
+      // 0x00,0x10,0x21,0x31,0x42,0x52,0x63,0x73,0x84,0x94,0xa4,0xb5,0xc5,
+      // 0xd6,0xe6,0xf7 — the 16 entries the comment above enumerates, which
+      // are every other entry of REFERENCE.md's 31-value ladder.
+      float sub[16];
+      sub[0]=0.0;   sub[1]=16.0;  sub[2]=33.0;  sub[3]=49.0;
+      sub[4]=66.0;  sub[5]=82.0;  sub[6]=99.0;  sub[7]=115.0;
+      sub[8]=132.0; sub[9]=148.0; sub[10]=164.0;sub[11]=181.0;
+      sub[12]=197.0;sub[13]=214.0;sub[14]=230.0;sub[15]=247.0;
+      vec3 q = c;
+      for (int ch = 0; ch < 3; ch++) {
+        float x = clamp(c[ch], 0.0, 1.0) * 255.0;
+        // Nearest by VALUE, not by arithmetic rung index. The two are not
+        // the same: the table's entries sit up to 0.67 off 247k/15 against a
+        // half-step of 8.23, so a band ~4% of a rung wide rounds differently
+        // under each rule. Nearest-by-value is the one that means "the
+        // closest colour the hardware can show".
+        float best = 0.0;
+        float bd = 1e9;
+        for (int i = 0; i < 16; i++) {
+          float d = abs(x - sub[i]);
+          if (d < bd) { bd = d; best = sub[i]; }
+        }
+        q[ch] = best / 255.0;
+      }
+      return q;
     }
 
     // ---- Stage-1 sea palette (R6 gap 1) -----------------------------
@@ -342,10 +461,45 @@ export function createGround(stage, horizonFrac) {
       pal[9]  = vec3(0.000, 0.063, 0.902); // #0010e6  mid-field modal
       pal[10] = vec3(0.000, 0.063, 0.902); // #0010e6
       pal[11] = vec3(0.000, 0.063, 0.902); // #0010e6
-      pal[12] = vec3(0.000, 0.063, 0.969); // #0010f7  crest, V 0.969 > 0.95
-      pal[13] = vec3(0.000, 0.129, 0.969); // #0021f7
-      pal[14] = vec3(0.000, 0.259, 0.969); // #0042f7
-      pal[15] = vec3(0.000, 0.388, 0.969); // #0063f7  brightest crest
+      // R7, art critique §3 rank 5 — THE CREST SEGMENT WAS THE WRONG HUE,
+      // and the measurement that produced the old blue entries was taken
+      // through the video's blur.
+      //
+      // The old entries (#0010f7 / #0021f7 / #0042f7 / #0063f7) came from
+      // ladder-snapping t116's V>0.95 population, whose modal colours really
+      // are saturated blue. But t116 is a 686x480 upscale of a 320x224
+      // frame: every bright crest is spread over ~2x2 output pixels, so the
+      // blue the histogram counts is mostly the HALO of a bright crest mixed
+      // with the dark water around it, and the count over-weights it.
+      //
+      // The discriminating statistic is one blur cannot move: the REGION
+      // MEAN, which a resample preserves. MEASURED on t116's raw video
+      // pixels over the band matching our native rows [160,196) x[20,300):
+      //
+      //   band mean RGB        (15.7, 61.0, 219.6)
+      //   pixels with G > 128  18.5% of the band, mean G 180, contributing
+      //                        33.3 of the band's 61.0 mean G
+      //   brightest-G foam     #a0f8f8 #c0f8f8 #b0f8f8 #a8f8f8 -- CYAN-WHITE
+      //
+      // Ours over the same band read (12.3, 31.5, 219.9) with only ~4% above
+      // G 128: B matches to within 0.2 of a level and G is half what it
+      // should be. The arithmetic closes only one way -- with a body at
+      // G 16 and ~19-24% foam, the band mean of 61 REQUIRES the foam
+      // population to average G ~200, i.e. to be cyan-white rather than
+      // blue. A greener BODY cannot produce it: a uniform body at G 49 with
+      // foam at G 99 gives the same mean but leaves nothing above G 128,
+      // and 18.5% of the arcade's band is above it.
+      //
+      // The crop agrees and that is what decides it
+      // (judging/R7/world-r7-04-sea-hue-ours-TOP-arcade-raw-BOT.png): the
+      // arcade's crests are long cyan-turquoise chains, ours were pale-blue
+      // specks. R5 prescribed exactly this ("kill the white mix -- take foam
+      // to a saturated pale cyan") and only the colour-count half of it
+      // landed. Every entry is on the enumerated ladder.
+      pal[12] = vec3(0.000, 0.580, 0.969); // #0094f7  lit crest, cyan
+      pal[13] = vec3(0.000, 0.773, 0.969); // #00c5f7
+      pal[14] = vec3(0.451, 0.902, 0.969); // #73e6f7
+      pal[15] = vec3(0.643, 0.969, 0.969); // #a4f7f7  brightest crest
       int idx = int(clamp(floor(t * 16.0), 0.0, 15.0));
       vec3 c = pal[0];
       for (int i = 0; i < 16; i++) { if (i == idx) c = pal[i]; }
@@ -606,16 +760,75 @@ export function createGround(stage, horizonFrac) {
         groundColor = mix(terrain, linearToSrgb(uPlainColor), plain);
       } else if (uGroundMode > 0.5) {
         // ---- 'night' (stage 3) --------------------------------------
-        // Pure-blue dithered field. The value distribution is strongly
-        // bottom-weighted (t175 ground band: 21.2% of pixels have B
-        // exactly 0, 40.0% have B < 8), which a linear mix cannot produce
-        // — hence pow(t, uNightGamma). Gamma fitted to the measured
-        // percentile ratios: v(p50)/v(p95) = 0.047/0.192 = 0.245 and
-        // (0.50/0.95)^2.2 = 0.246.
-        float macro = fbm(vec2(vWorldPos.x / uMacroFreqX, (vWorldPos.z + uScroll) / uMacroFreqZ));
-        float fine = fbm2(grainP);
+        // R7 gap 2 — THE NIGHT GROUND WAS DITHERED WHERE THE ARCADE'S IS
+        // FLAT, and the palette was never the problem. Both sides use
+        // exactly four background colours; the arcade arranges them into
+        // flat regions and we arranged them pixel by pixel.
+        //
+        // MEASURED on reference/ab2-arcade-night-banking.png — the ONLY
+        // true-native (320x224) stage-3 frame this repo holds — ground band
+        // rows [140,195), pixels at V < 0.25, which is the judge's own
+        // background population:
+        //
+        //   #000000  91.97%     #000031  3.08%
+        //   #000010   2.60%     #000021  2.34%
+        //
+        // and ours over the same band on a digit-verified stage-3 capture:
+        //
+        //   #000010  34.84%  #000000 27.38%  #000021 20.20%  #000031 17.58%
+        //
+        // i.e. the arcade's dark field is ONE flat colour with a few small
+        // patches of the other three, and ours spread its mass evenly over
+        // all four. That is the whole of the Criterion B failure: background
+        // -only V-identity 45.2% against 93.9% on the same band.
+        //
+        // THE VIDEO FRAMES CANNOT SETTLE THIS AND THEY ARE WHAT THE OLD
+        // CONSTANTS WERE FITTED TO. stage.js cited t175's value percentiles
+        // (p25 0.012 / p50 0.047 / p95 0.192) and solved vHi + gamma against
+        // them. Re-measured here, t175's ground band carries 664 DISTINCT
+        // COLOURS with B taking 1, 2, 4, 6, 11, 12 ... — values the hardware
+        // ladder does not contain at all, so its percentiles are a codec's
+        // smear of the real distribution plus the halo of every city light,
+        // and they are biased upward exactly where it matters. Snapped to
+        // the ladder t175 still reads 42.5% pure black against the native
+        // frame's 92.0%, and t186 57.3%. REFERENCE.md's own rule ("only the
+        // two true-native PNGs qualify on the arcade side") decides it: the
+        // native frame wins and the gamma is re-fitted to it.
+        //
+        // Two changes, and the first is the one that matters:
+        //
+        //  1. FILTER. Both layers were raw fbm/fbm2 sampled through a
+        //     perspective camera, i.e. unfiltered — the identical defect
+        //     R6 fixed in the sea. MEASURED from this shader's own analytic
+        //     control: one native row spans 1.20 world units at row 160
+        //     (d 24.3) against a grain lattice of 0.80, so the fine layer is
+        //     at 1.5 CELLS PER ROW there and everything above row ~175 was
+        //     alias, not texture. uNightLodBoost filters against a pixel
+        //     deliberately larger than one native pixel, the same lever and
+        //     the same reason as the sea's uSeaLodBoost: an octave two
+        //     native pixels across is resolvable and still flips the rung
+        //     every other row.
+        //  2. DOMINANT FLAT BASE + SPARSE PATCHES, which is the same
+        //     structure the sea was rebuilt into and the structure the
+        //     native frame actually shows: 92% of the dark field is ONE
+        //     colour and the other three rungs are a handful of patches
+        //     (largest connected component per rung 241 / 282 / 190 px,
+        //     against black's 10 692). The old path mapped the whole noise
+        //     field through pow(t, gamma) onto the rung ladder, so EVERY
+        //     rung got a comparable share by construction and no amount of
+        //     gamma reached 92% — swept, it tops out at 83% at gamma 11
+        //     while flattening the field far past the arcade's own
+        //     horizontal identity. uNightPatchCut makes black exact
+        //     instead: below the cut the field is identically 0 (one
+        //     colour, hard black), above it the remainder ramps through
+        //     rungs 1-3. The cut is the knob the 92% is set with.
+        float macroCpp = uNightLodBoost * max(worldPerCol / uMacroFreqX, worldPerRow / uMacroFreqZ);
+        float fineCpp = uNightLodBoost * max(worldPerCol / uGrainFreqX, worldPerRow / uGrainFreqZ);
+        float macro = fbmLod(vec2(vWorldPos.x / uMacroFreqX, (vWorldPos.z + uScroll) / uMacroFreqZ), macroCpp);
+        float fine = fbm2Lod(grainP, fineCpp);
         float t = clamp(0.5 + (macro - 0.47) * uMacroAmp + (fine - 0.47) * uDetailAmp, 0.0, 1.0);
-        float v = uVHi * pow(t, uNightGamma);
+        float lift = clamp((t - uNightPatchCut) / max(1.0 - uNightPatchCut, 1e-4), 0.0, 1.0);
+        float v = uVHi * pow(lift, uNightGamma);
         groundColor = hsv2rgb(vec3(uHueDeg / 360.0, mix(uSatLo, uSatHi, fine), v));
 
         // City lights. REFERENCE.md calls night ground "a dense
@@ -778,15 +991,31 @@ export function createGround(stage, horizonFrac) {
         // sparkle can ask for one.
         float crestDensity = uCrestDensity *
             (1.0 - smoothstep(uCrestNearDist, uCrestFarDist, groundDist));
-        vec2 crestP = vec2(vWorldPos.x / uCrestFreqX, (vWorldPos.z + uScroll) / uCrestFreqZ);
-        float crest = valueNoise(crestP);
-        float crestCut = 1.0 - crestDensity;
-        if (crest > crestCut) {
-          float lift = (crest - crestCut) / max(crestDensity, 1e-4);
+        // R7 gap 3: the cell size now steps with depth so the dash holds its
+        // SCREEN size. uDashRefDist 0 keeps the single-octave R6 behaviour.
+        // See dashLod() above for why the ladder is in powers of two and why
+        // the crossfade is by density.
+        float ds0 = 1.0, ds1 = 1.0, dw1 = 0.0;
+        if (uDashRefDist > 0.0) dashLod(groundDist, uDashRefDist, ds0, ds1, dw1);
+        float cdens0 = crestDensity * (1.0 - dw1);
+        float cdens1 = crestDensity * dw1;
+        float crest0 = valueNoise(vec2(vWorldPos.x / (uCrestFreqX * ds0),
+                                       (vWorldPos.z + uScroll) / (uCrestFreqZ * ds0)));
+        float crest1 = valueNoise(vec2(vWorldPos.x / (uCrestFreqX * ds1),
+                                       (vWorldPos.z + uScroll) / (uCrestFreqZ * ds1))
+                                  + vec2(83.0, 29.0));
+        float crestLift = 0.0;
+        if (cdens0 > 1e-4 && crest0 > 1.0 - cdens0) {
+          crestLift = max(crestLift, (crest0 - (1.0 - cdens0)) / cdens0);
+        }
+        if (cdens1 > 1e-4 && crest1 > 1.0 - cdens1) {
+          crestLift = max(crestLift, (crest1 - (1.0 - cdens1)) / cdens1);
+        }
+        if (crestLift > 0.0) {
           // Land inside the ramp's crest half (index >= 12, i.e. B = 0xf7,
           // V 0.969 > 0.95), which is the population REFERENCE.md's foam
           // fraction counts.
-          t = max(t, mix(0.76, 1.0, lift));
+          t = max(t, mix(0.76, 1.0, crestLift));
         }
         groundColor = seaRamp(t);
 
@@ -838,10 +1067,17 @@ export function createGround(stage, horizonFrac) {
         // what distant sparkle should do — and it is also what lets the far
         // field stay populated without the distance-gated coarse layer whose
         // absence of a gate caused this in the first place.
-        vec2 capP = vec2(vWorldPos.x / uCapFreqX, (vWorldPos.z + uScroll) / uCapFreqZ);
-        vec2 capP2 = vec2(vWorldPos.x / uCapFreq2X, (vWorldPos.z + uScroll) / uCapFreq2Z);
+        // R7 gap 3: the same two-octave depth ladder the crest layer uses, so
+        // the caps hold their screen size too. ds0/ds1/dw1 come from
+        // dashLod() above.
+        vec2 capP = vec2(vWorldPos.x / (uCapFreqX * ds0), (vWorldPos.z + uScroll) / (uCapFreqZ * ds0));
+        vec2 capP2 = vec2(vWorldPos.x / (uCapFreq2X * ds0), (vWorldPos.z + uScroll) / (uCapFreq2Z * ds0));
+        vec2 capQ = vec2(vWorldPos.x / (uCapFreqX * ds1), (vWorldPos.z + uScroll) / (uCapFreqZ * ds1));
+        vec2 capQ2 = vec2(vWorldPos.x / (uCapFreq2X * ds1), (vWorldPos.z + uScroll) / (uCapFreq2Z * ds1));
         float capN = max(valueNoise(capP + vec2(211.0, 59.0)),
                          valueNoise(capP2 + vec2(37.0, 163.0)));
+        float capM = max(valueNoise(capQ + vec2(149.0, 101.0)),
+                         valueNoise(capQ2 + vec2(67.0, 193.0)));
         // Caps sit ON WAVE CRESTS, not at random. With a flat threshold the
         // dash statistics already matched (foam 19.0% against 19.5%, 398
         // components against 389, w p50/p90 2/7 against 2/9) and the crop
@@ -856,8 +1092,20 @@ export function createGround(stage, horizonFrac) {
         // and a trough hard, and the caps fall into the wave bands by
         // construction instead of being arranged into them by hand.
         float capCut = uCapThreshold + (0.5 - t) * uCapWaveGate;
-        if (capN > capCut) {
-          groundColor = seaCap((capN - capCut) / max(1.0 - capCut, 1e-3));
+        // Density crossfade: each octave's HEADROOM above the cut is scaled
+        // by its weight, so a layer at weight 0 can never fire and the two
+        // together carry about the headroom one layer alone used to. Scaling
+        // the headroom rather than mixing the two noise fields is what keeps
+        // the dash COUNT up through the crossfade -- mixing two independent
+        // noises halves the variance and the count collapses with it.
+        float capHead = 1.0 - capCut;
+        float cut0 = 1.0 - capHead * (1.0 - dw1);
+        float cut1 = 1.0 - capHead * dw1;
+        float capLift = 0.0;
+        if (capN > cut0) capLift = max(capLift, (capN - cut0) / max(1.0 - cut0, 1e-3));
+        if (capM > cut1) capLift = max(capLift, (capM - cut1) / max(1.0 - cut1, 1e-3));
+        if (capLift > 0.0) {
+          groundColor = seaCap(capLift);
         }
       }
 
@@ -1030,6 +1278,10 @@ export function createGround(stage, horizonFrac) {
     macroAmp: 1.6,
     detailAmp: 1.4,
     nightGamma: 2.2,
+    // 1.0 = filter at Nyquist (stages 1 and 2 never read it).
+    nightLodBoost: 1.0,
+    // 0 = no flat-black base (the pre-R7 behaviour); stages 1 and 2 never read it.
+    nightPatchCut: 0.0,
     lightDensity: 0.0,
     lightCell: 0.5,
     lightCellZ: 0.5,
@@ -1096,6 +1348,15 @@ export function createGround(stage, horizonFrac) {
     crestFreqZ: 0.42,
     crestNearDist: 60.0,
     crestFarDist: 200.0,
+    // R7 gap 3. 0 = the single-octave R6 behaviour (stages 2 and 3 never
+    // read it); >0 = the ground distance at which a dash is its authored
+    // native-pixel size, with the cell stepping in powers of two either way
+    // so the dash holds that screen size at every depth. See dashLod().
+    dashRefDist: 0.0,
+    // How far ABOVE the reference distance the dash ladder is allowed to
+    // step. 0 = never grow the cell (the R6 behaviour beyond the reference
+    // distance); 3 = hold the dash's screen size out to 8x the reference.
+    dashLodMax: 0.0,
     // 0 => the smooth haze ramp (stages 2 and 3 keep it; their haze is a
     // genuine gradient and their Criterion B figures already pass).
     hazeSteps: 0.0,
@@ -1165,6 +1426,8 @@ export function createGround(stage, horizonFrac) {
       uMacroAmp: { value: p.macroAmp },
       uDetailAmp: { value: p.detailAmp },
       uNightGamma: { value: p.nightGamma },
+      uNightLodBoost: { value: p.nightLodBoost },
+      uNightPatchCut: { value: p.nightPatchCut },
       uLightDensity: { value: p.lightDensity },
       uLightCell: { value: p.lightCell },
       uLightCellZ: { value: p.lightCellZ },
@@ -1201,6 +1464,8 @@ export function createGround(stage, horizonFrac) {
       uCrestFreqZ: { value: p.crestFreqZ },
       uCrestNearDist: { value: p.crestNearDist },
       uCrestFarDist: { value: p.crestFarDist },
+      uDashRefDist: { value: p.dashRefDist },
+      uDashLodMax: { value: p.dashLodMax },
       uHazeSteps: { value: p.hazeSteps },
       uHazeFalloff: { value: p.hazeFalloff },
       uHazeEnd: { value: p.hazeEnd },
@@ -1270,6 +1535,8 @@ export function createGround(stage, horizonFrac) {
       u.uMacroAmp.value = q.macroAmp;
       u.uDetailAmp.value = q.detailAmp;
       u.uNightGamma.value = q.nightGamma;
+      u.uNightLodBoost.value = q.nightLodBoost;
+      u.uNightPatchCut.value = q.nightPatchCut;
       u.uLightDensity.value = q.lightDensity;
       u.uLightCell.value = q.lightCell;
       u.uLightCellZ.value = q.lightCellZ;
@@ -1306,6 +1573,8 @@ export function createGround(stage, horizonFrac) {
       u.uCrestFreqZ.value = q.crestFreqZ;
       u.uCrestNearDist.value = q.crestNearDist;
       u.uCrestFarDist.value = q.crestFarDist;
+      u.uDashRefDist.value = q.dashRefDist;
+      u.uDashLodMax.value = q.dashLodMax;
       u.uHazeSteps.value = q.hazeSteps;
       u.uHazeFalloff.value = q.hazeFalloff;
       u.uHazeEnd.value = q.hazeEnd;
