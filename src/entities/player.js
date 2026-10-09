@@ -91,6 +91,31 @@ const ENVELOPE_X = 2.6;
 // from this number and its comment says in capitals to re-derive when this
 // moves — three hand-synced copies of a constant is what core/cameraGeom.js
 // exists to stop happening again. See judging/R7/ask-flow.md A1.
+//
+// R8 (R7 judge gap 5): the re-derivation was finally DONE, and it kills the
+// constant rather than updating it. `tools/out/flow-r8/rails_probe.mjs`, which
+// reads every input out of the source at run time instead of copying it:
+//
+//     player ndcY at full up stick, settled   +0.45966  (27.017 %H)
+//   + combat.js SIGHT_NDC_Y_OFFSET             0.30     -> sight tops at 0.7597
+//   + lockSystem.js LOCK_RADIUS_FRAC 0.22 / (0.5*224/320) = 0.6286 of y reach
+//   = REACH CEILING                            1.3882 NDC
+//
+// NDC y runs to +1.0, so the reachability bound spawner.js's 0.64 claims to be
+// is **off the top of the screen** and does not bind anywhere a player can see.
+// The comment there derives it from a lock radius of 8.3 %W that is not in
+// lockSystem.js (it ships 0.22 = 22 %W) and a player ceiling of +0.106 that
+// this file obsoleted in R7. Measured consequence of lifting it, two seeds,
+// 180 s each (`tools/out/flow-r8/enemy_alt_probe.mjs`): enemy p5 altitude
+// 20.24 -> 16.16 %H (seed 1) and 18.61 -> 13.60 (seed 7) against the arcade's
+// published 14.1, and top-third share 30.47 -> 31.06 and 31.98 -> 32.56
+// against the arcade's 32.5. Both statistics move TOWARD the arcade.
+// spawner.js is the combat lane's file — judging/R8/ask-flow.md F1.
+//
+// The 1.55 itself is unchanged and the probe reproduces its published rail to
+// three decimals (27.017 %H against the 27.02 written above), including
+// through a real KeyboardEvent on the page's own window rather than only
+// through __setStick — the two agree to 0.000000 NDC.
 export const ENVELOPE_Y_UP = 1.55;
 export const ENVELOPE_Y_DOWN = 1.1;
 const FOLLOW_RATE = 6.0; // 1/s exponential approach toward the stick target

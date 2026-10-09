@@ -70,6 +70,32 @@ const STAGE_DURATIONS_S = [
   36, 36, 16, //          21-23
 ];
 
+// The arcade's stage count, and the period of BOTH the structure and the
+// DISPLAYED stage number. R7 judge §5.1: the HUD digit was
+// `contentStageIndex + 1`, i.e. `stageIndex % 3 + 1`, so it could only ever
+// read 1, 2 or 3 — measured over a 211 s run it went 1,2,3,1,2,3,1 and a
+// player on stage 7 was told "1". The arcade's own counter does not wrap
+// inside a credit: digits read 1,2,3,4,6,8,10,11,12,13,15 off
+// `ab2-longplay.mp4` at the HUD-verified spans in STAGE_MAP.md (crop
+// x=340-450 y=418-456 of the 686x480 upscale; figure
+// `judging/R8/flow-r8-01-arcade-stage-digits-1-to-15.png`).
+//
+// THREE SEPARATE PERIODS NOW, and they are separate on purpose:
+//   - `stageIndex`     — the raw lap counter, never wraps.
+//   - `stageNumber`    — what the PLAYER is told: `stageIndex % 23 + 1`.
+//                        Laps with the structure, because the structure is
+//                        what it names. 23 is MEASURED (STAGE_DURATIONS_S).
+//   - `contentStageIndex` — which of the STAGES.length = 3 authored
+//                        palettes/terrains is on screen. ADOPTED wrap; the
+//                        content for stages 4+ does not exist.
+// Content and number disagree from stage 4 on, and that is the honest state
+// of the build: we are telling the player the truth about where they are in
+// a 23-stage game while re-using three palettes to render it. The previous
+// code chose the opposite trade (digit always matches the palette, player
+// never learns they progressed) and the judge ranked that the more visible
+// defect of the two. Revisit when STAGES.length grows.
+const STAGE_COUNT = STAGE_DURATIONS_S.length;
+
 // Attract cycle (R5 gap 8's second half: "no attract-mode gameplay demo").
 // An unattended cabinet alternates title card and a gameplay demo forever;
 // ours used to time out of the title ONCE and then fly a real game with
@@ -275,10 +301,26 @@ export class GameFlow {
     // t124.png) visible immediately and held open (not counted down) so a
     // single `?fixed=1` capture can verify its layout. Never read in normal
     // play.
-    if (params.has('debugtally')) {
+    //
+    // R8 (R7 judge §5.1 "Related, smaller"): this drew `stageIndex + 2`, an
+    // UNWRAPPED number, while the real tally path drew `contentStageIndex + 1`,
+    // a wrapped one — so the debug card a lane captured to check layout showed
+    // a number the real card could never show. Both now go through
+    // `stageNumber`, so the probe and the game agree by construction.
+    //
+    // `?debugtally=N` (N >= 1) overrides the stage the card names, so a
+    // capture can check the TWO-DIGIT layout (stages 10-23) without flying
+    // for six minutes. `?debugtally=1` keeps the old single-digit behaviour:
+    // stageIndex 0 + 1 incoming = "STAGE 2", which is what t124 shows.
+    const tallyParam = params.get('debugtally');
+    if (tallyParam !== null) {
+      const forced = Number.parseInt(tallyParam, 10);
+      const nextStage = Number.isFinite(forced) && forced > 1
+        ? forced
+        : ((this.stageIndex + 1) % STAGE_COUNT) + 1;
       this.cardOverlay.visible = true;
       this.cardOverlay.redraw((ctx, w, h) =>
-        drawTallyCard(ctx, w, h, { hitShown: 8, pointsShown: 160000, nextStage: this.stageIndex + 2 })
+        drawTallyCard(ctx, w, h, { hitShown: 8, pointsShown: 160000, nextStage })
       );
     }
   }
@@ -317,7 +359,14 @@ export class GameFlow {
     // claim of unbounded progression. Revisit once world-r5 supplies more
     // stage data (STAGES.length grows and the lap recedes with it, no code
     // change needed here).
-    this.hudState.stage = this.contentStageIndex + 1;
+    //
+    // R8 (R7 judge gap 2) REVERSES that ruling, on arcade evidence the R5
+    // decision did not have. The paragraph above traded "the digit always
+    // matches the rendered palette" for "the player is never told they
+    // progressed", and the cost of that trade is a repeat visible 102 s in.
+    // The arcade counts 1..23 without wrapping (see STAGE_COUNT above), so
+    // the digit is now the TRUE stage number and only the palette laps.
+    this.hudState.stage = this.stageNumber;
     if (this.combat) {
       this.combat.hits = 0; // HIT resets at stage start, and ONLY there (GAME_SPEC.md §6)
       // R5 feel fix (feel-critique.md §6/§10 rank 12): missileStock only
@@ -342,6 +391,15 @@ export class GameFlow {
   // count.
   get contentStageIndex() {
     return this.stageIndex % STAGES.length;
+  }
+
+  // The stage number the PLAYER is told — HUD digit and tally card. 1-based
+  // and laps with the measured 23-stage structure, NOT with the 3 authored
+  // palettes. See STAGE_COUNT's note for why these are three quantities and
+  // not one. Anything that renders a stage LABEL reads this; anything that
+  // picks a stage's ART reads `contentStageIndex`.
+  get stageNumber() {
+    return (this.stageIndex % STAGE_COUNT) + 1;
   }
 
   // The throttle is a LEVER, not a momentary control: it holds its detent
@@ -545,7 +603,7 @@ export class GameFlow {
       }
     }
 
-    if (this.state === 'flight' && this.stageTimer >= STAGE_DURATIONS_S[this.stageIndex % STAGE_DURATIONS_S.length]) {
+    if (this.state === 'flight' && this.stageTimer >= STAGE_DURATIONS_S[this.stageIndex % STAGE_COUNT]) {
       this._startTally();
     }
 
@@ -690,7 +748,11 @@ export class GameFlow {
     this.tally.lastHitShown = hitShown;
     this.cardOverlay.visible = true;
     this.cardOverlay.redraw((ctx, w, h) =>
-      drawTallyCard(ctx, w, h, { hitShown, pointsShown, nextStage: this.contentStageIndex + 1 })
+      // `_startTally` already called `_enterStage(stageIndex + 1)`, so
+      // `stageNumber` IS the incoming stage the card names. R8: was
+      // `contentStageIndex + 1`, which told the player "STAGE 1" on the way
+      // into stage 4 — see STAGE_COUNT.
+      drawTallyCard(ctx, w, h, { hitShown, pointsShown, nextStage: this.stageNumber })
     );
     if (q >= 1) {
       this.tally = null;

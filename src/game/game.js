@@ -242,6 +242,14 @@ export class Game {
       window.__flowState = () => ({
         state: this.flow.state,
         stageIndex: this.flow.stageIndex,
+        // R8 (R7 judge gap 2). THREE stage quantities, deliberately distinct —
+        // see flow.js's STAGE_COUNT note. `stageIndex` is the raw lap counter,
+        // `stageNumber` is what the HUD digit and tally card show (1..23), and
+        // `contentStageIndex` is which of the 3 authored palettes is rendered.
+        // A probe that wants "what does the digit say" must read `stageNumber`;
+        // reading `stageIndex` was how the digit defect survived three rounds.
+        stageNumber: this.flow.stageNumber,
+        contentStageIndex: this.flow.contentStageIndex,
         lives: this.flow.lives,
         score: this.flow.score.value,
         deathPhase: this.flow.deathSeq && this.flow.deathSeq.active ? this.flow.deathSeq.phase : null,
