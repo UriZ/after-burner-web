@@ -12,7 +12,7 @@ Nothing below is eyeballed. If a value you need is missing, measure it — do no
 **These two apply to EVERY frame and EVERY sprite, in every round from R5 onward. They are
 not gap-specific; they are the floor.**
 
-## READ THIS BEFORE ANY RENDER, PALETTE OR SPRITE WORK — the build FAILS both gates on stage 1
+## READ THIS BEFORE ANY RENDER, PALETTE OR SPRITE WORK — and read the POPULATION column first
 
 Criteria A and B were published in R5 as GATES and then **cited in no gap list, in no ask, and
 in none of the six R5 lane reports.** The R5 judge went looking for what nobody had checked and
@@ -20,29 +20,96 @@ found that stage 1 misses them **by two orders of magnitude**, and named that as
 behind the owner's verdict on the build ("it's very bad"). They are restated here, at the top,
 with a per-stage scoreboard, so that a lane cannot work a round without meeting them.
 
-**Where the build stands.** Independently re-measured this round by
-`tools/criteria_lane_ab_control.py` (a second implementation written from the prose below;
-`--selftest` PASS) on the **R5 judge's own captures**, i.e. clean checkout `53ce86b` — the
-judge's figures are in the right-hand column:
+### EVERY ROW OF THIS SCOREBOARD STATES ITS POPULATION (REPAIRED R7, ledger row 21)
 
-| population | colours | chan (union) | ground H-id | ground V-id | this lane | R5 judge |
+**The table below used to state none of them, and the asymmetry it hid is the whole finding.**
+Every our-side row was a frame with **no enemies, no shots, no explosions, no lock brackets and
+no trails on screen**. Every arcade-side row is a frame **in combat**. The gate was being
+reported as if the two columns were the same population; they were two different games.
+
+**The arcade side, measured, not assumed.** Both true-native frames are combat frames — look at
+them (`tools/out/criteria-r7/arcade-combat/{desert,night}-3x.png`):
+
+| true-native arcade frame | what is on screen | colours | chan (union) |
+|---|---|---|---|
+| `ab2-arcade-desert.png` (**stage 2**) | the player jet, **two green-camo enemy aircraft** (rear aspect), **in-flight missiles with red tips**, two grey smoke puffs, the nose sight square, ~17 px of magenta/violet shot-or-debris, cloud puffs, full HUD | **138** | **31** |
+| `ab2-arcade-night-banking.png` (**stage 3**) | the player jet mid-blast inside a **fireball + debris spray spanning 107 × 41 native px = 33.4 %W × 18.3 %H** (809 warm px), four clouds, full HUD | **79** | **17** |
+
+**So the gate is LICENSED AGAINST ORDINARY PLAY, including explosion frames, and that licence
+is a measurement rather than an argument about hardware.** A 33 %W fireball costs the arcade
+nothing: the night frame holds its entire blast inside **17 channel values**. Our `?combatexpl=1`
+isolation arm reads **218**.
+
+**Where the build stands, by population.** Two tree states, both clean checkouts, both measured
+by this lane on the published instrument (`tools/measure_criterion_ab.py`, `--selftest` PASS
+against both arcade frames and thirteen synthetic controls before it was pointed at anything):
+
+| tree / population | n frames | colours min/med/max | chan union min/med/max | ground H-id | ground V-id | over the A2 gate |
 |---|---|---|---|---|---|---|
-| **GATE** | **≤256** | **≤32** | **≥50 %** | **≥50 %** | — | — |
-| arcade `ab2-arcade-desert.png` (true native, **stage 2**) | **138** | **31** | **68.8 %** | **68.5 %** | exact | exact |
-| arcade `ab2-arcade-night-banking.png` (true native, **stage 3**) | **79** | **17** | **84.0 %** | **80.3 %** | exact | exact |
-| **ours, stage 1** | **13 879** | **254** | **31.9 %** | **0.1 %** | FAIL ×4 | 14 344 / 238 / 28.3 / 3.3 |
-| ours, stage 2 | **374** | 170 (per-channel 118) | 64.2 % | 42.6 % | A1 fail, B-V fail | 374 / 118 / 66.5 / 49.6 |
-| ours, stage 3 | **989** | 249 (per-channel 245) | 60.0 % | 39.7 % | A1 fail, B-V fail | 989 / 245 / 64.6 / 48.0 |
+| **GATE** | — | **≤256** | **≤32** | **≥50 %** | **≥50 %** | — |
+| arcade desert, **in combat** (stage 2) | 1 | **138** | **31** | 68.7 % | 68.5 % | 0 |
+| arcade night, **mid-explosion** (stage 3) | 1 | **79** | **17** | 84.0 % | 80.2 % | 0 |
+| `53ce86b` ours stage 1, **no combat on screen** | 1 | 13 879 | 254 | 31.9 % | 0.1 % | 1 of 1 |
+| `53ce86b` ours stage 2, **no combat on screen** | 1 | 374 | 170 (per-ch 118) | 64.2 % | 42.6 % | 1 of 1 |
+| `53ce86b` ours stage 3, **no combat on screen** | 1 | 989 | 249 (per-ch 245) | 60.0 % | 39.7 % | 1 of 1 |
+| **`e8fed58` ours stage 1, `?nocombat=1`** | **24** | **46 / 51 / 51** ✓ | **21 / 21 / 21** ✓ | 79.3 / **80.8** / 82.4 ✓ | 50.8 / **56.4** / 60.8 ✓ | **0 of 24** |
+| **`e8fed58` ours stage 1, ORDINARY PLAY** | **49** | **59 / 71 / 99** ✓ | **28 / 53 / 98** ✗ | 78.8 / **80.6** / 82.4 ✓ | 50.7 / **56.3** / 60.8 ✓ | **48 of 49** |
 
-Our-side provenance: `tools/out/judge-r5/hud-s{1,2,3}/frame-0000.png`, 960×672, decimated
-`img[::3,::3]` with the 3×3 block-uniformity **proved** (max block deviation 0, the tool refuses
-to measure otherwise); Criterion B region = the published ground band rows **140–195** of 224,
-full width, minus the HUD mask `tools/out/judge-r5/hudmask/hud_mask.npy` (1 260 px, derived per
-run by `tools/hud_mask.py`). The judge's B figures use rows below a *per-frame fitted horizon*
-instead of the fixed band and run 3–8 points apart from mine on stages 2–3; **the region choice
-is the whole difference and neither reading changes a single pass/fail verdict.** Colour counts
-agree exactly on stages 2 and 3 (374, 989), which is the control that the two implementations
-are the same operator.
+> **R7 FINAL TREE — the composite passes Criterion A in ordinary play (TEAM LEAD's figure,
+> NOT re-derived by this lane).** The R7 world lane flagged that its own whole-frame numbers
+> were a composite over five lanes and asked for a re-measure against whatever was committed.
+> The lead ran it on the final tree: **12 frames, three tick spacings (97/137/211), ordinary
+> play with combat and `invincible=1`, stage-digit range verified — worst case 30 channel
+> values and 70 colours** against gates of ≤32 and ≤256. **Quote that figure rather than any
+> single lane's.** It closes the ordinary-play failure in the row below, on a tree this
+> document's own rows predate.
+>
+> **Provenance gap, stated rather than papered over**: this lane **could not locate the capture
+> set** and so has **not re-derived it**. The `tools/out/tl-verify-*` directories hold 15
+> frames in total, not 12 at three spacings, and the only multi-frame set among them
+> (`tl-verify-9-{1,2,3}`) reads **13 997–14 470 colours / 253–256 channel values** — the
+> *pre-R6* signature, with a 9 430-colour ground and 11 320 singleton colours, i.e. the sea
+> before the world lane's rebuild. Those are old captures, not this measurement. **Two things
+> are owed before the figure is cited as reproduced: the capture directory's name, and the
+> commit.** Until then it is a correctly-attributed figure from one measurer, which is exactly
+> what field 5 of "What a complete citation is" exists to flag.
+>
+> **Separately, a capture-hygiene finding in that directory tree**: `tl-verify-9-1`, `-9-2` and
+> `-9-3` contain **byte-identical frames** — md5 `ed3de9da…` and `fc8feed9…` appear in all
+> three. Three directories carrying one directory's information. If any pooled figure draws on
+> them it is triple-counting two frames, and a black-frame sweep cannot see it; STATUS's
+> standing warning about duplicates is the relevant one.
+
+**Read the last two rows together — that is the point of the column.** The same build, the same
+commit, the same instrument: **Criterion B does not move with the population** (80.8 → 80.6 H,
+56.4 → 56.3 V) and **Criterion A moves by a factor of two and a half and fails.** So the
+population caveat binds **A, not B**: a Criterion B figure may be quoted from a `?nocombat=1`
+capture; a Criterion A figure may not.
+
+Attributed by isolation arm on the same commit (6 frames each, judge-R6 captures, re-measured
+here): `?combatonly=enemies` **59 / 30** ✓ · `?combatonly=enemies,shots` **70 / 54** ✗ ·
+`?combatexpl=1` **337 / 218** ✗ · `?demo=2` **407 / 229**, max **1 375 / 255** ✗. The enemy
+shots fail the gate on their own, with zero explosion pixels in the arm.
+
+**One stage-attribution trap, recorded because this lane fell into it.** My first sweep read
+25 "stage-1 nocombat" frames and found one at 33 channel values. Cropped and looked: it is a
+**stage-2** frame — `s1-nc-419/frame-0004.png`, HUD digit 2 — that the capture walked into, and
+33 is the independently measured stage-2 median. Excluding it by digit gives 24 frames at a flat
+21. **A capture directory named for a stage is not a stage attribution.** The stage-digit test
+used above is `mean(RGB) > 170` over native `y[200,207) x[184,192)`, a bar-shaped glyph for "1".
+
+Our-side provenance, `53ce86b` rows: `tools/out/judge-r5/hud-s{1,2,3}/frame-0000.png`, 960×672,
+decimated `img[::3,::3]` with the 3×3 block-uniformity **proved** (max block deviation 0, the
+tool refuses to measure otherwise); each frame carries **HIT 0** and no combat object of any
+kind — the population claim is read off the frames, not off a URL parameter nobody recorded
+(`tools/out/criteria-r7/arcade-combat/judger5-hud-s123.png`). `e8fed58` rows:
+`tools/out/judge-r6/s1-{nc,play,play3}-*`, same decimation and block proof, stage digit read on
+every frame, Criterion B region = the published ground band rows **140–195** of 224, full width,
+minus `tools/out/judge-r6/hudmask/hud_mask.npy` (1 264 px, derived per run by
+`tools/hud_mask.py`). The R5 judge's B figures use rows below a *per-frame fitted horizon*
+instead of the fixed band and run 3–8 points apart from the fixed-band reading on stages 2–3;
+**the region choice is the whole difference and neither reading changes a single pass/fail
+verdict.**
 
 **What the stage-1 numbers look like**, because a number this extreme must be cropped and looked
 at before it is published (CLAUDE.md): `tools/out/criteria-r6/value/cmp-dither-ours-TOP-arcade-BOT.png`
@@ -61,14 +128,29 @@ this exact sea in this exact round.
 **Which tool to run.** `tools/measure_criterion_ab.py` is the instrument to measure the build
 with — it fits the horizon per frame, derives a `hud+static` mask from the frames themselves
 rather than from a box, and sweeps a capture directory. `tools/criteria_lane_ab_control.py` is a
-separately written control that reports both readings of A2; keep both, and note that **four
+separately written control that reports both readings of A2; keep both, and note that **five
 implementations now reproduce the arcade controls exactly** (this document's original, the R5
-judge's, and those two).
+judge's, the R6 judge's, and those two).
 
-**Scoping, and it is good news: this is a stage-1 problem, not a renderer problem.** Stages 2
-and 3 are within reach on three of the four readings — the R5 palette-snapping work on them
-did what it was supposed to. Stage 1's sea shader is the outlier, and it is the stage every
-judge, every screenshot and every new player sees first.
+**BINDING: a Criterion A figure published without its population is not a figure.** State which
+of `?nocombat=1`, ordinary play, a named isolation arm or `?demo=2` it came from, and how many
+digit-verified frames. The same sentence already applies to any our-side number via "What a
+complete citation is" field 4; it is restated here because the gate at the top of this document
+is where it was skipped.
+
+**Scoping as of `e8fed58`, and it has moved.** Stage 1's *background* is closed — the R6 world
+lane's rebuild passes all four readings on 24 of 24 digit-verified nocombat frames, and the crop
+agrees. What is open is **two different things that the old one-line scoping sentence hid**:
+
+1. **The effects layer**, which fails A2 in ordinary play on 48 of 49 frames — explosions
+   dominant, enemy shots enough on their own. This is a *class* (soft alpha perimeters
+   generating a fresh continuum at every edge), and it is the same mechanism the world lane
+   removed from `clouds.js` to win stage 1.
+2. **Stage 3's night ground**, which passes Criterion A on four background colours and fails
+   Criterion B's V gate at 43.8 % because it dithers them per pixel where the arcade lays them
+   in flat regions (background-only V-identity **45.5 %** against the arcade's **95.4 %**).
+   Row 18's lesson, on a stage nobody measured. Stage 2 fails A2 at **33** in the horizon glow
+   band, not in the ground (27 against the ground's 13).
 
 ## Why these two exist, and why they are different from everything else in this doc
 
@@ -79,7 +161,7 @@ a real fireball can share a p50. Isotropic specks and drawn wave streaks can sha
 autocorrelation ratio. A 2.475:1 silhouette can be an F-14 or a crab claw — that one is not
 hypothetical, it is R4's actual finding.
 
-This project has now retired or repaired **twenty** criteria as non-discriminating or plain
+This project has now retired or repaired **twenty-nine** criteria as non-discriminating or plain
 wrong across four rounds — the ledger is at the end of this section so the count stops
 drifting. Every one of them was a summary statistic, and every one of them was passed by
 a build that looked nothing like the arcade.
@@ -122,7 +204,16 @@ re-measurement of its claims, including the places where I had to correct them.
 | 17 | sea cross-track anisotropy, **the R5 restatement** (4.95× vs 5.21× at a common 686×480) | row 6 fixed the *comparison* and left the *source*: the arcade's `hx = 41.626` is measured on the same contaminated `t116` band. Demonstrated by the statistic reversing its sign with resolution — one R6 build reads **3.04× at 686×480 and 4.56× at native**, moving opposite ways. There is **no clean common grid**: 686×480 non-integer-upsamples our side, native non-integer-decimates the arcade's | R6 | **RETIRED.** Regression guard between our own builds only, resolution named. Rows 6, 16 and 17 are one statistic retired, restated and retired again |
 | 18 | **Criteria A and B themselves — "cannot be laundered"** | **narrowed, not retired.** Both are region averages and are blind to *arrangement*. A stage-1 sea of a few enormous smooth slabs passed all four readings and scored H-identity **89.3 %, twenty points ABOVE the arcade's 68.7 %** — the gate improved as the art got worse. Medians were identical on the slab build and the correct one (2 px); the whole defect lived in `max` (largest component 2 194 px against the arcade's 82) | R6 | **REPAIRED by pairing**: every cardinality/self-identity figure must now be reported with an extremal statistic. See the degenerate-structure process rule |
 | 19 | **FIRE-MASK's control regions** | the operator published its control figures (mean V 0.9055 / V>0.95 54.2 % / core 9.2 % / mean S 0.846) **and not the three regions they were measured over**, nor its core predicate. Run verbatim it reads **core 17.2 %, mean S 0.764** — the white clause walks the largest component out into the top HUD strip, the bottom HUD strip and the cloud wedge, all 8-connected to the fireball so the largest-component step cannot drop them. **Cost two rounds**: R5 could not validate the core, read our own fireball at 4.1–7.8 % when it was **28–32 %**, and held it there as a deliberate trade that the art critique and the lead both endorsed | R5→R6 | **REPAIRED** — three rects, the core predicate and a reproduction control published beside the figures. Same repair as row 15, next operator along |
-| 20 | fireball **brightest-decile saturation ≤0.30** | ranks the fire mask by V and takes the top tenth — sound on the arcade, whose fireball tops out at its white core, and a **false negative by construction** on any palette holding a saturated colour brighter than its core. Ours holds two (`#ffba04` V 1.000 S 0.984; `#f9f647` V 0.976 S 0.715), both above the core `#f6f6e7` at V 0.965, so it reads **0.952** on a fireball whose core is exactly the arcade's published core colour. Flagged by the R5 judge as "kept, correct, and should be dropped" | R5→R6 | **DROPPED.** Use the core fraction `S<0.25 ∧ V>0.94` alone — it counts the core instead of ranking against it. The decile *ladder* stays as an authoring target |
+| 20 | fireball **brightest-decile saturation ≤0.30** | **RESTATED R7 — the drop stands, the published reason was wrong.** R6 recorded it as "a false negative by construction on our palette". It is not: it is **under-specified**, and the 0.952 that justified dropping it was produced by a *different operator from the one the criterion's own numbers came from*. Three things are unnamed in the criterion text — the mask, the ranking key, and whether "saturation" means the mean of per-pixel saturations or the saturation of the decile's mean colour. Under **the criterion's own operator** (not-background largest component, deciles ranked by **R+G+B**, saturation **of the decile's mean colour**) our fireball reads **0.062** against the arcade's **0.066** — it passes with enormous margin and lands on the arcade's own core colour. Under the **FIRE-MASK / V-ranked / mean-of-per-pixel-S** reading, ours reads 0.965 and **the arcade fails too, at 0.632**. A gate the arcade fails is ledger row 10's defect, not row 20's stated one. Reproduced on this lane's own implementation: arcade ladder `#9b0304 → #d2050c → #f25908 → #f6d619 → #f7f6e6`, brightest-decile sat **0.0658** against the published 0.063 | R5→R6, restated R7 | **STAYS DROPPED** (an under-specified gate is not a usable gate) with the reason corrected. Use the core fraction `S<0.25 ∧ V>0.94`. **The decile ladder stays as an authoring target and we now PASS it** — see "Fireball targets" |
+| 21 | the **Criterion A/B scoreboard itself** — the gate at the top of this document | **every our-side row was a frame with no combat object on screen and the table did not say so, while every arcade-side row is a frame in combat.** A gate stated without its population, which is ledger row 15's defect relocated into the table this project scores itself on. On one commit (`e8fed58`) the same build reads **21 channel values** with combat off and **28–98, median 53, failing on 48 of 49 frames** in ordinary play. The R6 round's headline Criterion A result was true of `?nocombat=1` and false of the game | R7 | **REPAIRED** — population column added to every row, both populations published, the arcade side's combat content measured, and the licence stated. Criterion **B** was separately shown population-*insensitive* (80.8→80.6 H, 56.4→56.3 V), so the caveat binds A only |
+| 22 | **VALUE-STAT's achromatic filter** (airframe value) | the operator states "keep achromatic pixels only, **S < 0.25**" and **never says what happens to V = 0 pixels.** It is not a footnote: on the arcade's native crop 22.2 % of the kept pixels are pure black and on our day sheet **30.7 %** are, and admitting or dropping them moves the median by **0.20 and 0.16 respectively**. The published anchor (arcade 0.839) **keeps** them; the sprite lane's V-CENSUS (`S<0.35 ∧ V>0.08`) drops them, and its 0.839 for our jet is therefore **not** the same statistic as the anchor it was compared against. The two agreeing exactly at 0.8392 is a coincidence — 214/255 is one ladder rung that both happen to land on — **presented as corroboration**, which is this project's primary evidence standard | R6→R7 | **REPAIRED** — VALUE-STAT now states `V = 0 pixels are KEPT`, all four readings are published side by side, and the our-side figure is restated as **0.643**, which is what the band's own operator reads |
+| 23 | the published **arcade-side HUD reticle rect** `(495/686, 30/480, 660/686, 105/480)` | fitted to a **level-flight** frame. The attitude line **rotates with the world roll**, and in a banked frame it swings outside the rect's lower edge: on `ab2-arcade-desert.png` the reticle's largest component spans `y[15,67]` of 224 = **0.067–0.299 of H** against a rect that stops at **0.219**, leaving 17 of 103 upper-right white pixels exposed. The rect is also scoped to one operator (the cloud census) when the object it protects against has now been miscounted by **four** different operators | R7 | **REPAIRED and PROMOTED** — rect widened to cover the line at full roll and lifted out of the cloud block into a standing rule binding on every object-counting operator. See "The upper-right HUD has now been counted as four different things" |
+| 24 | **JET-SIL's afterburner/nozzle mask, `V ≥ 0.45`** | **validated on the wrong population.** The mask and the nozzle-separation figure it feeds were only ever run against `stage3-night-level-t175.png` — a **night** crop whose keyline is the blue-grey `#425284` (hue 225.5°) and **cannot enter a red-hue mask at any V floor**, so the floor was never tested against a keyline that could reach it. The arcade's **daylight** jet is keylined in `#840000`: hue **0.0°**, S **1.000**, V **0.518** — it walks through. On our day cell the mask's two largest components become `[128 px of #840000, 52 px of #ef7300]` and the statistic reads **15.3 %** against a 25–35 % band; at `V ≥ 0.70` the same drawing reads **30.6 %**. A published discriminator lost to mask contamination, not to the art | R7 | **REPAIRED — floor raised to `V ≥ 0.70`.** Nothing measured lives between the highest keyline (0.518) and the dimmest measured glow (0.902), so the floor sits in an empty gap. **The deciding test, now a general one: the arcade's own control returns 30.0 % under BOTH floors** — an operator change that moves our number and leaves the arcade's untouched is the right kind; one that moves both is retuning the criterion to the build. The finding lane **did not move the operator** — it published both readings side by side and asked — and that restraint is recorded with the fix |
+| 25 | Criterion A3, **"≤ 8 colours for an aircraft"** | **derived from the NIGHT player jet (exactly 8) and applied to every aircraft** — while **the same table's own daylight-jet row records 14 total / 7 at 95 %**, so the bound contradicted a measurement three lines away and would have failed a correctly drawn daylight sprite. Reproduced independently: the native daylight crop carries **9 airframe tones + the `#840000` rim + 3 nozzle glows = 13**. This is rows 11/12's defect one axis along — a figure measured on one **variant**, applied to another | R7 | **RE-LICENSED, not loosened.** The gate moves onto **`n95 ≤ 8`** (colours covering 95 % of the sprite), which the arcade passes on **both** variants (daylight 6–7, night ≤8) and ours passes on both shipped sheets (day 7, night 6); **totals are published per variant as licensed facts.** The roll sheet's `n95 = 9` is recorded as a **flagged exception with no arcade target** — no isolated arcade roll sprite exists or can be obtained from cached footage. Also records the 672 px vs **751 px** population difference on that crop (the largest-component step), so it is not re-found as a contradiction |
+| 26 | gap 5's **"top third of the screen"** framing for player altitude | **the observation was right and the target it implies is wrong.** R6 measured our pilot in the top third 0.00 % of 20 970 ticks against an arcade p5 of 36.0 %H — both true — and a reader takes away *"the arcade pilot is often up there"*. **He is not: the arcade's own player top-third share is 0.92 %, one observation in 109.** Tuning a scripted attract path to reproduce a 1-in-109 event is tuning to a single observation, which is what most of this ledger is about. What separates the two pilots is **spread**, not the top third | R7 | **RESTATED** as `p5 within ~3 points of 36.4 %H` **and** `sd within ~1.0 of 7.73`, with the **reachable extreme** demonstrated separately rather than gated as a share of time. **Do not gate a top-third percentage in either direction.** The finding lane solved to the restated form: p5 44.9 → **38.7**, sd 6.07 → **8.22**, full stick reaching **27.02 %H** (the arcade's own minimum) |
+| 27 | **every altitude / centroid figure that does not name its unit** | **a seven-point arcade-vs-arcade contradiction that was a unit mismatch, and it cost an hour because BOTH numbers were correct.** REFERENCE #122's cruise `cy` **52.8 %H** is a **pixel centroid**; the 109-observation player hand counts read **49.47 %H** as a **bbox centre**. Under this document's own published 1.3–3.3 point conversion they are the same measurement and they agree. **Nothing is found by re-running either operator** — cross-validation reproduces both exactly — so this defect is invisible to every check this project has except a unit label. Third occurrence of the "same name, different operator" family (after ledger row 14 and the 2-round centroid bias this section was written for) | R7 | **REPAIRED by rule**: a bare "%H" is not a reportable quantity; every altitude or centroid figure names `pixel centroid` or `bbox centre`. Recorded with it: the two reconcile **at the edge** of the conversion interval (49.47 + 3.3 = 52.77 vs 52.80), so they are consistent but **must not be quoted as corroborating to a decimal** |
+| 28 | GAME_SPEC §2's stated reason for the flight-time denominator — **"it is invariant to death-cycle length"** | **refuted by controlled experiment, not by argument.** A three-arm isolation (pristine `e8fed58`; `e8fed58` + the death cycle alone; the full build; 7 seeds × 300 s each) changed `DEATH_TOTAL_S` 5.2 → 7.7 s **and nothing else**, and **both denominators moved, in opposite directions**: wall **−0.143**, flight **+0.098**. Mechanism, and it is not a bug: **threats are produced on WALL time** (`game.js` keeps calling `combat.update` through the `death` state — R5's "the world keeps flying" fix, which matches the arcade at gp t261) **while exposure is counted in FLIGHT ticks**, so a longer cycle leaves the threat schedule alone and shrinks the denominator. Control on a quantity nobody is tuning: enemy rounds/min move 126.00 → 125.17 per **wall** minute and **+9.8 %** per **flight** minute | R7 | **ASSERTION CORRECTED, GATE UNCHANGED.** Wall clock stays primary (the arcade anchor is strongest there) and both are still reported — but **neither denominator is invariant** and the published reason is withdrawn. The same denominator caveat is now attached to the gate's "enemy rounds/min not falling" clause, which reads −1.1 % per wall minute and +9.4 % per flight minute |
+| 29 | GAME_SPEC §2's **"no visible invincibility flash"** | **a MEASURED-tagged NEGATIVE that the arcade contradicts — the second this round, after GAME_SPEC §3 element 1.** The arcade flashes the jet for **1.67 s at a 0.267 s period**, 8 clean on/off alternations, starting the frame the respawn reaches normal scale. **Four passes over this footage missed it for one reason: each state lasts 0.10–0.13 s, so any sampling coarser than ~0.1 s aliases it away** — including this project's default 0.25 s death-cycle grid, and including the finding lane's own first pass | R7 | **CORRECTED, and generalised**: *a negative about a periodic behaviour is only as good as the sampling interval it was taken at — state the interval with the negative.* Consequences carried: `RESPAWN_INVINCIBLE_S = 2.0` is now arcade-supported to within 0.33 s rather than an unverified usability choice; and **the player sprite is now absent from ~3 frames in 8 for 2.0 s after every respawn**, so a single-frame jet measurement landing in one reads "no jet" and that is not a defect (`?invincible=1`, or `__flowState().graceFlashHidden`) |
 
 The pattern across all of them: the number was satisfiable by something that looked nothing
 like the arcade, and in five cases tuning to it moved the build **away** from the reference. In one case
@@ -171,8 +262,59 @@ names its stage" below; it costs one table column and would have prevented both.
    rungs of the hardware ladder the frame uses. This is the robust form of "on the Sega
    ladder" and is the one to enforce automatically (see the ladder caveat below).
 3. **Per-sprite**, counted over the sprite's own pixels with background excluded:
-   **≤ 8 colours for an aircraft, vehicle or cloud sprite; ≤ 16 for an explosion or effect
-   sprite.**
+   **≤ 8 colours cover 95 % of the sprite** (`n95`), and the **total** is bounded per
+   **variant** by the table below; **≤ 16 for an explosion or effect sprite.**
+   (**RE-LICENSED R7, ledger row 25** — the old flat "≤ 8 colours for an aircraft" **fails
+   the arcade's own daylight aircraft**, which carries 13.)
+
+> ### A3 was derived from the NIGHT jet and applied to every aircraft (REPAIRED R7, ledger row 25)
+>
+> "Aircraft and clouds sit at 5–8" was read off the **night** player jet (exactly 8) and the
+> cloud puff (5). **The very next row of this document's own per-sprite table records the
+> daylight jet at 14 total / 7 at 95 %** — so the bound contradicted a measurement sitting
+> three lines away from it, and a lane drawing a correct daylight sprite would have failed it.
+> Same shape as ledger rows 11 and 12 (a figure measured on one variant, applied to another),
+> one axis along: **variant, not stage.**
+>
+> **Measured, and reproduced by this lane on the native frame.** Airframe = `S < 0.35` +
+> largest 8-connected component on `ab2-arcade-desert.png` x[85,182) y[82,140), **751 px,
+> stage digit 2**; rim = the 445 pixels 4-adjacent to that mask and outside it:
+>
+> | arcade sprite | variant | total colours | **n95** |
+> |---|---|---|---|
+> | player jet, `ab2-arcade-night-banking.png` | **night** | **8** | ≤8 |
+> | player jet, `ab2-arcade-desert.png` | **daylight** | **13** — 9 airframe tones + the `#840000` rim (49.4 % of the rim) + 3 nozzle glows (`#e67300`, `#f78400`, `#f7b500`); **14** under the box reading already in the table below | **6** (7 under the box reading) |
+> | cloud puff, `ab2-arcade-desert.png` | stage-2 daylight | **5** | ≤5 |
+> | **enemy aircraft** | — | **UNMEASURED** on any isolated arcade sprite. Do not gate a redraw on a number this document does not have | — |
+>
+> | our sheet | total | **n95** | verdict |
+> |---|---|---|---|
+> | `player-f14.png` (day) | 10 | **7** | ✓ under both the variant total (13) and n95 (8) |
+> | `player-f14-night.png` | 9 | **6** | ✓ |
+> | `player-f14-roll.png` | 11 | **9** | **✗ on n95, and FLAGGED rather than waived — see below** |
+>
+> **Why n95 is the gate and the total is a licensed fact.** The total is what the lane in
+> front of you can trivially satisfy by deleting a rung that was doing work; `n95` is what
+> actually separates palette art from continuous tone, and it holds at ≤8 on **both** arcade
+> variants and on both of our shipped sheets. Moving the gate onto `n95` is therefore not a
+> loosening — the arcade passes it on the frame the old bound failed it on.
+>
+> **The roll sheet is over the bound and its arcade side is UNATTRIBUTED.** It is the one
+> sheet that must carry two surface families at once (the ventral grey ramp *and* the measured
+> dorsal blues), and GAME_SPEC §1 records that the arcade's barrel roll does show a belly
+> palette — so two families is plausibly correct. **But we hold no isolated arcade roll sprite
+> and cannot get one**: the only barrel-roll reference is `stage4-barrel-roll-t222.png`, a
+> 1028×720 **video** upscale, and video is useless for cardinality. So: **n95 9 recorded as a
+> known exception with no arcade target, on an unwired sheet.** Do not tune it to 8 to make the
+> gate green; an arcade roll-sprite census is an acquisition item, not a measurement anyone can
+> run today.
+>
+> **One population note, so the next reader does not call it a contradiction.** The `PLAYER`
+> comment in `tools/art/palettes.js` cites **n = 672** for this crop with `#ffffef` at 35.6 %
+> and `#f7e6b5` at 26.5 %. Adding the **largest-component step** to the bare `S < 0.35` filter
+> — which drops a few stray desert pixels — gives **n = 751** and **31.8 % / 23.7 %**. Same
+> frame, same box, same S gate; the isolation step is the entire difference, and this lane
+> reproduces the 751 px figures exactly. Quote the 751 px column and name the isolation.
 
 > **A2 names ONE statistic and the project has been quoting two (REPAIRED R6, ledger row 14).**
 > "Distinct values **per channel**" reads as *max over the three channels*. It is not what the
@@ -246,8 +388,12 @@ well as the aircraft. For a *cardinality* bound that is conservative in the safe
 value measurement below uses an achromatic filter plus a largest-component isolation and dumps
 its mask to be looked at.
 
-**This is why the bound is split.** A flat "≤8 per sprite" would **fail the arcade's own
-explosion**, which uses 12–18. Aircraft and clouds sit at 5–8; effects need ≤16. Publishing
+**This is why the bound is split — and R7 found it had to be split once more.** A flat "≤8 per
+sprite" would **fail the arcade's own explosion**, which uses 12–18. ~~Aircraft and clouds sit
+at 5–8~~ — **that line was read off the night jet and it fails the arcade's own DAYLIGHT jet in
+the row above it (13–14 total).** The gate is now `n95 ≤ 8` with per-variant totals as licensed
+facts; see "A3 was derived from the NIGHT jet" under Criterion A, and ledger row 25. Effects
+need ≤16. Publishing
 the flat bound would have repeated exactly the mistake this section exists to prevent.
 
 **Scale note**: colour cardinality is identical measured on our 960×672 capture or on its
@@ -358,11 +504,110 @@ timestamps to stages, established by reading that same digit.
 | Missile trail — white, V ≥ 0.90 day / ≥ 0.85 night | stage-1 and stage-3 spans of `ab2-longplay.mp4` | 1, 3 | day and night rows respectively — already split, and the R5 repair of ledger row 2 is exactly the night/day split being made |
 | Stage-1 cloud palette / bank sizes | t88–120 of `ab2-longplay.mp4` | **1** | stage 1 only; stage 6 is the arcade's dense-cloud stage and is unmeasured |
 | HUD ink separation (R6) | native + per-stage strips, all three stages | 1, 2, 3 | per-stage as tabulated |
+| **Nose sight square — size (R7)** | `ab2-arcade-desert.png` (native) + `ab2-longplay.mp4` t201.4, corroborated present at t109 | **2**, **4**, **1** — digit read on all three | **all stages** — the HUD is drawn at a fixed screen size and does not change with the palette; three stages and two skies carry the figure |
+| **Player jet — wing vertical sweep (R6, direction re-checked R7)** | `stage3-night-level-t175.png` x[207,487] y[227,306] | **3** | **all stages** — it is one sprite drawn in every palette. **Requires a LEVEL attitude**; `stage1-level-flight-t116.png` is banked despite its name |
+| **Criterion A/B scoreboard populations (R7)** | arcade: both native frames, both in combat. Ours: `53ce86b` hud-s{1,2,3} (no combat on screen) and `e8fed58` s1-{nc,play,play3} | 2, 3; ours 1/2/3 and 1 | **all stages**, but **every figure names its population** — see ledger row 21 |
 
 **One entry on that list is UNATTRIBUTED and it is the explosion palette** — which is already
 ledger row 3, retired once for being measured off fading smoke. It is not being retired again
 here; the flag is the deliverable. Anyone tuning explosions should know the targets rest on two
 frames whose stage nobody can name.
+
+## An API where "no value" means "erase" cannot tell a typo from an intent — assert the INPUTS (PROCESS RULE, binding from R7)
+
+**The rule.** When a drawing or generation primitive treats a missing/undefined argument as a
+**valid destructive operation**, a gate on its **output** cannot detect a mistake. **Assert the
+inputs**, at the call site, with a check that is validated on known-bad input.
+
+**The worked case, which the R7 sprite lane found in its own tooling and published.**
+`player-f14-roll.js` shares `levelOps()` with the level sheet but keeps its own role→hex
+tables. R7 added three roles to `levelOps` and not to those tables, so every polygon using a
+new role arrived with an **undefined** hex — and `PixelCanvas.set()` treats a null/undefined
+hex as **"erase to transparent"**. The sheet did not fail. It grew **holes**: opaque pixels per
+cell fell 1176 → 1072, 834 → 759, 407 → **368**.
+
+**Four gates passed it, and each for a different and individually reasonable reason:**
+
+| gate | why it passed |
+|---|---|
+| `assertPalette` | the colour count went **down**, not up — the gate only bounds the ceiling |
+| `vite build` | a property access, not a syntax error. R6 already paid for "a green build is not a boot" |
+| `sheet_visibility.py` | **a sprite with bites out of it is still visible**, which is all that gate asks |
+| every capture | the roll sheet is **unwired** — no frame would ever have shown it |
+
+**What caught it was `git diff --stat`** reporting that a file the author had just asserted was
+untouched had changed by 39 bytes — then cropping it at 3× and looking. **Not a gate.**
+
+**The fix is the generalisable part**: `LEVEL_OPS_ROLES` is exported as data and `assertRoles()`
+is called by both sheets' frame builders, and it was **validated on known-bad input** (deleting
+one role exits 1 with the offending role named). That is the shape to copy — not another output
+gate.
+
+**Two corollaries worth carrying.** (1) **A count-based gate is blind to erasure**, because
+erasure moves counts in the safe direction; pair any count ceiling with a count *floor* or an
+input assertion. (2) **An unwired artefact has no behavioural gate at all** — it is exactly
+where a silent defect survives to the next round, so it needs its assertions to be static.
+
+## The upper-right HUD has now been counted as four different things — exclude it by rule, not per operator (PROCESS RULE, binding from R7)
+
+**The rule.** **Every operator that counts, measures or classifies OBJECTS in a frame — ours or
+the arcade's — blanks the HUD before it counts, and says in its published figures that it did.**
+This is not an addition to one operator's caveat list. It is a standing precondition, in the
+same class as "measure at true native" and "read the stage digit".
+
+**Why a rule and not a fourth exclusion.** The fixed upper-right reticle — a corner-bracket
+square, a status dot and a **rotating** attitude line, all white, all high-contrast, all on
+empty sky — has now been counted as:
+
+| round | counted as | by |
+|---|---|---|
+| R4/R5 | **a cloud, in 100 % of frames** while the build rendered none | our own cloud census |
+| R5 | **a cloud bank at 17.35 %W**, at a near-constant 496 px bbox, in ~a third of detections | two of three independent runs of the #132 operator |
+| R5/R6 | the thing that **defeated two horizon line fits** and inflated one frame's Criterion B by 11 points | two separate bottom-up fitters |
+| **R6** | **an enemy aircraft at ~16 %H, span ~11 %W** — inside the top third and readable-size, the single most influential observation class for the headline | the R6 judge, hand-counting arcade altitudes at 1.4× |
+
+Four operators, four rounds, four different wrong objects, each one caught only by zooming in
+and looking. A fifth per-operator exclusion would be the fifth time the same fact was written
+into a block that the sixth operator does not read.
+
+**The exclusion, with the defect in the old one fixed (ledger row 23).** The arcade-side rects
+are given as **`(x0/W, y0/H, x1/W, y1/H)` — opposite corners, NOT `(x, y, w, h)`**:
+
+| region | rect | measured basis |
+|---|---|---|
+| SCORE emblem + score digits | `(18/686, 20/480, 400/686, 58/480)` | unchanged from the #132 repair |
+| **lock reticle + attitude line** | **`(0.720, 0.055, 0.965, 0.330)`** — was `(495/686, 30/480, 660/686, 105/480)` = `(0.722, 0.063, 0.962, 0.219)` | see below |
+
+**Why the lower edge moved from 0.219 to 0.330.** The old rect was fitted where the attitude
+line is horizontal. The line is an artificial horizon and **rotates with the world roll**, so in
+a banked frame it swings out of a box fitted to level flight. Measured at true native on
+`ab2-arcade-desert.png` (stage 2, banked): the reticle assembly's largest 8-connected white
+component (`min(RGB) ≥ 180`) spans `x[248,277] y[15,67]` of 320×224 = **x 0.775–0.866,
+y 0.067–0.299**, and 17 of the 103 white pixels in the upper-right quadrant fall **below** the
+old rect. `ab2-arcade-night-banking.png` (stage 3, banked the other way) puts the line at
+`x[236,291] y[36,47]` = x **0.738**–0.909, which is the left-hand extreme. The four corner marks
+sit at a fixed `x[248,279] y[24,47]` in **both** native frames, which is the control that the
+bracket itself does not move. The new rect covers both extremes with ~3 points of margin.
+
+**Carry the cost, do not hide it.** A wider rect severs more sky, and the cloud-bank figures
+already carry a known bias from exactly this (counts over-count **3.1 %**, widths under-state
+**0.9 %**, and the ledger says it grows with any new horizontal HUD rule). So:
+
+- **Object-counting and classification operators use the new rect.** There a false positive is
+  the failure mode and over-blanking is the safe direction. This includes any arcade
+  enemy-altitude count (GAME_SPEC §2).
+- **The published cloud *size* distributions stay on the old rect**, with this bias noted, until
+  somebody re-derives them. Re-deriving them on the new rect is an open item, not a silent edit.
+- **For our own captures, derive the mask per run with `tools/hud_mask.py` — never hardcode a
+  box.** That has been the rule since R3 and is unchanged; what is new is that it now applies to
+  *counting* operators and to the **arcade** side too, where there is no mask tool and the rects
+  above are the substitute.
+
+**Control.** On `reference/stage1-level-flight-t116.png` at the #132 operator's ≥150 px
+minimum, the rects return **0** components; without them they return **1**, area 496, bbox
+`x[35,153] y[32,52]`, 17.35 %W — the arcade's own SCORE emblem. If your run reports a ~17 %W
+"bank" at a fixed bbox across consecutive frames, or a small "aircraft" high in the upper right
+that never moves between frames, you did not apply them.
 
 ## A verb that is not in the control table is a verb a judge will score as absent (PROCESS RULE, binding from R6)
 
@@ -1043,11 +1288,55 @@ control):
 1. Isolate the airframe. **Arcade**: an explicit box, or `--isolate largest` (largest
    8-connected achromatic component) when the jet sits on a saturated sky. **Ours**: the
    jet-on/jet-off difference mask.
-2. Keep **achromatic pixels only, S < 0.25**. This is what excludes the afterburner glow, the
-   magenta canopy, the blue sky and the orange ground; it is half the operator, and changing it
-   changes every number below.
+2. Keep **achromatic pixels only, S < 0.25**, where `S = (max−min)/max` and `S = 0` when
+   `max = 0`. This is what excludes the afterburner glow, the magenta canopy, the blue sky and
+   the orange ground; it is half the operator, and changing it changes every number below.
+2b. **`V = 0` PIXELS ARE KEPT. There is no value floor** (ADDED R7, ledger row 22). This clause
+   was missing for a round and it is worth 0.16–0.20 of median; see the box below before you
+   quote any figure from this section.
 3. V = max(R,G,B)/255. Report median, p90, max, and share V > 0.80.
 4. **Dump the mask and look at it.** Not optional — see the worked failure below.
+
+> ### The V floor is the whole disagreement, and it is really a question about the KEYLINE
+>
+> **Ledger row 22.** Steps 1–3 above did not say what happens to pure-black pixels, so two
+> faithful readers built two operators. REFERENCE's published anchor keeps `V = 0`; the sprite
+> lane's V-CENSUS (`S < 0.35 ∧ V > 0.08`) drops it. Both then reported **0.839** for their own
+> side and the agreement was read as corroboration. It is a coincidence: **0.8392 = 214/255 is
+> one rung of the Sega ladder** and the two operators happened to land on it from opposite
+> directions. All four readings, reproduced by this lane (`tools/measure_value_stats.py`,
+> `--selftest` PASS, and a second direct implementation agreeing to 1e-16):
+>
+> | reading | **ours, day sheet** (jet-on/jet-off diff mask, span 116 native px, `e8fed58`) | **arcade native desert** x[85,182) y[82,140), **stage 2** | arcade **t116** video crop, stage 1 |
+> |---|---|---|---|
+> | **`S<0.25`, V = 0 KEPT — THE PUBLISHED OPERATOR** | **0.643** (n 1 490) | **0.839** (n 608) | **0.804** (n 3 121) |
+> | `S<0.25`, `V>0` | 0.839 (n 1 033) | 1.000 (n 473) | 0.812 (n 3 009) |
+> | `S<0.25`, `V>0.08` | 0.839 | 1.000 | 0.812 |
+> | `S<0.35`, `V>0.08` (V-CENSUS) | 0.839 | 0.969 (n 672) | 0.871 |
+> | **share of the kept mask at exactly V = 0** | **30.7 %** | **22.2 %** | **3.6 %** |
+>
+> **Under the band's own operator our daylight airframe reads 0.643 — the same number R5
+> published for the pre-fix build — against the arcade's 0.839.** The brightest-body-colour
+> clause *is* satisfied (0.773 → 1.000) and share above V 0.80 did go 5.3 % → 48.2 %; it is the
+> **median** claim that does not survive. Ours is 0.13–0.20 of V below the arcade under every
+> one of the four consistent readings.
+>
+> **What the statistic is actually measuring, and why "no floor" is the right choice.** The
+> `V = 0` pixels are not noise to be filtered — they are **the sprite's dark role area**, and
+> their share is the defect. Ours is a complete **1–2 px pure-black keyline around every edge**,
+> 457 of 1 490 kept pixels (map: `tools/out/criteria-r7/arcade-combat/valuestat-ours-mask.png`).
+> The arcade's 135 black pixels are **clustered** in the nacelle rings and the belly shadow, not
+> drawn as an outline. Dropping `V = 0` deletes exactly the difference the criterion exists to
+> see, which is why the floor is **not** adopted. The lever on this gap is role *area*, not a
+> brighter white.
+>
+> **Two provenance warnings that follow from the last row of that table.** (1) The ACCEPT band
+> below was fitted on **five 686×480 video crops** where the black share is 3.6 %, and anchored
+> on a **true-native** frame where it is 22.2 %. Those are two populations; the band is wider
+> than it looks and should not be read to two decimals. (2) t116's published median **0.816**
+> does not reproduce exactly from the published box — this lane reads **0.804** (no floor) and
+> **0.812** (`V>0`). All three are within one ladder rung (205/207/208 of 255). Treat the band's
+> endpoints as rung-accurate, not decimal-accurate.
 
 | population | stage (digit read) | V median | V p90 | V max | share V>0.80 |
 |---|---|---|---|---|---|
@@ -1056,14 +1345,44 @@ control):
 | arcade `ab2-arcade-desert.png` x[85,182) y[82,140), **true native, no video blur** | **2** | **0.839** | 1.000 | 1.000 | 59.5 % |
 | same crop, all pixels (not the criterion — recorded so the two are not conflated) | 2 | 0.902 | 0.969 | 1.000 | 68.0 % |
 | **ours, daylight sheet**, jet-on/jet-off difference mask (R5 judge, `53ce86b`) | 1 | **0.643** | **0.773** | **0.773** (`#c5c5ad`) | 5.3 % |
+| **ours, daylight sheet, `e8fed58`** — same operator, V = 0 kept (R7, span 116 native px) | 1 | **0.643** | 1.000 | **1.000** | **48.2 %** |
+| ~~ours, `e8fed58`, quoted in R6 as "0.839, matching the arcade"~~ | 1 | ~~0.839~~ | — | — | ~~69.5 %~~ |
+
+> **The struck row is the V-floored reading compared against the arcade's unfloored one**
+> (ledger row 22). The R6 fix is real on two of the three clauses — brightest body colour
+> **0.773 → 1.000** and share above V 0.80 **5.3 % → 48.2 %** — and the band's **median clause
+> is still missed, at 0.643 against 0.78–0.92.**
 
 **ACCEPT (daylight stages):** airframe achromatic-pixel **V median 0.78–0.92**, and the
 **brightest body colour ≥ V 0.90**. The band is the five stage-1 frames' spread; the native
 stage-2 frame sits at 0.839, inside it. The brightest-colour clause comes from the arcade's own
-per-sprite palette (`#ffffef` and `#ffffff`, both V 1.000, in the ≤8-colour daylight set under
+per-sprite palette (`#ffffef` and `#ffffff`, both V 1.000, in the daylight set under
 Criterion A) and exists because a median alone can be hit by a flat mid-grey with no highlight.
 **Night is a different palette and is not covered** — see the 8-colour night set under Criterion
 A (brightest `#c5d6f7`, V 0.969).
+
+> ### Night reading C sits 0.067 below the arcade ON PURPOSE. Do not "fix" it (RECORDED R7)
+>
+> **There is no night value gate, and that is the point.** The R7 sprite lane took the night
+> sheet's reading C from **0.969** (the arcade's figure) to **0.902**, deliberately, and said
+> so. This entry exists so the next lane does not read the regression as a defect and close it.
+>
+> **The mechanism is measured, not asserted.** The arcade's night jet spends **2.8 %** of its
+> airframe on `#a4b5e6` and 14.9 % on `#8494c5`; ours spends **18.7 %** and 8.3 %. **The
+> arcade's night and day sprites distribute their rungs differently from each other. Ours
+> cannot — ours is one drawing indexed into two ladders.** Reading C is a function of that
+> distribution, so matching it on night means mismatching it on day.
+>
+> **The one-line fix was identified and rejected on the standing rule.** Mapping night's second
+> rung onto `#c5d6f7` recovers C = 0.969 *and* takes the night sheet to exactly 8 colours — the
+> arcade's own count — and costs a real value step across the blades, engine bodies and lower
+> fuselage. **Trading a visible value step for a number nobody is scored against is this
+> project's named failure mode**, and the lane declined it. Correct call, recorded.
+>
+> **If a night gate is ever derived, derive it from the arcade's night rung distribution**, not
+> by transplanting the daylight readings. And carry the standing thin-population caveat with
+> any night figure: readings A and B see only **24.6 %** of the night sprite, because four of
+> its six blue-greys fall outside `S < 0.25`.
 
 **Provenance and bias, stated so the band can be attacked.** Four of the six arcade readings come
 from 686×480 video upscales, where edge blur mixes airframe with sky. On a white jet over
@@ -1081,10 +1400,36 @@ stripe with no aircraft in it at all. A 100 % reading on a sprite statistic is t
 standing crop-and-look trigger, and it fired correctly.
 
 **Why this is the fix for "the jet is a touch timid".** The R5 lane carried a residual by eye —
-blades shorter, wings sweeping down less, nacelle pods smaller — and looked for it on the
-*geometry* axis. The art critic's finding is that the dominant defect is **tonal**: the arcade's
-jet is white and ours is warm grey-tan, at **5.3 %** of pixels above V 0.80 against the arcade's
-45–65 %. Geometry is third-order against a 10× difference in highlight share.
+blades shorter, ~~wings sweeping down less~~ **wings sweeping down where the arcade's rise**,
+nacelle pods smaller — and looked for it on the *geometry* axis. The art critic's finding is
+that the dominant defect is **tonal**: the arcade's jet is white and ours is warm grey-tan, at
+**5.3 %** of pixels above V 0.80 against the arcade's 45–65 %. Geometry is third-order against a
+10× difference in highlight share.
+
+> **THE WING SIGN IS CORRECTED, AND THE OLD TEXT INVERTED IT (R7).** R5's gap text asked for
+> **"anhedral"** — wingtips lower than roots — and the struck phrase above says the same thing
+> from the other side. **The arcade is the opposite.** The R6 sprite lane measured the arcade's
+> wing top edge **rising 9.2 %H from root to tip** (`stage3-night-level-t175.png` x[207,487]
+> y[227,306], operator ROW-RUNS, span 251, H 77) while our R5 sheet **dropped 17.5 %H
+> outboard**. **Independently re-measured in R7 by the sprite lane** — which was instructed to
+> measure rather than take its predecessor on authority — over seven sample columns on the same
+> frame: the top edge runs **68.8 → 58.4 %H** from |x| 21.1 % to 46.6 % of span, i.e. **rising
+> ~10–14 %H outboard**, with the chord narrowing from ~22 %H at the root to ~10 %H at the tip.
+> **Two independent measurements, one direction.** This lane checked it a third way, on a crop
+> rather than a number,
+> per CLAUDE.md: `tools/out/criteria-r7/arcade-combat/t175-jet-4x.png`, a clean level astern
+> view at 4× — **the wingtips plainly sit higher on screen than the wing roots.**
+>
+> *Attribution*: measured on a **stage-3** night frame and licensed for **all stages** —
+> geometry is the same sprite drawn in every palette, which is a different argument from a
+> palette criterion and is stated here rather than assumed. A level-flight attitude is
+> mandatory for this measurement; `stage1-level-flight-t116.png` is **banked** despite its
+> filename (`t116-jet-5x.png`) and must not be used for it.
+>
+> The sheet in `tools/art/sheets/player-f14.js` was already drawn the right way round in R6;
+> **this is a gap-text correction only, and it is recorded so nobody implements the
+> inversion.** STATUS.md gap 2 carried the inverted phrasing and is fixed in the same pass.
+> `judging/R5/*` keeps the original wording — historical reports are not rewritten.
 
 ### Silhouette discriminators, astern view (MEASURED R5 — REPLACES the R3 aspect/fin-%/step triple)
 
@@ -1148,8 +1493,53 @@ operator below, which is explicitly 2-D.
    filled width ≥ `0.30·S` (the "30% wing onset" of the R3 text).
 6. A fin-band row **contains two separated blades** if it holds ≥2 runs of ≥2 consecutive
    mask pixels whose inter-run gap is ≥ `0.03·SPAN` px (min 2 px).
-7. **Nozzles** = afterburner glow: hue 5–55°, S ≥ 0.45, V ≥ 0.45; take the two largest
-   8-connected components and their x-centroids.
+7. **Nozzles** = afterburner glow: hue 5–55°, S ≥ 0.45, **V ≥ 0.70** (**RAISED from 0.45,
+   R7, ledger row 24**); take the two largest 8-connected components and their x-centroids.
+
+> ### The nozzle mask's V floor was validated on a NIGHT crop only (REPAIRED R7, ledger row 24)
+>
+> **The whole operator above was only ever run against a night reference** —
+> `stage3-night-level-t175.png`, whose keyline is the measured blue-grey `#425284`
+> (hue 225.5°) and **cannot enter a red-hue mask at any V floor.** So the floor was never
+> tested against a keyline that could reach it. The arcade's **daylight** jet is keylined in
+> `#840000`, and that colour is hue **0.0°**, S **1.000**, V **0.518** — it walks straight
+> through `V ≥ 0.45`.
+>
+> On our R7 day cell, the same drawing, the two largest components of the mask:
+>
+> | floor | the two largest components | nozzle separation |
+> |---|---|---|
+> | `V ≥ 0.45` (old) | `[128 px of #840000, 52 px of #ef7300]` — **one of them is the keyline** | **15.3 %** of SPAN ✗ |
+> | **`V ≥ 0.70` (published)** | `[52 px of #ef7300, 52 px of #ef7300]` — the two nozzles | **30.6 %** of SPAN ✓ |
+>
+> **The floor sits in a wide empty gap, which is what makes it robust rather than tuned** —
+> the same argument Criterion B's 50 % floor rests on. Every afterburner colour this project
+> has measured on an arcade frame is **V ≥ 0.902** (`#e67300` 0.902; `#f78400`, `#f7b500`
+> 0.969 on the native desert frame; `#ff7500` on t175), ours are `#ef7308` 0.937 and
+> `#ffd600` 1.000, and the highest keyline is `#840000` at **0.518**. **Nothing measured lives
+> between 0.52 and 0.90.** A floor of 0.70 clears every glow by ≥0.20 and every keyline by
+> ≥0.18.
+>
+> **THE DECIDING TEST, AND IT GENERALISES.** Re-run on the arcade's own t175, this lane's
+> independent run of `tools/art/jetsil.py`:
+>
+> | | nozzle separation | components |
+> |---|---|---|
+> | arcade t175, `V ≥ 0.45` | **30.0 %** | `[143, 136] px` |
+> | arcade t175, `V ≥ 0.70` | **30.0 %** | `[124, 121] px` |
+>
+> **An operator change that moves OUR number and leaves the ARCADE'S untouched is the right
+> kind. One that moves both is retuning the criterion to the build.** Write that test into any
+> future threshold change here; it is the cheapest available defence against the thing this
+> ledger is mostly about. (It is not sufficient on its own — a change can leave the arcade
+> untouched and still be wrong — but failing it is close to disqualifying.)
+>
+> **The restraint is recorded with the fix**: the lane that found this **did not move the
+> operator**. `jetsil.py` still defaults to 0.45 and now prints **both** readings with their
+> component sizes whenever they disagree, so the failing figure sits on the page next to the
+> passing one and the ruling was taken on published evidence rather than on a silent edit.
+> The default stays at 0.45 for one more round so a reader of either document sees both; the
+> **gate** is 0.70.
 
 **Controls this operator passes before it is pointed at anything** (run them; an
 uncontrolled operator is how the defective triple shipped):
@@ -1168,7 +1558,7 @@ uncontrolled operator is how the defective triple shipped):
 |---|---|---|---|---|
 | **fin rows containing two separated blades** | 67–68/68 = **99–100%** | 54/54 = **100%** | **≥90%** | 38% (62/162) |
 | **fin-pair lateral extent, % of SPAN** | 132–133 px = **35.4–35.7%** | 132 px = **35.4%** | **30–40%** | 12.6% |
-| **nozzle-centre separation, % of SPAN** | 112.2 px = **30.1%** | 112.2 px = **30.1%** | **25–35%** | 14.5% |
+| **nozzle-centre separation, % of SPAN** | 112.2 px = **30.1%** (30.0 % under either V floor) | 112.2 px = **30.1%** | **25–35%**, mask floor **V ≥ 0.70** | 14.5% |
 | **blade cant**: blade-pair half-separation at the topmost fin row ÷ at the lowest fin row | 64.0/49.5 = **1.29** | 62.5/51.0 = **1.23** | **≥1.15** (tops further outboard than roots) | **1.00** (vertical slot) |
 
 The "ours R4" column is this operator re-run on the *ours* panel of
@@ -1273,6 +1663,39 @@ Provenance of the mix-up, for the record: `judging/R2/report.md` reports "jet **
 centre** (49.9%W, 84.5%H) **against arcade 55.1/58.3/59.7%H**" — i.e. a bbox centre set
 beside three pixel centroids in one sentence. The convention has been copied forward since.
 
+> ### IT HAPPENED AGAIN IN R7, AND IT COST AN HOUR BECAUSE BOTH NUMBERS WERE RIGHT (ledger row 27)
+>
+> **EVERY ALTITUDE OR CENTROID FIGURE IN THIS PROJECT MUST NAME ITS UNIT: `pixel centroid` or
+> `bbox centre`. A bare "%H" is not a reportable quantity.**
+>
+> The R7 flow lane spent an hour on what looked like a **seven-point** arcade-vs-arcade
+> contradiction, serious enough that retiring one side was on the table:
+>
+> | | figure | unit |
+> |---|---|---|
+> | REFERENCE #122, cruise `cy` | **52.8 %H** (and the 52–60 %H composition band) | **pixel centroid** |
+> | the arcade player hand counts (109 obs, GAME_SPEC §2) | **49.47 %H** | **bbox centre** |
+>
+> **They are the same measurement in two units and they agree.** Applying this section's own
+> published 1.3–3.3 point conversion, 49.47 as a bbox centre is **50.8–52.8 as a pixel
+> centroid**, and 52.8 sits at the top of that interval. **Note that it reconciles at the
+> interval's edge** (49.47 + 3.3 = 52.77 against 52.80), so they are consistent but **must not
+> be quoted as corroborating each other to a decimal** — the conversion is doing all the work.
+>
+> **This is the cheapest form of the "same name, different operator" family and the most
+> expensive to debug**, precisely because **neither number is wrong**. There is nothing to
+> find by re-running either operator; cross-validation reproduces both exactly. The only thing
+> that resolves it is a unit label, which costs one word.
+>
+> **One live consequence, recorded because it is true now and will silently stop being true.**
+> Our `jetNdcY` is the **sprite anchor**. `demoTimeline.js`'s measured offsets put
+> `anchor = pixel centroid − 1.55` in cruise, while the table above puts
+> `bbox centre = pixel centroid − 1.72`. **So our anchor happens to equal the hand counts'
+> bbox centre to within 0.17 points**, and the two columns of every altitude comparison are in
+> the same unit with no conversion. **That coincidence is a property of the current
+> silhouette's area distribution and it breaks the next time the jet is redrawn.** Re-derive
+> both offsets after any sprite change before quoting a cross-side altitude table.
+
 **Operator (use this on both sides):**
 1. Isolate the jet. Preferred: a **jet-on minus jet-off difference mask** (`?hidejet=1`),
    `max|Δ| > 8` per channel at native scale — it needs no colour assumption and is what the
@@ -1365,6 +1788,61 @@ the binding constraint for anyone wiring it.
 | STAGE text | x[292,351] y[428,443] | red `#c53428` |
 | stage number digit | x[376,414] y[426,450] (the Godot map's own HUD-read rect) | cream `#d4b886` |
 | missile stock icons | x[421,536] y[427,472] | white/grey rockets with red tips (`#ffffff` body); large icons first, then small tick marks for the remainder |
+
+### The nose sight square — IT EXISTS, and it is 5 NATIVE PIXELS ON A SIDE (MEASURED R7)
+
+**Read GAME_SPEC.md §3 element 1 first: this element was within one decision of being retired
+as an invention of our build.** Three reviewers across R6 examined 16 + 22 + 13 frames; two
+concluded absence and one found it. It is real, and this lane measured it at **true native**,
+which nobody had done — every prior attempt (including the ones that concluded absence) worked
+on 686×480 video, where the box is 11 px of faint white over a saturated sky.
+
+| | source | stage (digit read) | measurement |
+|---|---|---|---|
+| **side length, TRUE NATIVE** | `ab2-arcade-desert.png`, white mask `min(RGB) ≥ 200`, bbox | **2** | **5 × 5 px of 320 × 224 = 1.563 %W**, four corner marks of 2 px with 1 px gaps, **interior empty** |
+| side length, video | `ab2-longplay.mp4` t201.4, same mask at threshold 150 | **4** | **11 × 11 px of 686 = 1.604 %W** |
+| **corroboration** | — | — | 5 native px × 686/320 = **10.7 video px**. Two frames, two stages, two resolutions, two operators: **1.56 % and 1.60 %W** |
+| presence on stage 1 | `ab2-longplay.mp4` t109, hard bank, **zero enemies**, clear sky | **1** | present, pale, same four-corner form |
+
+> **WITHDRAWN before publication: a "per-enemy lock bracket, 11 × 9 px" in this same frame.**
+> I measured white pixels at `x[136,146] y[92,100]`, called it a lock bracket at ~2× the sight,
+> and then cropped it at 18× as the rules require
+> (`tools/out/criteria-r7/arcade-combat/desert-bracket-18x.png`). **Those pixels sit on the
+> player jet's own cream fin and the brown object above it**, so the white mask there is
+> confounded and the box is not separable from the airframe. The number was clean, plausible and
+> wrong, which is the standing pattern. **There is no measured arcade lock-bracket size in this
+> document; element 3's geometry is still unmeasured.** The sight square is unaffected — it sits
+> on flat orange sky with nothing within 4 px of it.
+
+**OURS IS `SIGHT_PX = 10` of 320 = 3.125 %W — almost exactly twice the arcade's.**
+Target: **1.4–1.8 %W on a side** (the native 1.563 ± the video reading's quantisation).
+
+> **DO NOT RETUNE `SIGHT_NDC_Y_OFFSET` ON A VERTICAL-OFFSET NUMBER YET — the frame of reference
+> is not established.** The offset from the airframe's achromatic centroid to the sight centre,
+> measured on the three zero-enemy frames above:
+>
+> | frame | roll | sight offset from airframe centroid |
+> |---|---|---|
+> | native desert, stage 2 | banked left | **7.8 %H ABOVE**, 1.6 %W left |
+> | t201.4, stage 4 | banked right | **8.8 %H ABOVE**, 1.3 %W right |
+> | **t109, stage 1** | **hard bank right** | **12.0 %H BELOW**, 1.3 %W right |
+>
+> **A fixed screen offset above the airframe cannot produce the third row.** The arcade's sight
+> is carried in something that rolls — the jet's own frame, or an aim ray projected from it —
+> and `SIGHT_NDC_Y_OFFSET` is a fixed screen offset. So the measurement that is owed is **not
+> just a magnitude on a level-flight frame**; it is a magnitude on a level frame *plus* the
+> same measurement on a hard-bank frame, to fix the frame of reference before the constant is
+> moved. The size half above is clean and can be acted on now; this half cannot.
+>
+> (The R6 judge describes the same t109 box as sitting "above the nose". That is consistent:
+> in a hard right bank, above the nose in the jet's frame **is** below the airframe on screen.
+> Two descriptions of one observation, not a disagreement.)
+
+**Attribution.** Measured on stage-2, stage-4 and stage-1 frames; **licensed for all stages** —
+the HUD is drawn at a fixed screen size and does not change with the stage palette, and the
+three frames that carry the measurement span three different stages and two different skies.
+Evidence: `tools/out/criteria-r7/arcade-combat/desert-sight-12x.png` (native, 12×, the
+decisive one), `tools/out/criteria-r7/sight/t{109.0,201.4}-2x.png`.
 
 Notes: the HUD is drawn **over** the game with no opaque bar — the world is visible
 behind the bottom strip. There is **no altitude indicator in AB2's HUD** (the brief
@@ -1505,18 +1983,47 @@ patches toward yellow. ~~**The single sharpest discriminator is the brightest-de
 saturation**: arcade 0.06–0.25, R4 build 0.67.~~ Reproduces R4's independent readings (mean V
 0.882 vs my 0.891; 47.7% above V 0.95 vs my 52.3%).
 
-> **BRIGHTEST-DECILE SATURATION ≤0.30 IS DROPPED (R6).** It ranks the fire mask by V and takes
-> the top tenth. That works on the arcade, whose fireball tops out at its white core — and it
-> is a **false negative by construction on any palette containing a saturated colour brighter
-> than its core.** Ours does: `#ffba04` (V 1.000, S 0.984) and `#f9f647` (V 0.976, S 0.715)
-> both outrank the core `#f6f6e7` (V 0.965), so the statistic reads **0.952** on a fireball
-> whose core is *exactly the arcade's published core colour*. Flagged by the R5 judge as "kept,
-> correct, and should be dropped"; acted on in R6.
+> **BRIGHTEST-DECILE SATURATION ≤0.30 IS DROPPED (R6) — AND THE R6 REASON WAS WRONG
+> (RESTATED R7, ledger row 20).**
 >
+> ~~It ranks the fire mask by V and takes the top tenth… a **false negative by construction on
+> any palette containing a saturated colour brighter than its core**… the statistic reads
+> **0.952**.~~ That 0.952 comes from an operator the criterion's own numbers were never taken
+> with. **Three things the criterion text never named** — the mask, the ranking key, and whether
+> "saturation" means the mean of the per-pixel saturations or the saturation of the decile's
+> **mean colour** — and the two defensible readings disagree by a factor of fifteen:
+>
+> | operator | **ours** (`e8fed58`, expl-tick 0083 / 0155) | **arcade** huge-explosion | verdict |
+> |---|---|---|---|
+> | **not-background largest component, deciles ranked by R+G+B, saturation OF THE DECILE'S MEAN COLOUR** — the operator the published ladder and the 0.063 were actually taken with | `#f6f6e6`, **0.062** | `#f7f6e6`, **0.0658** | both PASS ≤0.30, and **ours lands on the arcade's core colour** |
+> | FIRE-MASK component, ranked by V, mean of the per-pixel saturations | **0.965** | **0.632** | **both FAIL**, the arcade included |
+>
+> **So it is not a false negative on our palette — it is an under-specified operator, and under
+> the other reading the arcade fails its own criterion by 2.1×** (which is ledger row 10's
+> defect, not row 20's stated one). Reproduced on this lane's fourth independent
+> implementation; the arcade ladder comes back as `#9b0304 → #d2050c → #f25908 → #f6d619 → #f7f6e6`
+> against the published `#9b0204 → #d6050b → #f47a07 → #f5d619 → #f6f6e7`, and the
+> mask dump (`tools/out/criteria-r7/arcade-combat/ourfire-frame-0155-mask.png`) is the fireball
+> and nothing else — looked at, as required.
+>
+> **The exclusions matter here too, and the ones published in THIS table do not reproduce THIS
+> table's number.** Run with the wedge rect named a few lines above (`y[88,109) x[20,50)`) the
+> brightest decile comes back `#f9f9f9` at saturation **0.001** and the core inflates to
+> **12.9 %** — the residual cloud bank, not the fireball. The published 0.063 and 8.8 % are
+> reproducible only with **FIRE-MASK's three rects** (rows 0–14, rows 112–127, and
+> `x < 55 ∧ y > 82`). **Use FIRE-MASK's rects for both operators on this frame.**
+>
+> **Verdict: STAYS DROPPED, for the correct reason.** An under-specified gate is not a usable
+> gate, and naming the operator now would be writing a new criterion rather than repairing one.
 > **Use the core fraction alone: `S < 0.25 ∧ V > 0.94` within the FIRE-MASK component.** It is
 > robust to what else is in the palette, because it counts the core rather than ranking against
-> it. The decile *ladder* above stays — it is a good description of the colour progression and
-> a useful authoring target; it is the decile **saturation gate** that is withdrawn.
+> it.
+>
+> **And there is a win in here that nobody claimed.** The decile *ladder* stays as an authoring
+> target, and **we now pass it**: ours `#9e0000 → #c80c01 → #efa00c → #fbdb2a → #f6f6e6`
+> against the arcade's `#9b0304 → #d2050c → #f25908 → #f6d619 → #f7f6e6` — the two ends match
+> to a level and only the **middle rungs run hot** (ours yellower and brighter at deciles 5 and
+> 8). That is an authoring note, not a gate.
 
 Caveats on the sources: `ab2-arcade-huge-explosion.jpg` is a sub-native 181×127 JPEG
 (320×224 downscaled ~0.57×) with no proven stage identity, and `death-starburst-gp-t202.png`
@@ -1940,6 +2447,13 @@ external file:
   **`(18/686, 20/480, 400/686, 58/480)`** — the SCORE emblem and the score digits — and
   **`(495/686, 30/480, 660/686, 105/480)`** — the lock reticle and its attitude line. **For our
   build, derive the exclusion per run with `tools/hud_mask.py` — never hardcode a box.**
+
+  > **R7: the reticle rect above is the SIZE-figure rect and it is KNOWN SHORT** (ledger row
+  > 23). Its lower edge at 0.219 of H clips the attitude line in a banked frame, which reaches
+  > **0.299** at true native. The *size* distributions below are left on it so they stay
+  > internally consistent; **any operator that COUNTS or CLASSIFIES objects must use the wider
+  > `(0.720, 0.055, 0.965, 0.330)`** — see "The upper-right HUD has now been counted as four
+  > different things". Re-deriving the size figures on the wider rect is an open item.
   With clouds disabled, a mis-sized rect left the HIT counter's digits exposed and the
   build "reported a cloud in 100% of frames while rendering none".
 

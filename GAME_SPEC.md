@@ -100,8 +100,12 @@ gp t257, t271, t281. Key frames committed: `reference/death-starburst-gp-t202.pn
   orange starburst (~60%W, ~1 s) **with a WHITE-HOT core** — deep-red rim → orange →
   yellow → near-white, ≥40% of its pixels above V 0.95 and a **core fraction
   (`S < 0.25 ∧ V > 0.94`) of ~9%** — the old "brightest decile at saturation ≤0.30" is
-  **DROPPED R6**, a false negative by construction on any palette holding a saturated colour
-  brighter than its own core, which ours does (MEASURED R5 on `death-starburst-gp-t202.png` and
+  **DROPPED R6 and the reason RESTATED R7**: ~~a false negative by construction on our
+  palette~~ — it is **under-specified** (it names neither the mask, the ranking key, nor which
+  of two saturations it means), and under the reading it was dropped on **the arcade fails it
+  too, at 0.632**. Under the operator the criterion's own numbers came from, **ours reads 0.062
+  against the arcade's 0.066 and passes.** REFERENCE.md ledger row 20 (MEASURED R5 on
+  `death-starburst-gp-t202.png` and
   `ab2-arcade-huge-explosion.jpg` — REFERENCE.md "Fireball targets"; the old t357-derived
   percentiles describe fading smoke and cannot see the core) → the burnt dark-red hulk of the F-14 tumbles AWAY from
   the camera, shrinking toward the horizon, while the screen is otherwise empty of the
@@ -117,10 +121,33 @@ gp t257, t271, t281. Key frames committed: `reference/death-starburst-gp-t202.pn
   (larger than normal flight — it enters from behind/below the camera), twin afterburner
   flames blazing, with a "READY" text card low-center (yellow, then cyan), shrinking to
   normal scale as control resumes (~2 s). Full hit→control-restored cycle ≈ 8–9 s.
-- **No visible invincibility flash** after respawn in any of the four instances, and two
-  deaths occurred ~10 s apart — if post-respawn invincibility exists it is short and
-  unindicated. The prototype's 2 s flashing window stays ADOPTED as a usability choice,
-  not arcade-verified.
+- ~~**No visible invincibility flash** after respawn in any of the four instances… The
+  prototype's 2 s flashing window stays ADOPTED as a usability choice, not arcade-verified.~~
+  **WRONG — CORRECTED R7, and it is the second MEASURED-tagged negative this round that the
+  arcade turns out to have** (the first is §3 element 1, the nose sight). **THERE IS A FLASH.**
+  - **MEASURED**: starts `gp t207.567` (the frame the respawn reaches normal scale), ends
+    `gp t209.233`, **duration 1.67 s**, **8 clean on/off alternations at a 0.267 s period**,
+    roughly 5 frames on / 3 off. Operator: bright-and-desaturated pixels
+    (`max(RGB) > 120 ∧ max−min < 60`) counted in a jet-sized box x[180,480] y[100,250] of the
+    640×360 frame — it excludes both HUD strips and the READY row, so the trace is the airframe
+    and nothing else. Per-frame counts go **~2 000–2 900 ↔ 0–60 with nothing in between**.
+  - **WHY FOUR PASSES MISSED IT, and this is the transferable part**: each state lasts
+    **0.10–0.13 s**, so **any sampling coarser than ~0.1 s aliases it away** — including the
+    0.25 s grid this project uses as its default for death-cycle work, and including the
+    finding lane's own first pass. **A negative about a periodic behaviour is only as good as
+    the sampling interval it was taken at; state the interval with the negative.**
+  - **Consequence 1**: `flow.js`'s `RESPAWN_INVINCIBLE_S = 2.0` is now **arcade-supported to
+    within 0.33 s**, not an unverified usability choice. It was deliberately **not** shortened
+    to 1.67 — "it flashes" implies "it is invulnerable" by convention, not by measurement.
+  - **Consequence 2, and every lane needs it**: we now draw the flash, so **the player sprite is
+    absent from ~3 frames in 8 for 2.0 s after every respawn.** A single-frame jet measurement
+    landing in one reads "no jet", and **that is not a defect**. `?invincible=1` suppresses it
+    entirely and is the documented path for roam/composition work;
+    `window.__flowState().graceFlashHidden` reports it per tick so a probe can exclude those
+    ticks rather than infer from pixels.
+  - **It also separates two figures that were both right about different boundaries**:
+    `hit → normal scale` **6.98 s**, `hit → READY gone` **7.70 s** (what we ship),
+    `hit → flash off` **8.67 s** (the "≈8–9 s" above).
 - **Continue**: after the final life, "CONTINUE PLAY / <countdown from 10> / INSERT
   COIN" overlays the still-scrolling world (gp t261). Continuing resumes IN PLACE —
   **same stage** (the stage digit reads 4 before and after).
@@ -215,9 +242,37 @@ missed card.
 **GATE, binding from R6 (REPLACES "≤1.5 deaths/minute", REFERENCE.md ledger row 13):**
 
 - **≤ 2.0 deaths per minute of WALL CLOCK.** Ours is **3.00** and fails it. That is the point.
-- **Deaths per minute of FLIGHT TIME reported on the same line**, as the secondary figure —
-  it is the denominator that is invariant to death-cycle length (which is why row 8 restated
-  it), but wall clock is the one the arcade anchor is strongest on.
+- **Deaths per minute of FLIGHT TIME reported on the same line**, as the secondary figure.
+  ~~It is the denominator that is invariant to death-cycle length (which is why row 8 restated
+  it)~~ — **REFUTED BY CONTROLLED EXPERIMENT, R7, ledger row 28. NEITHER denominator is
+  invariant.** Keep reporting both and keep wall clock primary, because the arcade anchor is
+  strongest there; but **the published reason for preferring flight time was wrong.**
+
+  > **The experiment**, three arms, 7 seeds × 300 s each, every tick, deaths cross-checked
+  > against `lives` decrements (agreeing exactly on every seed of every arm). ARM 1 → ARM 2
+  > **changes `DEATH_TOTAL_S` (5.2 → 7.7 s) and nothing else**:
+  >
+  > | | ARM 1 `e8fed58` | ARM 2 death cycle only | ARM 3 shipped |
+  > |---|---|---|---|
+  > | deaths/min **wall** | 2.229 | **2.086** (−0.143) | 2.114 |
+  > | deaths/min **flight** | 2.850 | **2.948** (+0.098) | 2.990 |
+  > | enemy rounds/min wall | 126.00 | 125.17 | 124.60 |
+  > | enemy rounds/min flight | 161.12 | **176.89 (+9.8 %)** | 176.23 |
+  >
+  > **Both denominators move, in opposite directions, and the flight-time one moves less but
+  > does move.** The mechanism is not a bug: **threats are produced on WALL time** —
+  > `game.js` keeps calling `combat.update` through the `death` state, which is R5's "the
+  > world keeps flying" fix and matches the arcade's still-scrolling world at gp t261 — while
+  > **exposure is counted in FLIGHT ticks**. So lengthening the death cycle leaves the threat
+  > schedule alone and shrinks the denominator. The enemy-rounds rows show the same effect on
+  > a quantity nobody is tuning, which is the control: per wall minute they barely move, per
+  > flight minute they rise 9.8 %.
+  >
+  > **This also settles the "enemy rounds/min not falling" clause**, which can be read either
+  > way: per wall minute rounds fall 1.1 % (there are fewer flight seconds to fire in), per
+  > flight minute they rise 9.4 %. The clause exists so the death rate cannot be met by making
+  > combat quieter — by that reading it is satisfied. **Name the denominator in that clause
+  > too**; it has the same defect the gate itself had before row 8.
 - **Every figure names its denominator, its seeds, its span and its tree state.** A bare
   "deaths/min" is not a reportable quantity in this repo.
 
@@ -261,7 +316,72 @@ adopting a one-lane hand count is how several ledger rows started.
 |---|---|---|---|---|---|---|
 | all enemies | 83 | 14.1 | **40.0** | 72.8 | 19.22 | **32.5 %** |
 | readable, ≥10 %W | 19 | 14.5 | **36.0** | 59.8 | 18.22 | **47.4 %** |
-| the player, for scale | 61 | 36.0 | **49.0** | 63.0 | 8.11 | — |
+| the player, for scale | 61 | 36.0 | **49.0** | 63.0 | 8.11 | 1.64 % |
+
+> ### THE PLAYER COLUMN IS NOW CONFIRMED INDEPENDENTLY. THE ENEMY COLUMN IS NOT (R7)
+>
+> **Read this before quoting either.** The R7 flow lane re-counted the **player** column — not
+> the enemy column — and it passes the promotion bar for that column alone.
+>
+> **Operator**: 53 frames of `ab2-longplay.mp4` (686×480) at exactly **3.50 s** inside
+> `STAGE_MAP.md` VERIFIED spans of stages **2, 3, 9, 14, 20**, each trimmed 2 s at both ends,
+> extracted one at a time with `-ss <t> -frames:v 1`; each read at **1.4× NEAREST** against a
+> 5 %H ruler on **both** edges; the reading is the airframe's **bbox centre** (midpoint of
+> fin-top and nozzle-bottom). **5 frames excluded with the reason recorded per row** (two
+> `RELOAD WEAPONS` tanker passes, one tanker approach, one with the `STAGE 9` card still up,
+> one where the player could not be separated from a green canopy) → **48 observations**. Raw:
+> `tools/out/flow-r7/arcade-player/labels.csv`.
+>
+> **Independent of R6 in three ways**: different stages (R6 read 1, 4, 6, 7, 12, 19), a
+> different grid (3.00 s), a different reader.
+>
+> | player altitude | n | min | p5 | p50 | p95 | max | mean | sd | top third |
+> |---|---|---|---|---|---|---|---|---|---|
+> | R6 combat lane | 61 | 27.0 | 36.0 | 49.0 | 63.0 | 67.0 | 49.16 | 8.11 | **1.64 %** |
+> | R7 flow lane | 48 | 35 | 40.0 | 50.5 | 60.0 | 67 | 49.85 | 7.21 | **0.00 %** |
+> | **POOLED — quote this one** | **109** | **27.0** | **36.4** | **50.0** | **62.0** | **67.0** | **49.47** | **7.73** | **0.92 %** |
+>
+> **The two means are 0.69 points of H apart** (two-sample t = 0.46, indistinguishable) and
+> both maxima are 67. **This is the first independent confirmation this project has for the
+> arcade player's altitude.**
+>
+> **It does NOT promote the enemy column.** The enemy distribution's bar — ≥60 observations
+> over ≥40 stage-verified frames, by someone who produced neither prior count, within 10 points
+> of 32.5 % top-third — **still stands unmet**; see the attempt recorded below. Do not read
+> "the altitude hand count was confirmed" and apply it to the enemy row.
+>
+> **Weaknesses, stated by the counter rather than left to a judge**: (a) the longplay pilot is
+> an expert, so this conflates *where he chooses to fly* with *where the envelope lets him*;
+> (b) three of the 48 are flagged low-confidence (a pale airframe on stage 9's snow); (c) a
+> 3.5 s grid under-samples brief extremes, so **the true tails are WIDER than these 109 show**
+> — which argues against trimming our own spread down to the measured sd; (d) **neither count
+> sampled a canyon stage** (the arcade's are 8 and 17), so this is a **cruise** population.
+
+> ### DO NOT TUNE TO A "TOP THIRD" PERCENTAGE — restate it as SPREAD (CORRECTED R7, ledger row 26)
+>
+> R6 gap 5 reads: *"our pilot occupies the top third of the screen 0.00 % of 20 970 flight
+> ticks against an arcade pilot whose p5 is 36.0 %H"*. **Both halves are true and the framing
+> they suggest is wrong.** The arcade's own player top-third share is **0.92 % — one
+> observation in 109**, the single 27 %H reading in R6's set. A reader takes away "the arcade
+> pilot is often up there", and he is not; he is almost never up there either.
+>
+> **Tuning a scripted attract path to reproduce a 1-in-109 event is tuning to a single
+> observation**, which is what most of REFERENCE's ledger is about. What distinguishes the two
+> pilots is **spread**, not the top third, and what the fix owes is the **capability** to reach
+> the extreme rather than a percentage of time spent at it.
+>
+> **The restated criterion** — and the flow lane solved to it rather than to the top third:
+>
+> | | p5 | p95 | **sd** | top third |
+> |---|---|---|---|---|
+> | **arcade, 109 pooled hand obs** | **36.4** | **62.0** | **7.73** | 0.92 % |
+> | ours, `e8fed58` | 44.9 | 62.3 | 6.07 | 0.00 % |
+> | **ours, R7** | **38.7** | **62.8** | **8.22** | 0.00 % |
+>
+> **ACCEPT: player-altitude p5 within ~3 points of 36.4 %H and sd within ~1.0 of 7.73**, with
+> the **reachable extreme** demonstrated separately (full stick reaches **27.02 %H**, the
+> arcade's own minimum). **Do not gate on a top-third share in either direction.** Note p95 was
+> already right and stayed right — the floor was never the problem.
 
 **Operator**: 63 analysed frames of `ab2-longplay.mp4` on a fixed 3.00 s grid over six
 `STAGE_MAP.md`-verified spans (1, 4, 6, 7, 12, 19), each trimmed 2 s at both ends so no sample
@@ -278,6 +398,40 @@ can switch populations; and it is **one lane's hand count**. **The bar for promo
 independent re-count by someone else** — the same bar the arcade death rate had to clear, and
 what made that figure trustworthy was two independent methods agreeing, not one careful one.
 
+> ### STILL A CANDIDATE. One re-count has been ATTEMPTED and it is recorded as an attempt (R7)
+>
+> **The R6 judge tried and did not reach a usable sample, and published the attempt instead of
+> a number. That is the right outcome and it is recorded here as a result, not as a gap.** The
+> attempt: 13 frames on a fixed grid over `STAGE_MAP.md`-verified spans of stages 1, 7 and 19,
+> each read at 1.4× against a 10 %H ruler. It produced **six** confident observations spanning
+> 39–79 %H with none in the top third. Why it stalled, both reasons worth knowing before the
+> next attempt: the longplay pilot kills fast, so **five stage-1 frames yielded two
+> observations**; and the stage-7 and stage-19 frames are over dense terrain where
+> aircraft-vs-ground identification is genuinely ambiguous — which is weakness (c) above,
+> confirmed by a second person. **Six observations is not evidence against 32.5 %. It is
+> evidence that the re-count has not happened.**
+>
+> **THE BAR IS UNCHANGED**: ≥60 enemy observations over ≥40 stage-verified frames, by someone
+> who produced **neither** prior count, agreeing with **32.5 % top-third to within 10 points**.
+>
+> **Two additions to the operator, binding on the next attempt.**
+> 1. **Blank the HUD before counting.** The R6 judge recorded "an enemy at 16 %H, span 11 %W"
+>    at t103 — inside the top third and readable-size, the single most influential kind of
+>    observation for the headline — and at 5× it is **the fixed upper-right reticle's status
+>    dot and attitude line**. He caught it himself. This is now a **standing rule, not a
+>    per-operator footnote**, because the same HUD has been counted as a cloud, as a cloud bank,
+>    as a false horizon and now twice as an aircraft: REFERENCE.md, "The upper-right HUD has now
+>    been counted as four different things", with the corrected rect
+>    `(0.720, 0.055, 0.965, 0.330)`. The old rect would have clipped the rotating attitude line.
+> 2. **Pick the frames by a rule written before the question is asked**, and state the rule.
+>    Choosing frames you expect to be informative is how two lanes independently reached the
+>    wrong answer on the nose sight (§3 element 1) — two draws from one biased sample, which
+>    this project would otherwise read as its strongest evidence pattern.
+>
+> **Prefer spans over OPEN WATER or OPEN DESERT for the re-count**, and say which spans were
+> used. Dense-terrain stages are where both attempts lost observations, and a smaller
+> stage-balanced sample that can actually be classified beats a larger one that cannot.
+
 **It has already paid for itself without being a gate**, which is the argument for carrying
 candidates in this document rather than leaving them in a lane report: the arcade's readable
 enemies sit at **36.0 %H** against its player's **49.0 %H** — thirteen points above him — and
@@ -291,7 +445,7 @@ is worth enforcing.
 
 R4 gap 5 reads "**≤1.5 deaths/minute** averaged over ≥3 minutes of `?demo=1`" and **never
 names its denominator**. It was the seventh criterion this project had to repair (the running
-count is now **fifteen** — the ledger is in REFERENCE.md; do not re-count from memory), and it
+count is now **twenty-nine** — the ledger is in REFERENCE.md; do not re-count from memory), and it
 fails in the family way: the number stops meaning what it meant when the build improves.
 
 **Why it moved.** It was drafted when a death cost **8.5 s** of non-interactive time; that is
@@ -465,6 +619,32 @@ spread.
   t84–118 reticle strip and the t115–118 engagement at 0.25 s)**:
   1. **The small dashed SIGHT square** leading the player's nose — the aim point,
      always present in flight, separate from any lock indicator.
+     **CHECKED IN R6/R7 AND CONFIRMED REAL. DO NOT RE-OPEN THIS.** Two R6 lanes
+     independently concluded, from 4 and 16 frames, that this element does not exist and
+     that we were drawing a HUD element the arcade never had. **They were wrong, and the
+     declining-to-act was correct — but the negative must not be re-derived a third time.**
+     Found by: the R6 combat lane (§7.2); the R6 judge over the **stage-4 burst
+     t201.4→t202.4**, six frames at 0.2 s with **no enemies on screen in any of them**, and
+     again on **stage 1 at t109**, hard bank, no enemies, clear sky; and this lane in R7 on
+     a **true-native frame** that none of them used — `ab2-arcade-desert.png`, where the
+     empty four-corner box sits 5 px ahead of the nose on flat sky, with nothing within 4 px
+     of it, in the same frame as the upper-right reticle (element 2). Full measurement in
+     REFERENCE.md, "The nose sight square" — including one claim about element 3 in that
+     frame that I withdrew after cropping it.
+     - **Size, MEASURED: 5 × 5 true-native px = 1.563 %W** (native, stage 2), corroborated
+       at **11 × 11 video px = 1.604 %W** (t201.4, stage 4). **Ours is `SIGHT_PX = 10` of
+       320 = 3.125 %W, ~2× too big.** Target **1.4–1.8 %W on a side.**
+     - **Vertical offset: NOT a fixed screen offset, and NOT yet a retune target.** Across
+       the three zero-enemy frames the sight sits 7.8 %H *above* the airframe, 8.8 %H
+       *above*, and — in a hard bank — **12.0 %H BELOW**. Whatever carries it rolls with the
+       jet; `SIGHT_NDC_Y_OFFSET` does not. Settle the frame of reference (a level frame
+       *and* a hard-bank frame) before moving the constant.
+     - **Why it was missed**: it is faint and low-contrast against both the blue and the teal
+       skies, it is absent during the climb-out (t91/t92 — where one lane looked), and at
+       686×480 it is 11 px of pale white. **The lane that got it right chose its frames by a
+       rule written before the question was asked** (every zero-enemy frame in a pre-existing
+       labelled set) rather than picking frames it expected to be informative. For a negative
+       claim, the sample selection is the whole measurement.
   2. **The fixed reticle square** upper-right: corner-bracket square with an
      **ATTITUDE LINE through it that rotates with the world roll** (horizontal in level
      flight t84–94, steeply diagonal during banks t96–98 — it is an artificial-horizon
@@ -606,9 +786,14 @@ spread.
     progress is kept, which is the half that was right. **HIT is not reset either** — 4 across
     the whole continue, consistent with "HIT resets at stage start and ONLY there" below.
 - HUD layout and colors: MEASURED — see REFERENCE.md's HUD table. Elements: SCORE
-  emblem + digits, HIT emblem + digits (top); lock reticle square (upper right); bottom
-  strip: SPEED + throttle bar with 0–3 scale, STAGE + number, missile stock icons.
-  **No altitude bar exists.** HUD never rotates with the world roll.
+  emblem + digits, HIT emblem + digits (top); lock reticle square (upper right); **the
+  nose sight square, 5 native px on a side, leading the nose** (§3 element 1 — confirmed
+  real in R6/R7 after two lanes nearly retired it); per-enemy lock brackets, ~2× the sight
+  and drawn around a target; bottom strip: SPEED + throttle bar with 0–3 scale, STAGE +
+  number, missile stock icons. **No altitude bar exists.** HUD never rotates with the world
+  roll — **except the upper-right reticle's attitude line, which does**, and which has been
+  miscounted as four different objects because of it (REFERENCE.md, "The upper-right HUD has
+  now been counted as four different things").
 - Position-based or per-enemy score values: NOT OBSERVED in stages 1–7 — if they exist
   they are swamped by the flat accrual; treat per-enemy point tables as ASSUMED-wrong
   until late-stage footage says otherwise.
