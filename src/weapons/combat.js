@@ -461,7 +461,20 @@ export class Combat {
     // The telegraph's two output channels. Both are driven from state the
     // enemies already carry, so neither can drift out of sync with the
     // timing that actually governs when a shot leaves.
-    const lit = this._on('shots') ? this.telegraphs.update(this.spawner.enemies) : 0;
+    //
+    // R7: THE FLARE GETS ITS OWN ISOLATION KEYS. `?combatonly=enemies,shots`
+    // lights telegraphs, as it always has, so the R6 judge's named
+    // reproduction arm means exactly what it meant when the figure was taken.
+    // Two finer arms separate the two things inside it, which is what the
+    // round-1 gap needed and could not express:
+    //   ?combatonly=enemies,telegraph        flares, no rounds in the air
+    //   ?combatonly=enemies,shots,noflare    rounds, no flares
+    // The pair was what showed the flare's opacity ramp and the shot sprite's
+    // antialiased interior to be two separate defects rather than one.
+    const flareOn = this.only
+      ? (this.only.has('telegraph') || (this.only.has('shots') && !this.only.has('noflare')))
+      : true;
+    const lit = flareOn ? this.telegraphs.update(this.spawner.enemies) : 0;
     this._updateInboundWarning(lit);
 
     if (this._on('vulcan')) {

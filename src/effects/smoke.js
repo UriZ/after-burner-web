@@ -1,4 +1,4 @@
-import { makePixelTexture, makeBillboard, srgbScalar } from './pixelTexture.js';
+import { makePixelTexture, makeBillboard } from './pixelTexture.js';
 
 // Smoke: the missile trail's aged TAIL puffs, and the launch billow.
 //
@@ -30,6 +30,84 @@ import { makePixelTexture, makeBillboard, srgbScalar } from './pixelTexture.js';
 // endpoints are near-white in every stage and differ only ~6% between day
 // and night.
 
+// R7: THE VALUE RAMP IS PRE-BAKED INTO TEXTURES, not applied at runtime, and
+// this is the third member of R6 gap 1's compositing class.
+//
+// What was here: `sprite.material.color.setScalar(srgbScalar(v))` with `v`
+// interpolated continuously over the puff's life, plus an opacity fade after
+// `fadeFrom`. The material colour MULTIPLIES the texel, so a chain of thirty
+// puffs at thirty different ages put thirty different greys on screen from
+// five authored ones — and then the opacity fade blended the oldest of them
+// into the sky. Criterion A2 counts the UNION of channel values, so a ramp
+// that looks continuous because it is continuous is the most expensive thing
+// a sprite system can do.
+//
+// An arcade board animates smoke by stepping a sprite through authored
+// frames. So: SMOKE_RAMP is the only grey ladder any smoke sprite can place,
+// SMOKE_VALUES are the discrete ages the value ramp is quantised onto, and
+// one texture is baked per (kind, value step) at load time. The per-tick work
+// is a map swap. Colour stays white and opacity stays 1 for the sprite's
+// whole life.
+//
+// THE RAMP IS A QUANTISATION OF THE MEASURED BAND, NOT A NEW MEASUREMENT.
+// The authored ring values (0.933-1.000, stage-1 plume, see below) times the
+// per-stage endpoints in effects/trailPalette.js (1.00 down to 0.86 at night)
+// span 0.802-1.000, and these six greys are that span at even steps. Nothing
+// here moves the mean or the minimum the measurement fixes: the extremes of
+// the ramp ARE the measured extremes.
+// Six rungs OF THE HARDWARE LADDER (see SEGA_LADDER in effects/pixelTexture.js),
+// spanning the measured smoke band 0.80-1.00.
+// SEVEN CONSECUTIVE RUNGS, 206..255. Consecutive, not evenly spaced in value,
+// because the ladder is not evenly spaced: above V 0.90 the hardware has only
+// THREE rungs (239, 247, 255), and that is a fact about the medium rather than
+// a shortcoming of this ramp. The authored five-step plume ladder below
+// (0.933 / 0.957 / 0.976 / 0.992 / 1.000) was never renderable as five
+// distinct greys on this hardware — 0.957 and 0.976 are the same rung — so a
+// bright puff comes back as three bands however it is authored. The arcade's
+// own five-colour cloud puff (REFERENCE.md: #f7f7e6 #f7f7b5 #e6e6a4 #d6d694
+// #c5c584) spans V 0.772-0.969 to get five steps, i.e. it buys them with
+// RANGE, not with resolution it does not have.
+//
+// Area-weighted mean of the puff after snapping: 0.9685, against the measured
+// stage-1 plume's 0.9674. The six-rung version this replaced read 0.9594.
+const SMOKE_RAMP = ['#cecece', '#d6d6d6', '#dedede', '#e6e6e6', '#efefef', '#f7f7f7', '#ffffff'];
+const RAMP_V = [0.808, 0.839, 0.871, 0.902, 0.937, 0.969, 1.000];
+
+// Display-grey for a value, snapped to SMOKE_RAMP. makePixelTexture snaps
+// again afterwards (it has to, for the antialiased seams between rings), so
+// this is belt and braces on the fills themselves.
+function grey(v) {
+  let best = 0;
+  for (let i = 1; i < RAMP_V.length; i++) {
+    if (Math.abs(RAMP_V[i] - v) < Math.abs(RAMP_V[best] - v)) best = i;
+  }
+  return SMOKE_RAMP[best];
+}
+
+// The discrete lives a smoke sprite is allowed to have. Covers both stages'
+// endpoints (daylight 1.00 -> 0.94, night 0.95 -> 0.86).
+const SMOKE_VALUES = [1.00, 0.97, 0.94, 0.90, 0.86];
+
+// The display value of the nearest SMOKE_RAMP entry. Exported because
+// weapons/missiles.js's ribbon is the same smoke and has to land on the same
+// ladder — otherwise the ribbon and the puffs it fades into would each pay
+// their own channel values for the same grey.
+export function snapSmokeValue(v) {
+  let best = 0;
+  for (let i = 1; i < RAMP_V.length; i++) {
+    if (Math.abs(RAMP_V[i] - v) < Math.abs(RAMP_V[best] - v)) best = i;
+  }
+  return RAMP_V[best];
+}
+
+function nearestValueStep(v) {
+  let best = 0;
+  for (let i = 1; i < SMOKE_VALUES.length; i++) {
+    if (Math.abs(SMOKE_VALUES[i] - v) < Math.abs(SMOKE_VALUES[best] - v)) best = i;
+  }
+  return best;
+}
+
 // A round puff, authored NEAR-WHITE with internal value steps and NO alpha
 // falloff. Two things the first version got wrong, both visible in
 // tools/out/combat-r3-23-final/frame-0015.png:
@@ -56,20 +134,22 @@ import { makePixelTexture, makeBillboard, srgbScalar } from './pixelTexture.js';
 //
 // Band areas and values: 0.260 at 0.933, 0.250 at 0.957, 0.240 at 0.976,
 // 0.172 at 0.992, 0.078 at 1.000 -> area-weighted mean 0.9647.
-function drawSmokePuff(ctx, w, h) {
-  const cx = w / 2;
-  const cy = h / 2;
-  const ring = (r, fill) => {
-    ctx.fillStyle = fill;
-    ctx.beginPath();
-    ctx.arc(cx, cy, r, 0, Math.PI * 2);
-    ctx.fill();
+function drawSmokePuff(value) {
+  return (ctx, w, h) => {
+    const cx = w / 2;
+    const cy = h / 2;
+    const ring = (r, v) => {
+      ctx.fillStyle = grey(v * value);
+      ctx.beginPath();
+      ctx.arc(cx, cy, r, 0, Math.PI * 2);
+      ctx.fill();
+    };
+    ring(w * 0.5, 0.933);
+    ring(w * 0.43, 0.957);
+    ring(w * 0.35, 0.976);
+    ring(w * 0.25, 0.992);
+    ring(w * 0.14, 1.0);
   };
-  ring(w * 0.5, '#eeeeee');
-  ring(w * 0.43, '#f4f4f4');
-  ring(w * 0.35, '#f9f9f9');
-  ring(w * 0.25, '#fdfdfd');
-  ring(w * 0.14, '#ffffff');
 }
 
 // THE TRAIL PUFF — an AXIAL element, not a disc. R5's art critique, §4:
@@ -100,20 +180,22 @@ function drawSmokePuff(ctx, w, h) {
 // Same five-step near-white ladder as the round puff (see the note above for
 // why the ladder is authored at the brightest stage and darkened by the
 // caller, never the reverse).
-function drawTrailPuff(ctx, w, h) {
-  const cx = w / 2;
-  const cy = h / 2;
-  const ell = (k, fill) => {
-    ctx.fillStyle = fill;
-    ctx.beginPath();
-    ctx.ellipse(cx, cy, (w / 2) * k, (h / 2) * k, 0, 0, Math.PI * 2);
-    ctx.fill();
+function drawTrailPuff(value) {
+  return (ctx, w, h) => {
+    const cx = w / 2;
+    const cy = h / 2;
+    const ell = (k, v) => {
+      ctx.fillStyle = grey(v * value);
+      ctx.beginPath();
+      ctx.ellipse(cx, cy, (w / 2) * k, (h / 2) * k, 0, 0, Math.PI * 2);
+      ctx.fill();
+    };
+    ell(1.0, 0.933);
+    ell(0.86, 0.957);
+    ell(0.7, 0.976);
+    ell(0.5, 0.992);
+    ell(0.28, 1.0);
   };
-  ell(1.0, '#eeeeee');
-  ell(0.86, '#f4f4f4');
-  ell(0.7, '#f9f9f9');
-  ell(0.5, '#fdfdfd');
-  ell(0.28, '#ffffff');
 }
 
 // Launch billow: a bigger, lumpier mass. In
@@ -151,48 +233,58 @@ function drawTrailPuff(ctx, w, h) {
 //
 // The lateral jitter is kept -- the mass has to be lumpy, it is smoke -- but
 // it is now small against the taper, so no lobe can restore the circle.
-function drawBillow(ctx, w, h) {
-  // [centre y as a fraction of h, lateral offset in w, radius in w].
-  // y runs 0 at the TOP of the canvas, so the first row is the narrow end.
-  const lobes = [
-    [0.10, 0.00, 0.14],
-    [0.24, 0.05, 0.20],
-    [0.40, -0.04, 0.27],
-    [0.58, 0.04, 0.34],
-    [0.76, -0.03, 0.42],
-    [0.92, 0.02, 0.46],
-  ];
-  const shade = (fill, scale) => {
-    ctx.fillStyle = fill;
-    for (const [ly, lx, lr] of lobes) {
-      ctx.beginPath();
-      ctx.arc((0.5 + lx) * w, ly * h, lr * w * scale, 0, Math.PI * 2);
-      ctx.fill();
-    }
+function drawBillow(value) {
+  return (ctx, w, h) => {
+    // [centre y as a fraction of h, lateral offset in w, radius in w].
+    // y runs 0 at the TOP of the canvas, so the first row is the narrow end.
+    const lobes = [
+      [0.10, 0.00, 0.14],
+      [0.24, 0.05, 0.20],
+      [0.40, -0.04, 0.27],
+      [0.58, 0.04, 0.34],
+      [0.76, -0.03, 0.42],
+      [0.92, 0.02, 0.46],
+    ];
+    const shade = (v, scale) => {
+      ctx.fillStyle = grey(v * value);
+      for (const [ly, lx, lr] of lobes) {
+        ctx.beginPath();
+        ctx.arc((0.5 + lx) * w, ly * h, lr * w * scale, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    };
+    shade(0.933, 1.0);
+    shade(0.965, 0.86);
+    shade(0.984, 0.64);
+    shade(1.0, 0.36);
   };
-  shade('#eeeeee', 1.0);
-  shade('#f6f6f6', 0.86);
-  shade('#fbfbfb', 0.64);
-  shade('#ffffff', 0.36);
 }
 
-let puffTex = null;
-let trailTex = null;
-let billowTex = null;
-export const smokePuffTexture = () => (puffTex ??= makePixelTexture(drawSmokePuff, 24, 24, { hardAlpha: true }));
-export const trailPuffTexture = () => (trailTex ??= makePixelTexture(drawTrailPuff, 32, 20, { hardAlpha: true }));
-export const billowTexture = () => (billowTex ??= makePixelTexture(drawBillow, 32, 42, { hardAlpha: true }));
+// One texture per value step, built on first use. Each returns the array;
+// callers index it with nearestValueStep().
+const KINDS = {
+  puff: { draw: drawSmokePuff, w: 24, h: 24 },
+  trail: { draw: drawTrailPuff, w: 32, h: 20 },
+  billow: { draw: drawBillow, w: 32, h: 42 },
+};
+const texCache = {};
+function texturesFor(kind) {
+  const k = KINDS[kind];
+  texCache[kind] ??= SMOKE_VALUES.map((v) =>
+    makePixelTexture(k.draw(v), k.w, k.h, { palette: SMOKE_RAMP }));
+  return texCache[kind];
+}
+export const smokePuffTexture = (step = 0) => texturesFor('puff')[step];
+export const trailPuffTexture = (step = 0) => texturesFor('trail')[step];
+export const billowTexture = (step = 0) => texturesFor('billow')[step];
+export { SMOKE_RAMP, SMOKE_VALUES };
 
 // Pooled smoke sprites. Both kinds are sized in SCREEN fractions (they are
 // drawn at a size that reads the same whether the missile is near or far —
 // the arcade's smoke does not shrink into the vanishing point the way the
 // aircraft do), so each live puff recomputes its world width from its own
 // camera distance every frame.
-const TEXTURE_FOR = {
-  puff: smokePuffTexture,
-  trail: trailPuffTexture,
-  billow: billowTexture,
-};
+
 
 export class SmokeField {
   constructor(scene, space) {
@@ -205,15 +297,15 @@ export class SmokeField {
   _acquire(kind) {
     const pool = (this.pool[kind] ??= []);
     if (pool.length) return pool.pop();
-    const tex = TEXTURE_FOR[kind]();
-    const sprite = makeBillboard(tex, 1);
+    const sprite = makeBillboard(texturesFor(kind)[0], 1);
     sprite.renderOrder = kind === 'billow' ? 7 : 6;
     return sprite;
   }
 
   // `fracStart`/`fracEnd` are screen-width fractions and
-  // `valueStart`/`valueEnd` scale the sprite's colour, both ramped over the
-  // puff's life. `depth` is camera-space view depth — the camera is static
+  // `valueStart`/`valueEnd` are the ends of the puff's value ramp, quantised
+  // onto SMOKE_VALUES and served as pre-baked textures (see the R7 note
+  // above). `depth` is camera-space view depth — the camera is static
   // in this build, so a puff's depth is fixed at spawn and is stored rather
   // than recomputed (Euclidean distance to the camera would over-size
   // off-axis puffs by up to ~10%).
@@ -229,19 +321,19 @@ export class SmokeField {
     kind,
     position,
     depth,
-    {
-      life, fracStart, fracEnd, valueStart = 1, valueEnd = valueStart,
-      fadeFrom = 0.7, rotation = 0,
-    }
+    { life, fracStart, fracEnd, valueStart = 1, valueEnd = valueStart, rotation = 0 }
   ) {
     const sprite = this._acquire(kind);
     sprite.position.copy(position);
     sprite.material.opacity = 1;
     sprite.material.rotation = rotation;
-    sprite.material.color.setScalar(srgbScalar(valueStart));
+    // White: the value lives in the texture now, so the material must not
+    // scale it a second time.
+    sprite.material.color.setScalar(1);
+    sprite.material.map = texturesFor(kind)[nearestValueStep(valueStart)];
     this.scene.add(sprite);
     this.live.push({
-      kind, sprite, age: 0, depth, life, fracStart, fracEnd, valueStart, valueEnd, fadeFrom,
+      kind, sprite, age: 0, depth, life, fracStart, fracEnd, valueStart, valueEnd,
     });
   }
 
@@ -257,11 +349,19 @@ export class SmokeField {
       }
       const t = p.age / p.life;
       const frac = p.fracStart + (p.fracEnd - p.fracStart) * t;
+      // Map before sizeSprite: sizeSprite reads the aspect off the live map.
+      p.sprite.material.map = texturesFor(p.kind)[
+        nearestValueStep(p.valueStart + (p.valueEnd - p.valueStart) * t)
+      ];
       sizeSprite(p.sprite, this.space.worldWidthFor(frac, p.depth));
-      p.sprite.material.color.setScalar(
-        srgbScalar(p.valueStart + (p.valueEnd - p.valueStart) * t)
-      );
-      p.sprite.material.opacity = t < p.fadeFrom ? 1 : 1 - (t - p.fadeFrom) / (1 - p.fadeFrom);
+      // NO OPACITY FADE. Same rule as effects/explosions.js: a sprite that
+      // dissolves into the sky composites a fresh continuum on its way out,
+      // and REFERENCE.md's own reading of the plume is that its structure is
+      // value, "not an alpha fade". Puffs are dense and heavily overlapped, so
+      // one leaving at full opacity reads as the mass thinning, not as a pop —
+      // which is what effects/trailPalette.js's puffFadeFrom = 0.97 was
+      // already saying with a number.
+      p.sprite.material.opacity = 1;
     }
   }
 

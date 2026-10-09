@@ -53,10 +53,12 @@ import { sizeSprite } from './smoke.js';
 // Outer -> inner. Every hex is a measured percentile or band mean from
 // ab2-arcade-huge-explosion.jpg (see the header for the operator), except
 // E_ORANGE which is the stage-1 kill fireball's p25.
-const E_RIM = '#9e0000'; // p5,  V 0.620 — deep red, spikes and outer edge
-const E_DEEP = '#c90000'; // p25, V 0.788
-const E_ORANGE = '#e4770a'; // t100.75 kill-fireball p25, V 0.894
-const E_AMBER = '#f1a60c'; // p50, V 0.945
+const E_RIM = '#9c0000'; // p5,  V 0.620 — deep red, spikes and outer edge
+// (measured #9e0000; R7 snapped to the ladder, 158 -> 156)
+const E_DEEP = '#c50000'; // p25, V 0.788 (measured #c90000, 201 -> 197)
+const E_ORANGE = '#e67310'; // t100.75 kill-fireball p25, V 0.894
+// (measured #e4770a; 228->230, 119->115, 10->16)
+const E_AMBER = '#efa410'; // p50, V 0.945 (measured #f1a60c)
 // p95, V 1.000, S 0.984. Splitting the bright band into a saturated gold
 // outside and a pale yellow inside is what keeps the fireball COLOURED while
 // it is bright: with #f9f647 alone owning the whole bright band the sprite
@@ -65,8 +67,8 @@ const E_AMBER = '#f1a60c'; // p50, V 0.945
 // nothing against the bright-fraction criterion. It also reproduces the
 // measured hue ramp — rim 0deg, mid 40deg, hot 59-69deg — which a single
 // bright colour cannot.
-const E_GOLD = '#ffba04';
-const E_YELLOW = '#f9f647'; // p75, V 0.976
+const E_GOLD = '#ffbd00'; // measured #ffba04
+const E_YELLOW = '#f7f74a'; // p75, V 0.976 (measured #f9f647)
 // The near-white core. REFERENCE.md's R5 fireball pass publishes the
 // brightest decile of ab2-arcade-huge-explosion.jpg as #f6f6e7 (V 0.967,
 // sat 0.063) and names BRIGHTEST-DECILE SATURATION "the single sharpest
@@ -75,7 +77,16 @@ const E_YELLOW = '#f9f647'; // p75, V 0.976
 // different mask of the same frame and measured out at 0.24-0.27 — inside
 // the published <=0.30 target but at the very top of the arcade's observed
 // range. Deferring to the doc's operator on the doc's own discriminator.
-const E_HOT = '#f6f6e7';
+const E_HOT = '#f7f7e6'; // measured #f6f6e7 (1 level on two channels)
+
+// The complete authored set. Handed to makePixelTexture, which snaps every
+// surviving texel to it — see tools/fx_palette_probe.mjs and the R7 notes in
+// effects/pixelTexture.js. Before this existed the burst canvas carried ~300
+// unauthored colours, every one of them an antialiased seam between two of
+// the seven below (#9f0000 and #9d0000 either side of E_RIM #9e0000 were the
+// two most common), and `?combatexpl=1` measured 385 colours / 227 channel
+// values against gates of 256 and 32.
+export const EXPLOSION_PALETTE = [E_RIM, E_DEEP, E_ORANGE, E_AMBER, E_GOLD, E_YELLOW, E_HOT];
 
 // Three lobe arrangements. Coordinates are canvas fractions; each entry is
 // [cx, cy, r]. Deliberately irregular — a symmetric ring reads as a gradient.
@@ -140,6 +151,17 @@ const SPIKE_HALF_W = 0.058;
 // rather than to a point.
 const LOBE_INSET = 0.62;
 
+// Cavity radius as a fraction of the lobe radius — the dark-red interior
+// structure that replaced the punched holes. See the long note in drawBurst.
+// Measured consequence of the change, and the reason this is not still 0.26:
+// a transparent hole sits OUTSIDE FIRE-MASK and an opaque dark-red one sits
+// INSIDE it, so converting them moved the bright fraction (V > 0.95) from
+// 40.7-48.6 % to 31.4-38.5 %. 0.18 halves the cavity area and lands it back
+// at the R6 level. The arcade's own interior is 8.8 % non-fire of which only
+// 1.8 % is genuinely dark, so less dark interior is also the more faithful
+// direction, not just the one that moves the statistic.
+const CAVITY_R = 0.18;
+
 // White-hot core mask, drawn as explicit texels at the end of drawBurst (see
 // the long note there). One connected ragged mass with two tongues, NOT a
 // disc: REFERENCE.md records the arcade's near-white pixels as "one ragged
@@ -159,7 +181,36 @@ const CORE_MASK = [
 const CORE_ROWS = CORE_MASK.length;
 const CORE_COLS = CORE_MASK[0].length;
 
-function drawBurst(arrangement) {
+// THE PHASE LADDERS. Phase 0 is the fireball; 1 and 2 are the DECAY, and
+// they replace the opacity ramp that used to end the sprite's life.
+//
+// R7, and the direction here was decided against the frames rather than
+// against the critique. judging/R6/art-critique.md §3 asks for "a palette
+// sequence ending in two or three dark smoke greys", on the strength of the
+// grey mass around the starburst in reference/death-starburst-gp-t202.png.
+// That frame is a DARK stage: its sky is black and its grey masses cannot be
+// separated from that stage's own clouds by any operator I could write. The
+// one unambiguously daylight arcade explosion in this repo,
+// reference/ab2-arcade-huge-explosion.jpg, has NO grey anywhere in it — it is
+// red, orange, yellow and white, and its darkest material is a deep red.
+// Authoring grey smoke for a daylight stage out of a night frame is REFERENCE
+// ledger row 12's defect exactly, so this decays into its OWN measured dark
+// end instead: the fire goes out, deep red last. The alpha dissolve — which
+// is the part an arcade board genuinely cannot do — is gone either way.
+//
+// Each entry is [colour, band radius], outermost first, same solved-area
+// construction as phase 0 (see the long note in `blobs`). `core` is the
+// white-hot texel grid; only the fireball has one.
+const PHASES = [
+  { core: true, spike: 1.0, bands: [[E_RIM, 1.0], [E_DEEP, 0.938], [E_ORANGE, 0.86],
+    [E_AMBER, 0.78], [E_GOLD, 0.60], [E_YELLOW, 0.42]] },
+  { core: false, spike: 0.78, bands: [[E_RIM, 1.0], [E_DEEP, 0.90], [E_ORANGE, 0.72],
+    [E_AMBER, 0.46]] },
+  { core: false, spike: 0.55, bands: [[E_RIM, 1.0], [E_DEEP, 0.78], [E_ORANGE, 0.40]] },
+];
+
+function drawBurst(arrangement, phaseIndex = 0) {
+  const phase = PHASES[phaseIndex];
   return (ctx, w, h) => {
     const cx = w / 2;
     const cy = h / 2;
@@ -167,7 +218,8 @@ function drawBurst(arrangement) {
     ctx.fillStyle = E_RIM;
     for (let i = 0; i < SPIKES; i++) {
       const a = (i / SPIKES) * Math.PI * 2 + arrangement[0][0];
-      const len = w * (SPIKE_LEN_BASE + SPIKE_LEN_VAR * Math.abs(Math.sin(i * 2.4)));
+      const len = w * phase.spike
+        * (SPIKE_LEN_BASE + SPIKE_LEN_VAR * Math.abs(Math.sin(i * 2.4)));
       const halfW = w * SPIKE_HALF_W;
       ctx.beginPath();
       ctx.moveTo(cx + Math.cos(a) * len, cy + Math.sin(a) * len);
@@ -255,12 +307,7 @@ function drawBurst(arrangement) {
     // 0.245 -> 0.21 — and the spikes above carry the rest. Authored and
     // measured do NOT agree in this construction and are not meant to; the
     // table is the derivation, these are the values that land it.
-    blobs(E_RIM, 1.0);
-    blobs(E_DEEP, 0.938);
-    blobs(E_ORANGE, 0.86);
-    blobs(E_AMBER, 0.78);
-    blobs(E_GOLD, 0.60);
-    blobs(E_YELLOW, 0.42);
+    for (const [fill, scale] of phase.bands) blobs(fill, scale);
 
     // (The white-hot core used to be drawn here, as three overlapping arcs on
     // the largest lobe. It is now drawn at the very END of this function, as
@@ -296,28 +343,47 @@ function drawBurst(arrangement) {
       ctx.fillRect(cx + dx * r - s, cy + dy * r - s, s * 2, s * 2);
     }
 
-    // RAGGED GAPS THROUGH THE FIREBALL. The arcade's is not a solid mass: I
-    // measured the non-fire pixels lying strictly inside its own silhouette
-    // on ab2-arcade-huge-explosion.jpg at 20.0% of the filled silhouette,
-    // and 51.4% of those read as SKY (B > R + 0.05, median RGB 88/66/244)
-    // against only 7.7% genuinely dark. So they are holes you see through,
-    // not drawn debris, and punching them is the honest construction.
+    // DARK-RED CAVITIES THROUGH THE FIREBALL — formerly PUNCHED HOLES, and
+    // the measurement that justified punching them does not reproduce.
     //
-    // They are also free against the acceptance statistics: the measurement
-    // mask is "warm AND bright" (V > 0.55, R > B + 0.10), so a transparent
-    // texel is excluded from the fireball on our side exactly as the
-    // arcade's sky pixels are on its. Holes cost silhouette AREA, not
-    // percentile position.
+    // What this comment used to say: "the non-fire pixels lying strictly
+    // inside its own silhouette on ab2-arcade-huge-explosion.jpg [are] 20.0%
+    // of the filled silhouette, and 51.4% of those read as SKY ... So they
+    // are holes you see through". judging/R6/art-critique.md §3(b) reported
+    // the consequence from the other end — "the light-blue flecks inside the
+    // fireball are not debris, they are the background", six of them on the
+    // death starburst.
     //
-    // Two constraints on placement, both learned by arithmetic rather than
-    // by capture: the centre lobe is skipped and the offset (0.45) exceeds
-    // the hole radius plus the core radius (0.26 + 0.245), so no hole can
-    // reach E_HOT. A hole that ate core pixels WOULD move the statistics —
-    // it removes them from the mask, which lowers the measured bright
-    // fraction — and that is the one number this whole palette exists to
-    // hit. Kept to ~8% of area rather than the arcade's 20%: our sprite
-    // renders at a third of that frame's size and perforates visibly faster.
-    ctx.globalCompositeOperation = 'destination-out';
+    // Re-run on the same frame with the same stated operator (V > 0.55 AND
+    // R > B + 0.10, largest 8-connected component, n = 10 980 px — their own
+    // n, so this is the same component), filling the component's interior by
+    // flooding from the border:
+    //
+    //   interior non-fire   1 060 px = 8.8% of the filled silhouette (not 20.0)
+    //   of those, SKY-like   12.9%  = 137 px = 1.1% of the silhouette (not 51.4)
+    //   of those, V <= 0.35   1.8%
+    //   the dominant interior non-fire colours are #f7f3ff, #f9f8ff, #fbf4fc
+    //
+    // i.e. the "holes" are overwhelmingly the fireball's own NEAR-WHITE pixels,
+    // which the warm mask (R > B + 0.10) rejects because white is achromatic.
+    // The operator was counting its own exclusions as background. 137 sky-like
+    // pixels in a 12 040 px silhouette, scattered across rows 6-121, is JPEG
+    // ringing in the spike gaps, not structure. The crop agrees: at 4x the
+    // arcade fireball is solid, and what reads as a hole is a white patch.
+    //
+    // So the cavities stay — the interior DOES have dark structure, plainly
+    // visible as red streaks through the yellow — but they are drawn in
+    // E_DEEP instead of punched to transparency. Same placement, same
+    // silhouette, same area; the texels are now opaque and on-palette. This
+    // moves the acceptance statistics (a dark warm pixel is INSIDE
+    // FIRE-MASK where a transparent one was outside it), so the FIRE-MASK
+    // figures are re-measured after this change rather than assumed — see
+    // judging/R7/lane-fx.md.
+    //
+    // The centre lobe is still skipped and the 0.45 offset still exceeds the
+    // cavity radius plus the core radius (0.26 + 0.245), so no cavity can
+    // reach E_HOT.
+    ctx.fillStyle = E_DEEP;
     arrangement.forEach(([lx, ly, lr], i) => {
       if (i === 0) return; // leave the central lobe's hot core intact
       const a = i * 1.107 + 0.4;
@@ -325,13 +391,12 @@ function drawBurst(arrangement) {
       ctx.arc(
         lx * w + Math.cos(a) * lr * w * 0.45,
         ly * h + Math.sin(a) * lr * h * 0.45,
-        lr * w * 0.26,
+        lr * w * CAVITY_R,
         0,
         Math.PI * 2
       );
       ctx.fill();
     });
-    ctx.globalCompositeOperation = 'source-over';
 
     // ---- THE WHITE-HOT CORE -------------------------------------------------
     //
@@ -430,6 +495,8 @@ function drawBurst(arrangement) {
     // points across all three phases, since it is an authored texel grid on
     // a texture that only cycles between three lobe arrangements.
     ctx.setTransform(1, 0, 0, 1, 0, 0);
+    // The decay phases have no white-hot core: the fire is going out.
+    if (!phase.core) return;
     const side = 0.27 * w;
     const cell = side / CORE_COLS;
     const ox = cx - side / 2;
@@ -449,21 +516,44 @@ function drawBurst(arrangement) {
   };
 }
 
-// Debris chunk: "small red/white chunks" (t100 upper-left).
-function drawChunk(ctx, w, h) {
-  ctx.fillStyle = '#e8e8e8';
-  ctx.fillRect(0, 0, w, h);
-  ctx.fillStyle = E_RIM;
-  ctx.fillRect(0, h / 2, w, h / 2);
+// Debris chunk: "small red/white chunks" (t100 upper-left). Two of them: the
+// bright chunk the kill throws, and the dark one it has cooled to by the time
+// the fire is out. Swapping between them is what used to be `opacity = 1 - t`.
+const CHUNK_WHITE = '#e6e6e6'; // was #e8e8e8
+export const CHUNK_PALETTE = [CHUNK_WHITE, E_RIM, E_DEEP];
+function drawChunk(top, bottom) {
+  return (ctx, w, h) => {
+    ctx.fillStyle = top;
+    ctx.fillRect(0, 0, w, h);
+    ctx.fillStyle = bottom;
+    ctx.fillRect(0, h / 2, w, h / 2);
+  };
 }
 
 let burstTextures = null;
-let chunkTexture = null;
+let chunkTextures = null;
+// Indexed [phase][arrangement]. Phase 0 is the fireball and cycles through
+// all three arrangements as it boils; the two decay phases need only one
+// each, since by then the mass is collapsing rather than boiling.
 function bursts() {
-  if (!burstTextures) {
-    burstTextures = ARRANGEMENTS.map((a) => makePixelTexture(drawBurst(a), 64, 64, { hardAlpha: true }));
-  }
+  burstTextures ??= PHASES.map((_, phase) =>
+    ARRANGEMENTS.map((a) =>
+      makePixelTexture(drawBurst(a, phase), 64, 64, { palette: EXPLOSION_PALETTE })));
   return burstTextures;
+}
+
+// Measurement-only accessors for tools/fx-probe.mjs. The probe audits the
+// authored canvases, so it needs the texture arrays themselves rather than
+// whatever the field happens to be showing.
+export const burstTexturesForProbe = () => bursts();
+export const chunkTexturesForProbe = () => chunks();
+
+function chunks() {
+  chunkTextures ??= [
+    makePixelTexture(drawChunk(CHUNK_WHITE, E_RIM), 4, 4, { palette: CHUNK_PALETTE }),
+    makePixelTexture(drawChunk(E_RIM, E_DEEP), 4, 4, { palette: CHUNK_PALETTE }),
+  ];
+  return chunkTextures;
 }
 
 // Peak on-screen diameter of a kill explosion, as a fraction of frame width.
@@ -472,6 +562,12 @@ function bursts() {
 const PEAK_FRAC = 0.30;
 const LIFE_S = 0.75;
 const BOIL_HZ = 14; // texture swaps per second
+// Life fractions at which the fire steps down a phase. 0.76 keeps the
+// fireball proper at 0.57 s, which is the whole span the R6 per-phase
+// FIRE-MASK measurement covers (0.03-0.58 s), so the statistics that
+// measurement produced still describe the same frames.
+const DECAY_FROM = 0.76;
+const DECAY_MID = 0.90;
 
 export class ExplosionField {
   constructor(scene, space) {
@@ -484,15 +580,14 @@ export class ExplosionField {
 
   _acquire() {
     if (this.pool.length) return this.pool.pop();
-    const sprite = makeBillboard(bursts()[0], 1);
+    const sprite = makeBillboard(bursts()[0][0], 1);
     sprite.renderOrder = 20;
     return sprite;
   }
 
   _acquireChunk() {
     if (this.chunkPool.length) return this.chunkPool.pop();
-    chunkTexture ??= makePixelTexture(drawChunk, 4, 4, { hardAlpha: true });
-    const sprite = makeBillboard(chunkTexture, 1);
+    const sprite = makeBillboard(chunks()[0], 1);
     sprite.renderOrder = 21;
     return sprite;
   }
@@ -507,7 +602,7 @@ export class ExplosionField {
     sprite.material.rotation = rng() * Math.PI * 2;
     this.scene.add(sprite);
 
-    const chunks = [];
+    const debris = [];
     const n = 5 + Math.floor(rng() * 4);
     // Chunk speed is expressed in SCREEN fractions per second so debris
     // flies the same way whether the kill is near or far; converting once
@@ -519,15 +614,16 @@ export class ExplosionField {
       c.material.opacity = 1;
       const a = rng() * Math.PI * 2;
       const sp = (0.12 + rng() * 0.22) * perSec;
-      chunks.push({ sprite: c, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp });
+      debris.push({ sprite: c, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp });
       this.scene.add(c);
     }
 
-    this.live.push({ sprite, age: 0, depth, scale, chunks });
+    this.live.push({ sprite, age: 0, depth, scale, chunks: debris });
   }
 
   update(dt) {
     const texs = bursts();
+    const chunkTex = chunks();
     for (let i = this.live.length - 1; i >= 0; i--) {
       const e = this.live[i];
       e.age += dt;
@@ -550,18 +646,33 @@ export class ExplosionField {
       // saturation 0.46 over the lifetime, against 0.82-0.83 measured at
       // peak on the isolation harness. The palette was never the problem.
       const grow = t < 0.18 ? 0.35 + (t / 0.18) * 0.65 : 1.0 - (t - 0.18) * 0.12;
-      e.sprite.material.map = texs[Math.floor(e.age * BOIL_HZ) % texs.length];
+      // R7: the LAST QUARTER OF THE LIFE IS A PALETTE SEQUENCE, not an alpha
+      // ramp. See PHASES above for why it ends in deep red rather than in the
+      // grey smoke judging/R6/art-critique.md asked for.
+      const phase = t < DECAY_FROM ? 0 : (t < DECAY_MID ? 1 : 2);
+      e.sprite.material.map = texs[phase][Math.floor(e.age * BOIL_HZ) % ARRANGEMENTS.length];
       sizeSprite(e.sprite, this.space.worldWidthFor(PEAK_FRAC * e.scale * grow, e.depth));
-      // Opaque for 80% of its life, then a short hard fade. The arcade's
-      // explosions are sprite animations that END; they do not dissolve
-      // gradually into the sky.
-      e.sprite.material.opacity = t < 0.8 ? 1 : 1 - (t - 0.8) / 0.2;
+      // OPAQUE FOR ITS WHOLE LIFE. The arcade's explosions are sprite
+      // animations that END; they do not dissolve into the sky. The old
+      // `t < 0.8 ? 1 : 1 - (t - 0.8) / 0.2` is the single largest contributor
+      // to R6 gap 1's explosion arm: a big orange mass at an arbitrary alpha
+      // over #009eff, blended in LINEAR space, puts a fresh continuum on
+      // screen every tick. The measured cost on the committed tree was
+      // `?combatexpl=1` reading up to 385 colours and 227 channel values
+      // against gates of 256 and 32, with #3797f2 / #5babf3 / #5aabfc —
+      // sky-and-fire mixtures — among the most numerous pixels in the frame.
+      e.sprite.material.opacity = 1;
 
       for (const c of e.chunks) {
         c.sprite.position.x += c.vx * dt;
         c.sprite.position.y += c.vy * dt;
         sizeSprite(c.sprite, this.space.worldWidthFor(0.012, e.depth));
-        c.sprite.material.opacity = 1 - t;
+        // Same rule, two colours instead of a ramp: the chunk cools to dark
+        // red rather than fading out. 4x4 texels each, so this is a handful
+        // of pixels — and a handful of pixels is exactly what a set-cardinality
+        // gate charges full price for.
+        c.sprite.material.map = chunkTex[t < DECAY_FROM ? 0 : 1];
+        c.sprite.material.opacity = 1;
       }
     }
   }

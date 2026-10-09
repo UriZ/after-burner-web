@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { makeBillboard, srgbScalar } from '../effects/pixelTexture.js';
-import { sizeSprite } from '../effects/smoke.js';
+import { sizeSprite, snapSmokeValue } from '../effects/smoke.js';
 import { TRAIL_DAYLIGHT, trailPaletteFor } from '../effects/trailPalette.js';
 import { missileTexture } from './projectileSprites.js';
 
@@ -132,12 +132,27 @@ class Trail {
     // so a Trail built outside a launch still renders as stage 1 rather than
     // as whatever the last night stage left behind.
     this.palette = TRAIL_DAYLIGHT;
-    const positions = new Float32Array(MAX_SAMPLES * 3 * 3);
-    const colors = new Float32Array(MAX_SAMPLES * 3 * 3);
+    // R7: ONE SEGMENT'S SIX VERTICES ARE ITS OWN — nothing is shared with the
+    // neighbouring segment — and that is what makes the ribbon flat-shaded.
+    //
+    // It used to be MAX_SAMPLES x 3 shared vertices with a per-vertex grey
+    // ramp, and a shared vertex with vertexColors is GOURAUD INTERPOLATION:
+    // the fragment shader sees a different grey at every pixel along and
+    // across the ribbon, which is a continuous-tone object by construction
+    // and the fourth member of R6 gap 1's compositing class. Six unshared
+    // vertices per segment let each segment carry ONE colour, so the ribbon
+    // renders as a chain of flat slabs stepping down a ladder — which is
+    // what an arcade trail is.
+    //
+    // The positions written are identical; only the sharing changes. Both
+    // copies of a sample's three points are computed from the same sample, so
+    // the measured geometry (half-widths, occupancy, taper) is untouched.
+    const positions = new Float32Array((MAX_SAMPLES - 1) * 6 * 3);
+    const colors = new Float32Array((MAX_SAMPLES - 1) * 6 * 3);
     const indices = new Uint16Array((MAX_SAMPLES - 1) * 12);
     for (let i = 0; i < MAX_SAMPLES - 1; i++) {
-      const a = i * 3;
-      const b = (i + 1) * 3;
+      const a = i * 6; // L,C,R of this sample
+      const b = a + 3; // L,C,R of the next
       const o = i * 12;
       // left strip
       indices[o] = a; indices[o + 1] = a + 1; indices[o + 2] = b;
@@ -191,14 +206,17 @@ class Trail {
     const col = this.geometry.attributes.color.array;
     const v = new THREE.Vector3();
 
-    for (let i = 0; i < n; i++) {
+    // One sample's three cross-section points, in world space, written into
+    // whichever vertex slot the caller names. Both segments that touch a
+    // sample get their own copy, from this one computation.
+    const writeSample = (i, slot) => {
       const s = this.samples[i];
       // Screen tangent from a central difference, in isotropic
       // width-fraction coordinates.
       const prev = this.samples[Math.max(0, i - 1)];
       const next = this.samples[Math.min(n - 1, i + 1)];
-      let tx = (next.ndcX - prev.ndcX) * 0.5;
-      let ty = (next.ndcY - prev.ndcY) * FRAC_Y_PER_NDC;
+      const tx = (next.ndcX - prev.ndcX) * 0.5;
+      const ty = (next.ndcY - prev.ndcY) * FRAC_Y_PER_NDC;
       const len = Math.hypot(tx, ty);
       let px;
       let py;
@@ -211,30 +229,37 @@ class Trail {
         px = -ty / len;
         py = tx / len;
       }
-
       const u = Math.min(1, s.age / RIBBON_LIFE_S);
       const half = HALF_FRAC_YOUNG + (HALF_FRAC_OLD - HALF_FRAC_YOUNG) * u;
-      // Authored as display greys, written into a linear vertex-colour
-      // buffer — see srgbScalar's note in effects/pixelTexture.js.
-      const p = this.palette;
-      const grey = p.ribbonYoung + (p.ribbonOld - p.ribbonYoung) * u;
-      const value = srgbScalar(grey);
-      const edge = srgbScalar(grey * p.edgeMult);
-
       const offNdcX = px * half * 2;
       const offNdcY = py * half * NDC_Y_PER_FRAC;
-
-      const base = i * 9;
+      const base = slot * 3;
       this.space.ndcToWorld(s.ndcX - offNdcX, s.ndcY - offNdcY, s.depth, v);
       pos[base] = v.x; pos[base + 1] = v.y; pos[base + 2] = v.z;
       this.space.ndcToWorld(s.ndcX, s.ndcY, s.depth, v);
       pos[base + 3] = v.x; pos[base + 4] = v.y; pos[base + 5] = v.z;
       this.space.ndcToWorld(s.ndcX + offNdcX, s.ndcY + offNdcY, s.depth, v);
       pos[base + 6] = v.x; pos[base + 7] = v.y; pos[base + 8] = v.z;
+    };
 
-      col[base] = edge; col[base + 1] = edge; col[base + 2] = edge;
-      col[base + 3] = value; col[base + 4] = value; col[base + 5] = value;
-      col[base + 6] = edge; col[base + 7] = edge; col[base + 8] = edge;
+    const p = this.palette;
+    for (let i = 0; i < n - 1; i++) {
+      writeSample(i, i * 6);
+      writeSample(i + 1, i * 6 + 3);
+
+      // ONE GREY FOR THE WHOLE SEGMENT, snapped to effects/smoke.js's
+      // SMOKE_RAMP — the same ladder the tail puffs and the launch billow
+      // use, so the whole trail costs six channel values however many
+      // sprites are on screen. The segment's age is taken at its midpoint.
+      //
+      // `edgeMult` is no longer applied. It was the cross-ribbon value ramp,
+      // and a ramp across six pixels is exactly the gouraud tube this file
+      // already records rejecting at 0.70 — at 0.98 it was a 2% gradient
+      // whose only measurable effect was to put more greys on screen. The
+      // flat slab is both the arcade reading and the cheap one.
+      const u = Math.min(1, 0.5 * (this.samples[i].age + this.samples[i + 1].age) / RIBBON_LIFE_S);
+      const value = srgbScalar(snapSmokeValue(p.ribbonYoung + (p.ribbonOld - p.ribbonYoung) * u));
+      for (let k = 0; k < 18; k++) col[i * 18 + k] = value;
     }
 
     this.geometry.attributes.position.needsUpdate = true;
@@ -335,10 +360,11 @@ export class Missiles {
     // The ceiling is real though: an earlier version painted THREE 30-38%W
     // masses that merged into one cloud filling the lower third of the frame
     // and hid the trails entirely
-    // (tools/out/combat-r3-12-trail/frame-0265.png). Two lobes, and
-    // `fadeFrom` late enough that the mass is opaque while it matters but
-    // gone before the next salvo — "briefly occlude PART of the screen" is
-    // the target, not obscure it.
+    // (tools/out/combat-r3-12-trail/frame-0265.png). Two lobes, and a LIFE
+    // short enough that the mass is gone before the next salvo — "briefly
+    // occlude PART of the screen" is the target, not obscure it. (R7: it used
+    // to be `fadeFrom` that did this. A fade is the one thing an arcade sprite
+    // cannot do, so the mass now ends instead of dissolving.)
     //
     // R6: the billow is now a TAPERING PLUME (effects/smoke.js drawBillow) and
     // has to be ORIENTED, or the taper points in an arbitrary direction and is
@@ -387,7 +413,8 @@ export class Missiles {
         fracEnd: 0.24 + rng() * 0.05,
         valueStart: p.billowStart,
         valueEnd: p.billowEnd,
-        fadeFrom: p.billowFadeFrom,
+        // R7: no `fadeFrom`. effects/smoke.js no longer alpha-fades anything
+        // (R6 gap 1's compositing class); the mass now simply ends.
       });
     }
     return m;
@@ -473,7 +500,6 @@ export class Missiles {
           // bright-to-dark ramp at night. See effects/trailPalette.js.
           valueStart: this.palette.puffStart,
           valueEnd: this.palette.puffEnd,
-          fadeFrom: this.palette.puffFadeFrom,
         });
       }
 

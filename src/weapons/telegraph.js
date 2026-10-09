@@ -30,10 +30,37 @@ import { makePixelTexture } from '../effects/pixelTexture.js';
 // pale-gold core #ffd570, orange body #ff7733, dark red rim #941114. The
 // flare is deliberately the same family as the shot it predicts, so the
 // player learns one colour and not two.
-const T_CORE = '#ffd570';
-const T_BODY = '#ff7733';
-const T_RIM = '#941114';
+const T_CORE = '#ffd673'; // sampled #ffd570, snapped to the ladder
+const T_BODY = '#ff7331'; // sampled #ff7733
+const T_RIM = '#941010'; // sampled #941114
+const T_HOT = '#fff7ce';
 
+// R7: THE PULSE IS A PALETTE SWAP, NOT AN OPACITY RAMP, and this is the
+// second member of R6 gap 1's compositing class.
+//
+// What was here: `s.material.opacity = 0.45 + 0.55 * beat`. A continuously
+// varying alpha over whatever the flare happens to be in front of — sky,
+// cloud, sea, another aircraft — and three.js blends in LINEAR space, so the
+// composite is not even a straight-line mix of the two colours. The judge
+// isolated `?combatonly=enemies,shots` at 44-70 channel values against a
+// gate of 32 with ZERO explosion pixels in the arm, and the single largest
+// contributor was this line. One worked example, reproduced exactly offline:
+// #7e5c96 — a lavender — is #941114 at alpha 0.70 over the #009eff sky,
+// composited in linear space. A 1987 board cannot produce that pixel, and
+// the art critic's §3 names exactly this family ("off-palette lavender and
+// pale green") as what the explosion decays through.
+//
+// An arcade cabinet flashes a sprite by swapping its palette entry, so that
+// is what this does: two authored variants of the same 9x9 star, each
+// drawn from the SAME measured four-colour set, selected on the beat. The
+// signal the pulse carries is unchanged — it still brightens three times and
+// still grows (the size ramp below is untouched) — but every pixel it puts
+// on screen is now one of four authored colours.
+//
+// The DIM variant is the bright one with every role stepped down one rung of
+// the same measured ladder (hot->core, core->body, body->rim, rim->rim).
+// No new hexes: a dim flare is the measured palette used darker, not a
+// darker version of the measured palette.
 const STAR = [
   '....r....',
   '....b....',
@@ -46,21 +73,34 @@ const STAR = [
   '....r....',
 ];
 
-function drawTelegraphFlare(ctx, w, h) {
-  const px = w / 9;
-  const colours = { r: T_RIM, b: T_BODY, c: T_CORE, C: '#fff4d0' };
-  for (let y = 0; y < 9; y++) {
-    for (let x = 0; x < 9; x++) {
-      const ch = STAR[y][x];
-      if (ch === '.') continue;
-      ctx.fillStyle = colours[ch];
-      ctx.fillRect(x * px, y * px, px, px);
+const BRIGHT_ROLES = { r: T_RIM, b: T_BODY, c: T_CORE, C: T_HOT };
+const DIM_ROLES = { r: T_RIM, b: T_RIM, c: T_BODY, C: T_CORE };
+
+// Every colour either variant can place. Declared here and handed to
+// makePixelTexture, which snaps to it — see tools/fx_palette_probe.mjs.
+export const TELEGRAPH_PALETTE = [T_RIM, T_BODY, T_CORE, T_HOT];
+
+function drawTelegraphFlare(roles) {
+  return (ctx, w, h) => {
+    const px = w / 9;
+    for (let y = 0; y < 9; y++) {
+      for (let x = 0; x < 9; x++) {
+        const ch = STAR[y][x];
+        if (ch === '.') continue;
+        ctx.fillStyle = roles[ch];
+        ctx.fillRect(x * px, y * px, px, px);
+      }
     }
-  }
+  };
 }
 
-let flareTex = null;
-const telegraphTexture = () => (flareTex ??= makePixelTexture(drawTelegraphFlare, 9, 9, { hardAlpha: true }));
+let flareTexes = null;
+// [dim, bright].
+export function telegraphTextures() {
+  flareTexes ??= [DIM_ROLES, BRIGHT_ROLES].map((roles) =>
+    makePixelTexture(drawTelegraphFlare(roles), 9, 9, { palette: TELEGRAPH_PALETTE }));
+  return flareTexes;
+}
 
 // On-screen flare size, native px. Held CONSTANT rather than scaled with the
 // firing aircraft: a telegraph is a UI promise, and a promise that is 2 px
@@ -87,7 +127,7 @@ export class Telegraphs {
 
   _acquire() {
     if (this.pool.length) return this.pool.pop();
-    const s = makeBillboard(telegraphTexture(), 0.1);
+    const s = makeBillboard(telegraphTextures()[1], 0.1);
     // Above the aircraft and its brackets, below explosions.
     s.renderOrder = 18;
     return s;
@@ -99,6 +139,7 @@ export class Telegraphs {
   // combat.js folds into the audio warning intensity.
   update(enemies) {
     let lit = 0;
+    const texes = telegraphTextures();
     for (const e of enemies) {
       if (!e.alive || e.retired || e.telegraph <= 0) continue;
       let s = this.live[lit];
@@ -113,11 +154,16 @@ export class Telegraphs {
       const beat = Math.abs(Math.sin(t * Math.PI * PULSES));
       const px = FLARE_PX_MIN + (FLARE_PX_MAX - FLARE_PX_MIN) * beat * (0.4 + 0.6 * t);
       this.space.ndcToWorld(e.ndc.x, e.ndc.y, e.d, s.position);
+      // Map BEFORE sizeSprite: sizeSprite reads the aspect off the live map.
+      // Both variants are 9x9 so it makes no difference today, and it would
+      // silently stop being true the moment one of them is redrawn.
+      // The flare never blinks OFF between beats — a signal the player can
+      // miss by looking away at the wrong moment is not a warning. What used
+      // to be an opacity floor of 0.45 is now the DIM variant: fully opaque,
+      // same silhouette, one rung darker on the same measured ladder.
+      s.material.map = texes[beat >= 0.5 ? 1 : 0];
+      s.material.opacity = 1;
       sizeSprite(s, this.space.worldWidthFor(px / 320, e.d));
-      // Opacity floors at 0.45 so the flare never fully disappears between
-      // beats — a signal that blinks OFF is one the player can miss entirely
-      // by looking away at the wrong moment.
-      s.material.opacity = 0.45 + 0.55 * beat;
       s.visible = true;
       lit += 1;
     }

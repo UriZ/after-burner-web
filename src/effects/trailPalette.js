@@ -75,7 +75,12 @@ export const TRAIL_DAYLIGHT = {
   // Launch billow.
   billowStart: 1.0,
   billowEnd: 0.96,
-  // Fraction of life after which the sprite starts alpha-fading out.
+  // RETIRED R7 — NO LONGER READ BY ANYTHING. Kept with its note because the
+  // note is the argument, and the argument won: effects/smoke.js now holds
+  // every sprite opaque for its whole life, which is what a value of 0.97
+  // was approximating anyway. Deleting the field would delete the reason.
+  //
+  // Fraction of life after which the sprite used to start alpha-fading out.
   //
   // IN DAYLIGHT THIS IS ESSENTIALLY OFF, and that is a fidelity fix rather
   // than a tuning preference. A smoke sprite is at its LARGEST when it dies,

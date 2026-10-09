@@ -3,6 +3,15 @@ import { makePixelTexture } from '../effects/pixelTexture.js';
 // Projectile and lock-bracket artwork. Every colour below is a MEASURED
 // sample from REFERENCE.md "Projectile palettes" (round-3 pass, 2x
 // nearest-neighbour crops of 60 fps frames) — no invented hexes.
+//
+// R7: EVERY TEXTURE HERE NOW DECLARES ITS PALETTE, and makePixelTexture
+// snaps to it. `hardAlpha` alone was not enough and the enemy shot is the
+// worked example: it is four concentric ellipses, so three of its four
+// boundaries are antialiased against an OPAQUE fill underneath and come out
+// as two-colour mixtures at alpha 255, which hardAlpha cannot see. A train
+// of eight of those at 1-2 native px each put ~20 unauthored colours on a
+// stage-1 frame in ~20 pixels, and Criterion A2 counts set cardinality, so
+// 20 pixels cost as much as 20 000 would. See judging/R7/lane-fx.md.
 
 // --- Player vulcan round ---------------------------------------------------
 // REFERENCE.md: "small round orange puffs, ~3-4 native px, in a loose zig-zag
@@ -32,9 +41,10 @@ import { makePixelTexture } from '../effects/pixelTexture.js';
 //   r b b c c b b r
 //   . r b b b b r .
 //   . . r r r r . .
-const VULCAN_CORE = '#ffdb21';
-const VULCAN_BODY = '#ffad15';
-const VULCAN_RIM = '#ff9f0c';
+const VULCAN_CORE = '#ffde21'; // sampled #ffdb21, snapped to the ladder
+const VULCAN_BODY = '#ffad19'; // sampled #ffad15
+const VULCAN_RIM = '#ff9c10'; // sampled #ff9f0c
+export const VULCAN_PALETTE = [VULCAN_RIM, VULCAN_BODY, VULCAN_CORE];
 
 const PUFF_ROWS = [
   '..rrrr..',
@@ -67,10 +77,11 @@ function drawVulcanPuff(ctx, w, h) {
 // See reference/stage7-enemy-shot-train-t330.png — the dark rim is the
 // distinguishing feature against the player's vulcan puffs, so it is drawn
 // as a full ring, not a shadow on one side.
-const SHOT_CORE = '#ffd570';
-const SHOT_BODY = '#ff7733';
-const SHOT_RIM = '#941114';
-const SHOT_EDGE = '#e96c63';
+export const SHOT_CORE = '#ffd673'; // sampled #ffd570
+export const SHOT_BODY = '#ff7331'; // sampled #ff7733
+export const SHOT_RIM = '#941010'; // sampled #941114
+const SHOT_EDGE = '#e66b63'; // sampled #e96c63
+export const SHOT_PALETTE = [SHOT_EDGE, SHOT_RIM, SHOT_BODY, SHOT_CORE];
 
 function drawEnemyShot(ctx, w, h) {
   const cx = w / 2;
@@ -93,18 +104,27 @@ function drawEnemyShot(ctx, w, h) {
 // reference/stage1-missile-salvo-t100.75.png the missile bodies are barely
 // separable from their own smoke — the TRAIL is the readable element, not
 // the airframe.
+const MISSILE_BODY = '#e6e6e6';
+const MISSILE_NOSE = '#9c9c9c';
+const MISSILE_FLAME = '#ffa43a';
+const MISSILE_FLAME_HOT = '#ffefb5';
+export const MISSILE_PALETTE = [MISSILE_BODY, MISSILE_NOSE, MISSILE_FLAME, MISSILE_FLAME_HOT];
+
 function drawMissile(ctx, w, h) {
   const cx = w / 2;
-  ctx.fillStyle = '#e8e8e8';
-  ctx.fillRect(cx - 1.5, h * 0.18, 3, h * 0.5);
-  ctx.fillStyle = '#9e9e9e';
+  // Integer rect, not `cx - 1.5`: CLAUDE.md's Canvas2D fractional-position
+  // bug class. A half-covered texel on a 12-wide canvas is 8% of the width
+  // and arrives as a half-transparent grey rim round the body.
+  ctx.fillStyle = MISSILE_BODY;
+  ctx.fillRect(Math.round(cx - 1.5), Math.round(h * 0.18), 3, Math.round(h * 0.5));
+  ctx.fillStyle = MISSILE_NOSE;
   ctx.beginPath();
   ctx.moveTo(cx - 1.5, h * 0.18); ctx.lineTo(cx, h * 0.04); ctx.lineTo(cx + 1.5, h * 0.18);
   ctx.closePath(); ctx.fill();
   // Exhaust flame, same warm family as the player's nozzles.
-  ctx.fillStyle = '#ffa83c';
+  ctx.fillStyle = MISSILE_FLAME;
   ctx.beginPath(); ctx.arc(cx, h * 0.74, w * 0.2, 0, Math.PI * 2); ctx.fill();
-  ctx.fillStyle = '#fff0b8';
+  ctx.fillStyle = MISSILE_FLAME_HOT;
   ctx.beginPath(); ctx.arc(cx, h * 0.74, w * 0.1, 0, Math.PI * 2); ctx.fill();
 }
 
@@ -112,6 +132,9 @@ function drawMissile(ctx, w, h) {
 // GAME_SPEC.md §3 / the round-3 brief: "muzzle flame at the jet". A short
 // bright flare in the vulcan palette, so the gun reads as firing even when
 // the rounds themselves have already travelled into depth.
+const MUZZLE_HOT = '#fff7c5';
+export const MUZZLE_PALETTE = [VULCAN_RIM, VULCAN_BODY, MUZZLE_HOT];
+
 function drawMuzzleFlash(ctx, w, h) {
   const cx = w / 2;
   const cy = h / 2;
@@ -119,7 +142,7 @@ function drawMuzzleFlash(ctx, w, h) {
   ctx.beginPath(); ctx.arc(cx, cy, w * 0.46, 0, Math.PI * 2); ctx.fill();
   ctx.fillStyle = VULCAN_BODY;
   ctx.beginPath(); ctx.arc(cx, cy, w * 0.3, 0, Math.PI * 2); ctx.fill();
-  ctx.fillStyle = '#fff6c8';
+  ctx.fillStyle = MUZZLE_HOT;
   ctx.beginPath(); ctx.arc(cx, cy, w * 0.15, 0, Math.PI * 2); ctx.fill();
 }
 
@@ -152,7 +175,8 @@ function drawMuzzleFlash(ctx, w, h) {
 // bracket on the centre enemy at (490-575, 277-329) of 1028x720: box side
 // ~53 px, strokes 3 px (= ~1 native px), horizontal arms 14-15 px = 27% of
 // the side. So: square box, ~1 native px stroke, arms a QUARTER of the side.
-const BRACKET_WHITE = '#f0f0f0';
+const BRACKET_WHITE = '#efefef'; // was #f0f0f0
+export const BRACKET_PALETTE = [BRACKET_WHITE];
 
 function drawLockBar(ctx, w, h) {
   ctx.fillStyle = BRACKET_WHITE;
@@ -160,17 +184,17 @@ function drawLockBar(ctx, w, h) {
 }
 
 const cache = new Map();
-function cached(key, draw, w, h) {
+function cached(key, draw, w, h, palette) {
   let tex = cache.get(key);
   if (!tex) {
-    tex = makePixelTexture(draw, w, h, { hardAlpha: true });
+    tex = makePixelTexture(draw, w, h, { palette });
     cache.set(key, tex);
   }
   return tex;
 }
 
-export const vulcanTexture = () => cached('vulcan', drawVulcanPuff, 8, 8);
-export const enemyShotTexture = () => cached('shot', drawEnemyShot, 16, 14);
-export const missileTexture = () => cached('missile', drawMissile, 12, 24);
-export const muzzleFlashTexture = () => cached('muzzle', drawMuzzleFlash, 16, 16);
-export const lockBarTexture = () => cached('lockbar', drawLockBar, 4, 4);
+export const vulcanTexture = () => cached('vulcan', drawVulcanPuff, 8, 8, VULCAN_PALETTE);
+export const enemyShotTexture = () => cached('shot', drawEnemyShot, 16, 14, SHOT_PALETTE);
+export const missileTexture = () => cached('missile', drawMissile, 12, 24, MISSILE_PALETTE);
+export const muzzleFlashTexture = () => cached('muzzle', drawMuzzleFlash, 16, 16, MUZZLE_PALETTE);
+export const lockBarTexture = () => cached('lockbar', drawLockBar, 4, 4, BRACKET_PALETTE);

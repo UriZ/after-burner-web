@@ -103,7 +103,51 @@ const STROKE_PX = 1.3;
 // dashed SIGHT square leading the player's nose — the aim point, always
 // present in flight, separate from any lock indicator". Smaller than a lock
 // bracket so the two never read as the same element.
-const SIGHT_PX = 10; // of 320
+//
+// R7: 10 -> 4, AND THE UNIT IS NOT WHAT IT LOOKS LIKE. `boxPx` is a
+// CENTRE-TO-CENTRE span: `_placeCorners` puts each bar's centre on the corner
+// row, so half a stroke hangs outside on every side and the RENDERED assembly
+// measures `boxPx + STROKE_PX` rounded up. At 10 that is 12 native px =
+// 3.750 %W measured, not the 3.125 %W the constant reads as. Anything tuned
+// against this number has to be measured on screen, not computed from it.
+//
+// The arcade's is 5 x 5 native px = 1.563 %W. judging/R7/lane-criteria.md
+// JOB 2 measured it twice at two resolutions and two stages (true-native
+// `ab2-arcade-desert.png` x[127,131] y[91,95] at 1.563 %W; `ab2-longplay.mp4`
+// t201.4 at 1.604 %W) and published the band 1.4-1.8 %W. Its exact pattern,
+// pure #ffffff on orange sky:
+//
+//     ##.##      four L corner marks, 1 px stroke, 2 px arms,
+//     #...#      middle row AND middle column empty, 12 ink px total
+//     .....
+//     #...#
+//     ##.##
+//
+// 4 renders at 5 x 5 px = 1.563 %W, which is the native measurement exactly.
+// The arms come out at 1.6 px from ARM_MAX_FRAC_OF_BOX against the arcade's
+// 2, i.e. one rasterised pixel, which is the whole budget available at this
+// size.
+//
+// SIZE ONLY. `SIGHT_NDC_Y_OFFSET` in weapons/combat.js is deliberately not
+// touched: lane-criteria JOB 2 shows the sight sits 7.8 %H and 8.8 %H ABOVE
+// the airframe in two banked frames and 12.0 %H BELOW it in a third, so the
+// offset is not a screen-frame quantity at all and no fixed screen offset can
+// reproduce all three. That needs a level frame AND a hard-bank frame before
+// the constant moves.
+//
+// This cannot move the lock cone. `_nearestLockable` tests against
+// LOCK_RADIUS_FRAC around the sight's POSITION, which combat.js computes from
+// the airframe along screen-up; SIGHT_PX is only ever passed to
+// `_placeCorners`, which draws. Verified by reading both call sites, and the
+// R6 bank-independence fix is in the position, not in the box.
+const SIGHT_PX = 5; // of 320 = 1.563 %W, OUTER edge to outer edge
+// The sight's own stroke and arm, because the lock bracket's are wrong at this
+// size: 1.3 px of stroke on a 5 px box closes the gaps the glyph is made of
+// (measured — it rendered as a solid 6x6 ring, 28 ink px against the arcade's
+// 12), and ARM_MAX_FRAC_OF_BOX caps the arm at 2.0 px which is what we want
+// anyway, stated explicitly so a later edit to that constant cannot move the
+// sight without someone noticing.
+const SIGHT_STYLE = { outer: true, strokePx: 1, armPx: 2 };
 
 export class LockSystem {
   constructor(scene, space) {
@@ -167,7 +211,7 @@ export class LockSystem {
     this._wasHolding = holding;
 
     if (sight) {
-      this._placeCorners(this.sightCorners, sight.x, sight.y, sight.depth, SIGHT_PX);
+      this._placeCorners(this.sightCorners, sight.x, sight.y, sight.depth, SIGHT_PX, SIGHT_STYLE);
       for (const c of this.sightCorners) c.visible = true;
     } else {
       for (const c of this.sightCorners) c.visible = false;
@@ -366,14 +410,45 @@ export class LockSystem {
   // then displace along the camera's CURRENT right/up — the actual screen
   // axes — which leaves the box upright at any bank angle. REFERENCE.md's
   // t104 and t186 both show brackets square to the screen in banked frames.
-  _placeCorners(bars, ndcX, ndcY, depth, boxPx) {
-    const halfPx = boxPx * 0.5;
-    const arm = Math.min(
+  // R7: THREE OPTIONS, ALL DEFAULTING TO THE EXISTING BEHAVIOUR BIT FOR BIT.
+  // The lock bracket passes none of them and renders byte-identically; only
+  // the sight square uses them. They exist because `boxPx` turned out to mean
+  // something different from what every caller assumed:
+  //
+  //   * `outer` — WHAT BOX SIZE MEANS. Without it, each bar's centre sits ON
+  //     the corner row, so half a stroke hangs outside and the assembly
+  //     RENDERS at `boxPx + strokePx` rounded up. SIGHT_PX = 10 measured
+  //     3.750 %W on screen, not the 3.125 %W the constant reads as, and
+  //     BRACKET_BOX_PX = 16.5 renders at ~17.8 px = 5.56 %W against its own
+  //     published 5.15 %W target. With `outer: true` the bar centres are
+  //     inset by half a stroke and the rendered assembly is exactly `boxPx`.
+  //     **The lock bracket is left on the old convention deliberately**: its
+  //     size is a published R4-gap-10 acceptance number measured on the
+  //     rendered pixels, and silently shrinking it by 1.3 px while fixing the
+  //     sight would be changing someone else's verified result in passing.
+  //     Flagged in judging/R7/lane-fx.md instead.
+  //   * `strokePx` — the bracket's 1.3 px stroke is 26 % of a 5 px sight box
+  //     and closes the gaps the glyph is made of. Measured: at 1.3 the sight
+  //     rendered as a solid 6x6 ring, 28 ink px against the arcade's 12.
+  //   * `armPx` — ARM_MAX_FRAC_OF_BOX caps the arm at 0.40 of the box, which
+  //     at this size is 1.6 px; the arcade's are 2.
+  _placeCorners(bars, ndcX, ndcY, depth, boxPx, opts = {}) {
+    const strokePx = opts.strokePx ?? STROKE_PX;
+    const arm = opts.armPx ?? Math.min(
       Math.max(ARM_FRAC_OF_BOX * boxPx, ARM_MIN_PX),
       ARM_MAX_FRAC_OF_BOX * boxPx
     );
+    // `halfPx` is where a bar's CENTRE goes along its own long axis; `halfS`
+    // is where it goes across the stroke. They differ only under `outer`.
+    const halfPx = boxPx * 0.5;
+    const halfS = opts.outer ? halfPx - strokePx * 0.5 : halfPx;
     const worldPx = this.space.worldWidthFor(1 / 320, depth);
-    const halfY = halfPx * BRACKET_BOX_ASPECT;
+    // Two y half-extents, and conflating them is what the `outer` inset makes
+    // visible: `halfY` is ACROSS the stroke (where a horizontal bar's row
+    // sits) and `halfYLong` is ALONG the box (how far a vertical bar reaches).
+    // They are equal unless `outer` insets the first by half a stroke.
+    const halfY = halfS * BRACKET_BOX_ASPECT;
+    const halfYLong = halfPx * BRACKET_BOX_ASPECT;
 
     const camera = this.space.camera;
     this._centre ??= new THREE.Vector3();
@@ -397,11 +472,11 @@ export class LockSystem {
       // Horizontal arm: sits on the corner's row, runs inward along x.
       const h = bars[i * 2];
       place(h, sx * (halfPx - arm * 0.5), sy * halfY);
-      h.scale.set(arm * worldPx, STROKE_PX * worldPx, 1);
+      h.scale.set(arm * worldPx, strokePx * worldPx, 1);
       // Vertical arm: sits on the corner's column, runs inward along y.
       const v = bars[i * 2 + 1];
-      place(v, sx * halfPx, sy * (halfY - arm * 0.5));
-      v.scale.set(STROKE_PX * worldPx, arm * worldPx, 1);
+      place(v, sx * halfS, sy * (halfYLong - arm * 0.5));
+      v.scale.set(strokePx * worldPx, arm * worldPx, 1);
     }
   }
 
