@@ -17,7 +17,7 @@ import { fileURLToPath } from 'node:url';
 const ROOT = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
 
 function parseArgs(argv) {
-  const args = { frames: 10, every: 1, urlParams: '', page: '/' };
+  const args = { frames: 10, every: 1, urlParams: '', page: '/', warmup: 0 };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
     if (a === '--out') args.out = argv[++i];
@@ -25,6 +25,12 @@ function parseArgs(argv) {
     else if (a === '--every') args.every = Number(argv[++i]);
     else if (a === '--url-params') args.urlParams = argv[++i];
     else if (a === '--page') args.page = argv[++i];
+    // --warmup steps N ticks BEFORE the first capture, without saving them.
+    // Needed for motion work: --every 1 is the only way to see how something
+    // moves, and without a warmup every consecutive-frame run has to start at
+    // tick 1. Nine rounds of this project judged stills because the tooling
+    // made sampled capture the path of least resistance.
+    else if (a === '--warmup') args.warmup = Number(argv[++i]);
     else if (a === '--help') args.help = true;
     // Unknown flags are a HARD ERROR, not a shrug. This parser used to fall
     // through silently: the combat lane ran two suppression tests with
@@ -57,6 +63,7 @@ async function main() {
         '  --frames       number of frames to capture (default 10)\n' +
         '  --every        fixed ticks to advance between captured frames (default 1)\n' +
         '  --url-params   extra query string appended after ?fixed=1&seed=1\n' +
+        '  --warmup       ticks to advance before the FIRST capture (default 0)\n' +
         '  --page         page path to load (default "/", the real game); point at a\n' +
         '                 test-harness HTML file for isolated-subject captures'
     );
@@ -129,6 +136,11 @@ async function main() {
 
     await page.goto(url.toString(), { waitUntil: 'load' });
     await page.waitForFunction('window.__frameReady === true', { timeout: 10000 });
+
+    if (args.warmup > 0) {
+      await page.evaluate((n) => window.__step(n), args.warmup);
+      tick += args.warmup;
+    }
 
     for (let i = 0; i < args.frames; i++) {
       // Step and READ THE PIXELS IN THE SAME JS TASK. This is the fix for the
