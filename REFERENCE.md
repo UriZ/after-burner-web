@@ -384,6 +384,217 @@ measurements, they are cheap, and both would have caught every defect in `judgin
 art-critique.md` in round 1. They come from that report; the numbers below are my independent
 re-measurement of its claims, including the places where I had to correct them.
 
+### A SYNTHETIC CONTROL CANNOT VALIDATE A QUALITY STATISTIC — IT MUST BE RUN ON A KNOWN-QUALITY PAIR (PROCESS RULE, binding from R10)
+
+> **Every instrument in this project has been validated one way and none had ever been
+> validated the other.**
+>
+> A **synthetic control** proves an operator **computes what it says**: that `RP90` really is
+> the 90th-percentile stroke width, that a mask really excludes the HUD, that a decimation
+> really is exact. This project is good at those and should stay good at them.
+>
+> **It cannot prove that a QUALITY STATISTIC RANKS CORRECTLY**, because in a synthetic the
+> person building it decides which arm is the better drawing. **The answer is an input.**
+>
+> **BINDING: any criterion that claims one drawing, one behaviour or one build is better than
+> another must be run on a KNOWN-QUALITY PAIR before it is licensed as a gate.**
+
+**What made this binding.** R9 published DRAW-WEIGHT, the first criterion in this project for
+*drawing*. It was validated against synthetics, against rigid rotation, against two independent
+implementations, against three mask rules and against our own alpha channel — five kinds of
+validation, more than any other instrument here has had. **It was never once run on two real
+sprites whose relative quality was already known.** That test takes ten minutes and the subjects
+were already in the repository. The R9 art critic ran it and the gated statistic preferred the
+untouched sprite. **The sign was the one property nobody had checked, on the instrument with the
+most controls.**
+
+#### What IS a pair — four conditions, and three ways to fail
+
+1. **Both arms are REAL subjects from this build or from the arcade.** Not synthetics.
+2. **The direction was settled BEFORE and OUTSIDE the statistic under test** — by an
+   independent critic, by a judge, or by the project accepting a redraw.
+3. **The comparison is INSIDE the statistic's own licence** — matched span, matched palette,
+   named mask, same subject class: whatever that statistic already requires of any other
+   comparison. *A pair run outside the licence tests nothing the licence had not already
+   disclaimed.*
+4. **NOT CIRCULAR: the lane that produced the "after" arm was not gated on the statistic under
+   test.** A lane told to reduce RP90, which then reduces RP90, is not evidence that RP90 ranks
+   drawings. It is evidence that the lane can read. **This is the condition that is easiest to
+   satisfy by accident and hardest to notice**, because the strongest-looking pairs — the most
+   recent redraws — are exactly the ones a live criterion was steering.
+
+> **A pair failing condition 3 or 4 is still worth running and still worth publishing. It is
+> not worth LICENSING on.** Say which condition it fails, in the row.
+
+#### The harness
+
+`tools/known_quality_pair.py` (`--selftest`, 6 controls; `--pairs`). It takes pairs out of
+**git history** — a sheet before and after a redraw the project accepted — so the direction is
+not the instrument's to choose, and it masks with the sheets' own **alpha channel**, which is
+ground truth, so for our-side pairs there is **no mask discretion at all**. The single largest
+source of disagreement in DRAW-WEIGHT's history (ink 909 vs 1056, RP90 7.51 vs 9.73 on one
+frame under two mask rules) is removed by construction. **That is why the test is cheap, and it
+is most of the answer to why it took nine rounds.**
+
+Control 6 is the one that matters: a **positive control on the gate**, proving the harness would
+*show* a correct ranking if one were there (separated blades vs a slab at matched ink and span —
+RP90 4.39 vs 20.67). A harness that only ever reports inversions is a broken harness.
+
+#### THE RESULT, AND IT REVERSES THE EXPECTED DIRECTION — DRAW-WEIGHT'S SIGN IS NOT INVERTED
+
+**Checked against the real pairs before being written down, which is this document's own rule,
+and the check came out the other way.** Seven same-subject pairs — one sheet, one cell, before
+and after a redraw the project accepted — scored **lower-is-lighter-is-better**, the reading the
+criterion's own prose invites (*"how heavily the object is drawn"*):
+
+| statistic | ranks | **INVERTED** | tied |
+|---|---|---|---|
+| **RP90** — *the gate* | **5** | **0** | 2 |
+| RSW | 4 | 0 | 3 |
+| DENS / INK-SPAN / bbox fill | **7** | **0** | 0 |
+| LINEWORK *(the proposed replacement)* | 4 | **3** | 0 |
+| runs-per-row *(the critic's own rejected one)* | 2 | **3** | 2 |
+
+**And on the player jet, where an arcade anchor exists, DRAW-WEIGHT is monotone toward it across
+every accepted redraw** — four tree states, three statistics, **never once moving away**:
+
+| tree | | RP90 \|d\| from 9.82 | RSW \|d\| from 3.65 | DENS \|d\| from 87.8 |
+|---|---|---|---|---|
+| `a0826ea^` | pre-R6 | 3.08 | 2.12 | 38.3 |
+| `a0826ea` | R6 "the jet is lit" | 2.30 | 2.06 | 32.1 |
+| `2160842` | R7 "no black outline" | 2.30 | **0.87** | 26.1 |
+| `010db2c` | R9 "blades, not a filled mass" | **0.48** | 0.87 | **19.8** |
+
+**THE HONEST BOUND, and it cuts the result roughly in half.** Of the seven pairs, the three from
+`010db2c` fail **condition 4**: the R9 drawing lane was gated on RP90 and tuned to it, so those
+rows are circular for RP90, RSW and DENS. **The non-circular evidence is four pairs that predate
+DRAW-WEIGHT entirely** (`a0826ea`, `2160842`, `1783060` ×2), on which **RP90 ranks 2, ties 2 and
+inverts 0**, and DENS ranks 4 of 4. That is weaker than 5/0/2. **It is still not an inverted
+sign**, and the bottom two rows of the first table are not weakened by circularity at all,
+because no lane was ever gated on them.
+
+#### SO WHAT WAS THE ART CRITIC'S INVERSION? IT IS REAL, IT IS ROBUST, AND IT IS A CROSS-SUBJECT READING
+
+Reproduced here **to every digit** on `tools/art/inkspan.py`, and the critic's unstated population
+recovered: it is **cell 0 of 5** on each sheet.
+
+| | ink | span | DENS | RSW | **RP90** |
+|---|---|---|---|---|---|
+| `enemy-grey-head.png` cell 0 — *untouched* | 454 | 47.3 | 203.2 | 8.46 | **15.26** |
+| `enemy-interceptor-head.png` cell 0 — *R9 redraw* | 446 | 45.2 | 218.5 | 8.85 | **18.25** |
+
+**Extended to all five cells, which the critique did not do: the inversion holds on 5 of 5 for
+RP90** (15.26/13.32/11.82/13.34/15.29 against 18.25/15.07/13.11/15.08/17.37), **so it is not a
+cell-0 artefact.** RSW inverts on 4 and ties on 1. **DENS changes SIGN across the cells** (grey
+is *higher* on cell 2, lower on cells 0/1/4), which is control 7 restating itself: DENS sees
+3.7 % of the defect this operator exists to catch and should never be read as a ranking.
+
+**But the two sheets are two DIFFERENT AIRCRAFT, and REFERENCE already said DRAW-WEIGHT may not
+be read across them.** The box below states, in its own words, *"Near-aspect enemy, carrier,
+title, death hulk — NO ARCADE COLUMN EXISTS. DRAW-WEIGHT is explicitly UNLICENSED on all four."*
+**The pair fails condition 3.** Same sheets, same instrument, run as a **same-subject** pair
+instead — the redrawn interceptor against **its own previous self** — and the gate ranks it
+correctly by a wide margin:
+
+> `enemy-interceptor-head.png` cell 0, `010db2c^` → `010db2c`:
+> **RP90 25.14 → 18.25, RSW 12.57 → 8.85, DENS 252.3 → 218.5, bbox fill 42.7 → 37.3 %.**
+> → `tools/out/criteria-r10/kqp/fig-enemy-crosssubject-vs-samesubject-6x.png`, **cropped and
+> looked at**: the "before" is a solid filled delta, the "after" has separated wing strokes with
+> a highlight and a shadow line and sky between them. The untouched grey beside them is a
+> thin continuous white V. **It is thinner than both, and it is not better than either.**
+
+**THE DEFECT IS THEREFORE NOT A SIGN ERROR. IT IS THIS, AND IT IS WORSE FOR BEING SUBTLER:**
+
+> **A statistic with no arcade anchor degenerates into a DIRECTION, and a direction is the only
+> form that can have a sign.** Where an anchor exists (the player jet, the far LOD) DRAW-WEIGHT
+> is a **distance** and the player-jet table above shows it behaving perfectly. On the four
+> objects where REFERENCE declares it unlicensed, the only reading left to a lane is
+> *"lower is lighter, so push it lower"* — and **thin-and-continuous beats bladed-and-thicker
+> under that reading, every time.** The licence was already written. Nothing enforced it, and
+> the criterion's own prose — *"how heavily the object is drawn"* — invites the reading the
+> licence forbids.
+>
+> **Binding: a DRAW-WEIGHT figure quoted without an arcade anchor is a diagnostic, and the
+> sentence must say so. Do not write "lower is better" anywhere it has no anchor.**
+> The highest-value acquisition this creates is the one REFERENCE already lists: **an arcade
+> column for the near-aspect head-on enemy** (acquisition item 5). With one, the 69.2 %-of-pixels
+> sheet becomes gateable. Without one, no amount of statistic repair helps.
+
+#### THE REPLACEMENT CANDIDATE — LINEWORK, ADOPTED AS A DIAGNOSTIC, REFUSED AS A GATE
+
+The art critic proposed **internal line-work density** — *adjacent in-ink pixel pairs differing by
+more than one ladder rung, per 100 ink px* — stated its limits before anyone gated on it, and
+called it *"a candidate, not a gate."* **That self-limitation was correct and it was not
+conservative enough.** Four findings, all from running it:
+
+1. **Its definition is not recoverable from its publication, and its two controls cannot pin it.**
+   *"Ladder rung"* is undefined. Pinned as a **value difference `|ΔV| > rung`, `V = max(RGB)/255`,
+   4-adjacency, counted once per unordered pair, per 100 ink px**, an implementation reproduces
+   **both** published controls exactly (flat fill **0.0**, 1 px stripes **95.0**) — and those two
+   controls return the **same answer for every rung from 0.004 to 0.5**. They are flat across the
+   entire parameter they exist to fix. The published real-subject figures (67.0 / 73.1 / 80.8) are
+   reproduced by exactly one window: **rung 0.095–0.098, a window 0.003 wide.** At the obvious
+   pinning of one eighth the same pair reads **30.4 / 66.8**. *A gate whose published value moves
+   2.2× inside the ambiguity of one undefined word is not a gate.*
+2. **Roughly half of each published margin is PALETTE, not drawing** — measured by isolation, the
+   drawing held fixed and only the value ladder changed:
+   - re-index the untouched grey sheet's **own drawing, pixel for pixel**, onto the redrawn
+     sheet's value ladder: LINEWORK **30.4 → 45.2**, which is **40.7 % of the pair's whole
+     36.4-point gap**, with not one pixel moved. (DRAW-WEIGHT on the same re-indexed sheet is
+     **unchanged to the digit** — ink 454, span 47.3, RP90 15.26 — which is the control working.)
+   - re-index the **arcade day anchor's own drawing** onto our 8-level ladder: **80.8 → 69.8**,
+     which is **49.6 % of the 22.2-point arcade-vs-ours gap.** The arcade carries **11 value
+     rungs in the licensed mask where we carry 8.**
+3. **It is a size statistic with a drawing term.** Across the nine day cells of **one sheet** —
+   one drawing, nine poses — LINEWORK runs **58.6 at span 99.0 to 77.8 at span 65.3, a 1.33×
+   spread, with `r = −0.998` against span.** Our **cell 0** reads **77.8**, within three points
+   of the arcade's 80.8, purely because it is small.
+4. **Its one cross-side figure was produced by resampling.** The published *"arcade 80.8 vs our
+   jet 49.8 at matched span"* cannot be a native reading: our nine authored cells read **58.6–77.8**
+   and the largest span in the sheet is 99.0 against the arcade's 109.7. Upscaling cell 4 by
+   nearest to the R8 critique's on-screen span 114.1 returns **50.9**. **The span was matched by
+   resampling one side, and resampling is the exact operation finding 3 says this statistic cannot
+   survive** — it is scale-sensitive by the critic's own declaration, and my control 3 shows a
+   2× nearest upscale halving it.
+
+> **LICENSED: LINEWORK is a REPORTED DIAGNOSTIC, between two cells of the SAME SHEET at the SAME
+> SPAN, and every figure publishes `rung`, `span`, and the number of distinct V levels inside the
+> mask. It is NOT a gate, and it may NOT be read across the arcade/ours boundary at all** until
+> both sides can be put at an identical span **without resampling**, which is not currently
+> possible. *Its ranking of the known pair is correct and ~59 % of that margin survives the
+> palette control — the core is real. The published magnitudes are not drawing magnitudes.*
+>
+> **RUNS-PER-ROW stays REJECTED, and now for a second reason.** The critic rejected it at
+> 1.48 vs 1.54 as too thin to carry a gate — reproduced here exactly. On the same-subject pairs it
+> is **inverted on 3 and tied on 2 of 7**, which is worse than thin. Recorded so nobody rebuilds it.
+
+#### THE SWEEP — which existing criteria would survive this test
+
+Run where it could be run, on the same four player-jet tree states. **Two results are new and
+neither is a tidy-up.**
+
+| criterion | kind | known-quality-pair result |
+|---|---|---|
+| **DRAW-WEIGHT** RP90 / RSW / DENS | ranking + anchor | **SURVIVES** where an anchor exists (table above); **DIAGNOSTIC ONLY** where none does |
+| **JET-SIL** two-blade fin rows | ranking | **NON-DISCRIMINATING — 100.0 % on all four trees**, including the pre-R6 sheet the R6 judge replaced. Saturated before the work began; it cannot score any of it |
+| **JET-SIL** blade cant | anchor (1.28) | **INVERTED on 2 of 3.** \|d\| 0.06 → 0.02 → **0.07** → **0.09**: both of the two redraws this project is proudest of moved cant *away* from the arcade. Reported as a direction with no error bound — **the statistic may simply be too coarse at this magnitude. Do not tune to it until that is settled** |
+| **JET-SIL** fin extent | anchor (35.5) | ranks 2 of 3, inverted once (36.7 → 38.0 at R7) |
+| **JET-SIL** nozzle separation | anchor (30.0) | ranks 2, ties 1, **never inverted** — survives |
+| **JET-SIL** aspect SPAN/H | **constraint** (sanity 3.0–3.6) | not a ranking statistic; 3.12 is inside the range. Correctly not a gate |
+| **VALUE-STAT** V median | anchor (0.8392) | ranks 1, ties 2, **never inverted** — survives. *And it corroborates ledger row 22's R8 correction by a completely independent route*: the authored cell-4 sheet reads **0.6431 before `2160842` and 0.8392 from it onward**, which is exactly the 0.643 → 0.8392 transition STATUS records from captures |
+| **VALUE-STAT** black share | anchor (22.2 %) | **INVERTED on 2 of 3** on the authored sheet: \|d\| 9.0 → 10.6 → 2.6 → **7.9**, overshooting past the anchor. *Authored reading; STATUS's 18.9 % is a RENDERED reading and the two are not the same population (see "Authored vs RENDERED colour"). Flagged, not corrected* |
+| **Criterion A / A3 / B**, keyline budget, `n95` | **CONSTRAINTS** | these do not claim one drawing is better, only that one is *admissible*. The test does not apply and they are not weakened by it. **But see the next paragraph** |
+| ARCADE-PACING, deaths/min, emptiness, kill rate | behaviour | the rule generalises; **no settled pair of behaviours exists in this repo yet.** OPEN |
+
+> **AND THE TEST HAS RETROSPECTIVE EVIDENCE IT DISCRIMINATES, which matters more than any row
+> above, because it was not fitted to it.** Two criteria in the ledger below were **already found
+> inverted** — row 18 (Criteria A and B rewarded a sea of enormous flat slabs: *"the gate improved
+> as the art got worse"*, 20 points **above** the arcade) and row 36 (`enemysil.py`'s
+> compact-feature gate *fails a drawing for having* the feature it wants). **Both were found by
+> accident, rounds after they shipped. Both are exactly what a known-quality pair run in ten
+> minutes would have printed.** The rule is not inferred from one case; it is the generalisation
+> of three.
+
 ### The defective-criteria ledger (maintained; add a row, do not re-count from memory)
 
 | # | criterion | what was wrong | round | status |
@@ -432,10 +643,25 @@ re-measurement of its claims, including the places where I had to correct them.
 | 42 | **"BURNER is 13.7 % taller than AFTER"**, and the per-word scaling it implied (AFTER ×1.13 / BURNER ×1.29) | **caught before implementation, and it is TWO independent artefacts stacked, neither of which a whole-word bounding box can separate from a real size difference.** (a) **BASELINE SHEAR**: the wordmark is set on a sloped, sheared baseline, so **the longer word's bbox spans more rows at identical letter height** — worth **6.7 points on a perfectly clean frame**. (b) **THE TUMBLING SPHERE PLATE**: its white specular highlights pass a plain brightness threshold and extend whichever word they sit behind, by a different amount in every frame because the plate is in a different pose in every frame (row 43). **Measured R9 on frames with no plate behind the wordmark (longplay t70, t71): per-column letter height FTER 79.5–80.0, URNER 78.0 — ratio 0.975–0.981, so BURNER's letters are if anything 2 % SHORTER.** The same frames by bbox read **1.067**; `title-screen-t74.png` by bbox reads **1.115**; the published figure is **1.137**. Operator and control: `tools/title_word_height.py`, selftest 4/4 — a 40-row bar on a 1-in-4 slope reads **40.0** per column and **89** by bbox | R9 | **RETIRED, and DO NOT IMPLEMENT the per-word scaling.** Replaced by the per-column operator. **The 21.5 % whole-wordmark shortfall is REAL and survives** — its cause is the **missing oversized bookend letters**, not body size. Lesson in one line: **a bbox is not a letterform**, and a brightness threshold on an upscale will find specular highlights and call them ink |
 | 43 | **every published measurement of the title's "II" sphere plate** — "7.2× too sparse", "the balls are ~3× larger" — all taken off `reference/title-screen-t74.png` | **THE ARCADE TITLE IS NOT A STILL. The sphere plate is a 3-D object that tumbles continuously AND approaches the camera, and t74 is one transient mid-tumble pose.** Verified R9 by decoding the sequence rather than arguing it: `tools/out/criteria-r9/crit-r9-09-ARCADE-title-t70-t79-1s-grid.png` — **t70–t71 no plate visible at all; t72 near face-on, a tall narrow slab; t73 nearly EDGE-ON, a thin horizontal sliver; t74 the published frame, an intermediate pose; t75 a wide shallow parallelogram; t77–t79 the plate swings toward the camera and by t79 fills most of the screen.** Alignment checked: the extracted t74 carries 19 752 colours, identical to the published reference file. **A plate seen near edge-on looks sparse because it is edge-on, and spheres measured at the far end of an approach look small because they are far away.** The operator was right and the frame was right; **the subject was in motion and nothing in the citation recorded it** | R9 | **ALL "II" FIGURES WITHDRAWN as properties of the object**; they are properties of one pose. Re-derive from a **named phase** — t72 is the most face-on readable pose in the cycle — or from a phase census over t70–t79. **See the rule below: ledger row 29, GENERALISED.** No new taxon is opened |
 
+| 44 | **DRAW-WEIGHT read as a DIRECTION on the four objects where it has no arcade column** | **NOT the sign error it was first reported as, and the correction matters because the two defects need opposite fixes.** Checked on seven same-subject known-quality pairs before being written down: **RP90 ranks 5, ties 2, inverts 0**; on the player jet, where an anchor exists, \|d\| from the arcade **falls monotonically across all four accepted redraws (3.08 → 2.30 → 2.30 → 0.48)**. The R9 art critic's inversion is **real, reproduced to the digit, and robust across 5 of 5 cells** — and it is a **cross-subject** reading of two different aircraft, on a class this document had **already declared UNLICENSED** (*"Near-aspect enemy … NO ARCADE COLUMN EXISTS"*). The real defect: **with no anchor a distance statistic degenerates into a direction, and only a direction can have a sign**; under *"lower is lighter"* a thin continuous sheet beats separated blades every time, which is the whole mechanism | R10 | **GATE UNCHANGED where an anchor exists. Elsewhere DEMOTED to a reported diagnostic that must not carry the words "lower is better".** The licence was already written and nothing enforced it. Acquisition item 5 (an arcade column for the near-aspect head-on enemy, **69.2 % of enemy screen pixels**) is now the highest-value item on the drawing board |
+| 45 | **"of the eight day enemy sheets, exactly two changed"** — and every per-sheet figure over that population | **THE FOUR DAY HEAD-ON SHEETS ARE TWO DRAWINGS.** `enemy-interceptor-head.png` and `enemy-prop-head.png` have **byte-identical alpha planes** (md5 `63784d16ec4b` before `010db2c`, `c79c29b5530a` after), as do `enemy-grey-head.png` and `enemy-camo-head.png` (`8f36c102826f`, unchanged since R8). They are **one silhouette in two liveries**. Every DRAW-WEIGHT, JET-SIL or silhouette statistic is alpha-masked and therefore **identical across each pair** — found because two rows of the pair harness printed the same numbers to the digit, which is R9's own rule (*a suspiciously exact agreement is a reason to go looking*) | R10 | **POPULATION CORRECTION, ledger class 2.** *One* silhouette was redrawn in R9, not two. Any shape statistic over these four sheets has **n = 2, not 4**, and any "we fixed N of 8 sheets" claim double-counts. **Palette/value statistics are unaffected — the liveries genuinely differ.** State which kind of statistic you are counting before you count sheets |
+| 46 | **LINEWORK (internal line-work density), the proposed replacement for DRAW-WEIGHT** | **CAUGHT BEFORE ADOPTION — the third such row, and the first where the proposer stated the limits themselves and they were still not conservative enough.** (a) *"ladder rung"* is undefined and **both published controls (0.0 / 95.0) return the same answer for every rung from 0.004 to 0.5**, so they cannot pin it; the published figures reproduce only in a window **0.095–0.098, 0.003 wide**, and at one-eighth the same pair reads **30.4 / 66.8** instead of 67.0 / 73.1. (b) **~41 % of the enemy-pair margin and ~50 % of the arcade margin are PALETTE** — proved by re-indexing each drawing, pixel for pixel, onto the other side's value ladder (30.4 → 45.2; 80.8 → 69.8). (c) `r = −0.998` **against span** across nine poses of one sheet, range 1.33×. (d) the published *"ours 49.8 at matched span"* is a **resampled** reading (native 58.6; ×1.16 nearest → 50.9) of a statistic resampling destroys | R10 | **ADOPTED AS A DIAGNOSTIC ONLY**, same sheet, same span, publishing `rung`, span and V-level count; **NOT a gate and NOT readable across the arcade/ours boundary.** Its *ranking* of the known pair is correct and **~59 % of the margin survives the palette control** — the core is real, the magnitudes are not drawing magnitudes |
+| 47 | **runs-per-row as a silhouette statistic** | the R9 art critic built it, tested it, **rejected it themselves** at 1.48 vs 1.54 as too thin, and recorded it so nobody rebuilt it — reproduced here to the digit. **Run on the seven same-subject pairs it is INVERTED on 3 and tied on 2**, which is worse than thin | R10 | **STAYS REJECTED, now on two independent grounds.** Recorded again because the first recording is what stopped it being rebuilt, and that worked |
+| 48 | **`.claude/skills/youtube-reference/`'s default sampling rate** — the repo's own instrument for the defect class, unused by nine judges | **THE TOOL THAT NAMES THIS DEFECT CLASS DEFAULTS TO THE SAMPLING RATE THAT HIDES IT.** `BURST_FPS=4` (`fetch-reference.sh:21`), documented as *"consecutive frames, 0.25s apart by default"*. The arcade explosion holds within 60 % of peak for **0.067 s**; the arcade's kill burst is **three kills in 0.367 s**; the invincibility flash (row 29) has states lasting **0.10–0.13 s**. **A judge who had followed this skill exactly, at its defaults, would have produced 4 Hz bursts and concluded nothing was wrong.** Two further defects in the same file: `-vf "fps=N"` **resamples** where consecutive decoding needs `-vsync 0` — not the same operation — and `OUT_ROOT=assets/reference/motion`, **a directory that does not exist in this repository** | R10 | **REPAIRED in SKILL.md**: native-rate consecutive decode is now the documented default path for any transient, the 4 Hz burst is restated as a *stage-spread* tool only, and the output path is corrected. **"Nobody used it" was only half the defect** |
+| 49 | **GAME_SPEC §3's missile launch→impact band, *"2–4 frames of 0.25 s"***, which `missiles.js` calls *"MEASURED-TO-SPEC rather than picked"* | **a 4 Hz sample of a sub-second event, taken on `reference/stage1-missile-salvo-t100.75.png` — one of the four hand-picked frames ledger row 37 retired.** With ±0.25 s of quantisation at each end the true support is **0.25–1.25 s**, not 0.5–1.0 s, and `V0`/`ACC`/`V_MAX` were tuned to land inside the narrower band. **Row 29's rule already bound this class and the citation format had no field to record it in** | R10 | **BAND DEMOTED to ASSUMED with its true support stated.** Field 6 (sampling rate) added to "What a complete citation is" so the next one cannot be published without it. The arcade side remains **UNMEASURED by anyone at any rate**; R9's judge established the bound and could not close it |
+| 50 | **JET-SIL's "two-blade fin rows" as a discriminator, and its "blade cant" as a target** | first known-quality-pair run of either. **Two-blade reads 100.0 % on all four player-jet tree states**, including the pre-R6 sheet the R6 judge replaced — **saturated before the work began, so it cannot score any of it.** **Blade cant is INVERTED on 2 of 3 accepted redraws**: \|d\| from the arcade's 1.28 runs 0.06 → 0.02 → **0.07** → **0.09**, i.e. both of the redraws this project is proudest of moved cant away from the arcade | R10 | **Two-blade: NON-DISCRIMINATING, report it, do not score it.** **Cant: OPEN, reported as a direction with no error bound** — the statistic may be too coarse at this magnitude to separate 1.19 from 1.28. **Do not tune to it until that is settled**, and settle it by measuring the arcade's own cant across several frames before touching the sheet |
+
 The pattern across all of them: the number was satisfiable by something that looked nothing
 like the arcade, and in five cases tuning to it moved the build **away** from the reference. In one case
 (row 18) the criterion *rewarded* the build for getting worse.
 **Before tuning to a criterion, check the criterion against the arcade itself.**
+
+**R10 adds a second pattern, visible only now that there are fifty rows.** Sort them by how the
+defect was found and **not one** was found by a synthetic control. They were found by cropping and
+looking, by reading the stage digit, by decoding a second frame, by naming a unit — and in R10, by
+running the statistic on two drawings whose relative quality was already settled. **Controls keep
+operators honest. They have never once caught a criterion.** That is not an argument for fewer
+controls; it is the reason the known-quality-pair test above is now binding beside them.
 
 **AND READ ROW 37 BEFORE READING THAT SENTENCE AS A COUNTERFACTUAL.** Every row above it is a
 criterion that *would have* moved the build the wrong way had a lane tuned to it. **Row 37 is one
@@ -748,7 +974,21 @@ arcade side before any of it was licensed.
 > **INK/SPAN by ×1.999** and **SW/SPAN by 0.001 points**.
 >
 > **INK/SPAN may only be compared between two subjects at a MATCHED SPAN (within ±10 %). Across
-> different sizes or resolutions the comparable forms are SW/SPAN and bbox fill.**
+> different sizes or resolutions the comparable forms are ~~SW/SPAN~~ DENS and bbox fill.**
+>
+> **CORRECTED R10 (R9 judge §5.1): SW/SPAN IS NOT A CROSS-RESOLUTION FORM AND THIS SENTENCE SAID
+> IT WAS.** Six subjects magnified 2× by nearest — which changes **no pixel of the drawing** —
+> move **RSW or RP90 by 17–50 % on five of the six**, and on the control's own subject the gated
+> statistic **RP90 moves −25.7 %**. On the licensed arcade day anchor, 1× → 2×: **DENS ×0.987,
+> RSW ×0.786, RP90 ×0.941.** **DENS is the only one of the four that holds.**
+>
+> **AND BOTH IMPLEMENTATIONS PRINT THE REFUTATION WITHOUT ASSERTING ON IT.**
+> `tools/inkspan_arcade.py --selftest` asserts `SW/SPAN` and prints `P90SW` moving 25 % on the
+> next line; `title_drawweight_r9.py` control 2 asserts `RSW 4.47 → 4.40` and prints
+> `RP90 8.93 → 6.60` unchecked. **A control that prints a failure it does not assert on is a
+> control that passes.** Both must assert on RP90. *No published R9 number is overturned by
+> this* — the judge checked the 18 % night-anchor scale gap against the measured −21 %/octave
+> and it is worth ~−5 %, which does not explain our 1.24× RSW.
 
 The R8 art critic's jet comparison is valid *because* it matched spans (arcade 109.7 against ours
 115.0), and the report does not say that is why. Without this condition the next lane compares a
@@ -759,9 +999,22 @@ The R8 art critic's jet comparison is valid *because* it matched spans (arcade 1
 through eight angles** (the right model, because from astern a bank rotates in the *image plane* and
 does not foreshorten in span) gives
 
-> **CV: INK/SPAN 1.2 %, DENS 1.7 %, RP90 5.3 %, RSW 18.4 % — against bbox fill's 28.7 %.**
-> INK/SPAN is **24× more rotation-stable than fill.** The art critic's claim is correct and is
-> published.
+> ~~**CV: INK/SPAN 1.2 %, DENS 1.7 %, RP90 5.3 %, RSW 18.4 % — against bbox fill's 28.7 %.**~~
+> ~~INK/SPAN is 24× more rotation-stable than fill.~~
+>
+> **STRUCK R10. THAT ROW IS THE SYNTHETIC, AND ITS RSW FIGURE WAS RETRACTED BY ITS OWN AUTHOR IN
+> THE SAME ROUND IT WAS PUBLISHED HERE** (`judging/R9/lane-drawing.md` §2.4g: *"That is a property
+> of my synthetic, not of RSW, and it is retired"*). All four numbers come off **one**
+> `inkspan_jet.py --invariance` arm-B line; the box quoted all four and the lane had retracted one.
+> `tools/art/inkspan.py` control 6 now labels the synthetics **`<- NOT evidence`**.
+>
+> **THE CLAIM IS TRUE AND ON A REAL SUBJECT IT IS STRONGER. Replaced by the R9 judge's run of the
+> test this box needed — the licensed arcade day anchor, one drawing, eight rigid rotations:**
+>
+> > **CV: INK/SPAN 0.5 %, DENS 0.8 %, RP90 2.6 %, RSW 0.4 % — against bbox fill's 14.1 %.**
+> > **29.4× on a real aircraft**, against the synthetic's 24×. The art critic's claim stands and
+> > now has the control it needed. Corroborated by control 6's own real subjects (RSW CV
+> > 0.22 / 0.40 / 3.84 %).
 
 **The same control run over our NINE AUTHORED BANK CELLS reads INK/SPAN CV 9.9 % against fill's
 15.0 % — only 1.5× — and that discrepancy is the licence condition proving itself.** The authored
@@ -771,9 +1024,25 @@ critique's own 13.15 → 10.93 is `SHRINK`, not invariance failing. Three indepe
 require the matched-span rule: the 2× scale control, this reconciliation, and the far-enemy
 comparison below.
 
-**RSW is the exception and must not be gated on alone: it is the LEAST rotation-stable of the four
-at CV 18.4 %**, while being the only one that is tolerance-free. Quote it beside RP90, never
-instead of it.
+~~**RSW is the exception and must not be gated on alone: it is the LEAST rotation-stable of the
+four at CV 18.4 %**~~ — **STRUCK R10, AND THE REASON WAS THE OPPOSITE OF THE TRUTH.** On the
+licensed anchor **RSW is the MOST rotation-stable of the four, at CV 0.4 %** against RP90's 2.6 %.
+It was excluded from the gate on a figure its own author withdrew in the same round.
+
+> **This is not a tidy-up, and the R9 judge is right that it is load-bearing.** Our jet reads
+> **RP90 1.03× the arcade's and RSW 1.24×**. The gated statistic says the jet is finished; the
+> excluded one says the body is still a quarter too thick — which is what the crop shows and what
+> the drawing lane itself reports as its headline residual. **The one statistic that still
+> discriminates was excluded on a retracted basis.**
+>
+> **RSW IS STILL NOT PROMOTED TO THE GATE, and the reason is now a measured one rather than an
+> inherited one.** Two things must hold first and neither does yet: (a) **RSW is the most
+> scale-sensitive of the four** — a pure 2× nearest magnification moves it **×0.786** on the
+> licensed anchor, against DENS's ×0.987 (§ the licence condition above), so an RSW gate is a gate
+> at one span only; and (b) it has **not been run on a known-quality pair as a gate** — on the
+> seven same-subject pairs it ranks 4, ties 3, inverts 0, which is clean but is **3 ties out of 7**,
+> i.e. it is silent on nearly half of them. **Quote RSW beside RP90 on every figure, treat the
+> 1.24× as the live residual it is, and promote it only after a scale-matched pair run.**
 
 ### The arcade column — PER OBJECT, and UNLICENSED where there is none
 
@@ -869,12 +1138,30 @@ rejected.** Raising the floor to admit the night tones destroys the day anchor, 
 
 | sat floor | arcade day jet ink | DENS | **RP90** |
 |---|---|---|---|
-| **0.35** | **1 056** | 86.2 | **9.73** |
-| 0.45 | 1 097 | 89.6 | 9.73 |
-| 0.50 | 1 317 | 91.0 | 8.48 |
-| 0.55 | **1 368 (+29.5 %)** | 94.6 | **8.31 (−15 %)** |
+| **0.35** | **1 056** | 86.2 | **9.82** |
+| 0.45 | 1 097 | 89.6 | 9.82 |
+| 0.50 | **1 198** | — | **9.82** |
+| 0.55 | **1 207 (+14.3 %)** | 100.4 | **9.51 (−3.2 %)** |
 
-**It is a cliff, not a gradient, and it moves the GATED statistic by 15 %.** Symmetrically, the
+> **CORRECTED R10, AND THE WRONG ONE OF TWO FIGURES IN THE SAME LANE'S OWN REPORT WAS PROMOTED
+> HERE.** The struck figures were **1 317 / 1 368 / 8.48 / 8.31 (+29.5 %, −15 %)**. The R9 judge
+> could not reproduce them under **any** of seven variants — three crop boxes and four mask-step
+> variants — and the correct table is **in the same lane's report two hundred lines later**
+> (`judging/R9/lane-criteria.md:1268`: *"0.55 … ink 1207, DENS 100.4 — +14.3 %"*, and
+> *"RP90 3.2 %"*). This document promoted the wrong one **with an explicit upward correction of
+> the right one attached.**
+>
+> **The conclusion survives and must not be weakened with the figure.** Raising the floor still
+> inflates the arcade day anchor's ink by **14.3 %** because the desert starts qualifying, the
+> night rule still covers **97.8–98.6 %** of the daylight crop, **neither rule generalises, and
+> the threshold must not be retuned.** What is withdrawn is the sentence that made it a
+> gate-level emergency. **A lane told the gate moves 15 % under a mask choice makes different
+> decisions from one told it moves 3.2 %** — and this is R9's own process rule (b) catching R9:
+> *the figure most worth cropping is the one you have already explained to yourself.*
+> "+29.5 %, a cliff because the desert qualifies" is a large, reproducible-looking number that
+> arrived with a tidy mechanism attached.
+
+**It is a cliff in INK, not in the gated statistic.** Symmetrically, the
 night rule cannot be used by day: `max(RGB) > 30` covers **98.6 %** of the arcade's daylight crop,
 because the desert ground qualifies. **Neither rule generalises, and that is the finding.**
 
@@ -891,7 +1178,17 @@ is a second independent reason **INK/SPAN stays a diagnostic and never a gate**.
 The arcade's mask can only ever be checked **by looking**. Our own sheets have an **alpha
 channel**, which is ground truth, and it decides the question. Recovery against `alpha > 0`,
 `src/assets/sprites/player-f14.png`, all nine day cells, measured independently by this lane and
-reproducing the drawing lane's figures:
+reproducing the drawing lane's figures.
+
+> **THE STEP ORDERING IS PART OF THE OPERATOR AND IS WORTH 36 POINTS — ADDED R10, R9 judge §5.5.**
+> **Intersect the candidate mask with `alpha > 0` FIRST, then take the largest component.** Doing
+> it the other way round returns a clean, plausible, stable **57.0 %** for cell 4 where the
+> published ordering returns **20.9 %**. The judge reproduced the table only on the second
+> attempt, for exactly this reason, and the table is unreadable without the line.
+>
+> **And this is a fourth, independent argument for the licensed rule that nobody had made: the
+> four-role rule's recovery depends on the unstated ordering by up to 36 points; the achromatic
+> rule's does not depend on it at all** — 94.3 / 92.4 / 93.6 under **both** orderings.
 
 | day cell | alpha>0 px | four roles, raw | **four roles + largest-component** | **achromatic rule** |
 |---|---|---|---|---|
@@ -1022,6 +1319,161 @@ third time.
    same frame depending only on whether the enclosed nozzle discs are in the mask. **A gate on RP90
    is a gate on RP90-under-a-named-mask.** Cite the mask rule above in the same sentence, every
    time.
+7. **IT CANNOT RANK TWO DIFFERENT AIRCRAFT, AND WITHOUT AN ARCADE ANCHOR IT CANNOT RANK AT ALL**
+   (R10, ledger row 44). Blind spot 4 said this as a licence; it needs saying as a **direction**,
+   because that is the form a lane will use it in. **Where an anchor exists DRAW-WEIGHT is a
+   DISTANCE and it behaves** — four accepted player-jet redraws, \|d\| 3.08 → 2.30 → 2.30 → 0.48,
+   never once moving away. **Where no anchor exists the only reading left is *"lower is lighter,
+   so push it lower"*, and under that reading a thin continuous sheet beats separated blades
+   every time** — which is exactly what the R9 art critic measured on the two head-on enemy
+   sheets. **Never write "lower is better" about a DRAW-WEIGHT figure that has no arcade column
+   beside it.**
+8. **It is alpha-shape-only, so it cannot see a LIVERY — and four of our sheets are two drawings**
+   (R10, ledger row 45). `interceptor-head`/`prop-head` share one alpha plane, as do
+   `grey-head`/`camo-head`. Any DRAW-WEIGHT figure over those four sheets has **n = 2**.
+
+## TIME-ENVELOPE — how an event behaves BETWEEN frames (MEASURED R10, ledger rows 48–49)
+
+**Why this exists, and it is the largest hole ever found in this board.** Two greps across every
+judge report, both art critiques and both ground-truth documents return **zero hits** for a
+motion comparison and **zero** for missile tracking, heat-seeking, lock acquisition or turn rate.
+Forty-three repaired criteria measured **colour, value, palette, silhouette topology, geometry
+and population**, and every one of them reads **one frame** or a telemetry scalar. The R9 judge
+split its score on exactly this — **stills 9/10, motion 4/10** — and retired the trend line:
+
+> *"A game can satisfy all forty-three repaired criteria and be wrong the instant it moves, and
+> that is what has happened."*
+
+**The worked example is the fireball, and it is the cleanest demonstration this project has that
+a complete gate set can be complete and wrong.** Our explosion passes **every** palette, value,
+decile-ladder and silhouette gate, and all of those gates are **correct**. It holds within 60 % of
+its peak for **0.600 s against the arcade's 0.067 s.** Nothing on the board could see it.
+
+### The operator — LICENSED, not invented, and reproduced independently before publication
+
+**Licensed verbatim from `judging/R9/report.md` §2.4** so this project does not acquire two
+operators under one name (ledger rows 14, 22, 27, 34):
+
+| | |
+|---|---|
+| **FIRE MASK** | `R > 180 ∧ 60 < G < 235 ∧ B < 90`, per pixel, **both sides, no tolerance knob** |
+| **per-frame reduction** | masked pixels as a **per cent of the whole frame** |
+| **PEAK** | the single maximum frame in the window (not smoothed) |
+| **HOLD** | frames at or above **60 % of peak** — reported as a count **and in seconds** |
+| **DECAY** | the ratio to peak at a **named lag** after the peak frame |
+| **SAMPLING RATE** | **60 Hz on both sides**, and this is the point of the whole section |
+| **arcade decode** | `ffmpeg -ss T -t D -vsync 0` — **consecutive decode, never `-vf fps=N`**, which resamples |
+
+**Added by this lane, and it is the same repair ARCADE-PACING needed:** **HOLD must be published
+as a CONTIGUOUS RUN around the peak, not only as a count over the window.** A count cannot tell
+one 0.067 s flash from four single frames scattered across five seconds. On the arcade the two
+agree exactly (4 and 4), which is what makes it a flash.
+
+> **INSTRUMENT CONTROL, on a known input, before any figure below was trusted** — a synthetic
+> 5 %-of-frame patch inside the band returns **5.00 %**; the same patch at `G = 250`, one channel
+> outside the band, returns **0.00 %**. `tools/out/criteria-r10/envelope/env.py`.
+
+### The arcade column (MEASURED R10 by this lane, independently reproducing R9's judge)
+
+`.reference-cache/video/ab2-longplay-60fps.mp4`, `-ss 96.0 -t 5.0 -vsync 0`, **300 consecutive
+frames at 1028×720, 60 Hz**, stage 1, largest single event in the window.
+
+| | **arcade** | this lane | R9 judge |
+|---|---|---|---|
+| peak fire area, % of frame | **6.03 %** | 6.028 | 6.03 |
+| **HOLD within 60 % of peak** | **4 frames = 0.067 s** | 4 = 0.067 s | 4 = 0.067 s |
+| contiguous run around the peak | **4 frames** — *one flash, not a flicker* | frames 232–235 | *not published* |
+| decay at +0.050 s | **0.51 ×** | 0.514 | — |
+| decay at +0.100 s | **0.28 ×** | 0.275 | 0.28 |
+| decay at +0.500 s | **0.08 ×** | 0.080 | — |
+
+> **Two implementations, two decodes, one set of numbers. Licensed.** And unlike most arcade
+> columns here this one **cannot go stale** — the footage does not move.
+>
+> **ALIGNMENT CAVEAT, carried per CLAUDE.md**: `-ss` sequence extraction on the AV1 60 fps file
+> starts ~4 s early, so **`t = 96.0` names the decode command, not a verified wall-clock
+> timestamp.** The **envelope is a relative shape and is unaffected**; do not quote the absolute
+> time of the event from this row without re-verifying alignment.
+
+**THE SMOKE IS DELIBERATELY UN-NUMBERED.** The arcade's kill leaves a pale mass covering roughly a
+quarter of the frame for **over 1.27 s**; ours leaves nothing at all. The R9 judge read that by
+eye and refused to publish a figure it could not segment past the clouds. **That refusal is
+upheld, not repaired.** An honest bound is an accepted deliverable; *"ours leaves no smoke"* is
+also a claim that needs field 6 — at 4 Hz, a sampler gets it for free.
+
+### Our column, and why there is no GATE yet
+
+| | **arcade** | **ours** |
+|---|---|---|
+| peak fire area | 6.03 % | **3.69 %** |
+| HOLD within 60 % of peak | **0.067 s** | **0.600 s — 9×** |
+| decay at +0.100 s | 0.28 × | **0.85 ×** |
+| residue after decay | pale mass, > 1.27 s | **none** |
+
+**Our column is the R9 judge's, measured on `bd73b52` at 60 Hz** (`?demo=2`, the kill at tick 362,
+`tools/out/judge-r9/motion/ours-demo2/`). **This lane did not re-measure it and must not**: two
+build lanes are live in `src/` this round and one of them owns `effects/explosions.js`, so any
+our-side figure taken now describes a tree that will not exist by the commit.
+
+> **THE GATE IS OPEN AND SAYS SO.** What is licensed is **the operator and the arcade column**.
+> No threshold is published, and inventing one here would be ledger row 37's defect — a gate with
+> one of our own numbers on both sides. **The effects lane owns the our-side figure and the
+> threshold proposal; this lane will license whichever operator that lane ships, and if it differs
+> from the one above the difference gets a ledger row rather than a second name.**
+>
+> **And the direction is NOT "make the fireball shorter" on its own.** Ours peaks **40 % smaller**
+> and lasts **9× longer**. A flash is *brighter and shorter together*; cutting the duration alone
+> gives a small brief puff, which is a third wrong answer. **Both axes move or neither does.**
+
+### THE SECOND TEMPORAL SHAPE — a RATE HAS NO SHAPE (R10, from R9 §2.3)
+
+ARCADE-PACING gates kills per second. The arcade's kills, dated off the HIT digit between
+**consecutive** frames at 60 Hz (validated by cropping the digit at every detected change and
+reading it: 0→1→2→3→4→5, no false positives):
+
+> **t = 96.333, 99.433, 100.267, 100.500, 100.633 — a 3.100 s drought, then three kills in
+> 0.367 s inside one salvo.** The instantaneous rate inside the salvo is **~8 kills/s, twenty
+> times the 0.42–0.54/s average ARCADE-PACING quotes.** Ours delivers **0.519 kills/s smoothly**,
+> and the criterion cannot tell the difference.
+
+**This is the emptiness lesson one level down, and it needs the same repair.** ARCADE-PACING
+already learned that *a percentage cannot tell a sky that empties once for eight seconds from one
+that flickers two hundred times*, and ships run-length beside its percentage. **A kill RATE needs
+a BURST statistic beside its mean** — inter-kill gap distribution, or longest drought and tightest
+triple. **No threshold is published**, for the same reason as above: the arcade sample is **one
+salvo on one stage**, n = 5 kills, and a burst statistic from n = 5 is a single observation.
+**Acquisition item: the inter-kill gap distribution over several STAGE_MAP-keyed spans at 60 Hz.**
+
+### THE MISSILE — UNMEASURED BY ANYONE, AT ANY RATE (R10)
+
+`HOMING_GAIN = 1.7` (`src/weapons/missiles.js`) is **the constant that decides how hard a
+heat-seeking missile turns** — the thing the owner named twice — and it carries **no tag, no
+comment and no reference**, in a file where every other constant carries MEASURED or ADOPTED.
+Nothing in this document, GAME_SPEC or any judge report constrains it. **The launch→impact band
+it works inside is ledger row 49**: a 4 Hz reading of a sub-second event, on a frame row 37
+retired, with a true support of **0.25–1.25 s**.
+
+> **The bound, stated rather than filled.** At 60 Hz every arcade *kill* can be dated to ±1/60 s,
+> but a kill cannot be attributed to a launch: the player's missiles fly away from the camera and
+> are lost in the launch billow within a few frames, and the billow is indistinguishable from the
+> previous kill's smoke at 686×480 or 1028×720. **So the arcade's launch→impact time, turn rate
+> and seeker behaviour are UNMEASURED, and our two constants for them are a 4 Hz inference and an
+> untagged number.** Highest acquisition item on the board: a 60 fps decode that follows **single**
+> arcade missiles from launch flare to detonation. **Until it exists nobody can tune the missile** —
+> and a lane that tunes it anyway is tuning to nothing, which is what row 49 records.
+
+### What TIME-ENVELOPE cannot see, and the rate rule that binds everything above
+
+1. **Sampling rate is the whole measurement.** Every figure in this section is **60 Hz**, both
+   sides, and it says so because field 6 now requires it. A 0.067 s event is **invisible** at
+   4 Hz — which is the default of this repo's own motion tool (ledger row 48).
+2. **It is blind to WHAT the event looks like.** An envelope-correct fireball in the wrong colours
+   scores identically. **This is an ADDITION to the gate set**: FIRE-MASK, the decile ladder and
+   the core/saturation targets must keep passing beside it.
+3. **A percentage is not a run.** Publish the contiguous run around the peak, always.
+4. **n = 1 on the arcade side of the explosion, n = 5 kills on the burst side.** Neither supports
+   a threshold. **They support an operator and a direction**, which is what they are published as.
+5. **A negative about a transient is worth nothing without its rate** — see field 6's corollary.
 
 ## Criterion A — colour cardinality
 
@@ -1663,7 +2115,7 @@ frame destroys. The bands above are set wide enough to absorb the resampling ter
 
 A citation in this document proves **provenance**, not relevance. R5 established that even a
 complete-looking provenance line is not enough to reproduce a figure. Every measured number
-published from here on states **all five** of:
+published from here on states **all five** of — **six, if it touches time (R10, field 6)**:
 
 1. **Source** — frame file or `tN` timestamp, and the **stored resolution** it was read at.
    Native 320×224 outranks any upscale (see "Native frames outrank upscales"), and a
@@ -1686,6 +2138,31 @@ published from here on states **all five** of:
    other lanes' uncommitted work in it and the other a clean checkout of `7b4617a^`. Both
    were right about the tree they were taken on. "The working tree on the afternoon of the
    Nth" is not a reproducible citation.
+
+6. **SAMPLING RATE — binding from R10, and required on every figure that touches TIME**:
+   duration, rate, period, delay, envelope, interval, "holds for", "arrives every", "lasts".
+   State it as a **number in Hz or seconds between samples, on BOTH sides**, and state the
+   **decode method** on the arcade side (`-vsync 0` consecutive decode, or an `fps=N` resample
+   — they are not the same operation and only the first gives consecutive frames).
+
+   > **Why this is a field and not a nicety: EVERY figure in this project that touched time
+   > before R9 was taken at 4 Hz or coarser, and the arcade event those figures are about
+   > lasts 0.067 s.** The R9 motion pass measured the arcade's explosion holding within 60 %
+   > of peak for **4 frames of 1/60 s**. At 4 Hz that whole event falls between two samples.
+   > Two of R9's load-bearing inherited figures are 4 Hz samples of sub-second events and
+   > neither said so: GAME_SPEC §3's missile launch→impact *"2–4 frames of 0.25 s"* (true
+   > support 0.25–1.25 s once the ±0.25 s quantisation at each end is carried), and the
+   > *"~6 lock boxes at once"* count behind the lock radius.
+   >
+   > **This is ledger row 29 widened from PERIODIC to TRANSIENT behaviour.** Row 29 made
+   > sampling binding for a repeating thing (the invincibility flash, 0.267 s period, missed
+   > by four passes). A transient is worse, because a periodic signal at least gives the
+   > sampler repeated chances. **A number with no sampling rate is not a temporal
+   > measurement; it is a still with a unit attached.**
+   >
+   > **And the corollary that bites hardest: a NEGATIVE about a transient is worth nothing
+   > without its rate.** "Ours leaves no smoke", "there is no flash", "nothing happens
+   > between the launch and the hit" are all claims a 4 Hz sampler produces for free.
 
 **Corollary, binding on the judge: the judge measures a CLEAN CHECKOUT, not the live shared
 tree.** With six lanes editing one tree at once, a judge figure taken mid-round describes a

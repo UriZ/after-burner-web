@@ -1,8 +1,125 @@
 # STATUS — where the rebuild stands
 
-**Last updated**: 2026-10-10, **Round 9 in flight** (build lanes live in `src/`, work
-uncommitted in the tree; criteria lane editing this file). R9 criteria work and its evidence:
-`judging/R9/lane-criteria.md`; R8's is `judging/R8/lane-criteria.md`.
+**Last updated**: 2026-10-11, **Round 10 in flight** (two build lanes live in `src/`, work
+uncommitted in the tree; criteria lane editing this file). R10 criteria work and its evidence:
+`judging/R10/lane-criteria.md`; R9's is `judging/R9/lane-criteria.md`.
+
+> ## R10 CRITERIA HEADLINE — THE INVERSION WAS CHECKED AND IT IS NOT AN INVERSION, AND THE RULE THAT FOUND THAT OUT IS THE DELIVERABLE
+>
+> **R9 found that DRAW-WEIGHT ranks the untouched enemy sprite above the redrawn one and called
+> the sign inverted. I ran the test on seven SAME-SUBJECT known-quality pairs — one sheet, one
+> cell, before and after a redraw the project accepted. The gated statistic RP90 ranks 5, ties 2
+> and INVERTS NONE.** On the player jet, where an arcade anchor exists, its distance from the
+> arcade falls across **every** accepted redraw and never once rises: **3.08 → 2.30 → 2.30 →
+> 0.48.** The art critic's inversion is **real, reproduced to the digit, and robust across 5 of 5
+> cells** — and it is a **cross-subject** reading of two different aircraft, on a class REFERENCE
+> had **already declared UNLICENSED**.
+>
+> **The real defect needs the opposite fix: a statistic with no arcade anchor degenerates from a
+> DISTANCE into a DIRECTION, and only a direction can have a sign.** Under *"lower is lighter, so
+> push it lower"* a thin continuous sheet beats separated blades every time. **The licence was
+> written and nothing enforced it**, and the criterion's own prose invites the reading it forbids.
+> Ledger row 44. **Gate unchanged where an anchor exists; demoted to a diagnostic that must not
+> say "lower is better" where none does.** The highest-value acquisition on the drawing board is
+> now **an arcade column for the near-aspect head-on enemy — 69.2 % of enemy screen pixels.**
+>
+> **And the candidate proposed to replace it fails the same test WORSE than the thing it was
+> proposed to replace**: LINEWORK inverted on 3 of 7, runs-per-row on 3 with 2 ties.
+>
+> **THE RULE STANDS AND IS THE ROUND'S DELIVERABLE, because the process finding was true:**
+> *a synthetic control proves an operator computes what it says; it CANNOT prove a quality
+> statistic ranks correctly, because in a synthetic the answer is an input.* DRAW-WEIGHT was
+> validated against synthetics, rotation, two implementations, three mask rules and our own alpha
+> — **five kinds, more than any other instrument here — and never once on two real drawings whose
+> relative quality was known.** Binding, with a harness: `tools/known_quality_pair.py` (6 controls
+> incl. a **positive** one), pairs taken from **git history** so the direction is not the
+> instrument's to choose, masked by the sheets' own **alpha**, so there is **no mask discretion at
+> all**.
+>
+> **Four conditions for a pair; the two that cost the most are new.** (3) **inside the statistic's
+> own licence** — which is the whole difference between "the sign is inverted" and "the test was
+> run out of bounds"; and (4) **NOT CIRCULAR — the lane that produced the "after" was not gated on
+> the statistic under test.** Condition 4 cuts this round's own result roughly in half and is
+> published as the bound: the three `010db2c` pairs are circular for RP90, and **the non-circular
+> four give RP90 ranks 2 / ties 2 / inverts 0.** Weaker. Still not an inverted sign.
+>
+> **RETROSPECTIVE EVIDENCE THE TEST DISCRIMINATES, and it was not fitted**: ledger **row 18**
+> (Criteria A and B *rewarded* a sea for getting worse, 20 points above the arcade) and **row 36**
+> (`enemysil.py` fails a drawing for having the feature it wants) are **already-known inversions,
+> both found by accident rounds later, both exactly what a ten-minute pair run would have
+> printed.** And a pattern visible only at fifty rows: **not one ledger defect was ever found by a
+> synthetic control.** Controls keep operators honest; they have never caught a criterion.
+>
+> **THE SWEEP FOUND TWO MORE, both first-time runs.** **JET-SIL's "two-blade fin rows" reads
+> 100.0 % on all four player-jet tree states** — including the pre-R6 sheet the R6 judge replaced:
+> saturated before the work began, so it cannot score any of it. **JET-SIL's blade cant is
+> INVERTED on 2 of 3 accepted redraws** (\|d\| from the arcade's 1.28: 0.06 → 0.02 → 0.07 → 0.09).
+> **Reported as a direction with NO error bound — the statistic may be too coarse at this
+> magnitude. Do not tune to it; measure the arcade's own cant across several frames first.**
+> Ledger row 50.
+>
+> **A POPULATION DEFECT, found because two rows agreed too exactly** (R9's own rule): the four day
+> head-on enemy sheets are **TWO DRAWINGS** — `interceptor-head`/`prop-head` share a byte-identical
+> alpha plane, as do `grey-head`/`camo-head`. **One silhouette was redrawn in R9, not two**, and
+> any shape statistic over those four sheets has **n = 2, not 4**. Palette statistics are
+> unaffected. Ledger row 45.
+>
+> ## R10's SECOND HEADLINE — THE PROJECT NOW HAS A CRITERION FOR TIME, AND A SIXTH CITATION FIELD
+>
+> **Two greps across every report and both ground-truth documents return ZERO hits for a motion
+> comparison and ZERO for missile tracking, lock acquisition or turn rate.** Forty-three repaired
+> criteria, every one of them reading one frame or a telemetry scalar. The R9 judge split its
+> score — **stills 9/10, motion 4/10** — and retired the trend line.
+>
+> **CITATION FIELD 6, BINDING: every figure touching TIME states its SAMPLING RATE as a number, on
+> both sides, plus the decode method.** Every such figure in this project taken before R9 was
+> **4 Hz or coarser**, and the arcade events they describe last **0.067–0.13 s**. *A number with no
+> sampling rate is not a temporal measurement; it is a still with a unit attached.* This is ledger
+> row 29 widened from PERIODIC to TRANSIENT, and the corollary bites hardest: **a NEGATIVE about a
+> transient is worth nothing without its rate** — "ours leaves no smoke", "there is no flash" are
+> claims a 4 Hz sampler produces for free.
+>
+> **TIME-ENVELOPE is published, operator LICENSED VERBATIM from the R9 judge and the arcade column
+> REPRODUCED INDEPENDENTLY before publication** — separate decode, separate implementation, same
+> numbers: **peak 6.028 %, HOLD 4 frames = 0.067 s, decay 0.275× at +0.100 s**, against the
+> judge's 6.03 / 4 / 0.28. Ours: **0.600 s — 9× — at a peak 40 % smaller, and no residue where the
+> arcade leaves a pale mass for over 1.27 s.** One addition of mine: **HOLD publishes its
+> CONTIGUOUS RUN, not only a count** — on the arcade the two agree exactly, and that agreement is
+> the only evidence in the figure that it is one flash rather than four scattered frames.
+>
+> **THE GATE IS OPEN AND SAYS SO. No threshold is published**, because inventing one would be
+> ledger row 37's defect — a gate with one of our own numbers on both sides. Our side stays the
+> judge's `bd73b52` reading; the effects lane owns the our-side figure and the threshold.
+> **One direction warning that is a criteria finding: ours peaks 40 % SMALLER and lasts 9× longer.
+> A flash is brighter and shorter together — cutting the duration alone gives a small brief puff,
+> a third wrong answer that would pass a duration gate.** The arcade's smoke stays deliberately
+> **un-numbered**; the judge could not segment it past the clouds and that refusal is upheld.
+>
+> **A RATE HAS NO SHAPE.** The arcade kills at t = 96.333, 99.433, 100.267, 100.500, 100.633 — a
+> 3.100 s drought, then **three kills in 0.367 s**, an instantaneous **~8 kills/s against the
+> 0.42–0.54/s average ARCADE-PACING quotes.** Ours delivers 0.519/s smoothly and the criterion
+> cannot tell. **Burst statistic owed; no threshold, because n = 5 kills is one observation.**
+>
+> **THE MISSILE IS ASSUMED, NOT MEASURED, AND NOW SAYS SO.** `HOMING_GAIN = 1.7` carries no tag in
+> a file where every other constant does. Its launch→impact band — *"2–4 frames of 0.25 s"*, which
+> `missiles.js` calls "MEASURED-TO-SPEC" — is a **4 Hz sample of a sub-second event on one of the
+> four frames ledger row 37 retired**, true support **0.25–1.25 s**. Ledger row 49. **The arcade's
+> missile remains unmeasured by anyone at any rate** and the bound on why is published rather than
+> filled. **Highest acquisition item on the board.**
+>
+> ## R10's THIRD FINDING — THE TOOL NOBODY USED WOULD NOT HAVE FOUND IT EITHER
+>
+> `.claude/skills/youtube-reference/SKILL.md` has named this defect class since before round 1 —
+> *"invisible in any single screenshot and obvious across a burst"* — and **no judge used it in
+> nine rounds.** That is half the defect. **The other half: `--burst-fps` defaults to 4, i.e.
+> 0.25 s apart. A reviewer who had followed the skill exactly, at its defaults, would have produced
+> clean 4 Hz bursts and concluded nothing was wrong.** Two more defects in the same file: `-vf
+> fps=N` **resamples** where consecutive decoding needs `-vsync 0`, and its output path
+> `assets/reference/motion/` **does not exist in this repository**. Ledger row 48, **repaired in
+> the three places a reader meets it**: the frontmatter description (the one line every agent sees
+> without opening anything), a mode table and the 60 Hz recipe at the top of SKILL.md, and a new
+> "Measuring MOTION" section in README.md. **`CLAUDE.md` is NOT this lane's file — the patch is in
+> `judging/R10/lane-criteria.md` §5 for the TL.**
 
 > ## R9 CRITERIA HEADLINE — THE FIRST CRITERION IN THIS LEDGER THAT CAUSED A DEFECT RATHER THAN MISSING ONE
 >

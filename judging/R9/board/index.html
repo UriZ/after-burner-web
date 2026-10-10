@@ -1,0 +1,172 @@
+<title>Round 9 Board</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@600;700&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+
+<style>
+  :root {
+    --ink:#0a0c11; --panel:#12161f; --panel2:#171d29; --rule:#262f3e; --rule2:#3a465c;
+    --text:#dde4f0; --dim:#8291a8; --dimmer:#5d6a7e;
+    --red:#f23a2e; --sky:#009fff; --amber:#f7ce00; --green:#3fc98a;
+    --display:"Chakra Petch","Trebuchet MS",sans-serif;
+    --body:"IBM Plex Sans","Helvetica Neue",Arial,sans-serif;
+    --mono:"IBM Plex Mono",ui-monospace,Menlo,monospace;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--ink);color:var(--text);font:400 15.5px/1.6 var(--body);padding:0 20px 80px}
+  .wrap{max-width:1000px;margin:0 auto}
+  code{font-family:var(--mono);font-size:.87em;color:#b9c6dc;background:#0e131c;border:1px solid var(--rule);border-radius:3px;padding:1px 5px}
+
+  header{padding:48px 0 22px;border-bottom:1px solid var(--rule)}
+  .eyebrow{font-family:var(--mono);font-size:11px;letter-spacing:.22em;text-transform:uppercase;color:var(--dimmer);margin-bottom:12px}
+  h1{font-family:var(--display);font-weight:700;font-size:clamp(30px,5vw,46px);line-height:1.03;margin:0 0 10px;letter-spacing:-.015em}
+  .meta{font-family:var(--mono);font-size:12px;color:var(--dimmer);display:flex;flex-wrap:wrap;gap:6px 24px}
+  .meta b{color:var(--dim);font-weight:500}
+
+  .tldr{margin:26px 0 0;background:var(--panel2);border:1px solid var(--rule2);border-left:4px solid var(--amber);border-radius:3px;padding:18px 20px}
+  .tldr h2{margin:0 0 8px;font-family:var(--display);font-size:19px;font-weight:600}
+  .tldr p{margin:0 0 8px;color:#c9d3e4;max-width:72ch}
+  .tldr p:last-child{margin:0}
+  .trend{font-family:var(--mono);font-size:12.5px;color:var(--dim);font-variant-numeric:tabular-nums}
+  .trend b{color:var(--amber)}
+
+  h2.sec{font-family:var(--display);font-weight:600;font-size:12.5px;letter-spacing:.2em;text-transform:uppercase;color:var(--dimmer);margin:46px 0 16px;padding-bottom:9px;border-bottom:1px solid var(--rule)}
+
+  table{border-collapse:collapse;width:100%;font-size:14px;margin:0 0 8px}
+  th,td{border-bottom:1px solid var(--rule);padding:7px 10px;text-align:left}
+  th{font-family:var(--mono);font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--dimmer);font-weight:600}
+  td.n{font-family:var(--mono);font-variant-numeric:tabular-nums;white-space:nowrap}
+  .ok{color:var(--green)} .miss{color:var(--red)} .arc{color:var(--dim)}
+  .tablewrap{overflow-x:auto}
+
+  .pairs{display:grid;gap:14px;grid-template-columns:repeat(auto-fit,minmax(290px,1fr))}
+  .pair{background:var(--panel);border:1px solid var(--rule);border-radius:4px;overflow:hidden}
+  .pair h3{margin:0;padding:11px 14px;font-family:var(--display);font-size:15px;font-weight:600;border-bottom:1px solid var(--rule)}
+  .pair .two{display:grid;grid-template-columns:1fr 1fr;gap:1px;background:var(--rule)}
+  .shot{position:relative;background:#000}
+  .shot img{display:block;width:100%;aspect-ratio:10/7;object-fit:contain;background:#000;image-rendering:pixelated}
+  .shot span{position:absolute;left:0;top:0;font-family:var(--mono);font-size:9.5px;letter-spacing:.14em;text-transform:uppercase;padding:3px 7px;background:rgba(8,10,14,.82)}
+  .shot.ours span{border-bottom:1px solid var(--sky)}
+  .shot.arc2 span{border-bottom:1px solid var(--amber)}
+  .pair p{margin:0;padding:11px 14px;font-size:13.5px;color:var(--dim);line-height:1.5}
+
+  ol.next{margin:0;padding-left:20px}
+  ol.next li{margin-bottom:9px;color:#c9d3e4}
+  ol.next li b{color:var(--text)}
+  .tag{font-family:var(--mono);font-size:9.5px;letter-spacing:.1em;text-transform:uppercase;border-radius:2px;padding:1px 6px;margin-right:7px;white-space:nowrap}
+  .t-new{color:#ffd6d2;border:1px solid color-mix(in srgb,var(--red) 55%,transparent)}
+  .t-carry{color:#ffeeb0;border:1px solid color-mix(in srgb,var(--amber) 45%,transparent)}
+
+  .axes{display:grid;gap:10px;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));margin:14px 0 0}
+  .axis{background:var(--panel);border:1px solid var(--rule);border-left:3px solid var(--rule2);border-radius:3px;padding:12px 14px}
+  .axis.bad{border-left-color:var(--red)} .axis.good{border-left-color:var(--green)}
+  .axis .v{font-family:var(--display);font-size:26px;font-weight:700;line-height:1}
+  .axis .k{font-family:var(--mono);font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--dimmer);margin-bottom:6px}
+  .axis .n{font-size:12.5px;color:var(--dim);margin-top:5px;line-height:1.45}
+  footer{margin-top:44px;padding-top:20px;border-top:1px solid var(--rule);color:var(--dimmer);font-size:13px}
+  footer a{color:var(--sky)}
+  @media(max-width:620px){.pair .two{grid-template-columns:1fr}}
+</style>
+
+<div class="wrap">
+
+<header>
+  <div class="eyebrow">After Burner II rebuild · round board</div>
+  <h1>Round 9</h1>
+  <div class="meta">
+    <span><b>build</b> bd73b52</span>
+    <span><b>previous verdict</b> R8 — 8.5/10</span>
+    <span><b>R9 verdict</b> 7/10 composite · trend retired</span>
+    <span><b>lanes</b> 4, all closed</span>
+  </div>
+</header>
+
+<div class="tldr">
+  <h2>Where we are</h2>
+  <p style="color:var(--text);border-left:2px solid var(--amber);padding-left:14px">
+    <em>A game can satisfy all forty-three repaired criteria and be wrong the instant it moves,
+    and that is what has happened.</em> — the R9 judge, withdrawing its own 9/10 draft
+  </p>
+  <p>
+    The owner looked at the Round 8 board and said the main issues were the jet, the enemy jets,
+    and the feel — <strong>missiles, responsiveness, heat-seeking, how the sights lock</strong> —
+    and asked whether the judge compares <em>video</em> or only images.
+  </p>
+  <p>
+    Two greps settled it. Across every judge report, both art critiques, <code>REFERENCE.md</code>
+    and <code>GAME_SPEC.md</code>: <strong>"has any reviewer compared motion" — zero hits.
+    "missile tracking / heat-seeking / lock acquisition / turn rate" — zero hits.</strong>
+    Nine rounds. Every instrument reads one frame or a scalar.
+  </p>
+
+  <div class="axes">
+    <div class="axis good"><div class="k">still frames &amp; telemetry</div><div class="v">9 / 10</div>
+      <div class="n">What all nine rounds measured. R9's work here is real and large.</div></div>
+    <div class="axis bad"><div class="k">motion — first measured this round</div><div class="v">4 / 10</div>
+      <div class="n">Mostly <em>unknown</em>, not mostly <em>wrong</em>. An uncharted axis.</div></div>
+    <div class="axis"><div class="k">composite</div><div class="v">7 / 10</div>
+      <div class="n">The 3 → 4 → 6 → 7 → 7.5 → 8 → 8 → 8.5 trend is retired, not continued.</div></div>
+  </div>
+</div>
+
+<h2 class="sec">The image nine rounds never produced</h2>
+
+<div class="pairs">
+  <div class="pair" style="grid-column:1/-1">
+    <h3>Ours (left) against the arcade (right), same combat moment, in motion</h3>
+    <div class="two" style="grid-template-columns:1fr">
+      <div class="shot ours"><span>ours · left &nbsp;|&nbsp; arcade · right</span><img src="img/motion-pair.png" alt="Side-by-side frame: our build left, arcade right, during combat" style="aspect-ratio:auto"></div>
+    </div>
+    <p>Visible here and measured by no gate we own: the arcade's frame holds ~6 aircraft where ours holds 2 — its average is low because it <em>bursts and gaps</em>, and we flattened to a constant trickle. Its missile trails are thick persistent smoke columns; ours are dotted specks. Its enemies are dark and high-contrast; ours are pale. Its lock brackets sit tight on targets; ours scatter. <em>One frame pair, not phase-aligned — shown to redirect the round, not as a measurement.</em></p>
+  </div>
+</div>
+
+<h2 class="sec">What Round 9 built — all of it real</h2>
+
+<div class="tablewrap">
+<table>
+  <tr><th>measure</th><th>arcade</th><th>before</th><th>after</th></tr>
+  <tr><td>aircraft emitted / s</td><td class="n arc">0.4–0.74</td><td class="n">2.7–2.9</td><td class="n ok">0.567–0.647</td></tr>
+  <tr><td>sky empty of aircraft</td><td class="n arc">39.7%</td><td class="n miss">0.0–0.4%</td><td class="n ok">39.4%</td></tr>
+  <tr><td>longest empty stretch in 90 s</td><td class="n arc">—</td><td class="n miss">0.32 s</td><td class="n ok">3.4–5.1 s median</td></tr>
+  <tr><td>title wordmark height</td><td class="n arc">115</td><td class="n">91</td><td class="n ok">114</td></tr>
+  <tr><td>title frames distinct over 120 ticks</td><td class="n arc">animates</td><td class="n miss">1</td><td class="n ok">all distinct</td></tr>
+  <tr><td><code>drawRearFar()</code> fill — 44.8% of enemy sprites</td><td class="n arc">an aircraft</td><td class="n miss">100.0% (a rectangle)</td><td class="n ok">56.3%</td></tr>
+</table>
+</div>
+
+<div class="pairs" style="margin-top:14px">
+  <div class="pair">
+    <h3>The jet: arcade / R8 / R9</h3>
+    <div class="two" style="grid-template-columns:1fr">
+      <div class="shot ours"><span>arcade → R8 → R9</span><img src="img/jet-3way.png" alt="Three-way: arcade banked jet, R8's filled mass, R9's blades" style="aspect-ratio:auto"></div>
+    </div>
+    <p>The arcade is four thin blades with sky between them. R8 was a filled cream mass. R9 is blades. This is the owner's "our jet is still not good enough", answered on the axis that carried it.</p>
+  </div>
+  <div class="pair">
+    <h3>Two aircraft, not seven</h3>
+    <div class="two" style="grid-template-columns:1fr">
+      <div class="shot ours"><span>ours · tick 2076</span><img src="img/ours-pacing.png" alt="Our stage 1 with two enemy aircraft and open sky"></div>
+    </div>
+    <p>Hand-counted on the judge's own operator: 7–8 before, 2 after. The median continuously-occupied run fell from <b>86.5 s</b> — one unbroken block of aeroplanes — to 5.3–5.7 s.</p>
+  </div>
+</div>
+
+<h2 class="sec">Round 10 — the motion round</h2>
+
+<ol class="next">
+  <li><span class="tag t-new">feel</span><b>The missile is a timer that cannot miss.</b> The entire impact condition is <code>hit = target &amp;&amp; m.depth &gt;= target.d</code> — no lateral term, no proximity, no radius. 93.8% hit rate, outcome fixed at launch, no turn-rate limit, and a final 0.028 s in which it snaps to the target. <em>An AB2 missile that always hits is not a missile, it is a scoring button with a 0.55 s delay.</em></li>
+  <li><span class="tag t-new">feel</span><b>The lock takes one tick and is invisible</b> — a locked target looks exactly like an unlocked one. No sweep to earn, no brackets filling to read.</li>
+  <li><span class="tag t-new">feel</span><b>The stick has no inertia</b> — first-order lag, no overshoot, nothing to anticipate or let momentum carry.</li>
+  <li><span class="tag t-new">motion</span><b>Our explosion is a plateau where the arcade's is a flash.</b> It holds within 60% of peak for <b>0.600 s against the arcade's 0.067 s</b>. Every colour gate passes it, correctly — what is wrong is its <em>envelope in time</em>, and no criterion here has one.</li>
+  <li><span class="tag t-new">criteria</span><b>The new drawing criterion's sign is inverted.</b> DRAW-WEIGHT was validated against synthetics, rotation, two implementations, three mask rules and our own alpha — and never once against two real sprites whose relative quality was known. On that pair it ranks the <em>untouched</em> sprite above the redrawn one. Must be fixed before anything is gated on it.</li>
+  <li><span class="tag t-carry">carried</span><b>Two of eight enemy sheets were redrawn</b>, and the six that were not include the one owning <b>69.2%</b> of stage-1 enemy screen area. The carrier launch — the first screen a player sees — is untouched since R7.</li>
+</ol>
+
+<footer>
+  <p><b>The three feel defects are one defect with three faces.</b> Each is a <em>skill expression that has been removed</em>: out-turn the missile, earn the lock, load the aircraft. The systems resolve instantly and deterministically — nothing is in flight, in doubt, or recoverable. That is a better account of "it does not feel like After Burner" than any pacing number, and it is why nine rounds of pixel work could not touch it.</p>
+  <p><b>The repo has known this since before Round 1.</b> <code>.claude/skills/youtube-reference/SKILL.md</code> was written for motion bursts and names this exact defect class in its own text — <em>"invisible in any single screenshot and obvious across a burst."</em> No judge had ever used it. New this round: <code>tools/motion_compare.py</code>, and <code>--warmup</code> on the capture tool, without which every consecutive-frame run had to start at tick 1.</p>
+  <p>Full reports: <code>judging/R9/report.md</code>, <code>art-critique.md</code>, <code>feel-critique.md</code>, <code>lane-*.md</code>.</p>
+</footer>
+
+</div>

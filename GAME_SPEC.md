@@ -11,6 +11,25 @@ reference-matching. Every item is tagged:
 - **ASSUMED** — believed correct (arcade knowledge / plausible fill-in); needs verification
   before anyone treats it as ground truth.
 
+**SAMPLING-RATE CAVEAT (R10), and it bites harder than the colour one below.** This file is where
+this project keeps its **time**: durations, rates, cooldowns, delays, windows, periods. **Every
+figure in it that touches time, measured before R9, was taken at 4 Hz (0.25 s) or coarser** — the
+`tN` strips are 0.2–0.25 s grids — and the arcade events those figures are about are **shorter
+than one sample**. The explosion holds within 60 % of its peak for **0.067 s**; the invincibility
+flash's states last **0.10–0.13 s**; three arcade kills arrive in **0.367 s**.
+
+> **Binding, REFERENCE citation field 6: every temporal figure in this file states its SAMPLING
+> RATE as a number, on both sides.** A figure without one is **not a temporal measurement**; it is
+> a still with a unit attached. Two consequences you will meet below: a MEASURED tag on a
+> sub-second figure taken at 4 Hz is **ASSUMED** until re-taken (§3's missile band, ledger row 49),
+> and **a MEASURED-tagged NEGATIVE about a transient is worth nothing** — §2's "no visible
+> invincibility flash" was exactly that, and the arcade has the flash (ledger row 29).
+>
+> **Re-take rather than re-reason**: `ffmpeg -ss T -t D -vsync 0` on
+> `.reference-cache/video/ab2-longplay-60fps.mp4` gives consecutive 60 Hz frames. Note that
+> `-vf fps=N` **resamples** and is not the same operation, and that the repo's own
+> `youtube-reference` skill defaulted to 4 Hz bursts for nine rounds (ledger row 48).
+
 **COLOUR CAVEAT (R5b).** Every hex constant in this file beginning `#ff…` was sampled from a
 longplay video frame, and **the longplay video is not level-accurate**: it tops the arcade's
 `0xf7` palette ladder out at `0xff` and lifts chroma (pure HUD red reads `#f70000` on a native
@@ -607,14 +626,47 @@ spread.
   points (tanker: 20→70 across t163–167; runway: 22→70 across t253–256).
 - Fire on button press, cooldown 0.4 s (ADOPTED). Missiles launch from wing pylons,
   run ~0.3 s straight (HOMING_DELAY), then home on the locked target; max life 5 s.
-- **Multi-lock + salvo is real and central** — MEASURED (t99.5–103.5 at 0.25 s,
-  `reference/stage1-missile-salvo-t100.75.png`): a cluster of ~6 dashed corner-bracket
-  lock boxes on-screen at once (t100), then **HIT 2 → 10 in 2.25 s** — eight kills from
-  one salvo pass, so at least ~6–8 missiles can be in flight simultaneously. Launch →
-  impact ≈ 0.5–1.5 s at the depths observed (explosions land 2–4 frames of 0.25 s after
-  the launch flurry). A launch throws big white smoke billows that briefly occlude part
-  of the screen; two simultaneous wing-pylon launch flares are visible at t177. This
-  replaces the prototype's single-lock model as the fidelity target.
+- **Multi-lock + salvo is real and central** — MEASURED (t99.5–103.5, **SAMPLING RATE 4 Hz
+  (0.25 s)**, `reference/stage1-missile-salvo-t100.75.png`): a cluster of ~6 dashed
+  corner-bracket lock boxes on-screen at once (t100), then **HIT 2 → 10 in 2.25 s** — eight
+  kills from one salvo pass, so at least ~6–8 missiles can be in flight simultaneously.
+  A launch throws big white smoke billows that briefly occlude part of the screen; two
+  simultaneous wing-pylon launch flares are visible at t177. This replaces the prototype's
+  single-lock model as the fidelity target.
+
+  > **LAUNCH → IMPACT: ~~≈ 0.5–1.5 s~~ DEMOTED TO ASSUMED, R10 (REFERENCE ledger row 49), AND
+  > `missiles.js` CALLS IT "MEASURED-TO-SPEC".** The observation behind it is *"explosions land
+  > 2–4 frames of 0.25 s after the launch flurry"* — **a 4 Hz sample of a sub-second event**, on
+  > `reference/stage1-missile-salvo-t100.75.png`, which is **one of the four hand-picked frames
+  > ledger row 37 retired**. With ±0.25 s of quantisation at each end the **true support is
+  > 0.25–1.25 s**, not 0.5–1.0 s, and `V0` / `ACC` / `V_MAX` were tuned to land inside the
+  > narrower band. REFERENCE ledger row 29 already made this class binding; the citation format
+  > had no field to record the rate in until R10 added **field 6**.
+  >
+  > **THE ARCADE'S MISSILE HAS NEVER BEEN MEASURED BY ANYONE AT ANY RATE, AND THE BOUND IS
+  > KNOWN.** At 60 Hz every arcade *kill* dates to ±1/60 s, but a kill cannot be attributed to a
+  > launch: the player's missiles fly away from the camera and are lost in the launch billow
+  > within a few frames, and the billow is indistinguishable from the previous kill's smoke at
+  > 686×480 or 1028×720 (R9 judge §2.7). **Acquisition item, highest on the board: a 60 fps
+  > decode following SINGLE arcade missiles from launch flare to detonation — turn rate, flight
+  > time, trail length. Until it exists, do not tune the missile.**
+  >
+  > **And `HOMING_GAIN = 1.7` in `src/weapons/missiles.js:136` — the constant that decides how
+  > hard a heat-seeker turns, which the owner has named twice — is ASSUMED, not MEASURED.** It
+  > carries no tag, no comment and no reference of any kind in a file where every other constant
+  > carries one, and nothing in REFERENCE, this document or any judge report constrains it.
+  > **Tag it ASSUMED in the source rather than leaving it bare** — a declared exception is a
+  > criterion nobody has to argue with (REFERENCE's R9 process rule).
+  >
+  > *Source state: still bare on the R10 working tree with the feel lane live in this file. If
+  > that lane produces an arcade turn rate, this paragraph is superseded by its measurement and
+  > the band above is re-derived from it — do not keep both.*
+  >
+  > **The "~6 lock boxes at once" count is from t100 — the SAME retired frame** — and it is
+  > already ledger row 41 together with the 22 %W lock radius it justifies, against the only
+  > arcade anchor for that radius, **8.3 %W**. Ours acquires one lock per 0.117 s against
+  > `LOCK_INTERVAL_S = 0.10` and peaks at **3 locks / 4 bracket sets** (R9 §2.6, 60 Hz,
+  > `bd73b52`). **Do not close the 3-vs-6 gap by citing t100.**
 - **Lock-on display, three distinct elements (round-4 state map, MEASURED on the
   t84–118 reticle strip and the t115–118 engagement at 0.25 s)**:
   1. **The small dashed SIGHT square** leading the player's nose — the aim point,

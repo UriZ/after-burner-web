@@ -104,6 +104,30 @@ scanning, never kills anything it didn't start), drives the page through
 `window.__step`, screenshots the `#screen` canvas, and tears its own server +
 browser down on exit.
 
+## Measuring MOTION — read this before any figure that touches time (R10)
+
+**Nine rounds of this project judged still frames.** The first motion pass, in R9, found our
+explosion holding near its peak **9× longer** than the arcade's while passing every colour, value
+and silhouette gate correctly. **Every figure in this repo that touched time before R9 was sampled
+at 4 Hz or coarser, and the arcade events they describe last 0.067–0.13 s.**
+
+| side | how |
+|---|---|
+| **arcade** | `ffmpeg -nostdin -ss T -t D -i .reference-cache/video/ab2-longplay-60fps.mp4 -vsync 0 <unique-dir>/f%04d.png` — **consecutive** frames at the source's own 60 Hz. **`-vf fps=N` RESAMPLES and is a different operation.** Use the **60 fps** cache file; the 30 fps copy cannot resolve a 0.067 s event |
+| **ours** | `tools/capture.mjs --every 1 --warmup N` (a consecutive burst starting somewhere other than tick 1), or a per-tick telemetry recorder under `?fixed=1` |
+| **both** | the **same rate**, or the comparison means nothing |
+
+- **REFERENCE.md citation field 6 is binding**: every temporal figure publishes its **sampling
+  rate as a number, on both sides**, plus the decode method.
+- **A negative needs the rate most of all.** *"There is no flash"*, *"ours leaves no smoke"* — a
+  4 Hz sampler produces those for free. Four passes published "no visible invincibility flash"
+  about an arcade that flashes at a 0.267 s period.
+- **Publish the contiguous run, not only a count.** Four frames above a threshold scattered over
+  five seconds is not the same event as four consecutive ones.
+- `.claude/skills/youtube-reference/SKILL.md` has the long form. **Its `--burst-fps` default of 4
+  is a stage-spread rate and will hide any transient** — read the mode table at the top of that
+  file before using it for timing.
+
 ## Measurement scripts (`tools/`)
 
 All derive their own HUD exclusion from `tools/hud_mask.py` rather than
@@ -130,6 +154,7 @@ hud_mask = get_hud_mask('tools/out/<your-unique-dir>')   # captures + caches
 | `assert_population.py` | **Run this before computing any figure over a claimed population.** Reads the authored effect palettes out of `src/` at run time and counts exact-colour pixels per frame, reporting **PLAYER-WEAPON / EXPLOSION / ENEMY-FIRE** separately. `--require weapon,explosion` exits non-zero if a class is absent from every frame of a set, so it can gate a capture. `--collision-control <nocombat dir>` re-proves per tree that the detector colours do not occur with combat off. `--selftest` includes the decisive control: it **refuses the twelve frames R7 published its "ordinary play with combat" Criterion A figure over** (REFERENCE ledger row 32). |
 | `verify_stage_digit_operator.py` | Head-to-head control for the two stage-attribution operators. `--selftest` asserts the exact-ink Hamming reader returns every digit and **refuses a digit-free cell**, while REFERENCE's old `mean(RGB) > 170` test fails in both directions on inputs with known ground truth. `--dir` runs both on real captures and cross-checks the digit against the modal sky colour — an instrument that never sees the HUD. |
 | `combat_probe.mjs` | Node script: steps the game under `?fixed=1` and prints `window.__combatStats()` as JSON lines per tick — the simulation's internal combat ground truth, not a pixel inference. |
+| `known_quality_pair.py` | **Run this before licensing any criterion that claims one drawing is better than another.** A synthetic control proves an operator computes what it says; it cannot prove a quality statistic *ranks correctly*, because in a synthetic the answer is an input. This takes pairs out of **git history** — a sheet before and after a redraw the project accepted — masks with the sheets' own **alpha channel** (ground truth, so no mask discretion at all) and reports whether each statistic moves the right way. `--selftest` has 6 controls including a **positive** one, proving the harness would show a correct ranking if there were one. `--pairs` runs the sweep. REFERENCE.md, "A synthetic control cannot validate a quality statistic". |
 
 ## Preview / audition harnesses
 
