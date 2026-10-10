@@ -297,27 +297,165 @@ function drawRear(buf, pal) {
 // Full coverage makes the measured span identically equal to the quad width
 // at every size, which is what the continuous-scaling measurement needs.
 //
-// Reading as an aircraft is handled by VALUE, not by shape: a lighter
-// full-width wing band through the middle, darker rows top and bottom, and a
-// single dark nose pixel. At 3-9 px that is what AB2's distant enemies are
-// (reference/stage1-level-flight-t116.png: the bracketed enemy at ~(415,210)
-// is a handful of dark pixels, no silhouette).
+// THE PARAGRAPH THAT STOOD HERE WAS FALSE, AND IT IS THE REASON THIS CELL
+// SURVIVED FOUR AUDITS. It read:
+//
+//   "Reading as an aircraft is handled by VALUE, not by shape ... At 3-9 px
+//    that is what AB2's distant enemies are (reference/stage1-level-flight-
+//    t116.png: the bracketed enemy at ~(415,210) is a handful of dark pixels,
+//    no silhouette)."
+//
+// The criteria lane cropped that citation at 12x and it does not survive
+// being looked at; I re-cropped it independently at native scale and agree.
+// `reference/stage1-level-flight-t116.png` x[398,432] y[196,222], box-
+// resampled to 16x12 native-equivalent (tools/out/drawing-r9/
+// t116-farenemy-native-30x.png; the criteria lane's is
+// tools/out/criteria-r9/crit-r9-05-ARCADE-far-enemy-t116-12x.png): the
+// aircraft is a PALE HORIZONTAL WING LINE about two rows tall and ten px
+// wide, clearly wider than its body, with a dark core, OPEN SKY above and
+// below it, and a separate fin stripe above. It is a cross. It is not "a
+// handful of dark pixels" and it has a silhouette.
+//
+// The criteria lane's own independent measurement prices it: at a matched
+// span of 16-18 px the arcade's distant enemies read bbox fill 30.6-34.6 %
+// against this cell's 100 %. **The arcade keeps sky inside the aircraft's
+// bounding box at nine pixels of span.**
+//
+// CLAUDE.md: "a comment citing a measurement that was never taken is worse
+// than no comment -- the next agent trusts it." Four audits trusted this one.
+// ===================================================================
+// R9: THE FAR LOD WAS A RECTANGLE BY CONSTRUCTION, AND IT IS 44.8 % OF
+// THE ENEMY SPRITES ON SCREEN.
+//
+// R8's art critique, rank 3: "`drawRearFar()` ... read from the source it is
+// a fully-filled 16x8 cell with four nested `fillRect`s inside it -- a
+// rectangle by construction, with no silhouette at all." It survived four
+// audits because it is a DECLARED EXCEPTION in this file, so "every audit
+// that read the comment stopped reading."
+//
+// THE OPACITY CONSTRAINT IS REAL AND IS KEPT. The paragraph above is
+// correct: at 3-9 native px any transparent row is a frame where the
+// aircraft vanishes, and R3 measured 27 of 80 frames rendering zero pixels
+// when rows 0 and 7 were left empty. What was never worked out is that the
+// constraint does not need a FULL cell -- it needs, for every quad height,
+// at least one SAMPLED row that spans the full texel width. With nearest
+// filtering a quad of height h samples texel rows floor((i+0.5)*8/h), so:
+//
+//     h=1 -> {4}      h=2 -> {2,6}    h=3 -> {1,4,6}   h=4 -> {1,3,5,7}
+//     h=5 -> {0,1,3,4,6}   h=6 -> {0,2,3,4,5,7}   h=7,8 -> nearly all
+//
+// Rows 2, 3 and 4 full-width satisfies every one of those: h=1 hits 4, h=2
+// hits 2, h=4 hits 3, and h>=3 always hits 3 or 4. So the measured span is
+// identically the quad width at every size -- the property the R3
+// continuous-scaling measurement depends on -- and rows 0, 1, 5, 6 and 7 are
+// free to carry a silhouette. ROWS_MUST_BE_FULL below asserts it at module
+// load rather than leaving it as a comment, which is the treatment this
+// project has had to apply three times now; FAR_SPAN_INVARIANT_OK re-derives
+// the sampled-row sets rather than trusting the table above.
+//
+// WHAT THIS DOES NOT CLOSE, stated so nobody records it as done. The critic
+// measured the arcade's distant enemy at 26.3 % fill inside its bbox against
+// our 69.4 %. 26 % is unreachable while the opacity invariant stands: three
+// full rows of eight is 37.5 % before a single shaped pixel. This cell lands
+// near 56 %. The remaining 30 points are the invariant's price, and the
+// honest way to pay them off is to drop DETAIL_SWITCH_NATIVE_PX so the
+// shaped sheets cover more of the range -- which is a combat-lane call about
+// the span gate, not an art change, and is NOT made here.
+//
+// VALUE, AND A CRITERION I WOULD NOT TUNE TO AS WRITTEN. The critic's fix is
+// "a far-LOD cell in the livery's darkest tone", from an arcade distant
+// enemy at mean V 0.289 against a V 0.902 sky. That measurement is on
+// ab2-arcade-desert.png, HUD digit 2 -- a STAGE-2 orange-sky camo frame --
+// and this file's own R6 polarity note records that applying a stage-2
+// enemy value to stage 1 is the exact mistake R4 made and R6 undid. The
+// critic flagged it too ("the exact ratio is not [safe]").
+//
+// So the value change here is BOUNDED by the livery's own measured ramp and
+// introduces no new tone: the wingtips take `shadow` (grey #949494, V 0.58)
+// where the cell used to be `dominant` (#e6e6e6, V 0.90) edge to edge. That
+// is +0.32 of contrast against the stage-1 sky without leaving the palette
+// and without touching the NEAR sheets, which is what REFERENCE row 12's
+// "pale stage-1 enemies" licenses. Row 12 is about the engagement-scale
+// livery; it says nothing about the far LOD, and the arcade's own stage-1
+// distant enemy (reference/stage1-level-flight-t116.png, the aircraft inside
+// the reticle) is plainly dark against the sky at 5x4 native px.
+//
+// I TRIED TO PUT A NUMBER ON THAT STAGE-1 ENEMY AND WITHDREW IT. The only
+// clearly-distant stage-1 enemy in the repo's frames sits INSIDE THE HUD
+// RETICLE, and a threshold-against-sky mask returns the reticle's own
+// brackets along with the aircraft: 163 px over a 29x26 bbox where the
+// aircraft is about 12x10. The crop is unambiguous and the mask was not, so
+// the direction here is taken from the crop and the magnitude from the
+// livery ramp. This is the HUD-contamination family CLAUDE.md names.
+// ===================================================================
+
+// Texel rows that must span the full cell width for the span invariant to
+// hold. Derived, then asserted; see FAR_SPAN_INVARIANT_OK.
+const FAR_FULL_ROWS = [2, 3, 4];
+
+function farSampledRows(h) {
+  const rows = [];
+  for (let i = 0; i < h; i++) rows.push(Math.floor(((i + 0.5) * FH) / h));
+  return rows;
+}
+
+// True iff every quad height 1..FH samples at least one full-width row.
+export const FAR_SPAN_INVARIANT_OK = (() => {
+  for (let h = 1; h <= FH; h++) {
+    if (!farSampledRows(h).some((r) => FAR_FULL_ROWS.includes(r))) return false;
+  }
+  return true;
+})();
+
+if (!FAR_SPAN_INVARIANT_OK) {
+  throw new Error(
+    '[far-LOD] FAR_FULL_ROWS no longer covers every quad height. A far sprite ' +
+    'can now render with a short or zero span at some size, which is the R3 ' +
+    'disappearing-aircraft bug (27 of 80 frames at zero pixels). Re-derive ' +
+    'FAR_FULL_ROWS before changing FH or the far draw functions.'
+  );
+}
+
+// Paint one shaped row. `spans` are [x0, w, hex] triples.
+function farRow(buf, y, spans) {
+  for (const [x, w, hex] of spans) fillRectHard(buf, x, y, w, 1, hex);
+}
+
 function drawHeadOnFar(buf, pal) {
-  fillRectHard(buf, 0, 0, FW, FH, pal.dominant); // base: every texel opaque
-  fillRectHard(buf, 0, 2, FW, 4, pal.mid); // full-width wing band
-  fillRectHard(buf, 5, 1, 6, 6, pal.highlight); // fuselage
-  fillRectHard(buf, 7, 3, 2, 2, pal.key); // nose intake, the one dark accent
+  // Full-width wing rows: dark tips, mid panels, bright fuselage. The dart
+  // is carried by value across these three rows and by shape outside them.
+  for (const y of FAR_FULL_ROWS) {
+    farRow(buf, y, [
+      [0, 3, pal.shadow], [3, 3, pal.mid], [6, 4, pal.dominant],
+      [10, 3, pal.mid], [13, 3, pal.shadow],
+    ]);
+  }
+  farRow(buf, 0, [[7, 2, pal.mid]]);                    // fin tips
+  farRow(buf, 1, [[6, 4, pal.highlight]]);              // fin pair
+  farRow(buf, 5, [[4, 8, pal.mid]]);                    // lower fuselage
+  farRow(buf, 6, [[5, 6, pal.shadow]]);                 // stabilisers
+  farRow(buf, 7, [[6, 4, pal.shadow]]);
+  fillRectHard(buf, 7, 3, 2, 2, pal.key);               // nose intake
 }
 
 function drawRearFar(buf, pal) {
-  fillRectHard(buf, 0, 0, FW, FH, pal.dominant);
-  fillRectHard(buf, 0, 2, FW, 4, pal.mid);
-  fillRectHard(buf, 5, 1, 6, 6, pal.highlight);
-  // Two hot nozzle pixels — at this size the glow is the only thing that
+  for (const y of FAR_FULL_ROWS) {
+    farRow(buf, y, [
+      [0, 3, pal.shadow], [3, 3, pal.mid], [6, 4, pal.dominant],
+      [10, 3, pal.mid], [13, 3, pal.shadow],
+    ]);
+  }
+  farRow(buf, 0, [[7, 2, pal.mid]]);
+  farRow(buf, 1, [[6, 4, pal.highlight]]);
+  farRow(buf, 5, [[4, 8, pal.shadow]]);                 // nacelle band
+  farRow(buf, 6, [[5, 6, pal.shadow]]);
+  farRow(buf, 7, [[6, 4, pal.shadow]]);
+  // Two hot nozzle pixels -- at this size the glow is the only thing that
   // distinguishes a receding enemy from an approaching one, and the stage
-  // opener depends on reading as receding.
-  fillRectHard(buf, 6, 3, 1, 2, pal.hot);
-  fillRectHard(buf, 9, 3, 1, 2, pal.hot);
+  // opener depends on reading as receding. Moved down onto the nacelle band
+  // so they sit on dark rather than on the bright fuselage.
+  fillRectHard(buf, 6, 4, 1, 2, pal.hot);
+  fillRectHard(buf, 9, 4, 1, 2, pal.hot);
 }
 
 // R8: the near-aspect PROCEDURAL fallback carried the same pure-black

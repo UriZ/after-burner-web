@@ -182,31 +182,66 @@ function drawDeltaHead(c, bankDeg, p) {
   const tipRx = 61 - Math.round(16 * far);
   const tipLx = 2 + Math.round(16 * near);
 
-  // Delta: apex at the nose, straight trailing edge. Leading-edge angle is
-  // atan(17/29) = 30 deg, comfortably past criterion (b).
-  // R8 NOTE: the delta halves stay on DIFFERENT rungs, unlike the mig's wings.
-  // Unifying them (as the mig's were) merges the whole triangle into one
-  // 8-connected single-colour component and ENEMY-SIL's compact-feature gate
-  // goes 4.4 % -> 12.9 % of area against a <=12 % target on cells 0 and 4 --
-  // the triangle is compact enough to pass the aspect/fill test that a swept
-  // wing fails. Measured both ways; the split is load-bearing here and the
-  // stage-1 lighting measurement that motivates the mig change was taken on a
-  // mig-type aircraft, not on this one.
-  c.polygon([[ax, 5], [tipRx, 22], [tipRx - 4, 24], [ax, 20]], p.dominant);
-  c.polygon([[ax, 5], [tipLx, 22], [tipLx + 4, 24], [ax, 20]], p.mid);
-  // Shadowed trailing edge of the delta (see drawMigRear's R6 note).
-  c.polygon([[ax, 19], [tipRx - 1, 23], [tipRx - 4, 24], [ax, 20]], p.shadow);
-  c.polygon([[ax, 19], [tipLx + 1, 23], [tipLx + 4, 24], [ax, 20]], p.shadow);
-  c.line(ax, 5, tipRx, 22, p.specular);
-  c.line(ax, 5, tipLx, 22, p.specular);
+  // ============ R9: THE DELTA WAS A FILLED TRIANGLE ============
+  // Flagged in R7, re-measured in R8, never closed: "`interceptor` and `prop`
+  // head-on cells are solid filled deltas with no blade separation, no
+  // fuselage and no nose, just a filled triangle with a dark spot", and "the
+  // `interceptor` delta is also the object that hides the player in rank 1"
+  // -- 19.5 % of ordinary play frames have >30 % of the player's aircraft
+  // behind one of these.
+  //
+  // THE ONLY ARCADE FRAME FOR THIS IS STAGE 2, and it is a 1440x1080 video
+  // upscale of a 320x224 original -- ab2-arcade-closeup-enemies.jpg, HUD
+  // digit 2, a dark-green camo livery on an orange sky. SHAPE ONLY. No
+  // colour, no value and no cardinality claim is taken from it, and
+  // acquisition item 5 (a true-native near-aspect arcade enemy) still blocks
+  // everything else about these cells. Said once here so it is not inherited
+  // silently by whoever edits this next.
+  //
+  // What that frame shows at the head-on aircraft
+  // (tools/out/drawing-r9/arc-headon-3x.png, 210x100 crop at 3x, about
+  // 47x22 native): a THIN HORIZONTAL WING BAR running the full span with a
+  // dark lower edge, a compact central fuselage block carrying the red
+  // intake, a short fin stripe above it, and sky above and below the bar
+  // across most of the span. It is a cross, not a triangle. The filled area
+  // between the leading edge and the body -- which is the entire delta
+  // planform here -- is not drawn in the arcade at all.
+  //
+  // So the family keeps its identity (no tailplane, fatter body, taller fin:
+  // the 15 %W separation from the mig family that R5 required) and loses the
+  // fill. The wing is now a swept blade of chord 5 at the root tapering to 2
+  // at the tip, which is the mig's treatment at a steeper sweep angle.
+  const shR = [ax + 4, 12];
+  const shL = [ax - 4, 12];
+  const tipR = [tipRx, 22 + Math.round(2 * near)];
+  const tipL = [tipLx, 22 + Math.round(2 * far)];
+  // R8's note that the two delta halves must stay on DIFFERENT rungs is kept
+  // and the reason it gave is now moot in the better direction: it split them
+  // because a unified triangle became one 8-connected single-colour component
+  // and ENEMY-SIL's compact-feature gate went 4.4 % -> 12.9 % against a
+  // <= 12 % target. A blade is not compact, so neither reading is at risk
+  // now; the split stays because it is also the lighting.
+  c.polygon(bladePolygon(shR, tipR, 5, 2), p.dominant);
+  c.polygon(bladePolygon(shL, tipL, 5, 2), p.mid);
+  // Underside shadow along each trailing edge, and a 1 px specular on each
+  // leading edge -- the lit-edge treatment, which is what the arcade's own
+  // wing bar carries (a dark lower edge under a lighter upper one).
+  c.polygon(bladePolygon([shR[0], shR[1] + 3], [tipR[0], tipR[1] + 2], 2.0, 0.9), p.shadow);
+  c.polygon(bladePolygon([shL[0], shL[1] + 3], [tipL[0], tipL[1] + 2], 2.0, 0.9), p.shadow);
+  c.line(shR[0], shR[1] - 2, tipR[0], tipR[1] - 1, p.specular);
+  c.line(shL[0], shL[1] - 2, tipL[0], tipL[1] - 1, p.specular);
 
+  // Body: fatter than the mig's and reaching lower, which is the family's
+  // other distinguishing feature now that the triangle is gone.
   c.polygon([[ax, 3], [ax + 4, 12], [ax + 3, 26], [ax - 3, 26], [ax - 4, 12]], p.highlight);
   c.polygon([[ax, 3], [ax + 4, 12], [ax, 26], [ax - 4, 12]], p.mid);
+  // Taller fin.
   c.polygon(bladePolygon([ax, 10], [ax + Math.round(3 * s), 1], 3.4, 1.4), p.dominant);
 
   noseIntake(c, ax, 9, p);
   c.outlineSouth(p.rim);
 }
+
 
 function drawDeltaRear(c, bankDeg, p) {
   const { s, near, far } = sides(bankDeg);

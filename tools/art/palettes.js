@@ -126,6 +126,31 @@ export const PLAYER = {
   deepWarmShadow: L('#635252'), // V0.388 -- MEASURED; the arcade jet has NO airframe tone
   // darker than this. The old #422921 (V0.259) was darker than anything on
   // the arcade's aircraft except its nozzle throat.
+  specular: L('#ffffff'), // MEASURED on the arcade's own DAYLIGHT jet, and it
+  // is tiny: an isolated census of reference/ab2-arcade-desert.png x[80,180]
+  // y[82,142] (the true-native banked jet, achromatic + named-accent mask,
+  // largest 8-connected component, holes filled) returns 984 airframe px of
+  // which #ffffff is 6 and #f7f7f7 is 1 -- 0.7 % between them, above
+  // #ffffef's 239. The arcade puts a handful of pure-white pixels on the
+  // brightest edges and nothing else.
+  //
+  // This is the ELEVENTH colour on the day sheet and the roles() comment
+  // already carries the licence: the same crop's own census is 14 colours
+  // with 7 covering 95 %, so 11 is still below the arcade's daylight count.
+  // PLAYER_NIGHT maps this role onto its existing lightTop, so the NIGHT
+  // sheet gains no colour and stays on its measured 8 + burner.
+  //
+  // IT ALSO FIXES THE DEATH HULK'S MISSING HIGHLIGHT, and the ORDER of those
+  // two reasons matters. R8 left open "our hulk's p95 reads 123 against the
+  // arcade's 144", and the R8 critique then argued (section 5a) NOT to chase
+  // that number, because the target is a night, video-decoded, codec-smeared
+  // measurement applied to a daylight object -- the exact family of criterion
+  // this project has retired twice. So this tone is NOT sized to hit 144. It
+  // is sized to the arcade's daylight census, 0.7 %, and the hulk's top rung
+  // follows because deathSequence.js's histogram match needs the brightest
+  // tone under 2.5 % of the sheet to place it on the arcade's own top value.
+  // Two independent reasons, the sheet one load-bearing; see
+  // tools/art/hulk_probe.py.
   canopy: L('#e694f7'), // MEASURED: REFERENCE.md's own daylight-jet 7-colour
   // 95% set lists #e694f7. The old #9d3aca was a dark violet two thirds of
   // that value and is not in the arcade's set.
@@ -159,6 +184,13 @@ export const PLAYER = {
 // own night palette (there is no black in the measured night set) -- so the
 // night sheet's colour count does not rise with R7's one-sided rim.
 export const PLAYER_NIGHT = {
+  // `specular` exists so levelOps()'s shared drawing program can read the
+  // role on BOTH sheets -- assertRoles() throws otherwise, and an undefined
+  // hex does not throw inside PixelCanvas.set(), it ERASES (the R7 roll-sheet
+  // hole bug). It is deliberately the SAME hex as lightTop: the measured
+  // arcade night jet is exactly 8 colours and carries no white, so night
+  // gains a role and no colour.
+  specular: L('#c5d6f7'),
   keyline: L('#425284'),
   rimline: L('#425284'),
   lightTop: L('#c5d6f7'),

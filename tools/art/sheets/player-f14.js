@@ -138,42 +138,144 @@ const CX = 50;
 // -16.5 / -13.7 / -12.9 / -10.5 — raked steadily inboard. It is a swept fin
 // with a near-vertical leading edge and a raked trailing edge, not a tapered
 // sliver. Edges are therefore given separately per end.
-const ROOT_Y = 18; // the arcade's 54.5%H is local 16.35; 18 is chosen over 16
-// because JET-SIL takes `cant` at the LAST row of the fin band, and the band
-// runs to the first row whose filled width reaches 0.30*S. With ROOT_Y=16 (and
-// again at 17) the blades ended ABOVE that row, so the last fin row held only
-// the nacelle-pod tops and `cant` came out 1.13 — under the >=1.15 gate, on a
-// drawing whose blades are canted 1.29. The blade must still be present on the
-// last fin row or the statistic is measured between a blade and a pod.
-// Measured, not reasoned: see judging/R6/lane-sprite-art.md.
-const FIN_TOP_OUT = 18.2; // the arcade's 17.7 pushed out 0.5 so the tip can be
-// 2.2 px wide: JET-SIL's runs() DROPS runs under 2 px, so a literal 1.2 px tip
-// would delete the topmost fin row from the two-blade statistic and leave
-// `cant` undefined. Centre stays at 17.1, the arcade's own value, so cant and
-// fin extent are unaffected by the widening.
-const FIN_TOP_IN = 16.0;
-const FIN_ROOT_OUT = 16.1;
-const FIN_ROOT_IN = 10.5;
-// cant = ((18.2+16.0)/2) / ((16.1+10.5)/2) = 17.1/13.3 = 1.286 (arcade 1.28)
+const ROOT_Y = 18; // the arcade's fin root is at 55 %H (local 17.1), and this
+// is 19 for the reason R6 measured and wrote down: JET-SIL takes `cant` at the
+// LAST row of the fin band, the band ends at the first row whose filled width
+// reaches 0.30*S, and if the blade stops above that row `cant` is computed
+// between a blade and a pod and returns a stable, reproducible, wrong answer.
+// R9 moves the dorsal deck DOWN by ~3 rows (see levelOps), so the band's
+// onset is no longer set by the deck at all -- it is set by the POD TOP,
+// which is now the first wide thing on the way down. ROOT_Y therefore has to
+// be at or above the pod top, and NAC_Y's comment carries the same
+// constraint from the other side. The arcade satisfies it too: its fin root
+// is at 55 %H and its pod top at 58 %H.
+// Checked, not reasoned: tools/art/jetsil.py after every change.
+const FIN_TOP_OUT = 16.9; // see the extent note below
+const FIN_TOP_IN = 14.9;  // tip width 2.0 so JET-SIL's runs() (>= 2 px) keeps it
+const FIN_ROOT_OUT = 15.4;
+const FIN_ROOT_IN = 10.0;
+// FIN-PAIR EXTENT, and a gate this project has been failing quietly.
+// REFERENCE.md publishes 35.4-35.7 % of SPAN and the control suite confirms
+// the arcade's own frame reads 35.5 under this exact operator -- so the
+// criterion is measured, not invented, and is safe to tune to. R8's shipped
+// sheet read 38.0 and so did R9's first draft. The cause is one pixel: the
+// outward-grown #840000 rim adds 1 px beyond FIN_TOP_OUT on each side, and
+// the anchor was set from the blade's own edge without it. 2*(16.9+1) = 35.8.
+// cant = ((16.9+14.9)/2 + 1) / ((15.4+10.0)/2 + 0.6) = 16.9/13.3 = 1.27
+// (arcade 1.28; gate >= 1.15; R8 shipped 1.21).
+//
+// R9 NOTE ON THE FINS: THEY WERE NOT THE DEFECT, and that is worth recording
+// because the R8 critique's headline ("1.80x the ink") invites thinning
+// everything. tools/art/rowdiff.py reads our fin band against the arcade's at
+// matched span, and the blade widths agree to within half a pixel at every
+// height -- arcade 1.2 -> 5.6 % of span tip-to-root, ours 2.2 -> 5.6. The fin
+// band measured 2.4x heavy only because OUR DORSAL DECK STARTED INSIDE IT, at
+// 50 %H against the arcade's 58 %. So the numbers here barely move and the
+// deck below moves a lot. Measure before cutting.
 
-// Nacelles: centres +/-15 of 100 -> nozzle-centre separation 30.0% of span.
+// Nacelles: centres +/-15 of 100 -> nozzle-centre separation 30.0 % of span,
+// which is the arcade's own measured figure and a JET-SIL gate.
 const NAC_X = [35, 65];
-const NAC_Y = 22.4; // 72.5% of H
-// The arcade's pod is WIDER THAN TALL — on the crop it runs |x| 9..21% of span
-// (12% wide) over 58..88%H (30% of H = 9.3 local rows, so 6.0 x 4.7). A circle
-// is the closest this rasterizer offers (canvas.js has disc/ring, no ellipse,
-// and the pose transform scales one radius), so the radius is set from the
-// SHORTER axis: an r=6.1 circle put the pod's top at 51%H, seven points above
-// the arcade's, which pushed the pod into the fin band and broke `cant`.
-const POD_R = 5.2;
+const NAC_Y = 22.6; // 69 %H. R8 had 22.4; the arcade's pod runs rows 45..61 of
+// 77 (58..79 %H), centre 68.5 %H -- but the value is set by a HARD
+// CONSTRAINT, not by that measurement, and R6, R7 and R9 have each been
+// caught by it: THE POD'S TOP EDGE MUST SIT BELOW THE FIN BAND. JET-SIL ends
+// the band at the first row reaching 0.30*S and then measures `cant` and
+// `fin-pair extent` inside it; a pod whose top enters the band merges with
+// the blade root into one run, and the tool returns `cant n/a` and a fin
+// extent of 43 % on a drawing whose blades are at 35.6. NAC_Y - ry must be
+// >= ROOT_Y. 22.6 - 3.6 = 19.0 = ROOT_Y exactly. Re-check with
+// tools/art/jetsil.py after ANY change to NAC_Y, the pod radii or ROOT_Y.
+const POD_R = 6.0; // outer half-width in % of span; see podPoly calls below.
+//
+// R9 SHRINKS THE POD AND R7 GREW IT. Both were measured, on different frames,
+// and the disagreement is real rather than a mistake on either side:
+//
+//   stage3-night-level-t175, LEVEL  glow bbox 14x13 on a 251 px span = 5.6 %
+//                                   of span; plus a ~2 px ring each side,
+//                                   a ~9.2 % disc
+//   ab2-arcade-desert, BANKED       #000000 throat components 12x12 and 13x13
+//                                   on a 109.7 px span = 11.4 %
+//
+// A bank tips the nozzle toward the camera and the disc gets rounder and
+// bigger; a level astern view shows it more edge-on and smaller. 6.0 (12.0 %)
+// sits just above the DAYLIGHT one, which is the frame
+// this sheet's colours come from. R8's 6.8 (13.6 %) was above even the
+// banked frame's 11.4 %.
+//
+// I drew it at 4.8 first, off the level frame alone, and backed it out after
+// cropping: at 9.6 % the discs stop being the aircraft's anchor, and the R8
+// critique's rank-1 fix is explicit that they must be -- "make the player's
+// pair of nozzles the loudest thing on the player, as the arcade does",
+// because it is the ONE cue that separates our aircraft from an enemy's
+// single nozzle now that both are pale. A statistic from the level frame
+// and a composition requirement from the day frame disagreed, and the crop
+// settled it.
 
-// Wing anchors, from the leading/trailing edge fits above.
-const WING_ROOT_IN = 31; // inboard edge of the wing root, both sides mirrored
-const WING_LE_ROOT_Y = 21.0;
-const WING_TE_ROOT_Y = 27.0;
-const WING_LE_TIP_Y = 17.7;
-const WING_TE_TIP_Y = 20.6;
+// Wing anchors.
+//
+// ===================== R9: THE WING WAS THE PADDLE =====================
+// R8's art critique found the aircraft carries 1.80x the arcade's ink at the
+// same wingspan and named the wings first: "paddles, not blades". The R9
+// row-diff says where, at full resolution, on the sheet's OWN stated source
+// crop (stage3-night-level-t175.png, max(RGB)>30, hole-filled):
+//
+//   the arcade's wing occupies |x| 20.2 .. 49.4 % of span, with a COLUMN
+//   CHORD (count of filled rows at a fixed |x|, in local units of 31) of
+//
+//     |x|  20   23   26   29   32   35   38   41   44   47
+//     arc  4.4  8.1  7.2  6.4  5.6  5.6  4.8  4.8  4.0  4.4
+//     R8   10.7 6.8  5.8  6.8  5.8  4.8  5.8  5.8  4.8  4.8
+//
+//   Inboard of |x| 32 the arcade's figure is wing AND engine body merged, so
+//   only the outboard half is a pure wing chord: 4.0 - 5.6 against R8's
+//   4.8 - 5.8.
+//
+// I GOT THIS WRONG ONCE AND IT IS WORTH THE LINES. My first R9 reading took
+// the chord at two stations -- the extreme inner edge and the tip -- read
+// "constant chord 2.4", and shipped a wing 40 % thinner than the arcade's.
+// The crop showed it immediately: a red-lined glider. The two stations I
+// picked are the two where the arcade's wing is cut by its own inner corner
+// and by the tip rail, i.e. the two least representative columns on the
+// surface. Per-station profiling is what this table is; do not read a chord
+// off the ends.
+//
+// So the WING CHORD WAS NOT THE DEFECT EITHER. What was, per
+// tools/art/rowdiff.py: the wing sat one to two rows HIGH (row 17 of 31 held
+// a full-span wing where the arcade holds only fin), and the dorsal deck
+// started inside the fin band. Those two cost 170 of the 267 span-normalised
+// points of excess between them.
+//
+// The anchors below carry the arcade's taper -- root chord 4.6, tip 4.1 --
+// and are then opened for a reason the DAY frame forces and the night frame
+// cannot show.
+// tools/out/drawing-r9/arc-day-body-18x.png is the arcade's daylight wing
+// root at 18x, and what it shows is that the pale surface is STRIPED: three
+// or four parallel #840000 lines run the length of the wing with 1 px cream
+// strips between them. That is the "45 % dark line-work" the R8 critic
+// measured, and it needs three authored bands plus the outlined rim to
+// exist at all -- at a 2.4 chord two of the four lines rasterize away. 3.0
+// sits between the night frame's 2.4 and the day frame's thicker reading,
+// and it is the smaller error: a wing one pixel over with the arcade's
+// line-work reads far closer than a wing on the exact chord with none.
+// Leading edge still sweeps DOWN inboard -- the tip sits higher on screen
+// than the root, which R6 measured and got right; only the chord was wrong.
+const WING_ROOT_IN = 29.8; // inboard edge at |x| 20.2 % of span, the arcade's
+const WING_LE_ROOT_Y = 22.2;
+const WING_TE_ROOT_Y = 26.8;
+const WING_LE_TIP_Y = 18.1;
+const WING_TE_TIP_Y = 22.2;
 const WING_TIP_X = 99;
+//
+// WHY THE WING STILL TOUCHES THE AIRFRAME, which R5b got wrong and paid for
+// with a SPAN of 68 on a 100 px aircraft. On the arcade's own frame the
+// wing's bright panel is separated from the nacelle's bright shell by 4.4 %
+// of span of NOT-SKY: the nozzle's dark ring. The silhouette is continuous
+// and the two bright masses are not. Here the wing root (|x| 20.2) meets the
+// pod's outer edge (|x| 15 + 4.8 = 19.8) with 0.4 of overlap, so the
+// 8-connected component is whole under every mask, and the SEPARATION the eye
+// reads is carried by the ring's VALUE, not by a gap in the silhouette. That
+// is the arcade's own solution and it costs nothing in topology.
 
 // A rounded-square pod. The crop's nacelle is 12% of span wide by 9.3% of H
 // tall with cut corners — wider than tall, and squarer than a disc. canvas.js
@@ -191,6 +293,38 @@ function podPoly(nx, ny, rx, ry, cut) {
   ];
 }
 
+// R9 TRIED A KNEE HERE AND WITHDREW IT, AND THE FIRST REASON I WROTE DOWN
+// FOR WITHDRAWING IT WAS WRONG.
+//
+// The arcade's blade is not a linear taper. Measured per row as a percentage
+// of span, one blade, on the level crop: 1.2 / 2.8 / 4.0 / 4.0 / 4.4 at rows
+// 0 / 2 / 6 / 10 / 14, then a FLARE to 5.6 / 7.2 at rows 16 / 17. A straight
+// taper spends its width in the middle of the fin, where the arcade's is
+// thinnest. So a knee at row 13 is the right shape on the evidence.
+//
+// First measurement of the knee: ink 1.25x -> 1.23x of the arcade and JET-SIL
+// `cant` 1.19 -> 1.14, under the >= 1.15 gate. I wrote the withdrawal up as a
+// gate failure. **That cant reading was an artefact of a broken file**: a
+// shell sweep I ran to recover the gate had written `const FIN_ROOT_OUT =
+// 15.0 9.6;` and `const FIN_ROOT_IN = ;` into this file, and every figure
+// taken between that sweep and the repair -- including the 1.14 -- was
+// measured on a sheet whose fin root was undefined. The tell was that `cant`
+// did not respond to ANY of the fifteen root values the sweep tried, which I
+// read as "the pod is in the fin band" when it meant "the constants are not
+// being applied".
+//
+// Re-measured on the repaired file, the knee's real effect is: `cant` 1.19,
+// unchanged and passing, and ink 1.25x -> 1.26x -- slightly WORSE. The knee
+// narrows the blade's mid-band chord as intended but pushes its OUTER edge
+// from a linear 15.8 out to 16.4 at row 13, and the outward-grown rim follows
+// it. It is the right shape badly parameterised, and finding the right
+// parameters is a search I did not have the budget to finish honestly.
+//
+// So: the linear taper ships, the knee is recorded, and the lesson is the one
+// that nearly cost more than the knee -- A STATISTIC THAT WILL NOT RESPOND TO
+// ITS OWN INPUT IS A BROKEN INSTRUMENT OR A BROKEN FILE BEFORE IT IS A
+// FINDING. Check that the input reaches the drawing before explaining why the
+// output is stuck.
 function bladePoly(sign) {
   const s = sign;
   return [
@@ -240,6 +374,7 @@ function roles(p) {
     warmMid: p.warmMid,
     coolDark: p.coolDark,
     canopy: p.canopy,
+    specular: p.specular,
     flame: p.nozzleCore,
     flameCore: p.nozzleHot,
   };
@@ -319,12 +454,19 @@ function levelOps(c) {
   // at 30 % was the one rung sitting well above the arcade's share (23.7 %).
   for (const s of [-1, 1]) {
     poly(
-      [[CX + s * 16.8, 11], [CX + s * 11.8, 11],
+      [[CX + s * 16.0, 11], [CX + s * 11.4, 11],
        [CX + s * FIN_ROOT_IN, ROOT_Y], [CX + s * FIN_ROOT_OUT, ROOT_Y]],
       c.midNeutral
     );
   }
   for (const s of [-1, 1]) {
+    // The topmost 2 rows of the outer edge take the pure-white specular; the
+    // rest of that edge is lightTop. Same budget note as the wing.
+    poly(
+      [[CX + s * FIN_TOP_OUT, 0], [CX + s * (FIN_TOP_OUT - 1), 0],
+       [CX + s * (FIN_TOP_OUT - 1), 3], [CX + s * FIN_TOP_OUT, 3]],
+      c.specular
+    );
     // 1 px specular down the near-vertical OUTER edge.
     poly(
       [[CX + s * FIN_TOP_OUT, 0], [CX + s * (FIN_TOP_OUT - 1), 0],
@@ -339,167 +481,206 @@ function levelOps(c) {
     );
   }
 
-  // Wings: swept, tapered, RISING outboard. The root chord overlaps the
-  // pods and the centre body below; that overlap is load-bearing, not
-  // decoration — the R5b first draft attached the wings through a single
-  // 1 px row and under JET-SIL's own mask (keyline #000000 fails
-  // max(RGB)>30) the outer panels fell off the largest 8-connected
-  // component, reading SPAN 68 on a 100 px aircraft.
-  // The wing is drawn in THREE chordwise bands, not as one plank. On the
-  // crop the leading edge is the brightest line on the aircraft, the panel
-  // behind it is a step warmer, and the trailing edge is a dark lip. R6 drew
-  // the whole upper surface in one tone, which is both the "flat slabs"
-  // reading and ~200 px of lightTop that should have been two rungs.
+  // ==================== R9: WINGS AS BLADES ====================
+  // Two chordwise bands on a 2.4-unit chord, not three on a 6-unit one.
+  // The arcade's daylight crop (reference/ab2-arcade-desert.png at 9x,
+  // tools/out/drawing-r9/arc-jet-9x.png) shows what each wing IS: one
+  // white edge-lit line with a dark-red shadow line beside it, running the
+  // entire length. Not a surface with an outline -- a lit edge. So:
+  //
+  //   leading 1.0 unit   lightTop, the brightest tone on the aircraft
+  //   trailing 1.4 units coolDark, the shadow under the lit edge
+  //   and canvas.outlineSouth() then lays the measured #840000 rim along
+  //   the bottom of that, which is the arcade's second line.
+  //
+  // The root chord overlaps the pod by 0.4, which is what keeps the outer
+  // panel on the largest 8-connected component -- see the WING_ROOT_IN
+  // comment for why that overlap is load-bearing and why it is only 0.4.
   poly(wingPoly(-1), c.lightNeutral);
   poly(wingPoly(+1), c.lightNeutral);
-  // Leading-edge band, the top ~45% of the chord, in the brightest tone.
-  poly([[31, 21.0], [1, 17.7], [1, 19.0], [31, 23.0]], c.lightTop);
-  poly([[69, 21.0], [99, 17.7], [99, 19.0], [69, 23.0]], c.lightTop);
-  // Underside: the band between mid-chord and the trailing edge. Kept thin
-  // on purpose — a large warm-shadow region also satisfies JET-SIL's
-  // nozzle-glow hue/sat/val test and would be picked up as a false third
-  // "nozzle" by the two-largest-component step.
-  // R7 thins it from 3.8 root rows to 2.0, which is what leaves the mid-chord
-  // to lightNeutral. R6's band ran from mid-chord all the way to the trailing
-  // edge, so the "second cream" the arcade spends 23.7 % of its airframe on
-  // survived only as a 0.2-row sliver and the sheet shipped 8.2 % of it.
-  poly([[32, 25.0], [1, 19.8], [1, 20.6], [31, 27]], c.warmMid);
-  poly([[68, 25.0], [99, 19.8], [99, 20.6], [69, 27]], c.warmMid);
-  // ...and a 1 px dark trailing edge under it. On the crop the wing's last
-  // row is a clear step below the underside band, and without it the wing is
-  // one flat plank at native size however bright the top surface is.
-  poly([[31.5, 25.9], [1, 19.95], [1, 20.6], [31, 27]], c.coolDark);
-  poly([[68.5, 25.9], [99, 19.95], [99, 20.6], [69, 27]], c.coolDark);
-  // Wingtip rails: the crop ends each wing in a short, slightly deeper
-  // element set off from the panel by a one-pixel break.
   for (const s of [-1, 1]) {
-    poly([[CX + s * 40, 17.6], [CX + s * 41, 17.6], [CX + s * 41, 20.6], [CX + s * 40, 20.6]], c.coolDark);
-    poly([[CX + s * 41, 17.4], [CX + s * 49, 17.1], [CX + s * 49, 20.5], [CX + s * 41, 20.7]], c.lightTop);
+    const xin = CX + s * (LOCAL_W / 2 - WING_ROOT_IN);
+    const xtip = CX + s * (WING_TIP_X - CX);
+    // Leading edge: the brightest line, full length, 1 px.
+    poly([[xin, WING_LE_ROOT_Y], [xtip, WING_LE_TIP_Y],
+          [xtip, WING_LE_TIP_Y + 1.0], [xin, WING_LE_ROOT_Y + 1.0]], c.lightTop);
+    // ONE dark edge per surface, not two, and it goes at the BOTTOM.
+    //
+    // This is the R9 lane's second correction and the reasoning matters more
+    // than the line. arc-day-body-18x.png -- the arcade's DAYLIGHT wing root
+    // at 18x -- shows three or four parallel #840000 lines striping the pale
+    // surface, and I authored them as interior stripes. On the crop that
+    // read as a red-lined glider, and the reason is that THE DAY FRAME IS
+    // BANKED. The alternating bright/dark lines in it are what a planform
+    // with bright upper surfaces and dark lower edges PRODUCES when you roll
+    // it toward the camera: you see the underside of each blade between the
+    // upper surfaces of its neighbours. The arcade's LEVEL frame has no
+    // interior stripes at all -- bright top edge, mid body, dark bottom edge.
+    //
+    // So the stripes are not authored. One planform, lit top and dark
+    // bottom, and poseTransform() produces the striped reading at bank for
+    // free. Authoring them as well drew them twice.
+    poly([[xin, WING_TE_ROOT_Y - 1.2], [xtip, WING_TE_TIP_Y - 1.2],
+          [xtip, WING_TE_TIP_Y], [xin, WING_TE_ROOT_Y]], c.coolDark);
+    // SPECULAR: a few pure-white pixels on the outer third of the leading
+    // edge, where the arcade's own daylight jet puts its 6. Deliberately
+    // short -- the role's budget is well under 2.5 % of the sheet and
+    // tools/art/hulk_probe.py reports the share after every build.
+    poly([[CX + s * 33, WING_LE_TIP_Y + 1.1], [CX + s * 48, WING_LE_TIP_Y + 0.1],
+          [CX + s * 48, WING_LE_TIP_Y + 0.9], [CX + s * 33, WING_LE_TIP_Y + 1.9]],
+         c.specular);
+    // Wingtip rail: the crop ends each wing in a short deeper element set
+    // off by a one-pixel break. Kept from R8, rescaled to the new chord.
+    poly([[CX + s * 40, WING_LE_TIP_Y + 0.6], [CX + s * 41, WING_LE_TIP_Y + 0.5],
+          [CX + s * 41, WING_TE_TIP_Y], [CX + s * 40, WING_TE_TIP_Y + 0.2]], c.coolDark);
+    poly([[CX + s * 41, WING_LE_TIP_Y + 0.3], [CX + s * 49, WING_LE_TIP_Y],
+          [CX + s * 49, WING_TE_TIP_Y - 0.1], [CX + s * 41, WING_TE_TIP_Y + 0.1]], c.lightTop);
   }
 
-  // Dorsal deck between the blade roots — the body's topmost element, a
-  // narrow nub at 59.7%H widening to the full 21.5% of span by 63.6%H.
-  poly([[47, 15.5], [53, 15.5], [61, 19], [39, 19]], c.lightTop);
-  // Shaded flanks either side of the deck — the crop's body is three value
+  // ================= R9: THE DECK MOVES DOWN 3 ROWS =================
+  // This is where the fin band's 2.4x excess ink actually was. The arcade's
+  // body does not appear until 58 %H (row 18 of 31): row 17 holds two runs
+  // and they are both fin root, and row 18 holds a SIX-UNIT nub at the
+  // centre. Ours started at 50 %H and was already 10.6 units wide inside the
+  // fin band, which is 15 points of span-normalised fill per row that the
+  // arcade does not spend. tools/art/rowdiff.py, rows 14-17.
+  // The deck reaches |x| 12 by 65 %H, which is what puts it UNDER the fin
+  // roots (|x| 11.0 .. 16.2 at ROOT_Y). R8's deck stopped at |x| 11 and left
+  // 5 units of sky between each blade root and the body, which is the "two
+  // pale rabbit ears ... separated from the nacelles by bare sky" the R8
+  // critique lists as the fins' specific defect. On the arcade's level crop
+  // the blade roots run straight into the tail mass with no sky between.
+  poly([[47, 18.4], [53, 18.4], [61, 20.2], [39, 20.2]], c.lightTop);
+  // Shaded flanks either side of the deck -- the crop's body is three value
   // planes across, not one.
-  poly([[47, 15.8], [43.4, 15.8], [39, 19], [44.5, 19]], c.midNeutral);
-  poly([[53, 15.8], [56.6, 15.8], [61, 19], [55.5, 19]], c.midNeutral);
-  // Dark dorsal slot (the crop shows a recessed rectangle in the deck). R7
-  // puts it on coolDark rather than a dedicated near-black: the arcade's
-  // whole daylight airframe has NOTHING darker than #948463 outside the
-  // nozzle throats, and R6's #635252 (V 0.388) was off the measured ladder
-  // entirely. One fewer colour and one fewer dark pixel at the same time.
-  rect(45.5, 17.4, 9, 1.4, c.coolDark);
+  poly([[47, 18.6], [43.4, 18.6], [39, 20.2], [44.5, 20.2]], c.midNeutral);
+  poly([[53, 18.6], [56.6, 18.6], [61, 20.2], [55.5, 20.2]], c.midNeutral);
+  // FIN-ROOT FILLETS. "The vertical fins read as two pale rabbit ears ...
+  // separated from the nacelles by bare sky. In the arcade's astern views
+  // the fins ... sit ON the nacelle tops as part of one tail mass." (R8
+  // critique section 4, specific 2.) These close that sky, and they are
+  // authored BELOW ROOT_Y on purpose: anything at or above it widens the
+  // last fin row and takes `cant` with it.
+  poly([[CX - FIN_ROOT_OUT, ROOT_Y], [CX - FIN_ROOT_IN, ROOT_Y],
+        [44.5, 20.4], [37.5, 20.4]], c.midNeutral);
+  poly([[CX + FIN_ROOT_OUT, ROOT_Y], [CX + FIN_ROOT_IN, ROOT_Y],
+        [55.5, 20.4], [62.5, 20.4]], c.midNeutral);
 
-  // Engine bodies below the nozzles, sweeping down and INWARD — the crop's
-  // lateral run moves from |x| 18.5..30.5 at 85.7%H to |x| 4.6..14.2 at
-  // 98.7%H, so the lower aircraft closes to a V rather than ending in a bar.
-  // lightTop, not midNeutral, and the reason is a measured one rather than a
-  // taste one. The arcade's airframe is 62% at V >= 0.969; ours was 31% at its
-  // top tone with 40% in the mid. Promoting these two masses (~90 px) puts
-  // lightTop at ~43% of the achromatic population, which is what flips the
-  // NIGHT sheet's median from 0.773 to the arcade's own 0.969 while leaving
-  // the DAY median at 0.839 (coolDark + midNeutral still clear 50% below it).
-  // Day and night share this geometry, so role AREA is the only lever that
-  // reaches both.
-  // R7: lightNeutral, not lightTop. The arcade's two brightest rungs run
-  // 31.8 % / 23.7 %, i.e. its second tone is nearly as big as its first;
-  // R6 had 27 % / 0 %. These two masses (~90 px) are the largest single
-  // block on the sprite that can carry the second rung without breaking the
-  // "no unbroken slab" rule, because the pods and the fuselage cut across
-  // them. Night tracks this automatically — see the ramp map in palettes.js.
-  poly([[29, 23], [42, 23], [47, 30.2], [39, 30.2]], c.lightNeutral);
-  poly([[71, 23], [58, 23], [53, 30.2], [61, 30.2]], c.lightNeutral);
+  // Engine bodies below the nozzles, sweeping down and INWARD -- the crop's
+  // lateral run moves from |x| 20.2..5.0 between 90 %H and 97 %H, so the
+  // lower aircraft closes to a V rather than ending in a bar.
+  // Outer edge at |x| 21.5 (local 28.5), which is the arcade's: its rows
+  // 62..77 read [-21.0..-5.0] [-4.2..+3.8] [+4.6..+20.6]. R8 and the first
+  // R9 draft both stopped at |x| 19.8 and left the lower aircraft narrower
+  // than the arcade's, which is the one place the row-diff says we are too
+  // LIGHT (rows 29-30, -9.2 and -4.4 points).
+  poly([[28.5, 25.0], [41.0, 24.0], [46.0, 30.4], [38.0, 30.4]], c.midNeutral);
+  poly([[71.5, 25.0], [59.0, 24.0], [54.0, 30.4], [62.0, 30.4]], c.midNeutral);
 
   // Centre fuselage: widest at the wing line, tapering to a point at the
-  // bottom and reaching lower than the engine bodies. Replaces R5's
-  // constant-width strip.
-  poly([[39, 19], [61, 19], [59, 24], [41, 24]], c.lightTop);
-  poly([[39, 19], [43, 19], [44.5, 24], [41, 24]], c.midNeutral);
-  poly([[61, 19], [57, 19], [55.5, 24], [59, 24]], c.midNeutral);
-  // Lower fuselage in midNeutral, not lightTop: the crop shows the body below
-  // the nozzle line a clear step darker than the dorsal deck, and this is also
-  // the ~70 px that holds lightTop under half of the achromatic population —
-  // see the ROLE AREAS note above.
-  // R7 puts it on the SAME rung as the engine bodies flanking it, which is
-  // what the t175 crop shows: below the nozzle line the centre body and the
-  // engine bodies are one continuous mid-bright plane, parted only by the
-  // dark notch. R6's comment asked for "a clear step darker than the dorsal
-  // deck" and lightNeutral is exactly one step darker than the deck —
-  // the step is kept, it is just the right size now.
-  poly([[41, 24], [59, 24], [52.6, 30.8], [47.4, 30.8]], c.lightNeutral);
-  // The dark slot between the engine bodies, at 76.6%H on the crop (a ~2.8%
-  // of span gap in that row's runs), not a full-height hole.
-  //
-  // R8 SHRINKS IT, because at 8x3.6 px it was not a slot, it was a MOUTH.
-  // The owner's reading of the whole aircraft was "still not good enough",
-  // and a black bar of maximum contrast sitting centred between two round
-  // orange glows with a magenta fleck above is a face before it is a jet --
-  // which is R4's own "two glowing eyes" defect arriving from the other side.
-  // Re-measured on the authoritative level crop, stage3-night-level-t175.png
-  // x[295,400] y[240,320] (a 2.144x upscale, so this is a PROPORTION read and
-  // not a colour one): the arcade's slot is ~7.6 x 1.6 NATIVE px on a jet of
-  // SPAN 117 and H 36 -- 6.5 % of span and 4.4 % of H. Ours was 8.2 % of span
-  // and 11.6 % of H, i.e. the right width and 2.6x the height.
-  // 6.4 x 1.6 local units is 6.5 % / 5.2 %; the height is held one notch above
-  // the arcade's because a 1.4 px box on this grid rasterizes to a dotted line.
-  // The flanking warmMid pair is the other half of the fix: the arcade's slot
-  // sits in a SHADED part of the body, so the step from body to black is two
-  // rungs, where ours went from the second-brightest cream straight to #000000.
-  poly([[45.4, 22.0], [54.6, 22.0], [53.4, 24.2], [46.6, 24.2]], c.warmMid);
-  poly([[46.8, 22.2], [53.2, 22.2], [52.4, 23.8], [47.6, 23.8]], c.key);
+  // bottom and reaching lower than the engine bodies.
+  // lightNeutral, NOT lightTop. R8 spent this whole slab -- the largest
+  // single mass on the sprite -- on the brightest tone, and the R8 critique's
+  // pale-area figure (ours 1 133 px against the arcade's 444) is mostly here.
+  // The arcade's bright tone is reserved for EDGES: the deck, the wing
+  // leading edges, the pod shells. Demoting this one polygon is ~95 px off
+  // the top rung without touching the silhouette.
+  poly([[39, 20.0], [61, 20.0], [59, 24.5], [41, 24.5]], c.lightNeutral);
+  // ...with the dorsal centreline left bright, so the body still has a lit
+  // top rather than going flat.
+  poly([[46.5, 20.0], [53.5, 20.0], [52.6, 24.5], [47.4, 24.5]], c.lightTop);
+  poly([[39, 20.0], [43, 20.0], [44.5, 24.5], [41, 24.5]], c.midNeutral);
+  poly([[61, 20.0], [57, 20.0], [55.5, 24.5], [59, 24.5]], c.midNeutral);
+  // midNeutral, with a lightTop centreline over it. R8 drew this mass -- the
+  // bottom third of the aircraft -- on one bright tone and it read at native
+  // as a pale lump with a red outline rather than as a body. The arcade's
+  // level crop has its brightest tone only on the dorsal deck and the pod
+  // shells; everything below the nozzle line is a step down.
+  poly([[41, 24.5], [59, 24.5], [52.6, 30.9], [47.4, 30.9]], c.midNeutral);
+  poly([[47.6, 24.5], [52.4, 24.5], [51.4, 30.6], [48.6, 30.6]], c.lightNeutral);
 
-  // Canopy fleck — topmost body element, the only non-grey/non-orange
+  // The dark slot between the engine bodies, at 76.6 %H on the crop. R8
+  // shrank it from a mouth to a slot and measured why; R9 only follows it
+  // down with the body it sits in. The flanking warmMid pair is the other
+  // half of that fix: the arcade's slot sits in a SHADED part of the body,
+  // so the step from body to black is two rungs.
+  poly([[45.4, 23.0], [54.6, 23.0], [53.4, 25.2], [46.6, 25.2]], c.warmMid);
+  // R9 PUTS THE SLOT ON #840000 RATHER THAN #000000, for two reasons that
+  // point the same way. (1) palettes.js's own PLAYER comment records the
+  // measurement: "the arcade jet has NO airframe tone darker than #635252"
+  // and the daylight airframe nothing darker than #948463 OUTSIDE THE NOZZLE
+  // THROATS -- so a pure-black slot in the middle of the body was off the
+  // arcade's own airframe set. (2) R8 shrank this slot because a black bar
+  // of maximum contrast centred between two orange glows with a magenta
+  // fleck above reads as a FACE before it reads as a jet; shrinking helped
+  // and did not close it. Dark red joins the line-work family that now runs
+  // across the whole airframe, so it reads as structure rather than a mouth.
+  poly([[46.8, 23.2], [53.2, 23.2], [52.4, 24.8], [47.6, 24.8]], c.rim);
+
+  // ===================== R9: THE SPINE LINES =====================
+  // "The interior has no panel lines. The arcade covers the airframe in dark
+  // spine lines that give each surface a top and an edge. We have one dash."
+  // (R8 critique section 4, specific 3.) Two 1 px lines down the engine
+  // bodies, following their sweep, in the measured #840000 -- the day crop
+  // shows the arcade's spine lines are the SAME dark red as its rim, not a
+  // grey.
+  //
+  // THE MASK HAZARD, stated because it is real and it is checked rather than
+  // assumed: #840000 has S=1.000 and FAILS JET-SIL's achromatic `--sky`
+  // mask, so an interior line in it is a slit in the silhouette under the
+  // operator this project gates on. These lines run ALONG each surface, not
+  // across it, so the strips either side stay 8-connected end to end -- the
+  // same reason the arcade can stripe its own wings. Verified every build
+  // with tools/art/jetsil.py (SPAN must stay at the full wingspan; a severed
+  // panel shows up immediately as SPAN collapsing, which is how R5b's 68-on-
+  // a-100 px aircraft was caught).
+  poly([[33.6, 25.4], [34.8, 25.4], [42.6, 30.4], [41.0, 30.4]], c.rim);
+  poly([[66.4, 25.4], [65.2, 25.4], [57.4, 30.4], [59.0, 30.4]], c.rim);
+  // The arcade's 90 %H row is three runs -- [-21.0..-5.0] [-4.2..+3.8]
+  // [+4.6..+20.6] -- so the centre body IS parted from the engine bodies.
+  // A pair of 1 px dark-red divisions at |x| 4.5 was the obvious way to say
+  // that and it was WRONG on the crop: at native, two short marks inside a
+  // pale lump read as dirt, not as a parting. The parting is carried instead
+  // by the value step below (centre body lightNeutral, engine bodies
+  // midNeutral) plus the two spine lines, which are long enough to read as
+  // lines. Recorded rather than silently dropped -- the row-run says the
+  // break is there and this is a weaker rendering of it than the arcade's.
+
+  // Canopy fleck -- topmost body element, the only non-grey/non-orange
   // accent. REFERENCE.md's canopy-coverage bound: a fleck, never a shape.
-  rect(48, 15.8, 4, 1.6, c.canopy);
+  rect(48, 18.7, 4, 1.4, c.canopy);
 
-  // Ventral fins, outboard of and below each pod (the crop's 89.6%H row has
+  // Ventral fins, outboard of and below each pod (the crop's 89.6 %H row has
   // a separate run at |x| 16.5..23.7).
-  poly([[NAC_X[0] - 2, 25.5], [NAC_X[0] - 7, 29.5], [NAC_X[0], 26.5]], c.coolDark);
-  poly([[NAC_X[1] + 2, 25.5], [NAC_X[1] + 7, 29.5], [NAC_X[1], 26.5]], c.coolDark);
+  poly([[NAC_X[0] - 2, 24.4], [NAC_X[0] - 7, 28.4], [NAC_X[0], 25.4]], c.coolDark);
+  poly([[NAC_X[1] + 2, 24.4], [NAC_X[1] + 7, 28.4], [NAC_X[1], 25.4]], c.coolDark);
 
-  // Nacelle pods + nozzles, LAST so they stand proud of the wing root and
-  // the centre body — "separate rounded bodies" is R5 gap 7's wording and
-  // the crop's row-runs agree. The POD SHELL is airframe-bright and overlaps
-  // both the wing root and the body, which is what keeps the lower third of
-  // the silhouette attached: a bare flame disc inside a closed black ring is
-  // an ISLAND under any brightness mask (the ring fails max(RGB)>30), and
-  // the R5b first draft measured H=25 on a 31-row aircraft for exactly that
-  // reason. The black is confined to the nozzle throat, which is the dark
-  // anchor of the whole silhouette, and the hot disc is big: on the crop the
-  // orange fills ~60% of the pod's diameter, where R5 drew it at ~48%.
+  // Nacelle pods + nozzles, LAST so they stand proud of the wing root and the
+  // centre body. The POD SHELL is airframe-bright and overlaps both, which is
+  // what keeps the lower third of the silhouette attached: a bare flame disc
+  // inside a closed black ring is an ISLAND under any brightness mask (the
+  // ring fails max(RGB)>30), and the R5b first draft measured H=25 on a
+  // 31-row aircraft for exactly that reason.
   //
-  // R7 GROWS THE POD, AND ONLY DOWNWARD. Two independent reasons point the
-  // same way. (1) The art critic: "our nacelle rings are rounded squares;
-  // the arcade's are round discs, proportionally larger against the
-  // fuselage, with a bright core" — and the native crop's discs are
-  // unmistakable. (2) The black has to go somewhere: moving the keyline off
-  // the perimeter takes ~290 px of #000000 out of the airframe mask, and the
-  // reading-A window above needs 6.5-21.5 % of it back. The arcade keeps ALL
-  // of its black here, so this is not a budget being balanced — it is the
-  // same redistribution read off the same frame.
-  //
-  // The growth is strictly downward (centres shifted +0.4..+0.9, ry up, the
-  // TOP edge held at ~17.8) because R6 established by measurement that a pod
-  // whose top enters the fin band makes JET-SIL compute `cant` between a
-  // blade and a pod and return a stable, reproducible, completely wrong
-  // 1.13. `cut` is raised with the radii so the octagon stays as round as a
-  // 12 px shape can be rather than turning back into a square.
+  // R9 holds the RING WEIGHT and shrinks the DISC. The R8 critic formed and
+  // then withdrew a claim that our ring was too thin ("comparable, not a
+  // defect"), so the ring is not touched as a fraction of the pod; POD_R's
+  // comment carries the two measurements that move the disc.
   for (const nx of NAC_X) {
-    // `cut` is ~0.58 of the shorter radius on every ring, which is the value
-    // that turns a cut square into a REGULAR octagon. R6 (and R7's first
-    // draft) used ~0.4, and cropping the cell at 8x shows the result plainly:
-    // the nozzles read as orange SQUARES where the arcade's read as discs.
-    // At an 11 px pod that one constant is the whole difference.
-    poly(podPoly(nx, NAC_Y + 1.0, 6.8, 5.4, 3.1), c.lightTop);
-    poly(podPoly(nx, NAC_Y + 2.2, 6.4, 4.4, 2.5), c.coolDark);
-    poly(podPoly(nx, NAC_Y + 1.2, 5.9, 4.9, 2.8), c.key);
-    // The ring is THIN and the core is BIG: on the t175 crop the black is a
-    // one-to-two pixel annulus round a disc that is mostly orange, and the
-    // art critic's "with a bright core" says the same. R6 drew the orange at
-    // ~60 % of the pod diameter; this is ~75 %, and the hot centre with it.
-    poly(podPoly(nx, NAC_Y + 1.3, 4.4, 3.5, 2.0), c.flame);
-    poly(podPoly(nx, NAC_Y + 2.0, 2.0, 1.6, 0.9), c.flameCore);
+    // `cut` is ~0.58 of the shorter radius on every ring, the value that
+    // turns a cut square into a REGULAR octagon. At ~9 px that one constant
+    // is the difference between an orange disc and an orange square.
+    // Wider than tall, which is the arcade's own proportion on the level
+    // crop (|x| 9..21 % of span over 58..88 %H) and is also what keeps the
+    // top edge out of the fin band -- see NAC_Y.
+    poly(podPoly(nx, NAC_Y, POD_R, 4.6, 2.7), c.lightTop);
+    // One lit pixel row on each pod's shoulder.
+    poly([[nx - 2.4, NAC_Y - 4.6], [nx + 2.4, NAC_Y - 4.6],
+          [nx + 2.0, NAC_Y - 3.8], [nx - 2.0, NAC_Y - 3.8]], c.specular);
+    poly(podPoly(nx, NAC_Y + 0.4, POD_R - 0.2, 4.5, 2.6), c.coolDark);
+    poly(podPoly(nx, NAC_Y, POD_R - 0.5, 4.2, 2.4), c.key);
+    poly(podPoly(nx, NAC_Y, 3.6, 2.7, 1.6), c.flame);
+    poly(podPoly(nx, NAC_Y + 0.3, 1.7, 1.2, 0.7), c.flameCore);
   }
   return ops;
 }
@@ -556,7 +737,7 @@ function poseTransform(bankDeg) {
 // changed by 39 bytes, and then by cropping it and looking.
 export const LEVEL_OPS_ROLES = [
   'rim', 'key', 'lightTop', 'lightNeutral', 'midNeutral', 'warmMid',
-  'coolDark', 'canopy', 'flame', 'flameCore',
+  'coolDark', 'canopy', 'specular', 'flame', 'flameCore',
 ];
 
 export function assertRoles(c, label) {
@@ -598,8 +779,9 @@ export function buildPlayerF14Sheet() {
     CELL_H,
     BANK_ANGLES.length,
     (cell, i) => drawFrame(cell, BANK_ANGLES[i], PLAYER),
-    // TEN, not eight — see roles() for the measurement that licenses it.
-    { maxColours: 10, label: 'player-f14' }
+    // ELEVEN, not eight -- see roles() for the measurement that licenses ten
+    // and PLAYER.specular in ../palettes.js for the eleventh.
+    { maxColours: 11, label: 'player-f14' }
   );
 }
 

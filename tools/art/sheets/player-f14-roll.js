@@ -73,6 +73,13 @@ const VENTRAL = {
   midNeutral: R.greyMid,
   warmMid: R.greyWarm,
   coolDark: R.greyDark,
+  // R9 adds `specular` to levelOps. Each table maps it onto its OWN top rung
+  // rather than onto the day sheet's pure white, so the roll sheet gains the
+  // role and not an eleventh/twelfth colour -- and a roll stays on the same
+  // palette as the level poses it interrupts. assertRoles() caught the
+  // missing role on the first build, which is exactly the R7 hole bug it was
+  // written for after it shipped undetected for a round.
+  specular: R.greyLight,
   canopy: R.blueDark,
   flame: R.nozzleCore,
   flameCore: R.nozzleHot,
@@ -85,6 +92,7 @@ const DORSAL = {
   midNeutral: R.blueDark,
   warmMid: R.blueDark,
   coolDark: R.blueDark,
+  specular: R.blueLight,
   canopy: R.greyDark,
   flame: R.nozzleCore,
   flameCore: R.nozzleHot,
@@ -99,6 +107,7 @@ const EDGE = {
   midNeutral: R.greyMid,
   warmMid: R.greyWarm,
   coolDark: R.greyDark,
+  specular: R.blueLight,
   canopy: R.greyDark,
   flame: R.nozzleCore,
   flameCore: R.nozzleHot,
