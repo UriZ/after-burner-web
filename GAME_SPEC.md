@@ -658,11 +658,18 @@ spread.
   3. **Per-enemy lock brackets**: ONE white dashed corner-bracket rides the nearest
      enemy and JUMPS to the next enemy the moment its target dies (t116→116.25: bracket
      → explosion under it, HIT +1, bracket already on the next); during a salvo,
-     MULTIPLE brackets show simultaneously (t100: ~6). Blue `#008cd9`→`#3bbaff`
+     MULTIPLE brackets show simultaneously (t100: ~6 — **but see the caveat below; this single
+     observation is NOT a licence for a lock radius**). Blue `#008cd9`→`#3bbaff`
      variants at t104; white at night (t186).
   AB2's bracket tracks the nearest threat continuously, not gated on crosshair hover
   (behavior adopted at #49). Weapon lock for missile homing additionally requires the
-  crosshair near the enemy (prototype: 80 px radius, 0.5 s grace — ADOPTED). A
+  crosshair near the enemy (prototype: 80 px radius, 0.5 s grace — ADOPTED = **8.3 %W, and this
+  is the ONLY arcade-anchored figure for this quantity**; the shipped `lockSystem.js` runs
+  **0.22 = 22 %W, 2.65× it**, justified by the "~6 brackets" count above. **REFERENCE.md ledger
+  row 41 retires that count as a licence for the radius**: it is one frame, that frame is
+  `stage1-lockon-missile-t100.png` — one of the four hand-picked frames behind retired row 37 —
+  read during a **salvo**, on aircraft that are 2–4 px specks. Any retune cites the 8.3 %W anchor
+  or a new measurement over a pre-registered frame grid). A
   hysteresis margin (~0.85×) stops bracket flicker between similar-distance enemies
   (ADOPTED). **Audio cues cannot be measured from frames** — the lock-tone order
   (acquire → tone → fire) is a stated bound, not verified; needs an audio pass.
@@ -724,6 +731,40 @@ spread.
   order for pattern work).
 - Density pacing ADOPTED (`spawn_pacing.gd`): dispense one enemy at a time on a 0.2–0.5 s
   tick, hard cap ~7 alive, rather than dumping whole waves.
+
+- **ENEMY DENSITY AND EMISSION — MEASURED R9, and this section's own ADOPTED numbers turn out
+  to be right while the code is the outlier.** Full criterion in REFERENCE.md "ARCADE-PACING";
+  retirement of the gate that drove the code away from it is ledger row 37.
+
+  | | arcade | shipped build (`ea3726b`) |
+  |---|---|---|
+  | mean enemy aircraft **on screen** (≥3 %W drawn) | **1.270** (63 frames, 6 stages) | **6.94** |
+  | frames holding ≥1 enemy at **≥10 %W drawn** | **19.0 %** | **80.4 %** |
+  | frames holding **no** enemy aircraft (≥3 %W) | **39.7 %** | **0.19 %** |
+  | emission, aircraft / s of flight | **0.40–0.74** | **3.17–3.20** |
+  | share of enemy observations below 10 %W | **77.1 %** | matches |
+
+  **Three independent routes land between 0.40 and 0.74 aircraft/s**: the R8 judge's arcade hand
+  count through Little's law; ~~the arcade's own HIT counter as a lower bound (0.48–0.54
+  kills/s)~~ **— R9 CAUTION: HIT may also increment for GROUND targets, so it bounds ALL kills,
+  not aircraft kills. Demoted to weak corroboration; see REFERENCE.md "Route B caution". The band
+  is unchanged (its floor comes from the other two routes) and the error's direction only widens
+  the gap to our 3.17–3.20/s** —; and **this section's own ADOPTED 1.5 s stage-1 spawn interval =
+  0.67/s**, never retired and never implemented.
+
+  **The density figures above are ALL-STAGE and every capture this project takes is STAGE 1,
+  where the arcade runs roughly double.** Match the stage population on both sides —
+  REFERENCE.md, "The stage denominator". The stage-1 arcade column is currently **n = 9** and
+  cannot gate anything; the usable statement is **33–44 % readable-present on stage 1 against
+  19.0 % all-stage**. The shipped `spawner.js` runs `MAX_ALIVE = 14` against the line above's
+  "hard cap ~7 alive" and `DISPENSE_MIN_S/MAX_S = 0.14/0.34` against "0.2–0.5 s".
+
+  **The ratio is 5.5× at the ≥3 %W floor and 5.6× at ≥10 %W — the same factor at both.
+  The enemy SIZE distribution is right; the POPULATION is five and a half times too large.**
+
+  **`MAX_ALIVE` rose 6 → 10 → 12 → 14 to satisfy R3's readable-presence gate, which has no
+  arcade side and which the arcade fails at 19.0 %.** Do not re-derive the cap from a presence
+  statistic; derive it from the emission rate above, and gate emptiness directly.
 
 ## 5. Stage structure & progression
 

@@ -1,8 +1,71 @@
 # STATUS — where the rebuild stands
 
-**Last updated**: 2026-10-09, **Round 8 in flight** (five build lanes live in `src/`, work
-uncommitted in the tree; criteria lane editing this file). R8 criteria work and its evidence:
-`judging/R8/lane-criteria.md`.
+**Last updated**: 2026-10-10, **Round 9 in flight** (build lanes live in `src/`, work
+uncommitted in the tree; criteria lane editing this file). R9 criteria work and its evidence:
+`judging/R9/lane-criteria.md`; R8's is `judging/R8/lane-criteria.md`.
+
+> ## R9 CRITERIA HEADLINE — THE FIRST CRITERION IN THIS LEDGER THAT CAUSED A DEFECT RATHER THAN MISSING ONE
+>
+> **R3's density gate — *"≥1 enemy at ≥10 %W in ≥60 % of combat frames"* — is RETIRED.
+> The arcade reads 19.0 %.** Ledger row 37; replacement criterion **ARCADE-PACING** in
+> REFERENCE.md, every row of which carries an arcade column.
+>
+> Two independent hand counts agree: **19.0 %** (63 digit-verified frames, 6 stages,
+> `tools/out/combat-r6/arcade-vert/labels.csv`, re-analysed with
+> `tools/arcade_density_census.py`, selftest 14/14) and **16.7 %** (18 frames, 3 stages, second
+> reader). A third reader on a 2 s grid over stages 1/2/4 agrees on the population. **77.1 % of
+> the arcade's own enemy aircraft are below 10 %W**, and **the arcade's sky holds no enemy
+> aircraft at ≥3 %W in 39.7 % of frames — ours in 0.19 %.** Emptiness is part of AB2's rhythm
+> and no criterion had ever named it.
+>
+> **`spawner.js` drove `MAX_ALIVE` 6 → 10 → 12 → 14 to satisfy that gate** — its own comment says
+> so — **and the gate was then re-measured on the build the raise produced.** A closed loop
+> between two of our own numbers with no arcade in it. We were at **27.3 %** before R8, the
+> closest this build has ever been to arcade pacing; R8 took it to **79.6 %** and recorded a pass.
+>
+> **The gate DID have an arcade side and it was four frames hand-picked into `reference/`.** R9
+> opened all eight stage-1 pack frames: **one of the four cited, `stage1-lockon-island-t104.png`,
+> carries no enemy aircraft at any size** — the thing that reads as a target is a cluster of
+> lock-on brackets with nothing inside them, **the third time the HUD has been counted as an
+> enemy and the first time inside a criterion rather than an operator.** Scored over the whole
+> pack it reads **50.0 %, below its own ≥60 % threshold.** Two of the four are named `lockon` and
+> one `missile-salvo`. **Binding: a reference pack is never a sample — for a frequency claim in
+> EITHER direction, the sample selection is the whole measurement.**
+>
+> **And a second instance of the same loop, found by the declared-exception sweep**: the missile
+> lock radius is **0.22 (22 %W)** against the only arcade anchor for it, **8.3 %W**, justified by
+> a "~6 brackets" count taken on **t100 — one of the same four frames**, during a salvo. Ledger
+> row 41.
+>
+> **Credit that must not be lost in the retirement**: ours:arcade is **5.5× at the ≥3 %W floor and
+> 5.6× at ≥10 %W — the same factor at both.** Our enemy size distribution is right. The
+> population is five and a half times too large, and that is one constant.
+>
+> ## R9's SECOND CRITERIA FINDING — **THE ARCADE TITLE IS NOT A STILL**
+>
+> **The "II" sphere plate is a 3-D object that tumbles continuously and approaches the camera.**
+> `reference/title-screen-t74.png` is one transient mid-tumble pose, and **every published
+> measurement of the plate — "7.2× too sparse", "the balls are ~3× larger" — is a property of
+> that pose, not of the object. All withdrawn (ledger row 43).** Verified by decoding the
+> sequence rather than arguing it: `tools/out/criteria-r9/crit-r9-09-ARCADE-title-t70-t79-1s-grid.png`
+> — **t70–71 no plate at all, t72 near face-on, t73 nearly EDGE-ON, t74 the published frame,
+> t75 a wide shallow parallelogram, t79 filling most of the screen.** Re-derive from a **named
+> phase** (t72 is the most face-on readable pose) or from a phase census.
+>
+> **And it contaminated the lettering too.** "BURNER is 13.7 % taller than AFTER" is **two
+> stacked artefacts** (ledger row 42): the plate's white specular highlights passing a brightness
+> threshold, **plus** baseline shear — the wordmark is set on a slope, so **the longer word's
+> bbox spans more rows at identical letter height**. Measured on clean frames with
+> `tools/title_word_height.py` (selftest 4/4): **per-column letter height FTER 79.5–80.0,
+> URNER 78.0 — BURNER's letters are 2 % SHORTER.** The per-word scaling it implied
+> (AFTER ×1.13 / BURNER ×1.29) **must not be implemented.** The **21.5 % whole-wordmark shortfall
+> is real and survives**; its cause is the **missing oversized bookend letters**.
+>
+> **New citation field, binding, and it is ledger row 29 GENERALISED rather than a new taxon:**
+> *a single-frame figure must establish that its subject is STATIC — and if it is not, say which
+> phase the frame caught.* **The tell is what makes it dangerous: looking harder at the frame
+> cannot find it.** A still of a tumbling plate is pixel-for-pixel indistinguishable from a still
+> of a static one; the only way to find it is to decode a second frame, which no rule asked for.
 **Judge score trend**: R1 3/10 → R2 4/10 → R3 6/10 → R4 7/10 → R5 7.5/10 → **R6 8/10** (still
 FAIL against the arcade bar). Full reports in `judging/R1..R6/report.md`; R6's is the scoring
 baseline, measured on clean checkout `e8fed58`. R6 also ran an art critique
@@ -53,6 +116,103 @@ below. Everything else in this file is downstream of those.
 > wrong — it was unreproducible by anyone but its measurer, and it reproduced in one run once
 > the provenance arrived. **Field 5 earned its place on the gate at the top of REFERENCE.md.**
 
+**R9's PROCESS HEADLINE, and it is about how the round ran rather than what it measured: every
+defect that mattered this round was published by the lane that committed it, unprompted.** The
+drawing lane reported a topology bug in its own instrument and a control that passed vacuously;
+the pacing lane reported that its own default pilot invalidated the rows it was measuring, and
+withdrew a fix it had already built; the title lane reported two of its own targets as artefacts
+before implementing them; this lane withdrew a published supporting argument and found that its
+own criterion box named two mask rules eight lines apart — **ledger row 34's defect inside the
+repair for it, by the lane that maintains the ledger.** Four lanes, nine self-reported defects,
+**none of them found by a reviewer.** That is the loop working better than the judge-finds-it
+model it was built on, and it is worth protecting: *a lane that reports the criterion which
+fought it is worth more than a lane that reports only the result it got* (R7's lesson, now
+measured).
+
+**Two rules came out of it and both are binding, in REFERENCE's process-rule section:**
+**(a) a cross-validation can AGREE because two errors cancel** — a suspiciously exact agreement
+between two independently built operators is a reason to go looking, not to publish; and
+**(b) the figure most worth cropping is the one you have already explained to yourself** —
+CLAUDE.md's crop-and-look trigger list (zeros, non-movements, 100 %s) **missed both R9 instances**,
+because both were large, reproducible numbers that arrived with a tidy mechanism attached, and the
+mechanism is what suppressed the instinct to look.
+
+**R9 PACING — five of ARCADE-PACING's six rows now pass on a kill-rate-matched pilot, where one
+of six passed before.** `MAX_ALIVE` 14 → 6, `WAVE_GAP` 0.9–1.6 s → 7–13 s. Emptiness at the ≥3 %W
+floor **0.0–3.1 % → 33.1–48.0 %** (`demo`), **59.0–67.9 %** (arcade-cadence); emission
+**2.71–3.34 → 0.567–0.700/s**.
+
+> **AND THE CRITERION ITSELF TOOK TWO CORRECTIONS FROM ITS FIRST REAL USE — both found by the
+> lane using it, which is now this project's dominant way of finding defective criteria.**
+>
+> **(a) ARCADE-PACING had a STAGE-POPULATION defect, and it is ledger class 2 — in a criterion
+> written this round to replace one that failed the same way.** The arcade's density ramps hard
+> with stage: readable-presence runs **0.0 % (stages 3, 4, 11) to 66.7 % (stage 10)**, and
+> **stage 1 — the only stage this project ever captures — runs 33–44 %, roughly DOUBLE the
+> all-stage 19.0 %.** Gating a stage-1 capture against the all-stage mean would have told a lane
+> to build a stage 1 emptier than the arcade's own. **Binding: match the stage population on both
+> sides.** Emptiness is not stage-robust either (18.2–55.6 %). **The stage-1 gate is now OPEN and
+> says so**: n = 9, ±2 SE 11.3–77.6 %, which excludes nothing. *Do not split the difference and
+> invent a number.*
+>
+> **(b) Route B was a weaker bound than published.** AB2's **HIT counter may also increment for
+> ground targets**, so 0.48–0.54 kills/s bounds *all* kills, not aircraft kills. **Demoted to weak
+> corroboration; the 0.40–0.74 band is UNCHANGED** — its floor comes from the aircraft-only hand
+> count and GAME_SPEC's own ADOPTED 0.67/s — **and the error's direction only widens the gap.**
+> One weak observation on stage 1 runs against the caution (HIT 11 at both t108 and t114 across a
+> visible ground detonation); a 3 s grid cannot attribute increments and settling it needs a pass
+> keyed to each HIT step at ≤0.1 s.
+>
+> **Two rows re-scoped rather than failed.** *Mean-on-screen names its pilot* — the two arms
+> straddle the band (0.63–0.90 kill-rate-matched, 1.58–1.76 `demo`), two pilots not two builds.
+> And **it is not the spawner's row to close**: our `idle` residence is **3.05–3.16 s** against
+> the arcade's ~3.3 s, so **the size-vs-depth geometry already matches** and the collapse to
+> 0.99–1.31 s under fire is the **missile economy** — missiles are 47–77 % of kills and carry no
+> span gate at a 22 %W radius (ledger row 41). Raising emission to refill it would break three
+> rows that now pass.
+>
+> **Run-length now ships beside the emptiness percentage**, and the reason is a measurement:
+> *before, the longest empty run in a 90 s run was 0.32 s and the median continuously-occupied run
+> was 86.5 s* — a near-zero emptiness figure and a sky that never actually emptied. A percentage
+> cannot tell a sky that empties once for eight seconds from one that flickers two hundred times.
+
+**Second withdrawal-on-measurement of the round**: the pacing lane built the player-corridor fix
+for the art critique's rank-1 item and **withdrew it** — the population cut alone halves >30 %
+player occlusion (10.7 → 4.8 %), the corridor moved it **not at all** and made the worst frame
+worse (50.7 → 65.0 %). Shipped inert with the arms and the refutation in the file.
+
+**R9 DRAW-WEIGHT's mask rule is settled against GROUND TRUTH, and the test is reusable.** Only
+our own sheets have ground truth — the alpha channel — and it decided a choice worth 40 % on RSW:
+recovery against `alpha > 0` over all nine day cells is **92.4–94.3 %** for the licensed
+achromatic rule against **20.9–61.6 %** for a four-role palette rule, whose worst case is **the
+LEVEL pose** (57.6 % → **20.9 %** once the largest-component step discards the fragments it
+creates). The same four-role rule recovers **86.1 %** on the arcade's jet. **A criterion comparing
+two sides through a mask 86 % faithful on one and 21 % on the other is not comparing like with
+like.** Binding: *a mask rule is validated against ground truth on BOTH sides; the arcade side can
+only be checked by cropping and looking; a rule never tested against our own alpha is untested.*
+
+**R9 DRAW-WEIGHT, two results worth carrying**: the art critic's bank-invariance claim is
+**CONFIRMED by 24×** (INK/SPAN rotation CV 1.2 % against bbox fill's 28.7 %), and the arm that
+looked like a counter-example was `SHRINK = 0.34` entering a dimensioned statistic — **INK/SPAN may
+only be read at a matched span.** The gate is **RP90**, not the obvious choices: at matched ink and
+matched span, one slab against four blades separates by INK/SPAN ×1.025, DENS ×1.037, RSW ×1.430,
+**RP90 ×1.811** — *the statistics that read most naturally as "drawing weight" are nearly blind to
+the defect the criterion exists to catch.* And **the stroke statistics are the MOST mask-sensitive of the four**: the
+arcade jet's RP90 reads **3.64 / 7.51 / 9.73** on one frame under three mask rules, and RSW moves
+**+40 %** across two of them. **A gate on RP90 is a gate on RP90-under-a-named-mask** — that clause
+is load-bearing, not pedantic. The licensed rule is published in REFERENCE and includes a topology
+condition that cost 78 px before either lane had written it down: **8-connected foreground,
+4-connected background flood** (a diagonally-stepped ring encloses nothing under an 8-connected
+flood, and the arcade's nozzle discs are bounded by one).
+**And the round's sharpest process lesson came out of it: CROSS-VALIDATION CAN AGREE BECAUSE TWO
+ERRORS CANCEL.** Two implementations agreed on RSW to 0.00 and RP90 to 0.01 — on two *different*
+masks, the agreement produced entirely by the topology bug. It was published as evidence and
+withdrawn within the day. **A suspiciously exact agreement between two independently built
+operators is a reason to go looking, not to publish.** Ledger row 38's box. The far LOD was rebuilt
+**100.0 % → 56.3 % bbox fill**, and **56.3 % is this design's floor, not a miss** — the
+FULL-WIDTH-BAND invariant costs 37.5 % before a shaped pixel, against the arcade's 30.6–34.6 %.
+**Do not open a gap for the residual.**
+
 **User's own verdict after playing it: "it's very bad, lots of work to be done."** The score
 trend measures convergence on measurable properties; it does not yet mean the game is fun or
 convincing. Treat the player-experience gap as real and unquantified — see "What nobody has
@@ -91,8 +251,13 @@ Cross-lane agreements and every lead ruling are in `judging/R5/interfaces.md` (I
 
 ## Criteria repair came first, and it was the biggest finding of the round
 
-**Thirty-six acceptance criteria have now been retired or repaired** as non-discriminating or
-plain wrong (R8 added seven: rows 30–36). The maintained ledger is in REFERENCE.md ("The defective-criteria ledger") —
+**Forty-three acceptance criteria have now been retired or repaired** as non-discriminating or
+plain wrong (R8 added seven: rows 30–36; **R9 added seven: rows 37–43**, and updated rows 4, 29
+and 32). **Rows 42 and 43 are the round's two caught-BEFORE-implementation rows** — both from the
+title lane, both reported by the lane that was about to build against them.
+**Row 37 is the consequential one and it is a different kind of row**: every row before it is a
+criterion that *would have* moved the build the wrong way had a lane tuned to it; row 37 is one a
+lane *did* tune to, for five rounds, passing every round. The maintained ledger is in REFERENCE.md ("The defective-criteria ledger") —
 add rows there rather than re-counting. R5 added four: the cloud size/presence figures (a
 correct operator over a 90 %-non-cloud population), the zero-cloud/HUD-overlap control, the
 sea anisotropy ratio, and the aliased `?demo=1` canyon sd; R5c added the gap-5 deaths/minute
@@ -211,7 +376,7 @@ continue → restart. Verified by the R4 judge, with R5 corrections marked:
 | Composition | Horizon 62.50 %H, jet span 35.62 %W, centroid 57.08 %H — inside arcade bands. **R5: `?demo=1` is two populations** — canyon cy 63.52 %H is out of band *on purpose*; capture cruise only or split by regime (`simTime % 16 < 11`) |
 | World roll | Rigid about screen centre, 74.5°/s, saturates ~66.5°; jet banks at 0.800× (pixel-confirmed); HUD stays upright |
 | Ground | Scrolls correctly (was literally zero in R2); contrast/foam near arcade. **R6: sea anisotropy has NO arcade target — the R5 restatement (4.95× vs 5.21×) is RETIRED too** (ledger rows 6/16/17). Its arcade side came from a 686×480 video band carrying 19 896 colours and 11.4 % V-identity; the statistic even reverses sign with resolution (3.04× at 686×480, 4.56× at native, opposite directions). Quote it only as a same-operator regression guard between our own builds, with the resolution named |
-| Combat | 10–14 aircraft on screen; 66.6 % of frames have an enemy ≥10 %W; salvo of 6 missiles; trail occupancy 98 %; lock brackets 1–2 px |
+| Combat | 10–14 aircraft on screen; ~~66.6 % of frames have an enemy ≥10 %W~~ **— R9: THAT IS NOT A PASS, IT IS THE DEFECT. The arcade reads 19.0 % and the gate behind this line is RETIRED (ledger row 37).** Ours was 80.4 % after R8; salvo of 6 missiles; trail occupancy 98 %; lock brackets 1–2 px |
 | Explosions | Palette fixed — saturation 0.879, p50 `#c25e02` (exact). **R6: the core figure R5 published was wrong in SIGN** — our core was **28–32 %** against the arcade's 9.2 %, not the 4.1–7.8 % recorded, because FIRE-MASK's control regions were never published and the operator over-read. R5's lane, the art critique and the lead all endorsed holding a value derived from a number the operator could not produce. Now **9.1–12.3 % core at mean S 0.824–0.846** against the arcade's 9.2 / 0.846. `V>0.95` is the one statistic slightly low (40.7–48.6 vs the ≥45 gate) and was **deliberately not fixed** — the lever is spike thickness and the spikes are a separately flagged art defect |
 | Scoring | Passive 3300.0/s exactly, frozen through death, HIT survives death, HIT×20,000 at the tally |
 | Death cycle | Fireball → 53.4 %W starburst → tumbling hulk → oversized bottom respawn + READY card. **R5: non-interactive time per death 8.5 s → 5.2 s** (player-feel, self-reported) |
@@ -439,9 +604,9 @@ Three of the eleven are closed or withdrawn; the rest stand.
   Three of those four are **retired for want of it**, not for want of effort. Neither 686×480
   nor 1028×720 is an integer multiple of 320×224, so decimation cannot substitute.
 
-### THE ACQUISITION LIST — FIVE measurement programmes are blocked on footage we do not have
+### THE ACQUISITION LIST — SIX measurement programmes are blocked on footage we do not have
 
-Listed together so anyone acquiring frames knows what to look for. **All five are true-native
+Listed together so anyone acquiring frames knows what to look for. **All six are true-native
 320×224 screenshots**; a video frame at any resolution satisfies none of them, because neither
 686×480 nor 1028×720 is an integer multiple of 320×224.
 
@@ -457,10 +622,11 @@ finding; recorded here so it is not re-tested a third time.
 | # | what to acquire | what it unblocks |
 |---|---|---|
 | **1** | a true-native **stage-1** frame (sea) | the `#009eff` sky level, Criterion B's floor on a stage-1 sea patch, ledger rows 16 and 17. **Three of the four are retired for want of it.** |
-| **2** | a true-native **LEVEL astern** frame of the player jet, any daylight stage (**NEW, R7**) | **every true-native frame in this repo is a BANKED pose.** `ab2-arcade-desert.png` and `ab2-arcade-night-banking.png` both are, and the authoritative level crop (`stage3-night-level-t175.png`) is a 686×480 video upscale carrying **3 133 unique colours over 5 147 px** — fine for shape, useless for a colour census. The sprite lane tried it and discarded it rather than publish off it. Blocks: comparing our black **role area** against the arcade's 18 % on a level cell (the arcade's 18 % is measured on a banked pose where the nozzle discs face the camera and read as large filled circles, which our 2-D-rotated planform cannot reproduce); and any per-variant `n95` check on a level daylight sprite |
+| **2** | a true-native **LEVEL astern** frame of the player jet, any daylight stage (**NEW, R7**) | **every true-native frame in this repo is a BANKED pose.** `ab2-arcade-desert.png` and `ab2-arcade-night-banking.png` both are, and the authoritative level crop (`stage3-night-level-t175.png`) is a 686×480 video upscale carrying **3 133 unique colours over 5 147 px** — fine for shape, useless for a colour census. The sprite lane tried it and discarded it rather than publish off it. Blocks: comparing our black **role area** against the arcade's 18 % on a level cell (the arcade's 18 % is measured on a banked pose where the nozzle discs face the camera and read as large filled circles, which our 2-D-rotated planform cannot reproduce); and any per-variant `n95` check on a level daylight sprite. **R9 widens it: the DRAW-WEIGHT arcade column for the player jet is n = 1 and BANKED** (INK/SPAN 7.07–7.32, SW 2.0 px, bbox fill 15.0 %, dark-accent share 44.7–46.0 %, measured twice on two implementations). A second observation needs a level astern native |
 | **3** | an isolated arcade **barrel-roll** sprite (**NEW, R7**, lower priority) | the roll sheet's `n95 = 9` has **no arcade target at all** (ledger row 25). The only roll reference is `stage4-barrel-roll-t222.png`, 1028×720 video. Until this exists, **do not tune the roll sheet's palette to a number** |
 | **4** | a true-native **DAYLIGHT frame holding an explosion** (**NEW, R8**) | **what it does NOT block, stated first, because R7's gap list had this backwards:** it does **not** block Criterion A2's licence. A2's ≤32 is the width of the hardware's colour ladder (REFERENCE ledger row 31), so no 1987 frame of this game could exceed it, explosion or not. What it **does** block is the **colour** half: the only arcade fireball palette anchor we hold is `ab2-arcade-huge-explosion.jpg` at **181×127**, and the only native blast is a **night** one whose warm pixels cost **0** channel values but **27 of 79 colours**. The one daylight native in combat spends **138 of 256** colours *with no explosion in it*, and daylight-with-explosions is the population our build is scored in. Blocks: a daylight fireball colour budget, and the fireball's palette against a bright sky |
-| **5** | a true-native **NEAR-ASPECT enemy aircraft** (**NEW, R8**) | both true-native frames carry only **distant** enemies — measured, ~10 × 12 px of aircraft inside a 19 × 20 crop — and every near-aspect enemy reference (`ab2-arcade-closeup-enemies.jpg` 1440×1080, `stage1-missile-salvo-t100.75.png` 1028×720) is a video upscale with thousands of colours, on which a **single-colour-component operator cannot run at all**. That is why `enemysil.py`'s feature gate has never been checked against the reference and is now retired rather than tuned to (ledger row 36). Also the only route to a stage-1 enemy livery target that is not a video upscale |
+| **5** | a true-native **NEAR-ASPECT enemy aircraft** (**NEW, R8**) | both true-native frames carry only **distant** enemies — measured, ~10 × 12 px of aircraft inside a 19 × 20 crop — and every near-aspect enemy reference (`ab2-arcade-closeup-enemies.jpg` 1440×1080, `stage1-missile-salvo-t100.75.png` 1028×720) is a video upscale with thousands of colours, on which a **single-colour-component operator cannot run at all**. That is why `enemysil.py`'s feature gate has never been checked against the reference and is now retired rather than tuned to (ledger row 36). Also the only route to a stage-1 enemy livery target that is not a video upscale. **R9 widens it: also the only route to a DRAW-WEIGHT arcade column for the near-aspect enemy, the object the R8 art critic ranks 2nd** |
+| **6** | a true-native frame of the **CARRIER**, the **TITLE** screen, or a **DEATH HULK** (**NEW, R9**) | **DRAW-WEIGHT is explicitly UNLICENSED on all three** (REFERENCE.md). Their only references are 686×480 video, where INK/SPAN is read at **2.14× our native scale** *and* the mask needs a tolerance that **adds** ink at low values and **removes** it at high ones — a statistic that is a function of a knob. **Three objects the R8 art critic ranks in his top nine have no drawing criterion at all and cannot have one from the footage in this repo.** Note the night true-native (`ab2-arcade-night-banking.png`) cannot substitute for the player jet either: its jet is **inside a 37.8 %W fireball** and cannot be isolated — second measurement programme that frame has defeated, recorded so it is not attempted a third time. **R9 adds a CONDITION rather than a sibling item: a true-native TITLE still is INSUFFICIENT for the sphere plate unless its PHASE is stated** — the plate tumbles and approaches (ledger row 43), so a native still of an edge-on pose would reproduce the defect at higher resolution. A **tumble sequence** is NOT an acquisition item: one was extracted this round from `ab2-longplay.mp4`, which is how row 43 was settled |
 - **`hazeSteps` is read by `paramsFor()` out of `stage.terrain`, NOT out of `stage.haze`.**
   Putting it under `haze` beside `bandHeightFrac` — where it reads as if it belongs — is a
   **silent no-op**: no error, no warning, the posterization simply does not happen. The R6
@@ -479,6 +645,29 @@ finding; recorded here so it is not re-tested a third time.
   dates it is whichever one a lane most recently rebuilt** (sky 15 colours and jet 40 said
   nothing; a 9 430-colour ground dated the set to before the stage-1 sea rebuild). All three in
   REFERENCE.md, "Capture sets: sweep for duplicates ACROSS sets".
+- **R9, OWED AND NOT BLOCKED ON ANYTHING — a DIRECT arcade emission count.** The arcade's
+  **0.40–0.74 aircraft/s** rests on Little's law with `W` taken from GAME_SPEC's existing
+  MEASURED 4–6 s approach rather than re-measured, and three independent routes agree on it, so
+  nothing in R9 depends on tightening it. **It is deliberately NOT on the acquisition list**,
+  because the footage is already here: `.reference-cache/video/ab2-longplay-60fps.mp4` supports a
+  contiguous decode fine enough to **track individual aircraft from first appearance to exit**
+  across a `STAGE_MAP.md`-verified span, which yields emission **and** residence directly and
+  collapses the bracket. Filing it as an acquisition would record it as blocked on footage we do
+  not have when it is blocked on an afternoon. Sampling must be ≤0.1 s (ledger row 29's lesson).
+- **R9, OWED, also not an acquisition — a SECOND READER's density count.** ARCADE-PACING's bands
+  are ±2 SE on **63 frames by one reader**, corroborated by a second reader on 18 frames and a
+  third on 24, all three agreeing. A fourth count over ≥40 digit-verified frames on a
+  pre-registered grid would **tighten** the bands, not verify them. Low priority precisely
+  because the three existing counts agree — recorded so it is not mistaken for a gap.
+- **R9: `judging/R8/feel-critique.md` §2.4 shipped with two UNSUBSTITUTED TEMPLATE PLACEHOLDERS**
+  — `PILOT_CENSUS_TABLE` (line 229) and `TRK_CENSUS_COMPARE` (line 238) — so the entire our-side
+  census table behind R8's headline is absent from the document, and §1 quotes 79.6 % and 0.2 %
+  as conclusions of a table that was never rendered. **Recovered, not re-derived**, by re-running
+  the critic's own formatter over its own pooled arms:
+  `python3 tools/out/feel-critic-r8/tables_fc8.py tools/out/feel-critic-r8/arms{A,B,C}-results.json`
+  — figures now published in REFERENCE.md's ARCADE-PACING section. **A capture set and a
+  formatter are not a published figure; check that the document rendered what it computed.**
+
 - **Two capture-corruption causes are fixed; that is not proof there is no third.** Sweep
   every capture set for black frames **and for duplicates** — a stalled live frame
   double-counts in a pooled distribution and a black-frame sweep alone cannot see it.
