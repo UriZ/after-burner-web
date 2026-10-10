@@ -26,33 +26,266 @@ import { gunTunable } from '../weapons/tunables.js';
 // (ARCHITECTURE.md D4) — no Math.random, so `?seed=N` reproduces the same
 // waves frame for frame.
 
-// Hard cap on live enemies. Was 6, chosen to hold GAME_SPEC.md §8's raw
-// "4-6 enemies visible in combat" — but the R3 judge RETIRED that criterion
-// because it is satisfied by counting dots: our median on-screen count was
-// 5 while the median largest enemy spanned 2.0%W. The replacement criterion
-// is size-qualified (>=1 enemy at >=10%W in >=60% of combat frames), and a
-// 6-enemy cap cannot deliver it: an enemy is only >=10%W for the last
-// ~1.4 s of its ~5 s approach, and measurement showed roughly two thirds of
-// spawns are shot down before they ever get there. The density is bought
-// with POPULATION and arrival spread, deliberately NOT by slowing the
-// approach: the near-field growth rate is what keeps the rendered width
-// changing every 2-3 frames at readable size, and easing the approach to
-// buy dwell would push those plateaus straight back into the frozen-scale
-// regime that gap 5 exists to prevent. 6 -> 10 -> 12 -> 14 were each
-// measured; see the dev report for the trace.
-const MAX_ALIVE = 14;
-const DISPENSE_MIN_S = 0.14;
-const DISPENSE_MAX_S = 0.34;
-// Gap between waves. MEASURED on our own capture, not guessed: the first
-// values (2.6-4.2 s, with the next wave's countdown gated on the previous
-// wave's queue being empty) produced a median of 2.5 enemies on screen with
-// troughs down to 1 over a 20 s run (tools/out/combat-r3-09-density),
-// against GAME_SPEC.md §8's density target of 4-6 visible in combat. A wave
-// takes 4-6 s to cross, so the gap has to be well under that and the
-// countdown has to run continuously — waves must OVERLAP, which is also what
-// the arcade does (t113-119 has an echelon mid-approach while crossers pass).
-const WAVE_GAP_MIN_S = 0.9;
-const WAVE_GAP_MAX_S = 1.6;
+// ---------------------------------------------------------------------------
+// `?pace=key=value,...` — MEASUREMENT-ONLY override of this file's pacing
+// constants. Same family and same contract as `?gun=` (src/weapons/tunables.js):
+// unknown keys are a HARD ERROR rather than a silent default, so a typo'd arm
+// cannot present as the shipped build in a table.
+//
+// It is local to this file rather than added to `tunables.js` because that
+// file belongs to the combat lane and this one belongs to pacing; a lane that
+// reaches into another lane's file to add a key is the cross-lane edit
+// CLAUDE.md forbids. The duplication is nine lines and the alternative is a
+// merge conflict on a shared file in a five-lane round.
+const PACE_KEYS = new Set([
+  'maxalive', // hard cap on live enemies
+  'gapmin', // shortest gap between wave starts, seconds
+  'gapmax', // longest gap between wave starts, seconds
+  'dispmin', // shortest gap between single-aircraft dispenses
+  'dispmax', // longest gap between single-aircraft dispenses
+  'corridor', // half-width of the lateral dead zone kept clear of the player
+  'openerspan', // size of the stage opener's overtake flight: n = 2 + rng*this
+  'traingap', // seconds between enemy fire-train starts
+  'trains', // how many enemy fire trains may be in the air at once
+]);
+let paceOverrides = null;
+function paceTunable(key, fallback) {
+  if (!PACE_KEYS.has(key)) throw new Error(`paceTunable: "${key}" is not a declared key`);
+  if (!paceOverrides) {
+    paceOverrides = new Map();
+    const raw =
+      typeof location === 'undefined' ? null : new URLSearchParams(location.search).get('pace');
+    for (const pair of (raw ?? '').split(',')) {
+      if (!pair) continue;
+      const i = pair.indexOf('=');
+      const k = (i < 0 ? pair : pair.slice(0, i)).trim();
+      const v = i < 0 ? '1' : pair.slice(i + 1).trim();
+      if (!PACE_KEYS.has(k)) {
+        throw new Error(
+          `?pace: unknown key "${k}". Known: ${[...PACE_KEYS].join(', ')}. ` +
+            'Refusing to run rather than silently measuring the shipped default.',
+        );
+      }
+      const n = Number(v);
+      if (!Number.isFinite(n)) throw new Error(`?pace: "${k}" is not a finite number ("${v}").`);
+      paceOverrides.set(k, n);
+    }
+  }
+  return paceOverrides.has(key) ? paceOverrides.get(key) : fallback;
+}
+
+// ---------------------------------------------------------------------------
+// THE POPULATION. R9 gap 0, and it is the one place in this file where the
+// honest change is to DELETE an argument rather than to improve it.
+//
+// SHIPPED BEFORE THIS ROUND: MAX_ALIVE = 14, WAVE_GAP 0.9-1.6 s, dispense
+// 0.14-0.34 s. The comment that stood here derived 14 from R3's size-qualified
+// density gate — "at least one enemy at >=10 %W in at least 60 % of combat
+// frames" — and recorded the sweep 6 -> 10 -> 12 -> 14 that reached it.
+//
+// **THAT GATE HAS NO ARCADE SIDE AND THE ARCADE FAILS IT.** Three hand counts,
+// three readers, three independent frame samples, all on STAGE_MAP.md-verified
+// spans with the stage digit read on every frame:
+//
+//   readable (>=10 %W) enemy present   frames  stages  reader
+//     16.7 %                             18      3     R8 feel critic
+//     19.0 %                             63      6     R6 combat lane's labels.csv, re-analysed
+//     28.6 %                             21      4     this lane, judging/R9/arcade-count-rule.md
+//     ----                             ------          pooled 84 frames, 8 stages: 21.4 %
+//     >= 60 %                                          R3's gate
+//     87-96 % (idle) / 53-67 % (tracking pilot)        what this file shipped
+//
+// The three counts disagree by 12 points on presence and agree to a point on
+// the SHAPE that causes it: 77.1 / 79.2 % of the arcade's own enemy aircraft
+// are drawn below 10 %W, median span 4 - 4.5 %W on both. The arcade's sky is
+// mostly specks. R3's gate asks for the opposite and `MAX_ALIVE` was swept
+// against it with our own build on both sides of the comparison.
+//
+// AND THE LOAD-BEARING CLAUSE OF THE OLD DERIVATION EXPIRED IN R8. It read
+// "roughly two thirds of spawns are shot down before they ever reach readable
+// size", which is what forced the cap up. R8 shipped `READABLE_SPAN_FRAC` in
+// `vulcan.resolveHits`, which makes it IMPOSSIBLE for the gun to kill an
+// aircraft below 10 %W at all. Measured on this tree before the change, every
+// arm, every seed: gun kills below the gate **0.0 %**. The population no
+// longer leaks away before it becomes readable, so the mechanism the cap was
+// compensating for does not exist.
+//
+// WHAT THE NEW VALUES ARE SET BY, and it is three sources that agree:
+//   * the arcade's emission rate, 0.4-0.74 aircraft/s of flight (R8 judge
+//     §4.3, Little's law on a hand count plus the HIT counter as a floor);
+//   * the arcade's engagement structure, one engagement every ~10.5 s of
+//     3-6 aircraft (R8 feel critic §3.2);
+//   * GAME_SPEC.md §4's own ADOPTED pacing, "spawn interval 1.5 s on stage 1"
+//     = 0.67/s and "hard cap ~7 alive", which the code has contradicted since
+//     R3 and which nothing ever recorded as an open item.
+//
+// A wave is 3-6 members two times in three and 2-3 one time in three, mean
+// **3.83 members**, so the wave gap sets the rate: 3.83 / 10.0 s = 0.38
+// aircraft/s from ordinary waves, plus the stage opener's 5-6 at each stage
+// boundary. MEASURED end to end on the shipped values, 12 arms, 4 pilots,
+// 3 seeds, 90 s each: **0.567 - 0.647 emissions/s on every single one**,
+// inside the arcade's 0.4-0.74 with margin at both ends. The arithmetic is
+// the design; the probe is the number, and they are not the same thing
+// because the opener is not a wave.
+//
+// THE SWEEP IS REPRODUCIBLE AND EVERY ARM IS ONE `?pace=` STRING -- see
+// judging/R9/lane-pacing.md. The control arm that matters most:
+// `?pace=maxalive=14,gapmin=0.9,gapmax=1.6,dispmin=0.14,dispmax=0.34,
+// corridor=0,openerspan=3,traingap=2.46,trains=2` reproduces the committed
+// build `52edcc4` to EVERY DIGIT the probe prints, on every arm and seed, so
+// the before column of that report is a switch on this build rather than a
+// different build.
+const MAX_ALIVE = paceTunable('maxalive', 6);
+// GAME_SPEC.md §4's own figures, which this file has contradicted since R3.
+// The tighter 0.14-0.34 existed to drain a queue that no longer forms.
+const DISPENSE_MIN_S = paceTunable('dispmin', 0.2);
+const DISPENSE_MAX_S = paceTunable('dispmax', 0.5);
+// Gap between waves. 0.9-1.6 s, and the reasoning that set it is the single
+// most expensive inference in this file: *"a wave takes 4-6 s to cross, so the
+// gap has to be well under that and the countdown has to run continuously —
+// waves must OVERLAP"*. A gap shorter than the residence time is the
+// definition of a saturated queue, and it guarantees the sky NEVER empties.
+// The arcade overlaps waves occasionally (t113-119, correctly observed); we
+// made it structural.
+//
+// IT WAS WORSE THAN SATURATED AND THE PROBE SHOWS IT RATHER THAN THE ARITHMETIC
+// PREDICTING IT. Supply at 0.9-1.6 s is 3.83/1.25 = 3.06 aircraft/s; capacity
+// at MAX_ALIVE 14 over a 4.55 s residence is 3.08/s. The two limiters sat on
+// top of each other, so `pending` was a critically-loaded queue with no drift
+// term: measured mean backlog **4.7 aircraft at 20 s, 18.7 at 60 s, 24-26 at
+// 90 s, still climbing** (tools/out/pacing-r9/before-popA.json). That backlog
+// is discarded wholesale by `clear()` at every stage boundary, so a fifth of
+// everything the wave generator built was never flown at all.
+//
+// 7.0-13.0 s, mean 10.0 s, which is the R8 feel critic's measured arcade
+// cadence of one engagement every ~10.5 s against a ~5 s crossing -- the
+// arcade's "overlaps sometimes" rather than "overlaps always". 5.0-9.0 was
+// measured first and emitted 0.75-0.87/s, above the arcade's band; the gap
+// was scaled by the ratio and re-measured rather than argued.
+//
+// It also leaves the queue strictly under-loaded: supply 0.38/s against a
+// capacity of 6/4.55 = 1.32/s, so **the CAP NO LONGER BINDS** and emission is
+// a rate this file chose instead of a side effect of a cap nobody re-derived.
+// Measured mean backlog after: **0.44 - 1.04 aircraft**, flat in run length,
+// against 18.7 and climbing before.
+const WAVE_GAP_MIN_S = paceTunable('gapmin', 7.0);
+const WAVE_GAP_MAX_S = paceTunable('gapmax', 13.0);
+
+// ---------------------------------------------------------------------------
+// THE PLAYER CORRIDOR — half-width, in NDC, of a lateral dead zone that wave
+// FLY-PAST endpoints and stage-opener start points are kept out of.
+//
+// R8's art critique ranked "you cannot find your own aircraft" first of
+// everything it found, and measured it: **19.5 % of flight frames had more
+// than 30 % of the player's aircraft hidden behind another sprite, worst
+// 60.7 %**, with the worst frame holding six aircraft clumped at screen centre
+// and one across the player's canopy. Its first recommended fix is this one,
+// and it is explicitly a spawner change: *"keep enemies out of the player's
+// screen box."*
+//
+// WHY THE CORRIDOR IS ON X AND NOT ON Y, which is a measured distinction and
+// not a preference. This file's own R6 diagnosis — still above, still holding —
+// is that the arcade's readable enemies sit on the SIGHT LINE, 13 points of H
+// above its player, and NEAR_BAND is quantile-matched to that distribution. Our
+// near-field median is ndcY +0.28 against a player median of -0.096, so the
+// VERTICAL separation is already the arcade's and moving it would break a
+// matched statistic to chase an unmatched one. What is not separated is the
+// lateral: `baseB` is drawn uniform on +-0.18 NDC, which is the middle of the
+// frame, which is where the player is.
+//
+// APPLIED TO THE FORMATION CENTRE, NOT PER MEMBER, and that is the whole
+// design decision. Mapping every member's x out of the corridor splits a
+// formation that straddles the centre line into two halves thrown to opposite
+// sides — the sign flip at x = 0 is discontinuous — and a wave stops reading as
+// a wave, which is the defect gap 11 was about. Offsetting the centre keeps the
+// echelon's internal geometry byte for byte and simply lands it left or right
+// of the player. A member can still cross the centre; the BULK of the wave no
+// longer arrives on the canopy.
+//
+// 0.34 NDC: the player's measured level-astern span is 35.62 %W (REFERENCE.md)
+// = 0.712 NDC, half-width 0.356, and 0.34 is just inside that — a formation
+// centred at the corridor edge clears the player's own quad. Stated as ADOPTED:
+// it is derived from our player's measured span, not from an arcade count of
+// where enemies pass, and no such count exists.
+//
+// ---------------------------------------------------------------------------
+// AND IT IS SHIPPED INERT AT 0. THE MECHANISM IS LIVE; THE EFFECT IS
+// WITHDRAWN, ON A ONE-LEVER MEASUREMENT THAT REFUTED IT. Same disposition and
+// same reasoning as THROTTLE_CLOSURE_MULT's R6 withdrawal further down this
+// file: the next lane gets the interface, the arms and the number, and can
+// turn it on in one line with its eyes open.
+//
+// 60 flight frames per arm, `?fixed=1&demo=1&invincible=1`, THREE tick
+// spacings (29/37/53 — none divides `?demo=1`'s 16.000 s = 960-tick cycle),
+// four captures per frame, instrument `judging/R9/occlusion_r9.py`, whose
+// no-combat-against-itself control reads 0.0 on every frame of every arm:
+//
+//   arm                                   >30 % hidden   >50 %   worst
+//   committed build (old population)        11.1 %        4.4 %   52.3 %
+//   new population, `?pace=corridor=0`       6.7 %        2.2 %   50.7 %
+//   new population, corridor 0.34            6.7 %        6.7 %   65.0 %
+//
+// **THE POPULATION CUT DOES ALL OF THE WORK AND THE CORRIDOR MAKES THE TAIL
+// WORSE.** It halves the >30 % rate on its own; adding the corridor moves
+// that rate not at all, triples the >50 % rate and costs 14 points on the
+// worst frame.
+//
+// THE MECHANISM, and it is the reason no build-time version of this can work.
+// A wave's fly-past x is fixed when the wave is BUILT and the player has
+// ~2.7-5 s to move before the wave arrives — on `?demo=1` the jet travels
+// about 0.4 NDC in that window. Clearing SCREEN CENTRE therefore displaces
+// the formation toward the player exactly as often as away from it, and when
+// it displaces toward, the whole formation lands on him instead of one member
+// of it. Every surviving >30 % frame in all three spacings is the same event:
+// ticks 370-407, the stage opener's primed echelon reaching fly-past depth,
+// with the jet rolled hard and off centre
+// (`tools/out/pacing-r9/occ-after2-e29-{A,B}/frame-0012.png`).
+//
+// WHAT WOULD ACTUALLY FIX IT, named rather than attempted: a PER-TICK lateral
+// avoidance applied in src/entities/enemy.js inside the last ~1 s of an
+// approach, where the player's position is known and current. That is a
+// flight-model change, it would move the lateral-position distributions the
+// world and criteria lanes score, and this lane could not validate it inside
+// the round. R8's art critique ranks it first of everything in that report;
+// it is worth a lane of its own.
+const PLAYER_CORRIDOR_NDC_X = paceTunable('corridor', 0);
+const OPENER_SPAN = paceTunable('openerspan', 2);
+
+// Monotone, sign-preserving map of a lateral position out of the corridor.
+// `x` keeps its side and its ordering; |x| is compressed into [C, 1]. C = 0
+// is the identity, which is what `?pace=corridor=0` uses as its control arm.
+function clearCorridor(x) {
+  return clearCorridorAbout(x, 0);
+}
+
+// The same map taken about an arbitrary centre, used where the spawner
+// actually KNOWS where the player is and the aircraft is near-field NOW.
+//
+// THE STATIC FORM IS NOT ENOUGH AND THE MEASUREMENT SAID SO. With the
+// corridor about screen centre, player-occlusion >30 % fell 11.1 % -> 6.7 %
+// of flight frames, but the WORST frame went 52.3 % -> 65.0 % and every
+// surviving >30 % frame in all three tick spacings landed in one 0.6 s
+// window, ticks 370-407 of `?fixed=1&demo=1` — the STAGE OPENER, ~2.6 s into
+// flight. An opener member starts at depth 4-7 and is the largest aircraft on
+// screen from the instant it exists, so there is no approach time during
+// which the player can move away; and `?demo=1`'s timeline has the jet well
+// off centre at that moment, so clearing SCREEN CENTRE put the opener
+// straight onto it. A corridor about the wrong point is not a smaller fix
+// than a corridor about the right one — on this frame it was a worse one.
+//
+// Echelons keep the static form deliberately: they spawn at depth 63-108 and
+// need ~5 s to arrive, by which time the player's position at spawn predicts
+// nothing, and the player's own time-average x IS near centre.
+function clearCorridorAbout(x, cx) {
+  const C = PLAYER_CORRIDOR_NDC_X;
+  if (!C) return x;
+  const d = x - cx;
+  const s = d < 0 ? -1 : 1;
+  // Clamped just outside the frame: an opener that would be pushed to 1.6
+  // would never be seen at all, and the overtake flight is the first thing
+  // every stage shows (GAME_SPEC.md 4).
+  return Math.max(-1.05, Math.min(1.05, cx + s * (C + Math.abs(d) * (1 - C))));
+}
 
 // ---------------------------------------------------------------------------
 // THE VERTICAL DIMENSION. R5's game-feel critique ranked this #1 of twelve and
@@ -260,7 +493,36 @@ const SPAWN_NDC_Y = -0.165;
 // 112.1 and read as a 4% volume CUT. Re-measure and re-set this whenever the
 // firing band, the shot spacing, the train length or the alive budget moves
 // — it is downstream of all four.
-const MAX_CONCURRENT_TRAINS = 2;
+// ---------------------------------------------------------------------------
+// R9: 3, UP FROM 2 — AND IT IS A CEILING THAT IS ALMOST NEVER REACHED, NOT A
+// DIFFICULTY CHANGE. The population fell by 4.4x this round and the fire
+// budget is per-POPULATION-INDEPENDENT by construction (that is the whole
+// point of the paragraphs above), so with a quarter as many candidate
+// shooters the train slots simply went unused. Measured, `?demo=1`, 3 seeds
+// x 90 s, same probe both sides: enemy rounds/min **139 -> 84** at the old
+// budget. R4 gap 5 forbids losing enemy fire volume, side effect or not.
+//
+// THE OBJECTION THIS RAISES AND THE MEASUREMENT THAT ANSWERS IT. Three
+// concurrent trains sounds like 50 % more fireballs than the one measured
+// arcade reference, reference/stage7-enemy-shot-train-t330.png, which
+// enemy.js reads as 10-16 fireballs at once = two trains. It is not, because
+// the cap is permissive rather than prescriptive and the probe reads the
+// actual number: **mean enemy fireballs in the air 6.1-7.6 before, 4.9-6.3
+// after** (`meanEnemyShots`, tools/out/pacing-r9/{before-popB,after-final}
+// .json). We were BELOW the single arcade frame before this round and we are
+// further below it now. The cap never binds; what binds is how many aircraft
+// are eligible to open a train at all.
+//
+// AND LETHALITY DOES NOT MOVE, which is the thing the two-train bound was
+// actually protecting. This file's own model is that lethality scales with
+// the number of INDEPENDENT AIM SNAPSHOTS, i.e. with trains STARTED per
+// minute — not with how many may be live at once. Trains/min went 139/8 =
+// 17.4 before to 113/8 = 14.1 after, so snapshots per minute FELL. Measured
+// on the non-invincible arms, 3 seeds x 90 s: deaths 4/5/6 -> 4/4/4 on the
+// tracking pilot and 1/2/1 -> 4/1/1 on the attract path, with **0
+// unannounced fatal hits** and a minimum warning of **2.98 s** against R8's
+// published 2.88 s floor.
+const MAX_CONCURRENT_TRAINS = paceTunable('trains', 3);
 // R6: 2.46, down from 2.72, and it is the re-measurement this constant's own
 // comment demands rather than a difficulty change. TWO things moved the alive
 // budget this round without touching the fire budget, and each cost volume:
@@ -279,7 +541,37 @@ const MAX_CONCURRENT_TRAINS = 2;
 // otherwise every fix that happens to reduce fire is a free difficulty
 // reduction. So the volume is put back here, 2.59 x 120.7/127.1 = 2.46, and
 // the lethality is taken out of enemyShots.js SPEED instead.
-const TRAIN_START_GAP_S = 2.46;
+// R9: 0.15, down from 2.46, and this constant's OWN comment above demands it
+// — "re-measure and re-set this whenever the firing band, the shot spacing,
+// the train length or the alive budget moves". The alive budget moved by
+// 4.4x.
+//
+// IT IS NO LONGER THE LIMITER AND THAT IS THE HONEST READING OF 0.15. At 8
+// rounds a train the gap alone would permit 3200 rounds/min; the measured
+// figure is 113. With 2.7-3.1 aircraft alive and an approach eligible to open
+// a train for only ~1.09 s of its ~5 s life, **candidate availability** sets
+// the rate and the gap merely stops two aircraft opening on the same tick.
+// The sweep is in judging/R9/lane-pacing.md: at `trains=2` the ceiling is
+// 76-91 rounds/min however small this is made, which is why the concurrency
+// moved as well.
+//
+// IT MUST BE RE-SET IF THE POPULATION EVER GOES BACK UP. At MAX_ALIVE = 14
+// this value would be a large, unmeasured increase in both volume and
+// snapshot rate. `?pace=traingap=` is the knob; the arm to re-run is the
+// `--invincible false` one.
+//
+// VOLUME IS STILL DOWN 19 % AND THIS LANE IS NOT CLAIMING OTHERWISE:
+// 123.5-147.7 rounds/min before against 97.1-126.9 after on `?demo=1`. The
+// remaining shortfall cannot be bought from this file without exceeding
+// GAME_SPEC.md 4's MEASURED "trains of 4-8" (enemy.js TRAIN_LENGTHS is
+// already at the top of that range) or letting crossers and openers fire,
+// which the firing band forbids by geometry. **It is blocked on R8 judge
+// gap 2: the arcade's own enemy ROUND rate has never been measured, so the
+// gate this misses was set against OUR supply of shooters exactly as the
+// density gate was set against OUR supply of aircraft.** The one enemy-fire
+// statistic that DOES have an arcade side — fireballs on screen — is reported
+// above and we are under the arcade on both sides of the change.
+const TRAIN_START_GAP_S = paceTunable('traingap', 0.15);
 
 // ---------------------------------------------------------------------------
 // ROLE MIX PER STAGE — how much of each stage's sky is the elite livery.
@@ -448,6 +740,27 @@ export class Spawner {
     this.trainsStarted = 0;
     this.solo =
       typeof location !== 'undefined' && new URLSearchParams(location.search).has('combatsolo');
+
+    // WHAT THE PAGE IS ACTUALLY PACING AT, read back rather than assumed —
+    // the same contract `__gunTunables` carries in combat.js, and for the
+    // same reason: a lane that writes down the arm it MEANT to run is one
+    // typo away from a wrong table, and this round's whole deliverable is a
+    // table of arms. `?pace=` already throws on an unknown key; this is how
+    // a probe proves the arm it got is the arm it asked for.
+    if (typeof window !== 'undefined' && new URLSearchParams(location.search).has('fixed')) {
+      window.__paceTunables = () => ({
+        maxalive: MAX_ALIVE,
+        gapmin: WAVE_GAP_MIN_S,
+        gapmax: WAVE_GAP_MAX_S,
+        dispmin: DISPENSE_MIN_S,
+        dispmax: DISPENSE_MAX_S,
+        corridor: PLAYER_CORRIDOR_NDC_X,
+        openerspan: OPENER_SPAN,
+        traingap: TRAIN_START_GAP_S,
+        trains: MAX_CONCURRENT_TRAINS,
+        overridden: [...(paceOverrides ?? new Map()).keys()],
+      });
+    }
   }
 
   get aliveCount() {
@@ -515,7 +828,9 @@ export class Spawner {
       // delayed the primed element by up to 1.4 s on top of its own ~2 s
       // approach — measured as a 3.9 s hole starting at t=0.9 s, right after
       // the openers recede past readable size.
-      this.pending.push(...this._primedEchelon(), ...this._openerWave());
+      // The opener is near-field from the instant it exists, so it is placed
+      // relative to WHERE THE PLAYER IS rather than to screen centre.
+      this.pending.push(...this._primedEchelon(), ...this._openerWave(playerNdc ? playerNdc.x : 0));
     }
 
     this.dispenseTimer -= dt;
@@ -698,8 +1013,17 @@ export class Spawner {
 
   // --- Stage opener: overtake flight ----------------------------------------
   // Near depth, REAR aspect, receding toward the horizon while weaving.
-  _openerWave() {
-    const n = 2 + Math.floor(this.rng() * 3); // 2-4
+  _openerWave(playerX = 0) {
+    // 2-3, down from 2-4. The opener and the primed echelon are dispensed
+    // together, so the stage used to open with 5-7 aircraft against a cap of
+    // 14 and now opens with 5-6 against a cap of 6 — the cap would bind on
+    // the opener alone and hold the first ordinary wave out for seconds.
+    // The draw is kept in the stream (`floor(rng()*2)` consumes the same one
+    // draw as `floor(rng()*3)`) so this is a range change, not a re-sequence,
+    // and `?pace=openerspan=3` restores the old range exactly — which is what
+    // makes the BEFORE arm of this round's table a SWITCH on one build rather
+    // than a different build.
+    const n = 2 + Math.floor(this.rng() * OPENER_SPAN); // 2-3
     const out = [];
     for (let i = 0; i < n; i++) {
       const k = i - (n - 1) / 2;
@@ -715,7 +1039,20 @@ export class Spawner {
         depthB: APPROACH_SPAWN_DEPTH,
         // Starts spread across the frame near the player's altitude, and
         // converges on the vanishing point as it recedes.
-        ndcA: [k * 0.42 + (this.rng() - 0.5) * 0.12, -0.02 + (this.rng() - 0.5) * 0.2],
+        //
+        // THE CORRIDOR IS APPLIED PER MEMBER HERE, unlike the echelon, and
+        // the asymmetry is deliberate. An opener member starts at depth 4-7
+        // — it is the single largest aircraft on screen at the moment a stage
+        // opens — and `k` is 0 for the middle ship of an odd flight, which put
+        // a near-field rear-aspect airframe at x = 0 +- 0.06 on the player's
+        // nose every time an opener had three members. That is the frame
+        // R8's art critique opened at 3x and misidentified as the player.
+        // An overtake flight is not a formation holding station, so splitting
+        // it either side of the corridor costs it nothing.
+        ndcA: [
+          clearCorridorAbout(k * 0.42 + (this.rng() - 0.5) * 0.12, playerX),
+          -0.02 + (this.rng() - 0.5) * 0.2,
+        ],
         ndcB: [k * 0.03, SPAWN_NDC_Y],
         weaveAmp: 0.1 + this.rng() * 0.1,
         weaveRate: 1.4 + this.rng() * 1.1,
@@ -730,7 +1067,7 @@ export class Spawner {
   // appears at 2-4 native px and grows in — no pop-in at readable size.
   _primedEchelon() {
     const n = 3;
-    const baseB = (this.rng() - 0.5) * 0.3;
+    const baseB = clearCorridor((this.rng() - 0.5) * 0.3);
     // Same two vertical-track draws as a normal echelon. The stage opener is
     // the first thing a player sees of every stage (GAME_SPEC.md §4), so it
     // is the worst place to leave a flat level pass.
@@ -775,7 +1112,10 @@ export class Spawner {
     // Loose echelon / V: `rake` tilts the formation so it reads as a
     // diagonal line of aircraft rather than a flat row.
     const rake = (this.rng() - 0.5) * 0.9;
-    const baseB = (this.rng() - 0.5) * 0.36;
+    // The formation's fly-past centre, pushed out of the player corridor.
+    // The draw itself is UNCHANGED (uniform +-0.18) so the stream is not
+    // re-sequenced by the clamp; only its image moves.
+    const baseB = clearCorridor((this.rng() - 0.5) * 0.36);
     // THE WAVE'S VERTICAL TRACK. Two draws, INDEPENDENT on purpose: `baseAy`
     // is where the wave is first visible and `baseBy` is where it passes the
     // camera, and drawing them separately is what produces approaches from
