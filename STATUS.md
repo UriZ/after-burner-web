@@ -137,6 +137,23 @@ CLAUDE.md's crop-and-look trigger list (zeros, non-movements, 100 %s) **missed b
 because both were large, reproducible numbers that arrived with a tidy mechanism attached, and the
 mechanism is what suppressed the instinct to look.
 
+**R9 DRAW-WEIGHT's mask licence is PER SUBJECT AND PER PALETTE — there is no general rule.**
+Settled three times by three lanes, each finding the previous settlement too narrow on a
+population it had not tested. Day palette over saturated terrain → achromatic (`sat<0.35`);
+**night palette over black → the VALUE rule `max(RGB)>30`, which recovers 100.0 % of every one of
+our nine night cells where the day rule recovers 44–51 %, or 78–83 % even with the keyline named**
+— the night blue-greys are not achromatic (`#425284` sat 0.500, 28.5 % of the level cell's ink).
+**The threshold must not be retuned**: 0.35 → 0.55 inflates the arcade day anchor's ink by
+**+29.5 %** and moves the gated RP90 by **−15 %**, because the desert terrain starts qualifying;
+and the night rule covers **98.6 %** of the daylight crop. Binding: *ground-truth tested on every
+palette variant it will be applied to, not merely on both sides of one comparison.*
+
+**And a scope limit on a standing rule**: *"native outranks the upscale"* is about **colour
+levels** and does not transfer to a **thickness** statistic, which quantises on the EDT's level
+set — the same arcade night jet reads pose CV 0.00 % at 686×480 and 10.73 % on the native grid.
+**A CV of 0.00 % on a quantised statistic is a resolution report, not a stability report**; publish
+the number of distinct EDT levels the percentile took beside any pose CV.
+
 **R9 PACING — five of ARCADE-PACING's six rows now pass on a kill-rate-matched pilot, where one
 of six passed before.** `MAX_ALIVE` 14 → 6, `WAVE_GAP` 0.9–1.6 s → 7–13 s. Emptiness at the ≥3 %W
 floor **0.0–3.1 % → 33.1–48.0 %** (`demo`), **59.0–67.9 %** (arcade-cadence); emission

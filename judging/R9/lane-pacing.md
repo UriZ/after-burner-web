@@ -473,3 +473,55 @@ the one I would put in the ledger beside it: **the longest the sky was empty in 
 path: empty runs median **3.4–5.1 s**, p90 **7.2–8.5 s**; occupied runs median **5.3–5.7 s**.
 Your arcade span's "six consecutive frames, ten seconds, empty" now has an analogue on our side:
 the tracking arms reach empty runs of **10.4–18.2 s**.
+
+---
+
+## 8. Stage 1 against stage 1 — the matched comparison criteria-r9 asked for
+
+Their point stands and it was the right one to press: §7's `demo` column was a **stage-1-weighted
+build** read against an **all-stage arcade mean**. So I binned our side by stage too.
+
+**How**, because the quantity matters: the probe now accumulates the whole census per
+`__flowState().stageNumber` — the digit the HUD **draws**, not `stageIndex` (the raw lap counter)
+or `contentStageIndex` (which of three palettes renders). The arcade side is a count on frames
+whose **stage digit was read**; binning ours on anything else would match the two sides on
+nothing. `tools/out/pacing-r9/stage1-{before,after}.json`, 6 seeds × 45 s per pilot = **192 s of
+stage-1 flight per arm**, drawn-span bins throughout.
+
+**The arcade's stage-1 column, pooled across both readers** (and the two agree on emptiness
+*exactly* — 3/9 and 2/6 — and on mean-on-screen to 0.06):
+
+| | n | readable ≥10 %W | empty (no enemy ≥3 %W) | mean on screen ≥3 %W |
+|---|---|---|---|---|
+| 63-frame set, stage 1 | 9 | 44.4 % | 33.3 % | 1.44 |
+| this lane, stage 1 | 6 | 33.3 % | 33.3 % | 1.50 |
+| **pooled** | **15** | **40.0 %** | **33.3 %** | **1.47** |
+| 95 % Wilson on the pooled proportion | | **19.8 – 64.3 %** | **15.2 – 58.3 %** | |
+
+**Ours, stage 1 only:**
+
+| arm | kills/s | readable ≥10 %W | empty | mean on screen ≥3 %W | empty-run p50 / max |
+|---|---|---|---|---|---|
+| BEFORE `demo` | 0.6 – 0.7 | 82.1 % (71.6–87.8) | **0.8 %** (0.1–1.8) | 7.06 | 0.0–0.5 s / 0.5 s |
+| BEFORE `arcstill` | — | 51.2 % | 2.1 % | 4.41 | 0.2–0.9 s / 0.9 s |
+| BEFORE `arctrk` | — | 39.6 % | 2.2 % | 4.02 | 0.2–0.5 s / 0.9 s |
+| **AFTER `demo`** | 0.12–0.18 | **30.5 %** (18.5–42.7) | **40.0 %** (26.7–56.1) | **1.60** (1.19–2.12) | 1.1–7.5 s / 8.9 s |
+| AFTER `arcstill` | 0.46–0.57 | 15.2 % | 63.1 % | 0.80 | 2.6–8.7 s / 9.7 s |
+| AFTER `arctrk` | 0.50–0.57 | 10.4 % | 67.5 % | 0.64 | 2.9–8.3 s / 10.2 s |
+
+> **On stage 1 against stage 1, the attract path lands inside the arcade's own 95 % interval on
+> both proportions and within 0.13 of an aircraft on the count: readable 30.5 % against 40.0 %
+> (band 19.8–64.3), empty 40.0 % against 33.3 % (band 15.2–58.3), on screen 1.60 against 1.47.**
+> Before: 82.1 %, 0.8 %, 7.06.
+
+**Read it with the caveat attached rather than as a pass.** The arcade's stage-1 span is an expert
+at **0.44 kills/s** (HIT 0→11 over ~25 s); our `demo` is at **0.12–0.18**. The two sides match on
+the *frames* while differing 2.5–3.7× on the *pilot*, which is the §7.1 residence finding showing
+up again on matched stages: at a matched kill rate our shooting arms fall to 0.64–0.80 on screen
+and 63–68 % empty — **below** the arcade's stage 1 on population and **above** it on emptiness.
+So the honest summary is **the supply is now right and the attrition is not**, and the attrition
+lever is the missile economy, not this file.
+
+**Also stated so it is not over-read**: pooled n = 15 is small, which is exactly why I quote
+Wilson intervals and a pooled count rather than a point target. Per criteria-r9's own rule, I have
+not split the difference between 33.3 % and 44.4 % and called the result a number.

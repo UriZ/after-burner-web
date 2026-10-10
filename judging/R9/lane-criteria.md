@@ -703,7 +703,7 @@ real subject** (arcade night jet, 8 angles: INK/SPAN CV 0.33 %). But **RSW's 18.
 survive contact with the real aircraft, where it reads 2.70 %** against RP90's 1.82 %. The EDT is
 quantised, so whichever percentile happens to sit near a level jumps, and the stroke width of the
 synthetic decides which one that is — a 3 px-blade variant reverses it to RP90 15.92 % / RSW
-0.51 %. Full correction and the rule it earns: **§5c.3's correction box.**
+0.51 %. Full correction and the rule it earns: **§5c.3's correction box, and §5c.10.**
 
 **And the arm I actually asked for reads only 1.5×, which proves my own licence condition rather
 than weakening the claim.** Over our nine *authored* bank cells, INK/SPAN CV is 9.9 % against
@@ -912,6 +912,9 @@ rule recovers **86.1 %**, because that aircraft really is mostly those four tone
 > **achromatic rule is the licensed one**, and the reason published is the ground-truth test, not
 > the tone census.
 
+> **REOPENED AND SUPERSEDED — §5c.9. "The achromatic rule" unqualified is wrong for the NIGHT
+> palette, and there is no single rule. The licence is now PER SUBJECT AND PER PALETTE.**
+
 **And the challenge exposed a defect of mine.** My criterion box licensed *"the four airframe
 roles plus enclosure"* **eight lines above** licensing the achromatic decision procedure — **two
 rules, one box, on the operator every figure in it turns on.** That is **ledger row 34's exact
@@ -1043,7 +1046,86 @@ frame worse (50.7 → 65.0 %). Shipped inert at 0 with the arms and the refutati
 *"An honest bound or a withdrawal is an accepted deliverable."* Second one this round, after the
 far-LOD floor.
 
+### 5c.9 REOPENED — "the achromatic rule" was the wrong thing to license, and the night sheet proves it
+
+The drawing lane reopened the mask licence before it shipped: the ground-truth table that settled
+§5c.7 was **the DAY sheet only**, and a third lane extended the test to NIGHT. **I re-ran it
+myself on `src/assets/sprites/player-f14-night.png`, nine cells:**
+
+| rule | recovery vs `alpha > 0` (mine) | (drawing lane's) |
+|---|---|---|
+| day rule, keyline **not** named | **44.0 – 50.9 %** | 28.1 – 34.0 % |
+| day rule, `#425284` named | **77.7 – 83.0 %** | 81.9 – 98.2 % |
+| **value rule `max(RGB) > 30`** | **100.0 % on every cell** | 100.0 % |
+
+**The value rule reproduces exactly; the achromatic readings differ in magnitude and agree in
+direction, and my loss on the level cell is WORSE than reported — 22.3 % against their 18.1 %.**
+
+**The mechanism, from the tone census.** The night blue-greys are not achromatic: `#425284`
+**sat 0.500**, `#6373a4` 0.396, `#7384b5` 0.365, `#c594f7` 0.401 — **44.0 % of the night level
+cell's ink sits at or above the 0.35 floor.** Naming the keyline is not enough, because
+`#6373a4` alone is 12.8 % of the ink.
+
+**And I checked the obvious fix against the arcade before rejecting it, which is where the case
+got stronger than they put it.** Raising the floor to admit the night tones destroys the day
+anchor, because the **desert terrain** starts qualifying:
+
+| sat floor | arcade day jet ink | **RP90** |
+|---|---|---|
+| **0.35** | **1 056** | **9.73** |
+| 0.50 | 1 317 | 8.48 |
+| 0.55 | **1 368 (+29.5 %)** | **8.31 (−15 %)** |
+
+**+29.5 %, not the +14.3 % reported — and it moves the GATED statistic by 15 %.** Symmetrically,
+the night rule cannot be used by day: `max(RGB) > 30` covers **98.6 %** of the arcade's daylight
+crop. **Neither rule generalises. That is the finding, and the saturation threshold is retired as
+a GENERAL rule rather than retuned.**
+
+> The licence is now: **day palette over saturated terrain → achromatic; night palette over black
+> → value rule; any new subject → an enumerated tone list, ground-truth tested before use.** Steps
+> 2 and 3 (largest component, 4-connected enclosure fill) are universal; **step 1 is not.**
+
+**Three rounds of settlement on one operator, each time by a different lane finding the previous
+settlement too narrow** — I licensed four roles, they showed it fails on our day sheet, a third
+lane showed the replacement fails on our night sheet. **Each step was ground-truth tested and each
+test was run on a population the previous one had not covered.** The generalisable rule is theirs
+and it is now binding: *ground-truth tested on every palette variant it will be applied to, not
+merely on both sides of one comparison.*
+
+### 5c.10 A scope limit on a standing project rule — with two cautions the finding needs
+
+*"Native outranks the upscale"* has driven several retirements here (ledger rows 16, 17,
+acquisition items 1–6) and **every one of them is a cardinality or palette claim.** The drawing
+lane and `criteria-fix-2` showed it does not transfer to a **thickness** statistic: `SW`/`P90SW`
+quantise on the EDT's level set, so on the native grid a percentile **jumps between levels**
+`{2.0, 2.83, 4.0, …}` as the pose changes. Arcade night jet, same subject, same mask, same
+operator: pose CV **0.00 %** at 686×480 (one level, `{6.0}`) against **10.73 %** on the native
+grid. The point is right and belongs in REFERENCE.
+
+**Two cautions I added, because the obvious reading of it is wrong in both directions.**
+
+1. **A CV of 0.00 % on a quantised statistic is a RESOLUTION REPORT, NOT A STABILITY REPORT.** It
+   cannot tell "stable under rotation" from "pinned to one quantisation level" — and it is a
+   *"doesn't move"* result, which CLAUDE.md requires be cropped before it is quoted. **Binding:
+   publish the number of distinct EDT levels the percentile took across poses beside any pose CV.**
+   One level and a 0.00 % CV is a single observation wearing a statistic's clothes. The drawing
+   lane's framing — *"the upscale has the stabler reading"* — cannot be distinguished from
+   *"the upscale's reading is pinned"* on the evidence given.
+2. **It is not a licence to prefer the upscale**, whose finer distance quantisation is bought with
+   codec blur that moves the mask boundary the native grid does not have.
+
+**And their predictive form is an ESTIMATE, not a bound.** *Expected pose CV ≈ ½ × the relative
+gap between the EDT levels the percentile straddles.* It is genuinely useful — it sizes the effect
+from one pose, before any sweep — but it is published as `≈` because **it fails to bound on their
+own example**: arcade day P90 predicted **2.5 %** against observed **2.73 %**. Reported back
+rather than published as stated.
+
 ---
+
+> **CONTINUED PAST THIS POINT — see §5c.9 and §5c.10, appended below §6.** The mask rule settled
+> in §5c.7 turns out to be **palette-specific** and recovers only 81.9–98.2 % of our night sheet
+> (§5c.9), and the quantisation licence turns out to predict pose stability but **not** from a
+> single pose (§5c.10).
 
 ## 6. Unresolved, with reasons
 
@@ -1051,12 +1133,12 @@ far-LOD floor.
    24×.** What replaces it as the open item is narrower: **the licensed mask rule has been fixed
    on the DAY player jet and on two distant enemies, and on nothing else.** RP90 moves 2× with
    the mask, so every future object needs its mask pinned before its RP90 means anything.
-   **"DAY" corrected in from §5c.8** — the rule is palette-specific and the night sheet is not
+   **"DAY" corrected in from §5c.9** — the rule is palette-specific and the night sheet is not
    covered by the day sheet's licence, which is what I had assumed.
 2. **DRAW-WEIGHT is unlicensed on four of six objects** (near enemy, carrier, title, hulk) —
    acquisition items 5 and 6. Named rather than papered over, because creating a second
    criterion with no arcade side is precisely what Job 1 retired.
-   **WIDENED, §5c.8: it is also unlicensed on the NIGHT player jet, which I had been counting as
+   **WIDENED, §5c.9: it is also unlicensed on the NIGHT player jet, which I had been counting as
    covered because it is the same drawing as the day jet.** It is the same drawing and a
    different palette, and the licensed mask recovers **28.1–34.0 %** of it against 99.2–100 % of
    the day sheet. That makes it five of seven subjects, and the one that fails is the one
@@ -1077,7 +1159,11 @@ far-LOD floor.
 
 ---
 
-### 5c.8 The licensed mask rule is PALETTE-SPECIFIC, and it fails on the night jet
+### 5c.9 The licensed mask rule is PALETTE-SPECIFIC, and it fails on the night jet
+
+*(5c.9 and 5c.10 were appended after §6 as the exchange with the drawing lane continued past the
+first write-up. Left in place rather than reflowed, since §§5c.1–5c.8 are cited by message and by
+`interfaces.md` line number. §6's items 1 and 2 carry pointers to them.)*
 
 Three results, in order of how much they move the criterion.
 
@@ -1121,6 +1207,58 @@ arcade frames this repo holds** (R5 I23), and R5 established day and night are *
 by construction* — one function generates both sheets. So the licensed rule would report a large
 day/night DRAW-WEIGHT difference on a drawing that has none.
 
+**c-bis. CORRECTED — my 28.1–34.0 % was a REIMPLEMENTATION GAP, and the finding survives it.**
+I rebuilt the drawing lane's rule from its *arcade day* tone list and assumed `AIRFRAME_EXTRA`
+was the two hexes published there. It names **three**, and the third is `#425284` — the night
+keyline, in for exactly this reason. With it the rule recovers **81.9–98.2 %**, not 28–34 %.
+My error, same class as the rest of this round: a reimplementation faithful to what I read and
+not to what existed.
+
+**The lane then found the real bug itself and retracted a published inference.** Even with the
+keyline named the achromatic rule loses **18.1 % of the night LEVEL cell**, and `inkspan_jet.py`
+was reading our night sheet with it, so every night figure it published came from that cell. Its
+own mask-equivalence control had been printing the 23 % cross-term for two days with only the
+diagonal terms gated. Retracted: *"the night sheet lands at DENS 86.3 — on the arcade's banked
+anchor of 87.8 — strong evidence the day-sheet excess is the `#840000` rim rather than the
+planform."* Both the figure and the inference were mask artefacts.
+
+**c-ter. The corrected figures reproduce — and they do not mean what they are being read to mean.**
+Day **106.83** / night **107.65** (the lane reports 106.8 / 107.6). But measured against the
+sheets' own **alpha**, which is what a mask is trying to recover:
+
+| LEVEL cell | ink | span | DENS | RSW | RP90 | recovery |
+|---|---|---|---|---|---|---|
+| day, **alpha ground truth** | 1056 | 99.05 | **107.65** | 4.52 | 10.30 | — |
+| night, **alpha ground truth** | 1056 | 99.05 | **107.65** | 4.52 | 10.30 | — |
+| day, achromatic + 3 named | 1048 | 99.05 | 106.83 | 4.52 | 10.10 | 99.2 % |
+| night, value `max(RGB)>30` | 1056 | 99.05 | 107.65 | 4.52 | 10.30 | 100.0 % |
+
+**The two sheets' alpha planes are byte-identical** (verified: 0 differing alpha pixels, 6 932
+differing RGB) **and their ground-truth statistics are the same number, not similar numbers.** So
+the 0.7 % day/night gap is **the day mask's 0.8 % miss, arithmetically** — recovery determines the
+figure. **On our own sheets a day-vs-night DRAW-WEIGHT comparison can only ever measure mask
+recovery, never drawing weight**, because the geometry is identical by construction. It is a
+**mask test wearing a drawing test's units**, and must not later be upgraded into evidence about
+the rim or the planform.
+
+**c-quater. The two mask rules are FORCED into a pair — each fails where the other works.** The
+drawing lane argued the value rule is exact at night. It is, and the converse also holds:
+
+| | achromatic + 3 named | value `max(RGB)>30` |
+|---|---|---|
+| **day sheet** | **99.2–100.0 %** | 84.4–98.3 % |
+| **night sheet** | 81.9–98.2 % | **100.0 %** |
+
+Cause of the day failure is exact: the day keyline is `#000000`, `max(RGB)=0`, below the `>30`
+cut — **581 px of outline dropped**, where the night sheet has **zero** pixels under it. So the
+two-rule design is forced by measurement, not chosen for convenience.
+
+**CAVEAT, and it is the per-subject clause applied to the replacement rule.** The value rule's
+100 % is measured on the **authored sheet**, whose background is transparent. On an in-game or
+arcade night *frame* the black sky is correctly excluded, but **city-light speckle and the HUD are
+both >30 and would be admitted** — and stage 3 is precisely the dense-speckle case. **The value
+rule is licensed on the night sheet and NOT on a night frame.**
+
 **d. And no threshold fixes both.** Swept:
 
 | sat threshold | day sheet | night sheet | arcade day-bank anchor |
@@ -1163,7 +1301,7 @@ across mask **rules**, RSW +40 % and RP90 +30 % against ink +16 % — **the stro
 the MOST mask-sensitive of the four**, because SW is a local thickness and admitting a few
 mid-tones thickens every mass. Anyone still citing the original sentence should drop it.
 
-### 5c.9 The quantisation licence is PREDICTIVE, and it explains a 10× disagreement
+### 5c.10 The quantisation licence is PREDICTIVE, and it explains a 10× disagreement
 
 **The disagreement first.** The drawing lane reports the arcade night-level jet at rotation
 **CV RSW 0.22 % / RP90 0.36 %**; §5c.3's correction box publishes **2.70 % / 1.82 %** for the same
@@ -1218,6 +1356,33 @@ wider-spaced pair at another (the under-prediction), and a percentile that never
 reads as wildly unstable (the 65× over-prediction). **So the sweep stays required for any quoted
 figure**; the single-pose number is a cheap flag worth printing and nothing more. `measure()`
 returns it as `pred_pose_cv` / `pred_pose_cv_p90` with that limitation in the comment.
+
+**AND THE RULE HAS A MISSING TERM — found by auditing the drawing lane's own confirmation table,
+which contained two under-predictions it had described as bounds.** `RSW = SW / span`, and **span
+itself moves under rotation**, so the level-gap rule predicts the numerator's variability and is
+blind to the denominator's:
+
+| subject | span CV | SW set across poses | SW CV | RSW CV |
+|---|---|---|---|---|
+| arcade night jet | 0.12 % | `{5.66, 6.0}` | 2.59 % | 2.70 % |
+| 3 px blades | 0.51 % | `{2.0}` | **0.00 %** | **0.51 %** — all span |
+| 9 px blades | 0.62 % | `{4.47, 6.0}` | 13.63 % | 13.80 % |
+
+On the 3 px case SW is pinned to one level — SW CV exactly 0.00 % — and the whole 0.51 % of RSW CV
+is the span term. **So `RSW CV ≈ SW CV ⊕ span CV`, and a level-gap prediction of 0.0 is never
+right.** Measured span CV 0.12–0.62 % over three subjects (the drawing lane's two implied rows sit
+at 0.37–0.40), so **a ~0.7 % floor covers every subject either lane has measured.** Across both
+lanes, **3 of the 4 single-level cases predicted zero and observed nonzero** — the dangerous
+quadrant, because one level is exactly when a figure looks safe to quote as a point.
+
+**The floor repairs the single-LEVEL case and still does not make the single-POSE form a bound.**
+Second, independent mechanism: **rotation creates EDT levels absent at the reference pose.** The
+real jet's P90 set across poses is `{11.31, 11.66, 12.0}` and **11.31 = 8·√2 exists only in the
+rotated frames**. A single pose cannot enumerate levels rotation will invent, and no constant
+floor repairs that — which is why the arcade RP90 case misses by 2.7× rather than by 0.4 points.
+
+**Final form:** across-pose level set **+ span-CV floor** = a usable bound; single-pose **+ floor
+so it never reports 0.0** = a screen; **the sweep stays required for any quoted figure.**
 
 **A RULE CONFLICT THAT MUST BE STATED EXPLICITLY, because the two halves of this document now
 pull in opposite directions.** For a stroke statistic, **measure at the scale where the EDT level

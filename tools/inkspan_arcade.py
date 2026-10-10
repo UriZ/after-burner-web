@@ -211,6 +211,18 @@ def measure(mask):
         # pair at another. It also over-predicts hugely when a percentile never
         # leaves its level (3px blades RSW: predicts 33%, actual 0.51%).
         # USE IT TO FLAG, NOT TO LICENSE. A quoted figure still needs the sweep.
+        # TWO separate failure modes, both measured (R9):
+        #  (i) SPAN FLOOR. RSW = SW/span and SPAN ITSELF MOVES under rotation,
+        #      so even a percentile pinned to ONE EDT level has nonzero CV.
+        #      Measured span CV 0.12-0.62% over three subjects; on 3px blades
+        #      SW is constant {2.0} (SW CV 0.00%) yet RSW CV is 0.51% -- ALL of
+        #      it span. A level-gap prediction of 0.0 is therefore never right.
+        #      Add a span-CV floor (~0.7% covers every subject measured).
+        # (ii) UNSEEN LEVELS. Rotation CREATES EDT levels absent at the
+        #      reference pose (the real jet's P90 set is {11.31, 11.66, 12.0}
+        #      across poses; 11.31 = 8*sqrt(2) appears only when rotated). No
+        #      constant floor fixes this -- it is why the single-pose form
+        #      cannot be promoted to a bound at all.
         # NOTE THE RULE CONFLICT: for a STROKE statistic, measure at the scale
         # where this gap is SMALLEST -- which can be an upscale. That is the
         # opposite of REFERENCE.md's "native outranks upscales", which is about
@@ -290,11 +302,33 @@ def selftest():
     ok &= good
     print(f'   [{"PASS" if good else "FAIL"}] slab INK/SPAN {slab["ink_per_span"]:.2f} '
           f'vs one blade {r["ink_per_span"]:.2f}')
-    good = sep['sw'] < slab['sw']
+    # A CONTROL THAT STOPS DISCRIMINATING MUST FAIL, NOT PASS. `sep['sw'] <
+    # slab['sw']` is one-sided: if the two ever converged to within a hair the
+    # bare inequality would still pass while the control had stopped testing
+    # anything. Assert the separation is NON-TRIVIAL. (Adopted from drawing-r9,
+    # whose mask-equivalence control printed a 23% cross-term for two days with
+    # only its diagonal terms gated.)
+    ratio = slab['sw'] / sep['sw']
+    good = ratio >= 2.0
     ok &= good
     print(f'   [{"PASS" if good else "FAIL"}] SW separates blades {sep["sw"]:.1f} from slab '
-          f'{slab["sw"]:.1f} at comparable ink ({sep["ink"]} vs {slab["ink"]}) and the same span '
-          f'-- this is the statistic INK/SPAN alone cannot provide')
+          f'{slab["sw"]:.1f} by {ratio:.2f}x (gate: >=2.00x, NON-TRIVIAL -- a bare "<" would '
+          f'pass on a hair) at comparable ink ({sep["ink"]} vs {slab["ink"]}) and the same span')
+    # And the statistic this one is quoted BESIDE must separate them too, or
+    # the pair has collapsed to one number.
+    rr = (slab['p90sw'] / sep['p90sw'])
+    good = rr >= 2.0
+    ok &= good
+    print(f'   [{"PASS" if good else "FAIL"}] P90SW separates them by {rr:.2f}x (gate: >=2.00x)')
+    # DENS is EXPECTED to be nearly blind here -- assert the blind spot, so
+    # that if DENS ever started discriminating, someone is told rather than
+    # quietly benefiting from an operator that changed underneath them.
+    dr = slab['dens'] / sep['dens']
+    good = dr < 1.25
+    ok &= good
+    print(f'   [{"PASS" if good else "FAIL"}] DENS is BLIND here by design, {dr:.3f}x '
+          f'(gate: <1.25x) -- this asserts the documented blind spot still exists; '
+          f'if it fires, DENS changed and its "diagnostic only" ruling needs revisiting')
 
     # 4. REFUSAL. An empty mask must raise, not return 0.
     try:

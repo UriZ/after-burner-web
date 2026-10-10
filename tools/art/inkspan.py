@@ -475,25 +475,32 @@ def stats(m, rgb=None, palette=None):
         'edge_touch': bool(m[0].any() or m[-1].any() or m[:, 0].any() or m[:, -1].any()),
         # THE QUANTISATION LICENCE, carried by every measurement.
         #
-        # criteria-fix's result, verified here: the expected POSE CV of a
-        # stroke statistic is about HALF the relative gap between the two EDT
-        # levels the percentile sits between -- readable from a SINGLE pose,
-        # so no rotation sweep is needed to know whether a figure is quotable
-        # as a point. Over eight cases spanning 0.5 % to 17.3 % their mean
-        # absolute error is 0.66 points, and the residuals are one-sided
-        # (three-level straddles come in UNDER prediction), so it is a
-        # conservative upper bound -- the right direction for a licence.
+        # A SCREEN, NOT A LICENCE, AND NOT A BOUND. Read this before using it.
         #
-        # Verified on this operator: the arcade night-level jet at stored
-        # 686x480 lands on a SINGLE level {6.0} -> predicted 0 %, observed
-        # 0.00 % over eight angles. The same subject native-converted
-        # straddles {2.83, 4.0} -> predicted 17.1 %, observed 10.7 %.
+        # The underlying relationship is real: a stroke statistic's pose CV is
+        # about HALF the relative gap between the EDT levels the percentile
+        # straddles. But that holds when the LEVEL SET SPANS WHAT YOU INTEND
+        # TO QUOTE OVER -- which means gathering it across the poses, i.e.
+        # running the sweep anyway.
         #
-        # If `sw_pose_cv_pred` is not ~0, QUOTE THE STATISTIC AS A RANGE.
+        # From a SINGLE pose it does not bound the answer. criteria-fix
+        # published the single-pose form, tested it, and withdrew it; I had
+        # already adopted it and written "every prediction bounds its
+        # observation" into my own report. ON MY OWN SIX CASES IT DOES NOT:
+        # the arcade night jet's P90 sits exactly ON a level at pose 0, so the
+        # prediction is 0.00 %, and the observed CV over eight angles is
+        # 0.46 %. A percentile resting on a level at one pose can move to a
+        # straddle at another, so a tight single-pose gap certifies nothing.
+        # The converse fails too -- a wide gap can over-predict by 65x when
+        # the percentile never actually leaves its level.
+        #
+        # USE: a cheap flag that a figure MIGHT be on a knife-edge. A non-zero
+        # value means go and run the sweep. A zero value means nothing.
+        # THE SWEEP (control 6, over real subjects) REMAINS REQUIRED.
         'sw_levels': _straddle(dd, 0.5),
-        'sw_pose_cv_pred': _pred_cv(dd, 0.5),
+        'sw_pose_cv_screen': _pred_cv(dd, 0.5),
         'p90_levels': _straddle(dd, 0.9),
-        'p90_pose_cv_pred': _pred_cv(dd, 0.9),
+        'p90_pose_cv_screen': _pred_cv(dd, 0.9),
     }
     if rgb is not None and palette:
         tot = ink

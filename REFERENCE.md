@@ -836,10 +836,52 @@ two implementations:
 > 5.3 %). What is withdrawn is the supporting argument, not the gate. And it makes
 > *"a gate on RP90 is a gate on RP90-under-a-named-mask"* load-bearing rather than pedantic.
 
-**THE LICENSED MEMBERSHIP RULE, as a decision procedure** (`tools/art/inkspan.py`, reproduced
-here): (1) IN if `sat < 0.35 and V > 0.08`, **or** exactly `#840000`, `#000000`, `#425284`;
-(2) keep the largest **8**-connected component; (3) fill background not **4**-connected to the
-frame border. The entire 909 → 1056 difference is **step 1** — six arcade airframe mid-tones a
+**THE LICENSED MEMBERSHIP RULE IS NAMED PER SUBJECT AND PER PALETTE. There is no general rule,
+and the saturation threshold is RETIRED as one (R9).** Steps 2 and 3 are universal; **step 1 is
+not**:
+
+| palette / background | step 1 | ground-truth recovery vs `alpha>0` |
+|---|---|---|
+| **DAY palette over saturated terrain** | IN if `sat < 0.35 and V > 0.08`, **or** exactly `#840000`, `#000000`, `#425284` | **92.4–94.3 %** our day sheet (→ ~99 % with step 3); **86.1 %** of the fuller mask on the arcade jet |
+| **NIGHT palette over black** | IN if `max(RGB) > 30` | **100.0 % on every one of our nine night cells** |
+| any **new** subject | an **enumerated tone list**, ground-truth tested before use | — |
+
+2. keep the largest **8**-connected component; 3. fill background not **4**-connected to the
+frame border.
+
+**WHY THE DAY RULE CANNOT BE USED AT NIGHT — measured, and the loss is worse than first reported.**
+The night blue-greys are **not achromatic**: `#425284` **sat 0.500**, `#6373a4` 0.396,
+`#7384b5` 0.365, `#c594f7` 0.401 — **44.0 % of the night level cell's ink sits at or above the
+0.35 floor**, plus 6.8 % of afterburner. Recovery on our night sheet, nine cells, measured
+independently by two lanes:
+
+| rule | recovery vs `alpha > 0` |
+|---|---|
+| day rule, keyline **not** named | **44.0 – 50.9 %** |
+| day rule, `#425284` named | **77.7 – 83.0 %** — *the level cell, from which every night figure is quoted, still loses 22.3 %* |
+| **value rule `max(RGB) > 30`** | **100.0 % on every cell** |
+
+> **Naming the keyline is not enough**, because `#6373a4` alone is 12.8 % of the ink at sat 0.396.
+
+**AND THE THRESHOLD MUST NOT BE RETUNED — this was checked against the arcade before being
+rejected.** Raising the floor to admit the night tones destroys the day anchor, because the
+**desert terrain** starts qualifying. Measured on `ab2-arcade-desert.png`:
+
+| sat floor | arcade day jet ink | DENS | **RP90** |
+|---|---|---|---|
+| **0.35** | **1 056** | 86.2 | **9.73** |
+| 0.45 | 1 097 | 89.6 | 9.73 |
+| 0.50 | 1 317 | 91.0 | 8.48 |
+| 0.55 | **1 368 (+29.5 %)** | 94.6 | **8.31 (−15 %)** |
+
+**It is a cliff, not a gradient, and it moves the GATED statistic by 15 %.** Symmetrically, the
+night rule cannot be used by day: `max(RGB) > 30` covers **98.6 %** of the arcade's daylight crop,
+because the desert ground qualifies. **Neither rule generalises, and that is the finding.**
+
+> **BINDING: a gate on RP90 is a gate on RP90-under-a-named-mask, and the mask is named PER
+> SUBJECT AND PER PALETTE — ground-truth tested on every palette variant it will be applied to,
+> not merely on both sides of one comparison.** The day anchor below is unaffected: it is a day
+> subject and the day rule is right for it. The entire 909 → 1056 difference is **step 1** — six arcade airframe mid-tones a
 four-role list omits (`#a48484` 96, `#d6d6a4` 60, `#ceb59c` 41, `#ffffff` 6, `#948463` 4,
 `#f7f7f7` 1). All six are in this document's own tone census; keeping them is a **choice**, which
 is a second independent reason **INK/SPAN stays a diagnostic and never a gate**.
@@ -1386,6 +1428,44 @@ minimum, the rects return **0** components; without them they return **1**, area
 `x[35,153] y[32,52]`, 17.35 %W — the arcade's own SCORE emblem. If your run reports a ~17 %W
 "bank" at a fixed bbox across consecutive frames, or a small "aircraft" high in the upper right
 that never moves between frames, you did not apply them.
+
+## "NATIVE OUTRANKS THE UPSCALE" IS A RULE ABOUT COLOUR LEVELS. IT DOES NOT TRANSFER TO A THICKNESS STATISTIC (R9)
+
+This document's standing preference for true-native sources exists because **video upscales
+invent colour levels** — 19 896 colours in a sea band, 3 133 in a 5 147 px jet crop, the level
+expansion past `0xf7`. Every retirement it has driven (ledger rows 16, 17, acquisition items 1–6)
+is a **cardinality or palette** claim.
+
+**A distance-transform statistic quantises on a different axis and the rule does not carry.**
+`SW` and `P90SW` are `2 ×` a Euclidean distance to the nearest background pixel, so on the native
+grid they can only take values from a small set — `{2.0, 2.83, 4.0, 4.47, …}` — and a percentile
+**jumps between levels** as the pose changes. On a 2.14× upscale the same physical thickness lands
+on a denser set. Measured by two lanes on the arcade night jet, **same subject, same mask, same
+operator**: pose CV **0.00 %** at the stored 686×480 (the percentile sat on one level, `{6.0}`)
+and **10.73 %** measured on the native grid (straddling `{2.83, 4.0}`).
+
+**Two cautions this document adds to that finding, because the obvious reading of it is wrong in
+both directions.**
+
+1. **A CV of 0.00 % on a quantised statistic is a RESOLUTION REPORT, NOT A STABILITY REPORT.** It
+   cannot distinguish "the drawing is stable under rotation" from "the percentile is pinned to one
+   quantisation level". It is also a *"doesn't move"* result, which CLAUDE.md requires be cropped
+   and looked at rather than quoted. **Binding: publish the NUMBER OF DISTINCT EDT LEVELS the
+   percentile took across poses beside any pose CV.** One level and a 0.00 % CV is a single
+   observation wearing a statistic's clothes.
+2. **This is not a licence to prefer the upscale.** The upscale's finer distance quantisation is
+   bought with codec blur that moves the mask boundary itself, which the native grid does not
+   have. **The rule is: state the measurement scale with every thickness figure, and never compare
+   two thickness figures taken at different scales** — the same condition DRAW-WEIGHT's matched-
+   span licence imposes on INK/SPAN, for the same underlying reason.
+
+**The cheap predictive form, and it is an ESTIMATE rather than a bound.** Expected pose CV
+≈ **½ × the relative gap between the EDT levels the percentile straddles**, readable from a single
+pose. It sizes the effect before a sweep is run, which is its value. It is published as `≈`
+because it does **not** bound: on the drawing lane's own arcade-day P90, predicted **2.5 %**
+against observed **2.73 %**. Use it to decide whether a CV is worth measuring, never to replace
+measuring it. One consequence already taken: a reading whose percentile straddles two levels is
+**quoted as a range, not a point.**
 
 ## THE FIGURE MOST WORTH CROPPING IS THE ONE YOU HAVE ALREADY EXPLAINED TO YOURSELF (PROCESS RULE, binding from R9)
 

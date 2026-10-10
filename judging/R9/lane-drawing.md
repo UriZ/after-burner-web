@@ -317,6 +317,102 @@ place, which is the more common way a rule fails.
 three significant figures on every statistic. It is worth naming because it is
 silent and systematic — 0.9 % on span, **1.8 % on DENS** (span squared).
 
+### 2.4i The quantisation screen — and a claim of mine that was wrong one message after I made it
+
+`criteria-fix-2` found that a stroke statistic's pose CV is about **half the
+relative gap between the EDT levels the percentile straddles**. The
+relationship is real and accurate **when the level set spans what you intend
+to quote over** — which means gathering it across the poses, i.e. running the
+sweep.
+
+**They then published a single-pose form of it, I adopted it, and wrote "every
+prediction bounds its observation" into this report. That was false on my own
+data, and they withdrew the claim before I checked it.** Six cases, my
+operator:
+
+| subject | stat | single-pose prediction | observed CV | |
+|---|---|---|---|---|
+| arcade night-level @686 | SW | 0.00 % | 0.00 % | bounds |
+| **arcade night-level @686** | **P90** | **0.00 %** | **0.46 %** | **EXCEEDED** |
+| arcade day-banked | SW | 0.00 % | 0.00 % | bounds |
+| arcade day-banked | P90 | 2.46 % | 2.44 % | bounds |
+| our level cell | SW | 11.69 % | 3.77 % | bounds (over by 3×) |
+| our level cell | P90 | 0.00 % | 0.00 % | bounds |
+
+**A percentile sitting exactly ON a level at one pose can move to a straddle at
+another**, so a tight single-pose gap certifies nothing — and the under-predict
+is the dangerous direction. The converse fails too: a wide gap over-predicts
+when the percentile never leaves its level.
+
+**So: a SCREEN, not a licence.** Non-zero means go and run the sweep; zero
+means nothing. The field is named `sw_pose_cv_screen` for that reason, and
+**control 6 remains an eight-pose sweep over real subjects.** The one thing it
+does license down stands: our level cell's RSW straddles two levels, so **4.52
+must be quoted as a range.**
+
+**And the scale finding, which is the part to carry forward.** Their claim that
+the same subject's CV is a function of *measurement scale* reproduces exactly
+on my pipeline:
+
+| arcade night-level jet, one mask, 8 angles | SW levels | CV |
+|---|---|---|
+| **stored 686×480** | `{6.0}` — one level | **0.00 %** |
+| native-converted (÷2.14375) | `{2.83, 4.0}` | **10.73 %** |
+
+**One subject, one mask, one operator — 0 % to 10.7 % on scale alone.** My
+original 18.4 % came from a synthetic; they reach 17.3 % on the *real* aircraft
+by converting it to native. Same phenomenon, three sample points.
+
+> **This contradicts a standing rule in this project and the box should say so.**
+> "Native outranks the upscale" is a rule about **colour levels** — a video
+> upscale invents intermediate hues. **EDT levels are not colour levels**, and
+> for a *thickness* statistic the upscale has the finer quantisation and
+> therefore the stabler reading. Measure stroke statistics at the scale where
+> the level gap is smallest. Apply the colour rule here and you land on the
+> 10–17 % reading instead of the 0 % one.
+
+### 2.4j The two masks are a FORCED pair, and the day/night agreement is arithmetic
+
+Two corrections from `criteria-fix-2`, both verified here, both sharper than
+what I had written.
+
+**(a) My "cross-check across two palettes and two masks" was arithmetic.** I
+retracted the 86.3 figure (§2.4h) and replaced it with "night 107.6 against day
+106.8, 0.7 % apart — a cross-check of the instrument". The two sheets' **alpha
+planes are byte-identical** (verified: `np.array_equal` is `True`), so their
+ground truth is *the same number*, not two numbers that agree. The 0.7 % is the
+day mask's 0.8 % miss, arithmetically. Their consequence is stronger than my
+retraction and I take it:
+
+> **On our own sheets a day-vs-night DRAW-WEIGHT comparison can only ever
+> measure mask recovery, never drawing weight**, because the geometry is
+> identical by construction. It is a mask test wearing a drawing test's units,
+> and it must never be upgraded into evidence about the art.
+
+**(b) The two-mask design is forced, not convenient**, and they found the half
+I had not:
+
+| recovery vs `alpha>0` | achromatic + 3 named | value `max(RGB)>30` |
+|---|---|---|
+| day sheet | **99.2–100.0 %** | 84.4–98.3 % |
+| night sheet | 81.9–98.2 % | **100.0 %** |
+
+The value rule fails on *day* because the day keyline is `#000000`,
+`max(RGB)=0`, below the `>30` cut — **581 px of outline dropped**, and the
+night sheet has zero pixels under that threshold. Each rule wins on one sheet
+and loses on the other by an identifiable mechanism. That is a better argument
+for the pairing than the one I made.
+
+**(c) Their caveat on the value rule, which applies to my own anchor.** Its
+100 % is measured on the authored *sheet*, where the background is
+transparent. On a night **frame** the black sky is correctly excluded but city
+lights and the HUD are `>30`. Verified: the value rule over the **whole** t175
+frame takes **50 290 px, 15 % of the frame.** My anchor survives only because
+the crop is tight on the aircraft *and* `largest_component` discards the
+remaining 181 px of speckle. **A wider crop would not survive**, and the rule
+is licensed on the night sheet and on this crop, not on night frames
+generally.
+
 ### 2.4f FIGURES THAT CHANGED AFTER THE TOPOLOGY FIX — read this before comparing
 
 The `fill_holes` connectivity bug (§2.4c) was found late. **Every arcade figure
