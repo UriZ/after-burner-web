@@ -325,8 +325,28 @@ export class GameFlow {
     }
   }
 
+  // CROSS-AREA EDIT, R9 title lane, with the team lead's explicit approval
+  // (flow.js is owned by no live lane this round). Two hunks, this one and
+  // the `_redrawTitle()` call in `_updateTitle` below, and nothing else.
+  //
+  // WHY A TITLE LANE IS IN flow.js. The title card ANIMATES — the sphere
+  // plate tumbles on a measured 256-tick revolution and INSERT COIN blinks
+  // 32 on / 32 off (judging/R9/lane-title.md §0, both read off
+  // ab2-longplay.mp4 over the card's whole dwell). `Overlay`'s texture only
+  // updates inside `redraw()`, so an animated title is impossible from
+  // titleScreen.js alone no matter what it draws: this method used to be
+  // called ONCE on entry to the state, which is the whole of the
+  // "24 frames over 120 ticks are one single image" defect that R5, R6, R7
+  // and R8 each filed as an ART defect. It was two lines of flow.
+  //
+  // The tick is the 5th argument and DEFAULTS TO 0, so the other call site
+  // (the `?showtitle=1` entry above) compiles unchanged and renders the
+  // plate face-on. The frame is a pure function of the integer tick — no
+  // PRNG draw, no wall clock — so `?fixed=1` stays byte-deterministic;
+  // verified by capture, not asserted (lane-title.md §6).
   _redrawTitle() {
-    this.titleOverlay.redraw((ctx, w, h) => drawTitleScreen(ctx, w, h, 0));
+    this.titleOverlay.redraw((ctx, w, h) =>
+      drawTitleScreen(ctx, w, h, 0, Math.round(this.titleTimer * 60)));
   }
 
   _enterStage(index) {
@@ -482,6 +502,9 @@ export class GameFlow {
 
   _updateTitle(dt, rawInput) {
     this.titleTimer += dt;
+    // Second of the two R9 title-lane hunks — see _redrawTitle above. One
+    // 320x224 canvas redraw per tick, and only while the title is up.
+    this._redrawTitle();
     this.titleOverlay.visible = true;
     this.cardOverlay.visible = false;
     if (rawInput.fire || rawInput.missile) {

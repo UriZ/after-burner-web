@@ -157,6 +157,15 @@ const BIG_GLYPHS = {
   X: ['##...##', '###.###', '.##.##.', '..###..', '.##.##.', '###.###', '##...##'],
   Y: ['###.###', '###.###', '.##.##.', '..###..', '..###..', '..###..', '..###..'],
   Z: ['#######', '#######', '.......', '..###..', '.###...', '#######', '#######'],
+  // MEASURED R9, and the only punctuation mark the arcade draws in this
+  // face: the trailing "!" of the title card's "iNSERT COiN!".
+  // `ab2-longplay-60fps.mp4` t=74.0 at 1028x720 (3.2125x), area-downsampled
+  // to native and thresholded at 0.45 — ink at native x[195,201] rows
+  // [184,190], a stroke that BACKSLANTS one column per row from the
+  // top-right down to a detached dot at the bottom LEFT. It is not an
+  // upright bar with a dot under it, which is what the 5x7 small face's "!"
+  // is; drawing that one here would have been the nearest wrong answer.
+  '!': ['.....##', '....###', '...###.', '..###..', '.......', '##.....', '##.....'],
 };
 
 // ---------------------------------------------------------------------
@@ -224,7 +233,23 @@ const BIG_GLYPHS = {
 // and T starts 4 px later rather than 8). Everything else in the big face is
 // monospaced on an 8-px pitch, verified across six consecutive digits in
 // each frame.
-const BIG_WIDTHS = { I: 3 };
+//
+// R9: the SPACE is kerned to 3 as well, and like the i it is measured twice,
+// on the title card, at 1028x720 (3.2125x) — the only screen in the game
+// that puts a space in this face:
+//   "iNSERT COiN!"  T's cell ends at native x163 and C's ink starts at
+//                   166.8, i.e. 3.8 px of space, not 8. With space = 3 the
+//                   whole string lays out to ink x[120,201] = the measured
+//                   82 px of the arcade's own line.
+//   "CREDIT   0"    T's cell ends at native x60 and the 0's ink starts at
+//                   72.2 — 12.2 px, which is THREE 4-px advances and not one
+//                   and a half 8-px ones. Total ink 63 px against 63.
+// The two strings are independent and both land exactly, which is the whole
+// argument. NOTHING ELSE IN THE GAME IS AFFECTED: FACE_BIG's only other
+// callers are hud.js's SPEED / STAGE / score / HIT digits, none of which
+// contains a space, and the cards are on FACE_BIG_CARD, whose uniform 8-px
+// space is itself measured (t261's "CONTINUE PLAY" spans 105 px).
+const BIG_WIDTHS = { I: 3, ' ': 3 };
 
 // THE CARD VARIANT OF THE BIG FACE. Same glyphs, one difference: the dotted
 // i sits CENTRED in a full 8-px cell instead of kerned to 3. This is not a
