@@ -5,12 +5,12 @@
 export const ENEMY_LIVERIES = {
   "grey": {
     "keyline": "#000000",
-    "rim": "#adadad",
-    "shadow": "#949494",
-    "dominant": "#e6e6e6",
-    "mid": "#c5c5c5",
-    "highlight": "#adadad",
-    "specular": "#ffffff",
+    "rim": "#4a4a4a",
+    "shadow": "#101010",
+    "dominant": "#4a4a4a",
+    "mid": "#848484",
+    "highlight": "#b5b5b5",
+    "specular": "#efefef",
     "intakeRing": "#e61000",
     "intakeCore": "#f7efa4",
     "nozzleCore": "#ef7300",
@@ -18,9 +18,9 @@ export const ENEMY_LIVERIES = {
     "night": {
       "rim": "#2131a4",
       "shadow": "#101963",
-      "dominant": "#6b8ce6",
+      "dominant": "#2131a4",
       "mid": "#3a5bc5",
-      "highlight": "#2131a4",
+      "highlight": "#6b8ce6",
       "specular": "#adc5ff"
     }
   },

@@ -1,339 +1,469 @@
-// enemy-<livery>-<aspect>.png — 64x32, 5 bank frames each, two silhouette
-// families across four liveries.
+// enemy-<livery>-<aspect>.png -- 64x32, 5 bank frames each.
 //
-// ============================== R5b REWRITE ==============================
-// The R4 report's gap 1 ("a slab with a bullseye") was partly answered by
-// the first version of this generator — the bullseye went, the airframe
-// went dark — but re-judged against the reference crops this round, two of
-// the four reproduction criteria still failed and a third was untested:
+// ========================= R11 REDRAW ==================================
+// The owner, twice, in their own words: "the enemy jets look very bad. this
+// is a blocker." The R10 judge ranked it first of ten. The R10 art critique
+// measured the defect: enemy-grey-head.png is 5.7 % of pixels darker than
+// L=80 where the arcade's equivalent is 25-34 %, its head-on silhouette is a
+// drooping gull with a red donut on a white mast, and its rear aspect is a
+// dihedral V with an orange ball slung underneath.
 //
-//   * criterion (b), "wings with leading edge rising >=15 degrees": the
-//     REAR sheet measured 10.8 / 12.5 deg (operator: tools/art/enemysil.py,
-//     least-squares fit to the topmost filled row per column outboard of
-//     the fuselage). The wings were nearly flat planks.
-//   * criterion (d), ">=2 distinguishable types by silhouette": there was
-//     exactly ONE silhouette. Four liveries recoloured the same aeroplane.
-//   * the aircraft had no FUSELAGE. Both sheets drew wings, a fin and a
-//     nose/nozzle feature with nothing joining them along the flight axis,
-//     which is why the head-on cell reads as a gull rather than a jet. In
-//     reference/ab2-arcade-closeup-enemies.jpg (head-on MiG, lower right)
-//     and reference/stage1-missile-salvo-t100.75.png (three rear-aspect
-//     jets around the salvo) the single loudest shape is a slender body
-//     running the whole length of the aircraft, with the wings attached to
-//     its middle.
+// This is the first version of this file drawn against an ARCADE COLUMN for
+// the near-aspect head-on enemy. That column did not exist until R10
+// acquired it, which is why four previous rounds tuned this sheet's palette
+// and never fixed its drawing.
 //
-// So: a body on both aspects, real sweep on the rear wings, and a second
-// family. The families are deliberately far apart at 15%W —
+// ---------------------------------------------------------------------------
+// THE COLUMN, and what each half of it licenses
+// ---------------------------------------------------------------------------
+// SHAPE, near aspect, rolled:
+//   tools/out/art-critic-r10/A-arc-headon-NATIVE-12x.png -- the arcade
+//   aircraft resampled to its native-equivalent 100x64 and magnified 12x.
+//   Source ab2-longplay-60fps.mp4 frame v0098 of
+//     ffmpeg -nostdin -ss 127 -i <60fps> -t 4 -vsync 0 out/v%04d.png
+//   stage identity read off the HUD digit (reads 2). 1028x720 = 3.2125x
+//   native, so SHAPE, PROPORTION, STRUCTURE and VALUE ORDER only -- no
+//   colour and no cardinality.
 //
-//   'mig'    thin high-aspect swept wings with a visible chord taper,
-//            separate low tailplanes, one fin. Flown by grey (stage 1) and
-//            camo (stage 2) liveries.
-//   'delta'  one solid triangular wing, no tailplane, a slightly fatter
-//            body and a taller fin. Flown by interceptor and prop liveries.
+// SHAPE, mid distance, LEVEL -- this is the pose cell 2 is drawn from, and
+// it is the cleanest reading in the whole column:
+//   tools/out/art-critic-r10/arc-enemy-mid-4x.png. Re-measured here with
+//   judging/R11/enemy_census_r11.py's geometry pass (sky = frame mode,
+//   object = max-channel distance > 45, the top-right blade of a second
+//   aircraft excluded by box). Native-equivalent, dividing the 4x crop of a
+//   3.2125x source by 12.85:
 //
-// Neither resembles the player's twin-nacelle twin-blade F-14, which is the
-// other readability requirement (art critique §2.2).
+//     span            73.8 n          total height      26.5 n  (2.78 : 1)
+//     wing chord       4.7-5.3 n inboard, 1.9-2.2 n at the tips
+//     fin              2.5 n wide, 12.8 n tall above the fuselage
+//     fuselage block  ~8 n wide, 11.8 n tall, NEAR-BLACK
+//     red intake      ~5 n, cream pip 2.8 n
+//     near-black (L<40) 38.5 % of the aircraft, red 7.8 %
 //
-// ============================ R8 RIM REWRITE ============================
-// Every one of these four draw functions ended with `c.outline4(p.keyline)`,
-// a full 8-adjacent ring of pure #000000. Measured over the exported sheets
-// that produced, on ALL SIXTEEN of them (4 liveries x 2 aspects x day/night),
-// a perimeter that is 100.0 % near-black and a sprite that is 20-50 % black
-// by area. R7 established for the PLAYER's daylight jet that the arcade does
-// not outline its aircraft at all; the enemy kept the old treatment, which is
-// this project's recurring "the named object got fixed and the class did
-// not" failure (R4 sprites -> sea, R5 sea -> explosion, R7 player -> enemy).
+//   Scaled to our 64-wide cell (x0.867): height 23, wing chord 4-5 inboard
+//   and 2 at the tips, fin 11 tall and 2-3 wide, fuselage 7x10, intake 4-5,
+//   pip 2. Those are the numbers the draw functions below use.
 //
-// Re-measured on the ENEMY rather than taken from the player's result, since
-// a criterion has to be checked against the arcade before it is tuned to:
-// ab2-longplay-60fps.mp4 t=104s, verified stage 1 (HUD digit read in the
-// frame), one rear-aspect enemy, airframe = largest 8-connected component of
-// S<0.30 & V>0.176. Topmost airframe row per column has median V 0.953,
-// the interior 0.788, the bottommost row 0.661 -- lit above, shaded below --
-// and the dark rim pixels are ALL around the nozzle housing, none on the
-// outer perimeter (tools/out/enemy-art/ARC-t104-rimmap-5x.png).
+// COLOUR, stage 1 (the `grey` livery's own stage):
+//   reference/stage1-missile-salvo-t100.75.png, box x[712,800] y[238,306],
+//   one rear-aspect enemy, sky = crop mode (0,158,255) L 121.8, object =
+//   max-channel distance > tol. This frame is a 1028x720 upscale, so it is
+//   a reading of STRUCTURE and DIRECTION, not of palette -- but a large
+//   object's dark-pixel FRACTION is the sort of thing resampling blurs and
+//   cannot invert. Swept over tol 25/40/60:
 //
-// So: `outlineSouth(p.shadow)` replaces `outline4(p.keyline)`. Black survives
-// where the arcade has it -- the nozzle housing and the nose intake, below.
-// The sheets stay at 8 colours because the rim reuses `shadow`.
+//     frac L<80   24.2 / 26.2 / 28.8 %        mean L 121.6 / 122.0 / 123.3
+//     sky L 121.8  ->  dL = 0 +/- 1.5
 //
-// ORIGINAL pixel art per ARCHITECTURE.md D5 — drawn from the measurements
+//   The arcade's stage-1 enemy sits AT the sky's own luminance and a quarter
+//   to a third of it is genuinely dark. It is neither a dark cut-out nor a
+//   white blob. Ours was mean L 189.8, dL +67, dark 5.7 %.
+//
+// COLOUR, stage 2 (the `camo` livery's stage), TRUE NATIVE 320x224:
+//   reference/ab2-arcade-desert.png box x[113,123] y[40,53] -- 8 colours,
+//   all on the Sega ladder, 92.5 % of the aircraft in L 0-86 and 7.5 % in
+//   two bright accents. Our camo sheet is already 89.7 % below L 80, so
+//   camo's RAMP is left exactly as it was; only its DRAWING changes.
+//
+// ---------------------------------------------------------------------------
+// WHY THE DARK HALF WENT MISSING -- the root cause, not just the symptom
+// ---------------------------------------------------------------------------
+// R8 set the grey ramp from "airframe = S<0.30 AND V>0.176, largest
+// 8-connected component, eroded twice" on the t=104 stage-1 enemy and got
+// 148/173/197/230/255. Both halves of that mask delete the dark:
+// `V>0.176` excludes every pixel darker than L~45 BY CONSTRUCTION -- which
+// is exactly the nozzle housing, the one place the same round proved the
+// arcade puts its near-black -- and the double erosion then deletes the
+// shaded lower edge as well. The ramp that came back was the arcade's
+// AIRFRAME INTERIOR, correctly measured, and the drawing then spent all
+// five of its rungs on it. That is how a sheet ends up with one black, four
+// near-identical light greys and no middle.
+//
+// So `grey` keeps the arcade's pale interior and gets its dark mass back:
+// the ramp is re-derived below from an UNMASKED census of the same class of
+// subject (quintiles of the stage-1 enemy with no V floor at all).
+//
+// ---------------------------------------------------------------------------
+// THE BANK POSES ARE A ROLL NOW, NOT A WIDTH SQUASH
+// ---------------------------------------------------------------------------
+// R10 critique finding 3: the five cells had bbox height pinned at 27 in all
+// five poses with span 48/55/62/55/48 and cells 0 and 4 exact mirror twins.
+// That is YAW -- the aircraft turning away -- not roll. A bank rotates the
+// wing line: one tip rises, the other drops, the bbox gets taller, the fin
+// leans with the wing, and bilateral symmetry about the vertical breaks.
+// Every arcade enemy in the acquisition frames is drawn at a visible roll.
+//
+// Every cell below is therefore built from control points in the AIRCRAFT's
+// own frame and mapped through a rigid rotation into cell space, then
+// scan-converted. No cell is a resampling of another and no cell is a
+// horizontal scale of another.
+//
+// The cell is 64x32 and that is the right shape for the extreme pose: the
+// arcade's rolled near-aspect enemy has a bbox aspect of about 2:1, which is
+// sin(30 deg) of its span over its span. A 60 px wing line rolled 30 deg
+// needs 30 px of cell height and the tips are 2 px thick, so it fits -- but
+// only just, which is why the tip chord tapers to 2 and the span is 60 and
+// not 64. Measured on the built sheet: bbox height 25 / 25 / 25 / 25 / 31 px
+// across the five poses and the fitted wing line lands at -29.6 / -14.9 /
+// -0.0 / +14.9 / +29.5 degrees, i.e. exactly the five authored bank angles
+// (judging/R11/pose_geom_r11.py).
+//
+// ---------------------------------------------------------------------------
+// THREE SILHOUETTES, AND AN HONEST COUNT OF THEM
+// ---------------------------------------------------------------------------
+// Before this round all eight day sheets collapsed to FOUR drawings: the
+// head sheets to two alpha planes and the rear sheets to two, with `prop`
+// and `interceptor` sharing one and `grey` and `camo` sharing the other.
+// A propeller type with an interceptor's silhouette is simply wrong.
+//
+//   'mig'    grey + camo. Straight wing bar, dark leading AND trailing edge,
+//            compact near-black fuselage, one leaning fin. Drawn from the
+//            arcade column above. Grey and camo SHARE this drawing on
+//            purpose and it is counted as ONE drawing: the arcade's stage-1
+//            white jet and its stage-2 green camo jet are the same airframe
+//            in two liveries (compare arc-s1-enemy-rear2-5x.png with
+//            A-arc-headon-NATIVE-12x.png).
+//   'swept'  interceptor. Pronounced anhedral -- the wing line kinks DOWN
+//            outboard of the root -- a longer belly and a taller, narrower
+//            fin. Reads apart from 'mig' by its wing line at a glance.
+//   'prop'   prop. UNMEASURED, and flagged as such: there is no arcade
+//            column for a propeller type at any aspect. Straight unswept
+//            wings of nearly constant chord with BLUNT tips where both jets
+//            taper to a point, the propeller's swept arc drawn as a 1 px
+//            ring with a hub at its centre instead of an intake, and a
+//            short wide fin. Drawn from general airframe structure, NOT
+//            from the arcade. See judging/R11/lane-enemy-art.md.
+//
+// ORIGINAL pixel art per ARCHITECTURE.md D5 -- drawn from the measurements
 // and reference crops named above, no SEGA sprite data copied or traced.
 import { PixelCanvas, buildStrip } from '../canvas.js';
 import { ENEMY_LIVERIES, ENEMY_FAMILY } from '../palettes.js';
+import { hexToRgb } from '../ladder.js';
 
 const CELL_W = 64;
 const CELL_H = 32;
 const BANK_ANGLES = [-30, -15, 0, 15, 30];
+const CX = 32;
+const CY = 16;
 
-function bladePolygon(root, tip, widthRoot, widthTip) {
+// --- The roll ---------------------------------------------------------------
+// A map from the AIRCRAFT's own frame (x along the wing, +x the right wing;
+// y down the image, so +y is the belly) into cell pixels. Positive bank puts
+// the right wing DOWN, which is what a right-hand roll looks like head-on.
+//
+// This is a rigid rotation of CONTROL POINTS followed by scan conversion, not
+// a rotation of pixels: there is no resampling anywhere, so no cell can
+// acquire an intermediate colour or a soft edge. (CLAUDE.md's recurring
+// "Canvas2D fractional positions silently antialias chunky pixel art into
+// blur" -- PixelCanvas has no blending at all, but a pixel-space rotate would
+// still have produced staircase noise and duplicated runs.)
+function roll(bankDeg) {
+  const r = (bankDeg * Math.PI) / 180;
+  const c = Math.cos(r);
+  const s = Math.sin(r);
+  const T = (x, y) => [CX + x * c - y * s, CY + x * s + y * c];
+  T.bank = bankDeg;
+  T.sin = s;
+  T.cos = c;
+  return T;
+}
+
+const poly = (c, T, pts, hex) => c.polygon(pts.map(([x, y]) => T(x, y)), hex);
+
+/** A chord band of a wing, in aircraft-frame coordinates: from x0 to x1,
+ *  between chord offsets yTop and yBot, where each offset may taper linearly
+ *  from the root value to the tip value. */
+function band(c, T, x0, x1, t0, b0, t1, b1, hex) {
+  poly(c, T, [[x0, t0], [x1, t1], [x1, b1], [x0, b0]], hex);
+}
+
+/** A tapering blade (fin, prop blade, tailplane) from `root` to `tip`. */
+function blade(c, T, root, tip, wRoot, wTip, hex) {
   const dx = tip[0] - root[0];
   const dy = tip[1] - root[1];
   const len = Math.hypot(dx, dy) || 1;
   const nx = -dy / len;
   const ny = dx / len;
-  return [
-    [root[0] + nx * widthRoot * 0.5, root[1] + ny * widthRoot * 0.5],
-    [root[0] - nx * widthRoot * 0.5, root[1] - ny * widthRoot * 0.5],
-    [tip[0] - nx * widthTip * 0.5, tip[1] - ny * widthTip * 0.5],
-    [tip[0] + nx * widthTip * 0.5, tip[1] + ny * widthTip * 0.5],
-  ];
+  poly(c, T, [
+    [root[0] + nx * wRoot * 0.5, root[1] + ny * wRoot * 0.5],
+    [root[0] - nx * wRoot * 0.5, root[1] - ny * wRoot * 0.5],
+    [tip[0] - nx * wTip * 0.5, tip[1] - ny * wTip * 0.5],
+    [tip[0] + nx * wTip * 0.5, tip[1] + ny * wTip * 0.5],
+  ], hex);
 }
 
-// Bank is modelled as it is for the player: the planform turns in the image
-// plane, so the NEAR side lengthens and drops while the FAR side shortens
-// and tucks toward the centreline. Every cell is scan-converted from its own
-// control points, so no cell is a resampling of another.
-function sides(bankDeg) {
-  const s = Math.max(-1, Math.min(1, bankDeg / 30));
-  return { s, near: Math.max(s, 0), far: Math.max(-s, 0) };
-}
-
-// --- MIG ---------------------------------------------------------------
-// Head-on: nose at the top, wings sweeping out and DOWN, tailplanes low.
-function drawMigHead(c, bankDeg, p) {
-  const { s, near, far } = sides(bankDeg);
-  const ax = 32 - Math.round(3 * s); // body axis, shifted by bank
-
-  // Fuselage: a slender dart down the flight axis. This is the shape the
-  // first draft was missing entirely.
-  c.polygon(
-    [[ax, 3], [ax + 3, 11], [ax + 2, 26], [ax - 2, 26], [ax - 3, 11]],
-    p.mid
-  );
-  c.polygon([[ax, 3], [ax + 3, 11], [ax, 26], [ax - 3, 11]], p.dominant);
-
-  // Fin above the spine.
-  c.polygon(bladePolygon([ax, 10], [ax + Math.round(2 * s), 1], 3, 1.4), p.dominant);
-
-  // Wings: swept out and down. Tip y is 8 rows below the root, over 27
-  // columns, which is the >=15 deg leading edge criterion (b) by
-  // construction (atan(8/27) = 16.5 deg) before bank foreshortening.
-  const shR = [ax + 3, 13];
-  const shL = [ax - 3, 13];
-  const tipR = [61 - Math.round(14 * far), 21 + Math.round(3 * near)];
-  const tipL = [2 + Math.round(14 * near), 21 + Math.round(3 * far)];
-  // R8: BOTH wings on `dominant`. R5b split them dominant/mid as a left-right
-  // lighting cue; the arcade's stage-1 enemy is lit from ABOVE, not from one
-  // side (topmost airframe row median V 0.953, interior 0.788, bottommost
-  // 0.661, measured at t=104s), so the chordwise specular/shadow bands are the
-  // modelling and the left-right split was only moving 15 % of the sprite down
-  // a rung. The bank cells still read apart because their CONTROL POINTS
-  // differ, which was always the stronger cue.
-  c.polygon(bladePolygon(shR, tipR, 5, 1.4), p.dominant);
-  c.polygon(bladePolygon(shL, tipL, 5, 1.4), p.dominant);
-  // Underside SHADOW band along each wing's trailing edge (see drawMigRear).
-  c.polygon(bladePolygon([shR[0], shR[1] + 3], [tipR[0], tipR[1] + 2], 2.0, 0.8), p.shadow);
-  c.polygon(bladePolygon([shL[0], shL[1] + 3], [tipL[0], tipL[1] + 2], 2.0, 0.8), p.shadow);
-  // 1 px specular on the LEADING (upper) edge of each wing.
-  c.line(shR[0], shR[1] - 2, tipR[0], tipR[1] - 1, p.specular);
-  c.line(shL[0], shL[1] - 2, tipL[0], tipL[1] - 1, p.specular);
-
-  // Low tailplanes — the feature that separates this family from 'delta'.
-  c.polygon(bladePolygon([ax + 2, 23], [ax + 10 - Math.round(4 * far), 25], 3, 1.2), p.highlight);
-  c.polygon(bladePolygon([ax - 2, 23], [ax - 10 + Math.round(4 * near), 25], 3, 1.2), p.highlight);
-  c.polygon([[ax - 3, 24], [ax + 3, 24], [ax + 2, 27], [ax - 2, 27]], p.shadow);
-
-  noseIntake(c, ax, 9, p);
-  c.outlineSouth(p.rim);
-}
-
-// Rear: tail toward camera, nozzle low on the body, wings sweeping out and UP.
-function drawMigRear(c, bankDeg, p) {
-  const { s, near, far } = sides(bankDeg);
-  const ax = 32 - Math.round(3 * s);
-
-  c.polygon([[ax, 4], [ax + 3, 14], [ax + 3, 25], [ax - 3, 25], [ax - 3, 14]], p.mid);
-  c.polygon([[ax, 4], [ax + 3, 14], [ax, 25], [ax - 3, 14]], p.dominant);
-
-  c.polygon(bladePolygon([ax, 13], [ax + Math.round(2 * s), 2], 3, 1.4), p.dominant);
-
-  // Root y=19 to tip y=8 over 26 columns: atan(11/26) = 23 deg of leading
-  // edge, which is what the first draft's near-flat 11-12 deg missed.
-  const shR = [ax + 3, 19];
-  const shL = [ax - 3, 19];
-  const tipR = [61 - Math.round(14 * far), 8 - Math.round(3 * near)];
-  const tipL = [2 + Math.round(14 * near), 8 - Math.round(3 * far)];
-  c.polygon(bladePolygon(shR, tipR, 5, 1.4), p.dominant);
-  c.polygon(bladePolygon(shL, tipL, 5, 1.4), p.dominant); // R8: see drawMigHead
-  // R6: an underside SHADOW band along each wing's trailing edge, and the
-  // specular on the leading edge. Five airframe tones instead of four — the
-  // sheet was one colour under its own 8-budget, and the dark share is what
-  // the arcade carries on the underside rather than over the whole airframe.
-  c.polygon(bladePolygon([shR[0], shR[1] + 2], [tipR[0], tipR[1] + 2], 2.0, 0.8), p.shadow);
-  c.polygon(bladePolygon([shL[0], shL[1] + 2], [tipL[0], tipL[1] + 2], 2.0, 0.8), p.shadow);
-  c.line(shR[0], shR[1] - 1, tipR[0], tipR[1] - 1, p.specular);
-  c.line(shL[0], shL[1] - 1, tipL[0], tipL[1] - 1, p.specular);
-
-  c.polygon(bladePolygon([ax + 2, 22], [ax + 10 - Math.round(4 * far), 20], 3, 1.2), p.highlight);
-  c.polygon(bladePolygon([ax - 2, 22], [ax - 10 + Math.round(4 * near), 20], 3, 1.2), p.highlight);
-  // Belly shadow under the fuselage.
-  c.polygon([[ax - 3, 23], [ax + 3, 23], [ax + 2, 26], [ax - 2, 26]], p.shadow);
-
-  nozzle(c, ax, 23, p);
-  c.outlineSouth(p.rim);
-}
-
-// --- DELTA -------------------------------------------------------------
-// One triangular wing, no tailplane, a fatter body and a taller fin.
-function drawDeltaHead(c, bankDeg, p) {
-  const { s, near, far } = sides(bankDeg);
-  const ax = 32 - Math.round(3 * s);
-  const tipRx = 61 - Math.round(16 * far);
-  const tipLx = 2 + Math.round(16 * near);
-
-  // ============ R9: THE DELTA WAS A FILLED TRIANGLE ============
-  // Flagged in R7, re-measured in R8, never closed: "`interceptor` and `prop`
-  // head-on cells are solid filled deltas with no blade separation, no
-  // fuselage and no nose, just a filled triangle with a dark spot", and "the
-  // `interceptor` delta is also the object that hides the player in rank 1"
-  // -- 19.5 % of ordinary play frames have >30 % of the player's aircraft
-  // behind one of these.
-  //
-  // THE ONLY ARCADE FRAME FOR THIS IS STAGE 2, and it is a 1440x1080 video
-  // upscale of a 320x224 original -- ab2-arcade-closeup-enemies.jpg, HUD
-  // digit 2, a dark-green camo livery on an orange sky. SHAPE ONLY. No
-  // colour, no value and no cardinality claim is taken from it, and
-  // acquisition item 5 (a true-native near-aspect arcade enemy) still blocks
-  // everything else about these cells. Said once here so it is not inherited
-  // silently by whoever edits this next.
-  //
-  // What that frame shows at the head-on aircraft
-  // (tools/out/drawing-r9/arc-headon-3x.png, 210x100 crop at 3x, about
-  // 47x22 native): a THIN HORIZONTAL WING BAR running the full span with a
-  // dark lower edge, a compact central fuselage block carrying the red
-  // intake, a short fin stripe above it, and sky above and below the bar
-  // across most of the span. It is a cross, not a triangle. The filled area
-  // between the leading edge and the body -- which is the entire delta
-  // planform here -- is not drawn in the arcade at all.
-  //
-  // So the family keeps its identity (no tailplane, fatter body, taller fin:
-  // the 15 %W separation from the mig family that R5 required) and loses the
-  // fill. The wing is now a swept blade of chord 5 at the root tapering to 2
-  // at the tip, which is the mig's treatment at a steeper sweep angle.
-  const shR = [ax + 4, 12];
-  const shL = [ax - 4, 12];
-  const tipR = [tipRx, 22 + Math.round(2 * near)];
-  const tipL = [tipLx, 22 + Math.round(2 * far)];
-  // R8's note that the two delta halves must stay on DIFFERENT rungs is kept
-  // and the reason it gave is now moot in the better direction: it split them
-  // because a unified triangle became one 8-connected single-colour component
-  // and ENEMY-SIL's compact-feature gate went 4.4 % -> 12.9 % against a
-  // <= 12 % target. A blade is not compact, so neither reading is at risk
-  // now; the split stays because it is also the lighting.
-  c.polygon(bladePolygon(shR, tipR, 5, 2), p.dominant);
-  c.polygon(bladePolygon(shL, tipL, 5, 2), p.mid);
-  // Underside shadow along each trailing edge, and a 1 px specular on each
-  // leading edge -- the lit-edge treatment, which is what the arcade's own
-  // wing bar carries (a dark lower edge under a lighter upper one).
-  c.polygon(bladePolygon([shR[0], shR[1] + 3], [tipR[0], tipR[1] + 2], 2.0, 0.9), p.shadow);
-  c.polygon(bladePolygon([shL[0], shL[1] + 3], [tipL[0], tipL[1] + 2], 2.0, 0.9), p.shadow);
-  c.line(shR[0], shR[1] - 2, tipR[0], tipR[1] - 1, p.specular);
-  c.line(shL[0], shL[1] - 2, tipL[0], tipL[1] - 1, p.specular);
-
-  // Body: fatter than the mig's and reaching lower, which is the family's
-  // other distinguishing feature now that the triangle is gone.
-  c.polygon([[ax, 3], [ax + 4, 12], [ax + 3, 26], [ax - 3, 26], [ax - 4, 12]], p.highlight);
-  c.polygon([[ax, 3], [ax + 4, 12], [ax, 26], [ax - 4, 12]], p.mid);
-  // Taller fin.
-  c.polygon(bladePolygon([ax, 10], [ax + Math.round(3 * s), 1], 3.4, 1.4), p.dominant);
-
-  noseIntake(c, ax, 9, p);
-  c.outlineSouth(p.rim);
-}
-
-
-function drawDeltaRear(c, bankDeg, p) {
-  const { s, near, far } = sides(bankDeg);
-  const ax = 32 - Math.round(3 * s);
-  const tipRx = 61 - Math.round(16 * far);
-  const tipLx = 2 + Math.round(16 * near);
-
-  c.polygon([[ax, 25], [tipRx, 9], [tipRx - 4, 7], [ax, 21]], p.dominant);
-  c.polygon([[ax, 25], [tipLx, 9], [tipLx + 4, 7], [ax, 21]], p.mid); // see drawDeltaHead
-  c.polygon([[ax, 26], [tipRx - 1, 10], [tipRx, 9], [ax, 25]], p.shadow);
-  c.polygon([[ax, 26], [tipLx + 1, 10], [tipLx, 9], [ax, 25]], p.shadow);
-  c.line(ax, 25, tipRx, 9, p.specular);
-  c.line(ax, 25, tipLx, 9, p.specular);
-
-  c.polygon([[ax, 3], [ax + 4, 13], [ax + 4, 26], [ax - 4, 26], [ax - 4, 13]], p.highlight);
-  c.polygon([[ax, 3], [ax + 4, 13], [ax, 26], [ax - 4, 13]], p.mid);
-  c.polygon(bladePolygon([ax, 12], [ax + Math.round(3 * s), 2], 3.4, 1.4), p.dominant);
-
-  nozzle(c, ax, 23, p);
-  c.outlineSouth(p.rim);
-}
-
-// --- Shared features ----------------------------------------------------
-// The nose intake is a MARK, kept small on purpose: R4's version was a
-// 19%-of-span red disc, "a bullseye". Outer radius 2.6 on a ~59 px span is
-// 8.8%, and under tools/art/enemysil.py's compact-component gate it is a
-// few per cent of silhouette area against the <=12% criterion.
+// --- The wing ---------------------------------------------------------------
+// The arcade's level head-on enemy (arc-enemy-mid-4x.png, measured above) is
+// a DEAD-STRAIGHT bar whose TOP EDGE is a straight dark line across the whole
+// span and whose thickness falls off from below: 5 n inboard, 2 n at the tip.
+// Its value structure top to bottom is dark edge / lit surface / mid surface /
+// shaded underside / dark edge, which is also the three-reading ramp R8
+// measured on the stage-1 rear enemy (topmost row median V 0.953, interior
+// 0.788, bottommost 0.661 -- lit above, shaded below).
 //
-// R8: the SIZE was fine and the STRUCTURE was inside out. Measured on the
-// head-on MiG's nose in reference/ab2-arcade-closeup-enemies.jpg (4.5x
-// upscale of native; this is a STAGE-2 frame and only its GEOMETRY is
-// licensed here -- the camo colours stay on the camo livery, which is ledger
-// row 12's rule), crop x[1080,1180] y[750,840]:
+// Drawn as five absolute rows in the aircraft frame rather than as fractions
+// of a tapering chord, because a fraction of a 2 px tip chord rounds to
+// nothing and the tip then loses its dark edge -- which is the one feature
+// that keeps the blade reading as a blade at 12 screen px.
 //
-//     near-black housing   bbox 77x68   (merges into the camo airframe, so
-//                                        this over-reads -- bound, not value)
-//     red annulus          bbox 31x28   -> 6.9 native px across
-//     pale core            bbox 18x19   -> 4.0 native px across, SOLID
+// SPAN is 60 and not 64 on purpose: see the roll note at the top of the file.
+const HALF_SPAN = 30;
+
+// WHICH EDGE IS DARK, AND WHY THE TWO ARCADE READINGS ONLY LOOK LIKE THEY
+// DISAGREE. arc-enemy-mid-4x.png shows a near-black line along the TOP of the
+// wing bar as well as the bottom -- but that frame is a STAGE-2 CAMO enemy
+// whose whole airframe is dark, so its "dark line" is simply its own `mid`
+// tone seen edge-on. On STAGE 1, measured per column over 73 columns of
+// reference/stage1-missile-salvo-t100.75.png x[712,800] y[238,306] with no
+// value floor and no erosion:
 //
-// So the arcade's nose is dark OUTSIDE, red ring, pale core, and the core is
-// 0.58 of the red's diameter. Ours drew the red as the OUTERMOST element with
-// no dark housing at all, and then put a #000000 dot in the MIDDLE of the
-// pale core -- which is why it reads as a red-rimmed eye rather than an
-// intake. Dark outside, nothing black in the centre, core/red = 2.8/5.2 =
-// 0.54 against the arcade's 0.58.
-function noseIntake(c, x, y, p) {
-  c.disc(x, y, 3.4, p.keyline); // housing, 11.5 % of a ~59 px span
-  c.ring(x, y, 2.6, 1.4, p.intakeRing);
-  c.disc(x, y, 1.4, p.intakeCore);
+//     TOPmost airframe row    median L 174.1   (11.0 % below L 80)
+//     interior                       L 132.2
+//     BOTTOMmost airframe row        L  83.0   (49.3 % below L 80)
+//
+// Lit above, shaded below. So the bands below are assigned by ROLE, top to
+// bottom highlight / mid / mid / dominant / shadow, and the LIVERY decides the
+// polarity: on `grey` that paints a pale bar with a shaded underside, and on
+// `camo` -- whose `mid` is L 56 and whose `highlight` is L 61 -- the same
+// program paints a dark bar with dark edges, which is what the stage-2 frame
+// shows. One drawing, two correct readings, rather than a drawing tuned to
+// whichever frame was opened last.
+// CHORD 6 at the root, 2 at the tip, thinned entirely FROM BELOW so the top
+// edge is a straight line tip to tip -- which is what the arcade's bar does
+// and what makes it read as one wing rather than two stuck-on triangles.
+// 6 : 2 on a 60 px span is the arcade's 5.3 n : 1.9 n on 73.8 n to within half
+// a pixel. The bands are stacked DOWN from the straight top edge, so each one
+// automatically stops where the chord runs out.
+function wing(c, T, p, { span = HALF_SPAN, root = 4, chord = 6, tipChord = 2,
+  anhedral = 0, dihedral = 0 } = {}) {
+  for (const side of [1, -1]) {
+    const xr = side * root;
+    const xt = side * span;
+    const drop = anhedral - dihedral;
+    const top = (x) => -2 + (drop * (Math.abs(x) - root)) / (span - root);
+    const at = (f) => {
+      const x = side * (root + (span - root) * f);
+      return [x, top(x)];
+    };
+    const tr = top(xr);
+    const tt = top(xt);
+    const strip = (f, y0, y1, hex) => {
+      const [xe, te] = at(f);
+      band(c, T, xr, xe, tr + y0, tr + y1, te + y0, te + y1, hex);
+    };
+    // Planform.
+    band(c, T, xr, xt, tr, tr + chord, tt, tt + tipChord, p.mid);
+    // Lit upper edge, 1 px, tip to tip -- the arcade's topmost airframe row.
+    strip(1, 0, 1, p.highlight);
+    // ... and the outer 45 % of that edge one rung brighter. The arcade's
+    // near-aspect enemy carries a 1 px highlight along ONE edge of every
+    // blade, and the thinnest part of a blade is also its palest (the same
+    // thing R7 found on the arcade player's wingtip). `specular` lands at
+    // 4-8 % of the sheet, which is the order the arcade spends its brightest
+    // value at (0.7 % on the player's native desert crop, 2.5-5 % on the
+    // native camo enemy's two accents).
+    const [xs, ts] = at(0.45);
+    band(c, T, xs, xt, ts, ts + 1, tt, tt + 1, p.specular);
+    // Shaded underside and the dark trailing edge, INBOARD only: the outer
+    // third of the arcade's bar is one pixel of edge and nothing else.
+    strip(0.5, chord - 2, chord - 1, p.dominant);
+    strip(0.22, chord - 1, chord, p.shadow);
+  }
 }
 
-// R5 interfaces I2, measured on stage1-missile-salvo-t100.75.png: "near-black
-// nozzle rings with a hot orange centre". The ring is thick and the orange
-// is small — the dark ring has to win, or the two pods read as eyes (art
-// critique §2.2: "they are insects").
+// --- Shared features --------------------------------------------------------
+// The nose intake, three nested shapes, AT THE WING LINE on the fuselage
+// centreline. R10 critique finding 2 item 2: ours sat on top of a tall bright
+// mast and read as a stork's head on a neck, and that was "the single
+// strongest wrong cue".
 //
-// R8: the RATIO is now measured instead of asserted. Same t104 stage-1 enemy
-// as the rim measurement above (ab2-longplay-60fps.mp4, HUD digit 1), largest
-// 8-connected component of V<=0.30 for the housing and of (S>0.45 AND
-// R>B+50 AND V>0.39) for the glow:
-//
-//     housing      39 x 38 px      orange core  19 x 20 px      ratio 2.05
-//
-// Span-normalised the housing is 23.5 % of that aircraft's 166 px bbox width,
-// but THAT NUMBER IS NOT USED: the subject is banked (bbox aspect 1.5 against
-// a level enemy's ~3), so span under-reads and 23.5 % would scale to a 14 px
-// bell on our level cell. The scale-free DIAMETER RATIO is the measurement
-// that survives the pose, and ours was 8 : 4.8 = 1.67 -- the glow too large
-// inside too thin a ring, which is the R4 "glowing eyes" direction. 11 : 5.4
-// = 2.04 reproduces the arcade's and grows the whole assembly from 12.5 % to
-// 17.2 % of the cell, which is between ours and the banked bound.
-function nozzle(c, x, y, p) {
-  c.disc(x, y, 5.5, p.keyline);
-  c.disc(x, y, 2.7, p.nozzleCore);
+// Sizes from the arcade column (arc-enemy-mid-4x.png, native-equivalent):
+// near-black housing ~8 n on a 73.8 n span = 11 %, red ~5 n = 6.8 %, cream
+// pip 2.8 n. On a 60 px span that is 6.6 / 4.1 / 2.3 px, i.e. r 3.3 / 2.1 /
+// 1.1. R8's measured core/red diameter ratio of 0.58 is preserved at 0.52.
+function noseIntake(c, T, p) {
+  const [x, y] = T(0, -1);
+  c.disc(x, y, 3.7, p.keyline);
+  c.ring(x, y, 2.3, 1.0, p.intakeRing);
+  c.disc(x, y, 1.0, p.intakeCore);
+}
+
+// The nozzle, rear aspect. R8 measured the arcade's housing : glow diameter
+// ratio at 2.05 on the t=104 stage-1 enemy (housing 39x38 px, glow 19x20) and
+// that measurement stands -- it is scale-free, so it survives the subject's
+// pose. What R10 found wrong was its POSITION: ours hung below the wing root
+// like a pumpkin under a gull. On reference/stage1-missile-salvo-t100.75.png
+// and on tools/out/art-critic-r10/arc-s1-enemy-rear2-5x.png the housing sits
+// ON the body, in line with the wing root, with airframe wrapped around it.
+function nozzle(c, T, p) {
+  const [x, y] = T(0, 1);
+  c.disc(x, y, 5.0, p.keyline);
+  c.disc(x, y, 2.5, p.nozzleCore);
   c.disc(x, y, 1.1, p.nozzleHot);
+}
+
+/** The fin. One rung below the wing's lit edge, with a single shaded side.
+ *  R10 critique finding 2 item 3: ours was the LIGHTEST thing in the sprite,
+ *  so the eye went straight to it; the arcade's is the one soft, low-contrast
+ *  element and it is angled, not vertical. It leans here because it is drawn
+ *  in the aircraft's frame and the whole frame rotates with the roll. */
+function fin(c, T, p, { base = -5, tip = -16, lean = 1, wRoot = 4, wTip = 2 }) {
+  blade(c, T, [0, base], [lean, tip], wRoot, wTip, p.mid);
+  // The shaded side must track the blade's own edge at BOTH ends, or it
+  // diverges from it at the root and the fin renders forked.
+  blade(c, T, [-wRoot * 0.5 + 0.5, base], [lean - wTip * 0.5 + 0.5, tip],
+    1, 1, p.dominant);
+}
+
+/** The fuselage, with the same lit-above / shaded-below ramp as the wing, so
+ *  the two read as one lit object. NOT the darkest mass in the drawing on a
+ *  pale livery: on the arcade's stage-1 enemies the body is pale grey with
+ *  black PANEL LINES and the near-black is concentrated in the nozzle housing
+ *  (tools/out/enemy-art-r11/s1near-B-3x.png, t = 94.8 s, HUD digit 1). The
+ *  camo and prop ramps make the same program paint a dark body, which is what
+ *  their stage shows. */
+function fuselage(c, T, p, { halfW, top, bot, tail = 0 }) {
+  poly(c, T, [[-halfW, top], [halfW, top], [halfW, bot], [-halfW, bot]], p.mid);
+  poly(c, T, [[1, top], [halfW, top], [halfW, bot - 1], [1, bot - 1]], p.highlight);
+  poly(c, T, [[-halfW, top], [-halfW + 1, top], [-halfW + 1, bot], [-halfW, bot]], p.dominant);
+  poly(c, T, [[-halfW, bot - 2], [halfW, bot - 2], [halfW, bot], [-halfW, bot]], p.dominant);
+  poly(c, T, [[-halfW, bot - 1], [halfW, bot - 1], [halfW, bot], [-halfW, bot]], p.shadow);
+  if (tail) {
+    poly(c, T, [[-halfW + 1, bot], [halfW - 1, bot], [1, bot + tail], [-1, bot + tail]], p.dominant);
+  }
+}
+
+// --- MIG: grey + camo -------------------------------------------------------
+function drawMigHead(c, T, p) {
+  // Fin FIRST, so the fuselage block overlaps its root rather than the other
+  // way round.
+  fin(c, T, p, { base: -6, tip: -17, wRoot: 3, wTip: 1.4 });
+  wing(c, T, p);
+  // 7 wide x 12 tall, compact and AT the wing line. The arcade's is ~8 n x
+  // 11.8 n on a 73.8 n span, which is 7 x 10 on our 60 px span.
+  fuselage(c, T, p, { halfW: 4, top: -6, bot: 7, tail: 2 });
+  noseIntake(c, T, p);
+}
+
+function drawMigRear(c, T, p) {
+  fin(c, T, p, { base: -6, tip: -16, wRoot: 3, wTip: 1.4 });
+  wing(c, T, p);
+  // Wider and shorter than the head-on block: the nozzle housing needs a body
+  // to sit IN, which is exactly what the gull version never had.
+  fuselage(c, T, p, { halfW: 6, top: -6, bot: 7, tail: 2 });
+  nozzle(c, T, p);
+}
+
+// --- SWEPT: interceptor -----------------------------------------------------
+// Differentiated from 'mig' by its WING LINE, which is the cue that survives
+// to the smallest size: the tips sit 4 px BELOW the root (anhedral), where the
+// mig's bar is dead straight. Plus a taller, narrower fin and a longer belly.
+function drawSweptHead(c, T, p) {
+  fin(c, T, p, { base: -5, tip: -18, lean: 2, wRoot: 3, wTip: 1.6 });
+  wing(c, T, p, { span: 29, root: 3, anhedral: 4 });
+  fuselage(c, T, p, { halfW: 4, top: -6, bot: 10, tail: 2 });
+  noseIntake(c, T, p);
+}
+
+function drawSweptRear(c, T, p) {
+  fin(c, T, p, { base: -6, tip: -18, lean: 2, wRoot: 3, wTip: 1.6 });
+  wing(c, T, p, { span: 29, root: 3, anhedral: 4 });
+  fuselage(c, T, p, { halfW: 6, top: -6, bot: 8, tail: 3 });
+  nozzle(c, T, p);
+}
+
+// --- PROP: prop -------------------------------------------------------------
+// UNMEASURED. There is no arcade column for a propeller type at any aspect.
+// GAME_SPEC.md section 4 says they exist ("silver/blue prop types, stage 2
+// open") and nothing in this repo shows one at a size that can be read. What
+// is drawn below is general airframe structure chosen to be unmistakably NOT
+// a jet at a glance, which is the defect it exists to fix -- `prop` and
+// `interceptor` shared one alpha plane until this round. It is flagged OPEN
+// in judging/R11/lane-enemy-art.md and must not be treated as reproduced.
+function propDisc(c, T, p) {
+  // The turning blades, drawn as the ARC they sweep: a 1 px ring, not a filled
+  // disc. A filled disc at this scale is R4's "bullseye" again (a 19 %-of-span
+  // red ball, the single worst thing in the R4 sprite), and a blade CROSS
+  // merges with the fin and the wing root into a vertical smear -- which is
+  // what the first R11 draft did; cropped and looked, per the standing rule.
+  // The ring crosses the wing and the fin, which is correct: the propeller is
+  // in front of the whole airframe.
+  const [x, y] = T(0, 0);
+  c.ring(x, y, 8.6, 7.6, p.shadow);
+  c.disc(x, y, 2.4, p.keyline);
+  c.disc(x, y, 1.3, p.intakeRing);
+}
+
+function drawPropHead(c, T, p) {
+  fin(c, T, p, { base: -5, tip: -13, lean: 0, wRoot: 5, wTip: 3 }); // short, wide
+  // Straight, unswept, CONSTANT chord with square tips -- the jets both taper
+  // to a point, so the blunt tip is the cue that survives to the smallest
+  // size. No dihedral: the first draft raised the tips 3 px and the result was
+  // a gull, which is exactly the shape R10 rank 2 exists to remove.
+  wing(c, T, p, { span: 28, root: 4, chord: 5, tipChord: 4 });
+  fuselage(c, T, p, { halfW: 4, top: -5, bot: 8, tail: 2 });
+  propDisc(c, T, p);
+}
+
+function drawPropRear(c, T, p) {
+  fin(c, T, p, { base: -5, tip: -13, lean: 0, wRoot: 5, wTip: 3 });
+  wing(c, T, p, { span: 28, root: 4, chord: 5, tipChord: 4 });
+  fuselage(c, T, p, { halfW: 4, top: -5, bot: 7, tail: 2 });
+
+  // Exhaust stubs, not an afterburner: two small warm marks on the body
+  // sides. The receding read has to survive (the stage opener depends on
+  // it) but a prop has no nozzle bell.
+  const [lx, ly] = T(-3, 2);
+  const [rx, ry] = T(3, 2);
+  c.disc(lx, ly, 1.5, p.keyline);
+  c.disc(rx, ry, 1.5, p.keyline);
+  c.disc(lx, ly, 0.9, p.nozzleCore);
+  c.disc(rx, ry, 0.9, p.nozzleCore);
+  propDisc(c, T, p);
 }
 
 const DRAW = {
   mig: { headOn: drawMigHead, rear: drawMigRear },
-  delta: { headOn: drawDeltaHead, rear: drawDeltaRear },
+  swept: { headOn: drawSweptHead, rear: drawSweptRear },
+  prop: { headOn: drawPropHead, rear: drawPropRear },
 };
 
-// R6: the night ramp is the SAME drawing with five airframe tones swapped,
-// generated by the same function, so a night sheet cannot drift from its day
-// sheet the way the player's day and night sheets did in R5. Night exists at
-// all because judging/R5/report.md's "what nobody had looked at" found that
-// `if (detail && !night)` in src/entities/enemySprite.js sent EVERY stage-3
-// enemy to the procedural fallback — the R5 redraw covered daylight only.
 function paletteFor(livery, night) {
   const p = ENEMY_LIVERIES[livery];
   if (!night) return p;
   return { ...p, ...p.night };
+}
+
+// --- The ramp-order invariant ----------------------------------------------
+// The drawing program above assigns values by ROLE: `shadow` is the dark
+// edge and the fuselage, `dominant` the shaded underside, `mid` the wing
+// surface and the fin, `highlight` the lit upper surface. That only means
+// the same thing on every livery if the roles are MONOTONE in luminance.
+//
+// They were not. Before R11 the `grey` day ramp ran
+//   shadow 148 < highlight 173 < mid 197 < dominant 230 < specular 255
+// and the `grey` night ramp ran shadow 29 < highlight 54 < mid 84 <
+// dominant 137 < specular 195 -- i.e. the two roles the drawing uses for
+// "dark edge" and "shaded underside" were the 1st and 4th BRIGHTEST rungs.
+// Every other livery was already monotone, so a drawing that read correctly
+// on camo, interceptor and prop inverted on the one livery the player sees
+// most. Asserted here so it cannot silently come back.
+function assertRampOrder(livery, p, label) {
+  const L = (hex) => {
+    const { r, g, b } = hexToRgb(hex);
+    return 0.299 * r + 0.587 * g + 0.114 * b;
+  };
+  const order = ['shadow', 'dominant', 'mid', 'highlight', 'specular'];
+  for (let i = 1; i < order.length; i++) {
+    if (L(p[order[i]]) < L(p[order[i - 1]])) {
+      throw new Error(
+        `[ramp] ${label}: ${order[i]} (${p[order[i]]}, L ${L(p[order[i]]).toFixed(1)}) ` +
+        `is DARKER than ${order[i - 1]} (${p[order[i - 1]]}, L ${L(p[order[i - 1]]).toFixed(1)}). ` +
+        'The enemy drawing program assigns value by role; a non-monotone ramp ' +
+        'inverts the modelling on this livery only. See tools/art/sheets/enemy-mig.js.'
+      );
+    }
+  }
 }
 
 /** Builds one 5-cell strip for a (livery, aspect, night) triple. The
@@ -341,13 +471,28 @@ function paletteFor(livery, night) {
  *  family directly and the sheet file name fully determines the art. */
 export function buildEnemySheet(livery, aspect, night = false) {
   const p = paletteFor(livery, night);
+  const label = `enemy-${livery}-${aspect}${night ? '-night' : ''}`;
+  assertRampOrder(livery, p, label);
   const draw = DRAW[ENEMY_FAMILY[livery]][aspect];
   return buildStrip(
     CELL_W,
     CELL_H,
     BANK_ANGLES.length,
-    (cell, i) => draw(cell, BANK_ANGLES[i], p),
-    { maxColours: 8, label: `enemy-${livery}-${aspect}${night ? '-night' : ''}` }
+    // R8's finding is KEPT and its implementation is RETIRED, which is not
+    // the same thing. The finding -- the arcade does not ring its aircraft in
+    // black, it SHADES the lower edge -- survived re-measurement here
+    // (topmost airframe row median L 174.1, interior L 132.2, bottommost
+    // L 83.0 over 73 columns of the stage-1 enemy). R8 implemented it with
+    // `outlineSouth(rim)`, which GROWS the silhouette by one row all the way
+    // round the bottom. On a 23 px tall aircraft that is a 9 % fatter sprite
+    // and, measured, 17-18 % of every cell spent on one tone -- and it
+    // double-counts, because the wing and the fuselage now carry their own
+    // shaded lower bands (`dominant` then `shadow`) INSIDE the silhouette,
+    // which is what shading an edge means. Shading moved inboard; no ring,
+    // no added row. `rim` stays in the palette table for the procedural
+    // far-LOD path in src/entities/enemySprite.js, which still uses it.
+    (cell, i) => draw(cell, roll(BANK_ANGLES[i]), p),
+    { maxColours: 8, label }
   );
 }
 
@@ -359,4 +504,4 @@ export const buildEnemyMigHeadSheet = () => buildEnemySheet('grey', 'headOn');
 export const buildEnemyMigRearSheet = () => buildEnemySheet('grey', 'rear');
 export const ENEMY_SHEET_NIGHT = [false, true];
 
-export { BANK_ANGLES, CELL_W, CELL_H };
+export { BANK_ANGLES, CELL_W, CELL_H, HALF_SPAN };

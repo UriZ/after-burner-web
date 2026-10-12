@@ -10,12 +10,24 @@ import {
 // Real authored sheets, shipped by the pixel-artist lane
 // (tools/art/sheets/enemy-mig.js): 5 bank poses per aspect, 64x32/cell.
 // R5b: ONE SHEET PER LIVERY, and TWO silhouette families across them --
-// 'mig' (thin high-aspect swept wings, separate tailplanes, one fin) for
-// grey/camo, 'delta' (one solid triangle, no tailplane, fatter body) for
-// interceptor/prop. That is R4 gap 1 criterion (d), ">=2 distinguishable
-// types by silhouette at >=15%W", which four recolours of one aeroplane did
-// not satisfy. Neither family resembles the player's twin-nacelle
-// twin-blade F-14, which is the other readability requirement.
+// 'mig' for grey/camo and 'delta' for interceptor/prop. That is R4 gap 1
+// criterion (d), ">=2 distinguishable types by silhouette at >=15%W", which
+// four recolours of one aeroplane did not satisfy. Neither family resembles
+// the player's twin-nacelle twin-blade F-14, which is the other readability
+// requirement.
+//
+// R11: THREE families, and the honest count is SIX drawings, not eight.
+// Measured by md5 of the alpha plane, all sixteen sheets collapsed to FOUR
+// drawings before this round: `prop` and `interceptor` were one aeroplane in
+// two liveries, and so were `grey` and `camo`. They are now 'mig'
+// (grey + camo: a straight wing bar with a shaded underside, a compact
+// fuselage at the wing line, one leaning fin), 'swept' (interceptor:
+// pronounced anhedral, longer belly, taller narrower fin) and 'prop' (prop:
+// unswept blunt-tipped wings and a propeller arc instead of an intake) --
+// SIX distinct alpha planes over the sixteen sheets. `grey` and `camo` still
+// share one deliberately, because the arcade's stage-1 white jet and its
+// stage-2 green camo jet are the same airframe in two liveries; that is
+// counted as ONE drawing and not two. See judging/R11/lane-enemy-art.md.
 //
 // R6: AND A NIGHT SHEET FOR EVERY ONE OF THEM. R5 shipped day palettes only
 // and the dispatch gate below read `if (detail && !night)`, so every enemy on

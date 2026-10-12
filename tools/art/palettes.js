@@ -493,9 +493,71 @@ export const ENEMY_LIVERIES = {
   // delivery report. The mapping below puts the two largest interior masses on
   // 0.902 and leaves 0.580 to the rim and the under-bands, which is where the
   // arcade's dark is.
-  grey: liveryOf('#949494', '#e6e6e6', '#c5c5c5', '#adadad', '#ffffff',
-    ['#101963', '#6b8ce6', '#3a5bc5', '#2131a4', '#adc5ff'],
-    ['#adadad', '#2131a4']),
+  //
+  // ============ R11: THE DARK HALF, AND WHY R8 DELETED IT =============
+  // R10 critique rank 1, and the owner's own words twice over: this sheet is
+  // "a white bird". 5.7 % of enemy-grey-head.png is darker than L=80 where
+  // the arcade's stage-1 enemy is 25-34 %, and its mean sits dL +67 above the
+  // sky where the arcade's sits ON the sky's own luminance.
+  //
+  // THE ROOT CAUSE IS THE MASK ABOVE, NOT THE DRAWING. R8's operator was
+  // "airframe = S<0.30 AND V>0.176, largest 8-connected component, ERODED
+  // TWICE". `V>0.176` discards every pixel darker than L~45 by construction
+  // -- which is precisely the nozzle housing, the one place R8 itself proved
+  // the arcade puts its near-black -- and the double erosion then discards
+  // the shaded lower edge as well. The five bands that came back, 148/173/
+  // 197/230/255, are the arcade's airframe INTERIOR, measured correctly. The
+  // drawing then spent all five rungs on them, so the sprite had one black,
+  // four near-identical light greys and no middle at all. A correct
+  // measurement of the wrong population.
+  //
+  // RE-MEASURED WITH NO V FLOOR AND NO EROSION, same class of subject:
+  // reference/stage1-missile-salvo-t100.75.png box x[712,800] y[238,306],
+  // one rear-aspect stage-1 enemy. sky = crop mode (0,158,255) L 121.8;
+  // object = max-channel distance from sky > 40; then the SKY-BLEND ring is
+  // rejected by hue (B > R+60 AND B > G+30) rather than by value, because
+  // this frame is a 1028x720 upscale and rejecting the boundary by VALUE is
+  // the very thing that deleted the dark last time. 2 170 airframe px of
+  // 3 388 object px. Quintile means (REFERENCE.md I6's operator), with the
+  // nearest Sega 5-bit ladder member:
+  //
+  //     q1  L  15.6  rgb(26,10,13)    -> level  2  #101010
+  //     q2  L  76.2  rgb(78,74,78)    -> level  9  #4a4a4a
+  //     q3  L 132.1  rgb(131,132,132) -> level 16  #848484
+  //     q4  L 180.9  rgb(182,181,175) -> level 22  #b5b5b5
+  //     q5  L 235.3  rgb(224,239,243) -> level 29  #efefef
+  //
+  //   median L 132.2, mean L 128.0, frac L<80 = 30.8 %, against a sky of
+  //   L 121.8. Every band is NEUTRAL, which is what R8 found and is still
+  //   true; what R8 missed is that the ramp runs all the way to near-black.
+  //
+  // NOTE THE ONE PLACE I DID NOT FOLLOW THE CRITIQUE. It prescribed two dark
+  // steps "cool rather than neutral so they read as shadow, not as dirt".
+  // The arcade's own bands are neutral to within 4/255 at q2-q4, so the
+  // measurement wins over the prescription and these are neutral greys.
+  //
+  // AND THE RIM, same operator, topmost / interior / bottommost airframe
+  // pixel per column over 73 columns:
+  //
+  //     TOPmost row median L 174.1   (11.0 % of it below L 80)
+  //     interior          L 132.2
+  //     BOTTOMmost row    L  83.0   (49.3 % of it below L 80)
+  //
+  //   Lit above, shaded below, and the shaded edge is a MID tone, not black.
+  //   R8 reported the bottom row at V 0.661 (L ~169) -- that figure came off
+  //   the V-floored mask, so it is the same deletion seen from the other
+  //   end. `dayRim` is therefore rung 2 (#4a4a4a, L 74), which brackets the
+  //   measured L 83 from below rather than ringing the sprite in black.
+  //
+  // THE NIGHT RAMP IS UNCHANGED IN VALUE AND REORDERED IN ROLE. The same
+  // five measured blues now appear in monotone order, because the drawing
+  // program assigns value by role and the old order put "dark edge" and
+  // "shaded underside" on the 1st and 4th BRIGHTEST rungs. No night colour
+  // is added, removed or altered; tools/art/sheets/enemy-mig.js asserts the
+  // ordering so it cannot silently invert again.
+  grey: liveryOf('#101010', '#4a4a4a', '#848484', '#b5b5b5', '#efefef',
+    ['#101963', '#2131a4', '#3a5bc5', '#6b8ce6', '#adc5ff'],
+    ['#4a4a4a', '#2131a4']),
   // stage 2 (desert, orange sky). Dark green camo — MEASURED dominant
   // #102910 at V0.16 on ab2-arcade-closeup-enemies.jpg, which IS a stage-2
   // frame and so is the right source for this livery. Left dark on purpose.
@@ -516,13 +578,32 @@ export const ENEMY_LIVERIES = {
 
 // Which SILHOUETTE each livery flies. R4 gap 1 criterion (d) wants ">=2
 // distinguishable enemy types by silhouette at >=15%W"; colour alone does
-// not satisfy it. 'mig' is the thin high-aspect swept wing with separate
-// tailplanes; 'delta' is one solid triangle with no tailplane, which reads
-// apart from the mig at a glance and from the player's twin-boom F-14 at
-// any size.
+// not satisfy it.
+//
+// R11: THREE families, not two, and the count is stated honestly. Until this
+// round all eight day sheets collapsed to FOUR drawings by alpha plane --
+// `prop` and `interceptor` were one aeroplane in two liveries, which is
+// wrong on its face (a propeller type with an interceptor's silhouette), and
+// any "we fixed N of 8" claim double-counted.
+//
+//   'mig'    straight wing bar with a dark leading AND trailing edge, a
+//            compact near-black fuselage at the wing line, one leaning fin.
+//            Drawn from the R10 arcade column.
+//   'swept'  pronounced ANHEDRAL -- the wing line drops 4 px outboard of the
+//            root where the mig's is dead straight -- a longer belly and a
+//            taller, narrower fin.
+//   'prop'   unswept wings of nearly constant chord with BLUNT tips where
+//            both jets taper to a point, the propeller's swept arc drawn as
+//            a 1 px ring with a hub at its centre instead of an intake, a
+//            short wide fin. UNMEASURED: there is no arcade column for a
+//            propeller type at any aspect. See judging/R11/lane-enemy-art.md.
+//
+// `grey` and `camo` SHARE the mig drawing deliberately, and that is counted
+// as one drawing, not two: the arcade's stage-1 white jet and its stage-2
+// green camo jet are the same airframe in two liveries.
 export const ENEMY_FAMILY = {
   grey: 'mig',
   camo: 'mig',
-  interceptor: 'delta',
-  prop: 'delta',
+  interceptor: 'swept',
+  prop: 'prop',
 };
