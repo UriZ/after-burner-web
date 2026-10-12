@@ -262,18 +262,98 @@ function drawBillow(value) {
 
 // One texture per value step, built on first use. Each returns the array;
 // callers index it with nearestValueStep().
+// --- KILL SMOKE ------------------------------------------------------------
+//
+// THE ARCADE'S POST-KILL SMOKE IS NOT GREY AND IT IS NOT WHITE. IT IS PEACH.
+//
+// R9's motion pass (judging/R9/report.md §2.4) recorded "ours leaves nothing"
+// after a kill against an arcade mass it could only read by eye, because it
+// had no segmentation that survived stage 1's cloud banks. This lane found a
+// kill it does: .reference-cache/video/ab2-longplay-60fps.mp4 at t = 99.1,
+// 60 consecutive frames, the fireball detonating over OPEN SEA with no cloud
+// anywhere in the frame (tools/out/envelope-r10/arc-expl-99-opensea.png —
+// crop it and look; the mass grows out of the dark-red ball against flat
+// #009fff). That removes the confound that defeated R9 and it settles the
+// question explosions.js's PHASES note left open: the daylight explosion does
+// leave a residue, and it is neither the grey the R6 art critique asked for
+// nor the white of the missile trail.
+//
+// MEASURED, f0055 of that burst, largest component of V>0.70 AND R>B+0.04 AND
+// S<0.45, n = 53 282 px = 7.20 % of the frame:
+//
+//   mean RGB (236, 188, 162)   V mean 0.925   S mean 0.312
+//   V-ordered  p5  #cd907f   p20 #e1b5a0   p40 #ecb589
+//              p60 #f3c7b2   p80 #f8be95   p95 #ffc6a3
+//
+// The four below are p5 / p20 / p40 / p95 snapped to SEGA_LADDER, which is
+// where the four-rung ladder comes from rather than from a designer's eye.
+// Area-weighted they return #efbda4 against the measurement's #ebbca2.
+//
+// WHAT THIS IS NOT. The arcade source is AV1-resampled 1028x720, so these are
+// colours of a resampled frame, not of the hardware's own palette — there is
+// no true-native daylight kill frame in this repo (REFERENCE.md's explosion
+// row is still flagged UNATTRIBUTED). Snapping to the ladder is the whole of
+// the defence and it is a weak one: treat the HUES as measured and the exact
+// rungs as the nearest legal ones.
+export const KILL_SMOKE_PALETTE = ['#ce8c7b', '#deb59c', '#efb58c', '#ffc5a4'];
+
+// Six lumps, canvas fractions [cx, cy, r], massed low and rising — the arcade
+// plume in that burst is a column, not a disc (the canvas is 32x40).
+const KILL_LOBES = [
+  [0.50, 0.70, 0.30], [0.30, 0.52, 0.22], [0.68, 0.48, 0.24],
+  [0.44, 0.28, 0.21], [0.62, 0.80, 0.18], [0.34, 0.84, 0.16],
+];
+
+// Three AGE phases, not a value ramp. The ramp machinery below multiplies a
+// grey by the caller's value, which on a coloured ladder would put a fresh
+// continuum of peaches on screen — the Criterion A failure mode explosions.js
+// already paid for once. Ageing here is a BAND EDIT inside the four authored
+// colours: the dark rim goes first and the bright core grows, so the mass
+// thins and pales without adding a colour. Each entry is [colour, radius
+// scale], outermost first.
+const KILL_PHASES = [
+  [[0, 1.00], [1, 0.84], [2, 0.62], [3, 0.34]],
+  [[0, 1.00], [1, 0.90], [2, 0.70], [3, 0.44]],
+  [[1, 1.00], [2, 0.86], [3, 0.62]],
+];
+
+function drawKillSmoke(phase) {
+  return (ctx, w, h) => {
+    for (const [ci, scale] of KILL_PHASES[phase]) {
+      ctx.fillStyle = KILL_SMOKE_PALETTE[ci];
+      for (const [lx, ly, lr] of KILL_LOBES) {
+        ctx.beginPath();
+        ctx.arc(lx * w, ly * h, lr * w * scale, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+  };
+}
+
 const KINDS = {
   puff: { draw: drawSmokePuff, w: 24, h: 24 },
   trail: { draw: drawTrailPuff, w: 32, h: 20 },
   billow: { draw: drawBillow, w: 32, h: 42 },
+  // `phases` marks a kind whose textures are indexed by AGE PHASE rather than
+  // by SMOKE_VALUES step, and whose palette is its own.
+  kill: { draw: drawKillSmoke, w: 32, h: 40, phases: 3, palette: KILL_SMOKE_PALETTE },
 };
 const texCache = {};
 function texturesFor(kind) {
   const k = KINDS[kind];
+  if (k.phases) {
+    texCache[kind] ??= Array.from({ length: k.phases }, (_, p) =>
+      makePixelTexture(k.draw(p), k.w, k.h, { palette: k.palette }));
+    return texCache[kind];
+  }
   texCache[kind] ??= SMOKE_VALUES.map((v) =>
     makePixelTexture(k.draw(v), k.w, k.h, { palette: SMOKE_RAMP }));
   return texCache[kind];
 }
+
+// Measurement-only accessor, same contract as explosions.js's: the probe
+// audits the authored canvas, not whatever the field happens to be showing.
+export const killSmokeTexturesForProbe = () => texturesFor('kill');
 export const smokePuffTexture = (step = 0) => texturesFor('puff')[step];
 export const trailPuffTexture = (step = 0) => texturesFor('trail')[step];
 export const billowTexture = (step = 0) => texturesFor('billow')[step];
@@ -291,7 +371,7 @@ export class SmokeField {
     this.scene = scene;
     this.space = space;
     this.live = [];
-    this.pool = { puff: [], trail: [], billow: [] };
+    this.pool = { puff: [], trail: [], billow: [], kill: [] };
   }
 
   _acquire(kind) {
@@ -330,7 +410,7 @@ export class SmokeField {
     // White: the value lives in the texture now, so the material must not
     // scale it a second time.
     sprite.material.color.setScalar(1);
-    sprite.material.map = texturesFor(kind)[nearestValueStep(valueStart)];
+    sprite.material.map = texturesFor(kind)[KINDS[kind].phases ? 0 : nearestValueStep(valueStart)];
     this.scene.add(sprite);
     this.live.push({
       kind, sprite, age: 0, depth, life, fracStart, fracEnd, valueStart, valueEnd,
@@ -350,8 +430,11 @@ export class SmokeField {
       const t = p.age / p.life;
       const frac = p.fracStart + (p.fracEnd - p.fracStart) * t;
       // Map before sizeSprite: sizeSprite reads the aspect off the live map.
+      const nPhase = KINDS[p.kind].phases;
       p.sprite.material.map = texturesFor(p.kind)[
-        nearestValueStep(p.valueStart + (p.valueEnd - p.valueStart) * t)
+        nPhase
+          ? Math.min(nPhase - 1, Math.floor(t * nPhase))
+          : nearestValueStep(p.valueStart + (p.valueEnd - p.valueStart) * t)
       ];
       sizeSprite(p.sprite, this.space.worldWidthFor(frac, p.depth));
       // NO OPACITY FADE. Same rule as effects/explosions.js: a sprite that

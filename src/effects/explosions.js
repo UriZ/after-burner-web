@@ -1,5 +1,5 @@
 import { makePixelTexture, makeBillboard } from './pixelTexture.js';
-import { sizeSprite } from './smoke.js';
+import { sizeSprite, SmokeField } from './smoke.js';
 
 // Kill explosions.
 //
@@ -560,14 +560,83 @@ function chunks() {
 // REFERENCE.md measures the t357 fireball at ~23%W; GAME_SPEC.md §8 requires
 // explosions to "occupy the frame generously".
 const PEAK_FRAC = 0.30;
-const LIFE_S = 0.75;
-const BOIL_HZ = 14; // texture swaps per second
-// Life fractions at which the fire steps down a phase. 0.76 keeps the
-// fireball proper at 0.57 s, which is the whole span the R6 per-phase
-// FIRE-MASK measurement covers (0.03-0.58 s), so the statistics that
-// measurement produced still describe the same frames.
-const DECAY_FROM = 0.76;
-const DECAY_MID = 0.90;
+
+// ---------------------------------------------------------------------------
+// THE ENVELOPE IN TIME. R10. READ THIS BEFORE LENGTHENING ANYTHING HERE.
+//
+// Every palette, core-fraction, saturation and silhouette gate in this
+// project scores this fireball as a PASS and all of them are right. What was
+// wrong for nine rounds is how long it lasts, and no criterion had a time
+// axis, so nothing could see it. R9's motion pass found it from the pixels
+// (judging/R9/report.md §2.4) and R10's effects lane re-measured both sides
+// at 60 Hz with a controlled operator (judging/R10/envelope_r10.py, selftest
+// 18/18; judging/R10/lane-envelope.md for the table and the blind spots):
+//
+//                                       arcade          ours, 8725647
+//   frames within 60 % of peak          4   (0.067 s)   16  (0.267 s)
+//   total life, area >= 10 % of peak    8-12 (0.13-0.20 s)  41 (0.683 s)
+//   area at peak + 0.100 s              0.04-0.14 x     0.51 x
+//
+// Arcade side: .reference-cache/video/ab2-longplay-60fps.mp4, three kills in
+// the stage-1 burst at t = 95.6 (stage digit read 1 on every frame), plus
+// R9's independent event at t = 99.65. Ours: ?fixed=1&seed=1&demo=2, ticks
+// 300-539 captured at --every 1.
+//
+// THE OLD VALUES WERE LIFE_S = 0.75 WITH DECAY_FROM = 0.76, i.e. the fireball
+// proper held for 0.57 s at a size that only shrank 12 % across the whole
+// life. That is a PLATEAU where the arcade has a FLASH, and it is the single
+// reason our explosion reads as a sticker and the arcade's reads as a
+// detonation. The fire is now 16 ticks: 5 at full fire, 5 in the first decay,
+// 6 in the second. 16 rather than 14 because at 14 our life10 read 7 frames
+// against the arcade's 8 and 12 — UNDER the arcade on the only two of its
+// events this lane could bound — and being short of the arcade is as much a
+// miss as being long.
+//
+// WHAT THIS COSTS, HONESTLY. The R6 per-phase FIRE-MASK statistics (core %,
+// mean S, V > 0.95) were taken over 0.03-0.58 s of phase 0 and the old
+// DECAY_FROM existed to keep them describing the same frames. They are
+// per-frame statistics of an unchanged texture, so every one of them still
+// reads the same on any frame that shows phase 0 — re-measured after this
+// change and unmoved — but phase 0 is now on screen for 5 ticks instead of
+// 34, so a capture sampled at 0.25 s will usually MISS the fireball and catch
+// a decay phase. That is a property the arcade has too. Do not "fix" a
+// sampled capture that shows no white-hot core by lengthening phase 0.
+const LIFE_S = 16 / 60;
+// 30, up from 14: the arcade swaps its explosion sprite every SECOND frame.
+// Measured on the same bursts — the fire-mask area series alternates in
+// 2-frame pairs over a ground that changes on every frame, so the sprite
+// animates at 30 Hz inside 60 Hz logic. At 14 Hz the new 4-tick phase 0 would
+// show a single arrangement and the mass would not boil at all.
+const BOIL_HZ = 30;
+// Life fractions at which the fire steps down a phase: 5 ticks, then 5, then
+// 6. The area decay the arcade has comes mostly from HERE rather than from
+// `grow` — phase 1 drops E_YELLOW and E_GOLD and phase 2 drops E_AMBER too,
+// so the fire-coloured area collapses while the mass itself keeps expanding,
+// which is what a real fireball turning into smoke does.
+const DECAY_FROM = 5 / 16;
+const DECAY_MID = 10 / 16;
+
+// Debris outlives the fire. It used to share LIFE_S, so shortening the fire
+// by 3x would have taken the chunks with it and the kill would throw nothing.
+// MUST STAY ABOVE LIFE_S: the entry is retired on this clock, and the residue
+// is spawned on the fire's. Drop it below LIFE_S and the kill silently stops
+// leaving smoke.
+const CHUNK_LIFE_S = 0.45;
+
+// The residue. See the KILL SMOKE block in effects/smoke.js for the arcade
+// measurement behind the palette; these are the sizes and the life.
+//
+// Arcade: the plume reaches 7.20 % of the frame about 0.17 s after the fire
+// peak and is still plainly there a second later. Ours is DELIBERATELY UNDER
+// that — three puffs growing 0.09 -> 0.19 of frame width cover roughly 4-6 %
+// — because the arcade figure is ONE event and its decay could not be
+// separated from stage 1's cloud banks by any mask this lane could build
+// (the same blind spot R9 hit). Under-shooting a number measured once is the
+// cheap error; over-shooting it puts a peach mass over the sky on every kill.
+const SMOKE_PUFFS = 3;
+const SMOKE_LIFE_S = 0.9;
+const SMOKE_FRAC_START = 0.09;
+const SMOKE_FRAC_END = 0.19;
 
 export class ExplosionField {
   constructor(scene, space) {
@@ -576,6 +645,11 @@ export class ExplosionField {
     this.live = [];
     this.pool = [];
     this.chunkPool = [];
+    // Its OWN SmokeField, not combat.js's. Taking the caller's would change
+    // `new ExplosionField(scene, space)`'s signature, and combat.js belongs
+    // to another lane and is live this round. This one holds nothing but
+    // kill residue and is updated and cleared from here.
+    this.smoke = new SmokeField(scene, space);
   }
 
   _acquire() {
@@ -618,18 +692,73 @@ export class ExplosionField {
       this.scene.add(c);
     }
 
-    this.live.push({ sprite, age: 0, depth, scale, chunks: debris });
+    // `rot` and `pos` are stored rather than read back off the sprite: by
+    // the time the residue is spawned the burst sprite has been returned to
+    // the pool, and reading a pooled object's fields is how a reuse bug gets
+    // written later.
+    this.live.push({
+      sprite, age: 0, depth, scale, chunks: debris, fireOut: false,
+      rot: sprite.material.rotation, pos: position.clone(),
+    });
+  }
+
+  // The residue, spawned on the tick the fire goes out rather than at the
+  // kill: the arcade's plume is only separable from the fireball once the
+  // fire has collapsed out of it.
+  // NOT ONE DRAW FROM THE CALLER'S `rng`, and this is the second time this
+  // project has paid for that rule. The first version took three draws per
+  // puff from the shared stream; combat.js's spawner, aim and wave logic read
+  // the same stream, so every draw after the first kill shifted and the
+  // scenario changed — `?fixed=1&seed=1&demo=2` went from HIT 2 at tick 300
+  // to HIT 0, with no error and a frame that looked perfectly plausible
+  // (tools/out/envelope-r10/dbg-diff0.png). CLAUDE.md names the class:
+  // "adding one conditional draw silently shifts every later draw".
+  //
+  // The jitter is derived instead from the rotation the explosion ALREADY
+  // drew at spawn, so it is varied per kill, deterministic, and free.
+  _spawnSmoke(e) {
+    // THE RESIDUE DOES NOT SCALE WITH THE FIREBALL PAST 1.6, and the reason is
+    // that nothing measured says it should. The sizes above come from ONE
+    // arcade event — an enemy kill at an unknown target size, 7.20 % of the
+    // frame. The death sequence (src/game/flow/deathSequence.js) spawns its
+    // starburst at scale 2.7; carrying that into the smoke gives a puff half
+    // the screen wide, i.e. an extrapolation of a single observation by a
+    // factor of seven in area, and at that magnification the 32-texel canvas
+    // reads as a slab rather than as pixel art. Capped at the largest thing
+    // this lane actually measured.
+    const sScale = Math.min(e.scale, 1.6);
+    const spread = this.space.worldWidthFor(0.06 * sScale, e.depth);
+    const a = e.rot;
+    for (let i = 0; i < SMOKE_PUFFS; i++) {
+      const p = e.pos.clone();
+      p.x += Math.cos(a + i * 2.27) * spread;
+      p.y += (Math.sin(a + i * 1.71) * 0.8 + 0.25) * spread;
+      this.smoke.spawn('kill', p, e.depth, {
+        life: SMOKE_LIFE_S * (0.82 + 0.18 * (1 + Math.sin(a * 3 + i))),
+        fracStart: SMOKE_FRAC_START * sScale,
+        fracEnd: SMOKE_FRAC_END * sScale,
+      });
+    }
   }
 
   update(dt) {
     const texs = bursts();
     const chunkTex = chunks();
+    this.smoke.update(dt);
     for (let i = this.live.length - 1; i >= 0; i--) {
       const e = this.live[i];
       e.age += dt;
-      if (e.age >= LIFE_S) {
+      // Two clocks now, because the chunks outlive the fire. The burst sprite
+      // leaves the scene at LIFE_S and the entry stays until the debris is
+      // done; a single clock would either hold the fireball for the chunks'
+      // sake (the plateau this round removed) or retire the chunks with it.
+      if (!e.fireOut && e.age >= LIFE_S) {
+        e.fireOut = true;
         this.scene.remove(e.sprite);
         this.pool.push(e.sprite);
+        this._spawnSmoke(e);
+      }
+      if (e.age >= CHUNK_LIFE_S) {
         for (const c of e.chunks) {
           this.scene.remove(c.sprite);
           this.chunkPool.push(c.sprite);
@@ -637,15 +766,34 @@ export class ExplosionField {
         this.live.splice(i, 1);
         continue;
       }
-      const t = e.age / LIFE_S;
-      // Fast expansion to full size, then HOLD and collapse slightly — it
-      // must not keep growing while it fades. The first version swelled
-      // right through the fade, so the explosion's LARGEST frames were also
-      // its most transparent, and alpha-blending a big orange mass against
-      // the #009fff sky is what produced the judge's "muddy brown": mean
-      // saturation 0.46 over the lifetime, against 0.82-0.83 measured at
-      // peak on the isolation harness. The palette was never the problem.
-      const grow = t < 0.18 ? 0.35 + (t / 0.18) * 0.65 : 1.0 - (t - 0.18) * 0.12;
+      const t = Math.min(1, e.age / LIFE_S);
+      if (e.fireOut) {
+        // Fire gone; only the debris is still being driven.
+        for (const c of e.chunks) {
+          c.sprite.position.x += c.vx * dt;
+          c.sprite.position.y += c.vy * dt;
+          sizeSprite(c.sprite, this.space.worldWidthFor(0.012, e.depth));
+          c.sprite.material.map = chunkTex[1];
+          c.sprite.material.opacity = 1;
+        }
+        continue;
+      }
+      // R3-R6 history, kept because it constrains what may be done here: the
+      // first version swelled right through an ALPHA FADE, so the largest
+      // frames were also the most transparent, and alpha-blending a big
+      // orange mass against #009fff produced the judge's "muddy brown" —
+      // mean saturation 0.46 over the lifetime against 0.82-0.83 at peak on
+      // the isolation harness. The palette was never the problem and the fade
+      // is gone (see the opacity note below). Growth with a fade is the thing
+      // that was wrong; growth at opacity 1 is not, and R10 restores it.
+      //
+      // Up in TWO TICKS, then keep expanding. R10: the old form reached full
+      // size in 0.135 s and then SHRANK 12 % across the rest of the life,
+      // which is the wrong sign — the arcade's mass keeps growing while its
+      // fire-coloured fraction collapses into the phases below. Expanding
+      // while the bands cool is what makes the thing read as a detonation
+      // turning into smoke rather than as a sprite being switched off.
+      const grow = t < 2 / 16 ? 0.45 + (t / (2 / 16)) * 0.55 : 1.0 + (t - 2 / 16) * 0.21;
       // R7: the LAST QUARTER OF THE LIFE IS A PALETTE SEQUENCE, not an alpha
       // ramp. See PHASES above for why it ends in deep red rather than in the
       // grey smoke judging/R6/art-critique.md asked for.
@@ -679,13 +827,20 @@ export class ExplosionField {
 
   clear() {
     for (const e of this.live) {
-      this.scene.remove(e.sprite);
-      this.pool.push(e.sprite);
+      // `fireOut` entries have ALREADY returned their burst sprite to the
+      // pool. Pushing it a second time would hand the same sprite out to two
+      // live explosions — a pool double-free, and silent: both would render,
+      // one would win, and the other would appear to have no fireball.
+      if (!e.fireOut) {
+        this.scene.remove(e.sprite);
+        this.pool.push(e.sprite);
+      }
       for (const c of e.chunks) {
         this.scene.remove(c.sprite);
         this.chunkPool.push(c.sprite);
       }
     }
+    this.smoke.clear();
     this.live.length = 0;
   }
 }

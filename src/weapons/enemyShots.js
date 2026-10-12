@@ -141,7 +141,46 @@ const PASS_DEPTH = 1.6; // retire once it has gone by
 // over the approach rather than by pure perspective, so the near-end size
 // lands on the measured 6-8 native px regardless of how far out it was
 // fired.
-const FRAC_FAR = 0.006; // 1.9 px of 320
+//
+// R10 — FRAC_FAR 0.006 -> 0.014, AND THE REASON IS THAT THE ARCADE HAS NO
+// SMALL ROUNDS AT ALL.
+//
+// Measured for the first time rather than assumed: the stage-7 train this
+// file already cites, decoded at 60 Hz from
+// .reference-cache/video/ab2-longplay-60fps.mp4 at t = 329.4 (90 consecutive
+// frames, tools/out/envelope-r10/arc-shots-330), r9 fire mask, every compact
+// component in the sky box x[560,1028] y[230,520] over the 23 frames the
+// train is on screen — n = 48 rounds:
+//
+//   width, video px   min 12   p10 14.0   median 22.0   p90 27.3   max 34
+//   width, native px  min 3.74 p10 4.36   median 6.85   p90 8.50   max 10.58
+//
+// The distribution has NO FAR TAIL. The arcade's rounds appear at essentially
+// their final size and hold it — crop tools/out/envelope-r10/arc-shots-330-
+// zoom.png and look: twelve consecutive 2x panels, every oval the same chunky
+// fireball. There is no speck phase.
+//
+// Ours had one, and it was most of the flight. At SPEED 10 from the 52..24
+// band, with the 1/d-proportional ramp below, the drawn width ran:
+//
+//   depth 52   1.92 native px        depth 6    3.32 px
+//   depth 24   2.13 px               depth 3    5.54 px
+//   depth 12   2.53 px               depth 1.6  7.68 px
+//
+// i.e. the round was a sub-3-pixel dot for ~4.0 s of a 5.04 s flight and a
+// readable fireball for the last 0.4 s. 0.014 is the arcade's own p10 (4.36
+// native px) rounded down to 4.5 px of 320, so every round we draw is now
+// inside the measured 3.74-10.58 px band for its whole flight.
+//
+// THIS DOES NOT CLOSE THE ENVELOPE GAP AND IS NOT INTENDED TO. The arcade's
+// whole train enters and clears in 0.367 s (R6's bound, re-confirmed here at
+// 1/60 s: frames f024-f046 of that burst, absent either side); ours is in the
+// air 2.24-5.04 s. Closing THAT needs SPEED and enemy.js's train spacing and
+// an aim-error term moved together, and raising SPEED alone is the lethality
+// lever this file's own sweep spent itself on. See judging/R10/lane-envelope.md
+// for the arithmetic and the cross-lane ask. What this change does is stop us
+// drawing a size the arcade never draws.
+const FRAC_FAR = 0.014; // 4.5 px of 320 — the arcade's own p10 round width
 const FRAC_NEAR = 0.024; // 7.7 px of 320, the measured near-end size
 
 export class EnemyShots {
