@@ -710,6 +710,30 @@ export class Combat {
     // into each axis's own NDC units. At zero roll this is exactly the old
     // expression: up = (0, 1), so x is unchanged and y gains
     // SIGHT_FRAC / (0.5 * 224/320) = 0.105 / 0.35 = 0.30.
+    //
+    // R11: THIS IS ARCADE-CORRECT LATERALLY AND IT WAS NEARLY CHANGED.
+    // `judging/R11/ask-combat.md` asked for the sight to move ~1/2.95 of the
+    // jet's lateral excursion, on an arcade "jet : sight excursion ratio" of
+    // 2.95. Re-measured on an independent decode (judging/R11/lane-combat.md
+    // §1): the arcade's ratio is 1.02 +- 0.03 — ITS SIGHT AND ITS AIRCRAFT
+    // SHARE A SCREEN COLUMN. The 2.95 was two correct measurements of two
+    // different objects, and the jet half of it was reading enemy aircraft.
+    // The ask is withdrawn by both lanes.
+    //
+    // Ours is 1.000 and the `up.x` term is WHY, not in spite of it. The sight
+    // is placed in the pitch-only frame and viewed through the rolled camera,
+    // so its screen offset from the jet is R(roll) * (up * SIGHT_FRAC), and
+    // R(roll) * screenUp == (0, 1) identically. The lateral component is
+    // therefore exactly zero at EVERY bank angle, by construction rather than
+    // by tuning. Measured: `judging/R11/sight_probe.mjs --mode rails`, 1 260
+    // consecutive 60 Hz ticks through the 66.5 deg roll saturation,
+    // max |jetNdcX - sightNdcX| = 3.3e-14 %W, 0 page errors.
+    //
+    // DO NOT "FIX" THIS BY COMPARING `playerNdc.x` WITH `__sight().ndcX`:
+    // those are two frames, not two objects. `playerNdc` is this file's
+    // pitch-only coordinate and rotates with bank; `__sight()` and
+    // game.js's `jetNdcX` are live-camera screen positions. On the same tick
+    // they differ by up to 17.41 %W, which is what the 2.95 ask was looking at.
     const up = this.space.screenUpNdc(this._up);
     this.sight.x = this.playerNdc.x + (up.x * SIGHT_FRAC) / 0.5;
     this.sight.y = this.playerNdc.y + (up.y * SIGHT_FRAC) / (0.5 * (224 / 320));

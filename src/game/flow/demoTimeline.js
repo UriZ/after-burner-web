@@ -214,12 +214,26 @@ const THROTTLE_PATTERN = [1, 2, 1, 0]; // M, H, M, L
 // the 0.35s slam window and well short of anything that reads as a turn.
 //
 // THREE segments, not two, and this is load-bearing: player.js registers a
-// "flick" only on a CHANGE of stick sign, and arms the roll on the second
-// flick inside the window. A two-segment slam (+1 then -1) therefore fails
-// whenever the wander happened to be positive already — the first segment is
-// not a sign change, so only one flick lands and nothing fires. With +1/-1/+1
-// at least one opposite-sign PAIR falls inside the window whatever sign the
-// stick was carrying when the slam began. (Verified both ways by probe.)
+// "flick" only on a CHANGE of stick sign (R11: and only above
+// ROLL_SLAM_MIN_X = 0.5), and arms the roll on the second flick inside the
+// window. A two-segment slam (+1 then -1) therefore fails whenever the wander
+// happened to be positive already — the first segment is not a sign change, so
+// only one flick lands and nothing fires. With +1/-1/+1 at least one
+// opposite-sign PAIR falls inside the window whatever sign the stick was
+// carrying when the slam began. (Verified both ways by probe.)
+//
+// R11, AND IT IS THE THING TO READ BEFORE BELIEVING ANY ROLL COUNT: a slam
+// that falls inside a DEATH SEQUENCE is never delivered, because the attract
+// pilot is not driving then. So the roll count measured on plain
+// `?fixed=1&demo=1` is a statistic about where the player happens to die, not
+// about this file. Measured, `judging/R11/roll_check.mjs`, 9 600 consecutive
+// 60 Hz ticks: with `invincible=1` the count is TEN on every seed and every
+// arm tried this round; without it, ONE tree reads 7 / 8 / 6 / 6 across four
+// seeds, and the missing cycle is a death window every single time. R11's
+// `ask-flow.md` reported a 10 -> 9 regression from removing ACCEL_RATE; with
+// deaths suppressed both trees read 10 and the rolls land on the SAME TICK.
+// This is the same operator warning the AMPLITUDES block already carries for
+// the roam statistics, and it applies to the roll count for the same reason.
 const ROLL_SLAM_AT_S = 8.0; // phase within the cycle
 const ROLL_SLAM_DWELL_S = 0.1; // each segment of the slam
 const ROLL_SLAM_SEGMENTS = [1, -1, 1];
@@ -237,9 +251,14 @@ const ROLL_SLAM_SEGMENTS = [1, -1, 1];
 // so a held stick parked the jet at `stick * ENVELOPE` and nothing else.
 //
 // R10's flight model (player.js, THE FLIGHT MODEL block) replaced that with a
-// RATE control: the stick commands a velocity, the velocity lags, position
-// integrates, the envelope clamps. It is the correct model and the arcade's
-// own 60 Hz sight series picks it. But it turns every constant in this file
+// RATE control: the stick commands a velocity, position integrates, the
+// envelope clamps. (R10 also gave the velocity a first-order lag of its own,
+// ACCEL_RATE = 12/s; R11's feel lane DELETED it — `this.vx = cmdVX` — because
+// the arcade reaches its maximum lateral rate in one frame and stops in one,
+// with no ramp longer than one frame in 138 consecutive-frame steps across
+// four stages. See the GAIN block below: that deletion changed this file's
+// plant and voided the rule that chose GAIN.) It is the correct model and the
+// arcade's own 60 Hz sight series picks it. But it turns every constant in this file
 // into a SPEED. Under it, `CRUISE_X_A = 0.512` no longer means "roam to
 // 17.9 %W"; it means "drive outward at 0.512 * 3 envelopes/s" — the jet
 // reaches the lateral rail in about 0.65 s and stays pinned there, and the
@@ -262,97 +281,134 @@ const ROLL_SLAM_SEGMENTS = [1, -1, 1];
 // neutral the error happened to sit.
 //
 // WHY RE-SOLVING THE CONSTANTS AGAINST THE NEW RATES WAS REJECTED. It is the
-// shorter patch and it re-breaks the moment anyone retunes RATE_* — which is
-// an OPEN item in the feel lane's own report (our full-stick rate is 2.9x the
-// arcade's measured sight rate and that gap is named as a gap). A controller
-// is invariant to that; a re-solved sine is a second hand-synced copy of
-// somebody else's constant, which is the defect core/cameraGeom.js exists to
-// stop.
+// shorter patch and it re-breaks the moment anyone retunes RATE_* or
+// ENVELOPE_*. A controller is invariant to that; a re-solved sine is a second
+// hand-synced copy of somebody else's constant, which is the defect
+// core/cameraGeom.js exists to stop.
 //
-// GAIN = 1.0 IS THE LARGEST GAIN THAT CANNOT OSCILLATE, AND THAT IS THE RULE
-// IT WAS CHOSEN BY — not closeness to any statistic. With velocity lagging at
-// player.js's ACCEL_RATE = 12/s and KP = 3*GAIN, the closed loop is second
-// order with omega_n = sqrt(ACCEL*KP) and
-//     zeta = sqrt(ACCEL / (4*KP)) = sqrt(1 / GAIN)
-// so GAIN = 1.0 is exactly critically damped. ABOVE IT THE LOOP RINGS, AND A
-// RINGING POSITION LOOP MANUFACTURES STICK SIGN REVERSALS — which is the
-// barrel roll's trigger. This is not a theoretical worry: it was measured.
+// R11 IS THE TEST OF THAT CHOICE AND IT PASSED WITHOUT AN EDIT. Both numbers
+// moved in one round — `ENVELOPE_X` 2.6 -> 0.733 and `RATE_X` from
+// `3.0 * ENVELOPE_X` to an independent 2.82 — and not one constant in this
+// file had to be re-solved: the roam scaled with the rail on its own and the
+// loop stayed stable. Had the R10 patch been taken, every amplitude here
+// would have been wrong by 3.5x the morning the envelope landed.
 //
-//   GAIN 2.0 (zeta 0.707, the obvious choice, 4.3 % overshoot) reproduces the
-//   pre-R10 trajectory most closely of anything tried -- its KP of 6.0 IS the
-//   old FOLLOW_RATE, so the two transfer functions agree to 0.2 % across the
-//   wander's 0.22-0.93 rad/s -- and it fires EIGHTEEN barrel rolls per 160 s,
-//   FOURTEEN once the deadband below is added. The regime boundary steps the
-//   target; the error rings back through zero 0.30 s later; player.js's slam
-//   window is 0.35 s. Rejected on that; both arms' figures in lane-flow.md §5.
+// R11: THE RULE THAT CHOSE GAIN = 1.0 IS VOID, THE NUMBER IS KEPT ANYWAY, AND
+// THE REASON FOR KEEPING IT IS DELIBERATELY NOT THE OLD REASON.
 //
-//   GAIN 1.0 fires ELEVEN, and TEN with the deadband -- which is EVERY
-//   scheduled slam and nothing else, on seeds 1, 5 and 11. (The seed drives
-//   combat, not the pilot, so that is a weak replication for this statistic
-//   and is reported as one.) For scale, the PRE-R10 build fires ELEVEN: the
-//   ten scheduled slams plus one unauthored roll at t = 144.15 s, which its
-//   own open-loop curve produces at a regime boundary. The repair is not
-//   merely as clean as what it restores, it is one roll cleaner.
+// What R10 wrote here, and it was right for R10's plant: "GAIN = 1.0 is the
+// largest gain that cannot oscillate." With velocity lagging at player.js's
+// ACCEL_RATE = 12/s and KP = 3*GAIN the closed loop was SECOND ORDER, with
+// zeta = sqrt(ACCEL / (4*KP)) = sqrt(1/GAIN), so anything above 1.0 rang, and
+// a ringing position loop manufactures stick sign reversals -- which is the
+// barrel roll's trigger. Measured then: GAIN 2.0 fired EIGHTEEN rolls per
+// 160 s, FOURTEEN with the deadband. That is why 1.0 was taken.
 //
-// WHAT IT COSTS, STATED RATHER THAN BURIED: KP drops 6.0 -> 3.0, so the loop
-// is half as stiff as the controller this file was authored against. Cruise is
-// untouched (cx sd 12.86 %W pre-R10 -> 12.92 here, against the ADOPTED 12.88),
-// but the CANYON regime is ~90 % entry transient by its own header's
-// measurement, and a softer loop takes longer to enter: canyon cx sd
-// 2.40 -> 3.18 %W (ADOPTED 2.59) and the entry dips to cy p5 60.43 -> 56.87 %H.
-// That is the price of the roll count and it is the right trade -- an attract
-// loop that barrel-rolls four extra times a cycle is a defect any passer-by
-// can see, and 0.78 %W of canyon spread is inside the slack its own comment
-// already declares ("not reachable by this constant ... not worth distorting
-// the wander to chase").
+// TWO THINGS IN player.js CHANGED UNDER IT IN R11.
 //
-// REJECTED, FOR THE RECORD, so nobody re-derives it: adding velocity feedback
-// (player.vx is public) gives zeta = 0.707*(1+KD), so KD = 0.414 would buy
-// zeta = 1 at the full KP = 6 and recover the canyon transient exactly. It was
-// not taken because it couples this file to TWO more constants it does not own
-// and cannot import (ACCEL_RATE, RATE_*) to buy back 0.78 %W of a statistic
-// whose own provenance is ADOPTED-from-the-prototype. Revisit if the canyon
-// entry is ever gated.
+//  (a) ACCEL_RATE IS DELETED (`this.vx = cmdVX`). The plant is now a PURE
+//      INTEGRATOR, so a proportional loop on it is FIRST ORDER and CANNOT
+//      OVERSHOOT AT ANY GAIN. There is no zeta. R10's selection rule does not
+//      merely give a different answer here -- it has no referent at all.
+//  (b) RATE_X IS NO LONGER `3.0 * ENVELOPE_X`; it is an independent 2.82 (the
+//      arcade's own measured lateral rate), while ENVELOPE_X was cut
+//      2.6 -> 0.733. So the loop is
+//          u' = KP * (target - u),   KP = GAIN * RATE_X / ENVELOPE_X
+//      in NORMALISED units (u = player.x / ENVELOPE_X, 1.0 = the rail), which
+//      is 3.847 * GAIN today and was 3.0 * GAIN when R10 wrote the line above.
+//      The vertical axis is still RATE_Y = 3.0 * ENVELOPE_Y, so the old form
+//      survives there and nowhere else.
 //
-// COUPLING, STATED BECAUSE IT IS INVISIBLE FROM THIS FILE: KP = 3*GAIN only
-// because player.js writes RATE_* = 3.0 * ENVELOPE_*, and zeta depends on its
-// ACCEL_RATE. Neither constant is exported, so this file cannot derive them —
-// requested in lane-flow.md as interface F1. If RATE_* rises the loop gets
-// tighter and less damped (at 2x: zeta 0.71) and the authored positions are
-// still hit, but the roll count becomes the thing to re-check, not the
-// positions. The deadband below is the second line of defence for exactly
-// that case.
+// THE ENVELOPE CUT IS INVISIBLE TO THIS FILE AND THAT IS THE DESIGN WORKING.
+// Every curve here is authored in NORMALISED screen position and the loop
+// divides by ENVELOPE_X, so u' above has no E in it: the whole roam scaled
+// down with the rail automatically and nothing needed re-solving. What DID
+// change is every %W figure this file quotes, by the same 0.733/2.6 = 0.282 --
+// cruise cx sd 12.83 -> 3.65 %W. A reader who gates on the %W numbers will
+// read that as a collapse. It is not; see THE SPREAD TARGETS below.
+//
+// MEASURED, NOT ARGUED. `judging/R11/roll_check.mjs` (selftest 9/9), tree
+// `git archive 82daaa4` + R11's player.js + this file, `?fixed=1&demo=1&
+// invincible=1`, 9 600 CONSECUTIVE 60 Hz ticks = ten full 160 s cycles,
+// seed 3, 0 page errors. Regime-split per this file's own rule
+// (phase % 16 < 11 is cruise). `invincible=1` is part of the operator for the
+// same reason this file's AMPLITUDES block gives: a death deletes flight ticks.
+//
+//   GAIN   KP     rolls/160 s  unauthored  cruise cx sd  canyon cx sd  canyon cy p5
+//   1.0   3.847       10            0         3.654         0.768         57.25
+//   2.0   7.694       10            0         3.707         0.627         60.25
+//   3.0  11.541       10            0         3.720         0.590         61.34
+//
+// THE R10 RINGING RESULT IS REFUTED ON THE NEW PLANT, AND THAT IS THE ONE
+// SOLID THING THIS TABLE SAYS: GAIN 2.0 fired 18 rolls under the second-order
+// plant and fires EXACTLY TEN under this one -- every scheduled slam and
+// nothing else -- as does 3.0, at a KP nearly four times R10's. The
+// trigger-manufacturing failure mode went with the ramp that caused it, and
+// the stick never saturates long enough to forge a flick either.
+//
+// THE SPREAD TARGETS CANNOT CHOOSE THE GAIN ANY MORE, AND THAT IS WHY THE
+// NUMBER DID NOT MOVE. R10 would have picked 2.0 on this table by the minimax
+// rule this file uses for the vertical amplitudes (worst |deviation| over
+// {cruise 12.88, canyon 2.59}: 1.0 -> 0.377, 2.0 -> 0.209), and on the old
+// envelope that is exactly what the same measurement said. But ADOPTED #122's
+// 12.88 / 2.59 %W are stated against a rail that no longer exists, and worse,
+// AGAINST THE ARCADE'S OWN RAIL THEY ARE IMPOSSIBLE: the arcade's player
+// aircraft roams +-9.85 %W (judging/R11/lane-combat.md §1, 420 consecutive
+// 60 Hz frames, two operators), and no distribution inside +-9.85 has sd
+// 12.88. Cruise cx sd is now 3.65 %W and CANNOT be driven to 12.88 at any
+// gain. Tuning to a refuted target is the defect this repo has retired 43
+// criteria for, so the gain is left where it is and the table is left here.
+//
+// WHAT WOULD LICENSE MOVING IT: an arcade column for the roam's spread --
+// #122 has none, it is ADOPTED from the old prototype. With no anchor, "the
+// loop tracks the authored curve more closely" is a DIRECTION and not a
+// DISTANCE, and a direction with no anchor is STATUS row 44. One line to
+// change if that column ever arrives; the measurements for three gains are
+// above so it will not need re-measuring.
+//
+// MOOT, FOR THE RECORD, so nobody re-derives it: R10 recorded velocity
+// feedback (KD = 0.414, to buy zeta = 1 at the full KP = 6) as REJECTED. With
+// no second-order plant there is no zeta to buy and KP is reachable by the
+// gain alone. The idea is not rejected; it has nothing left to do.
+//
+// COUPLING, STATED BECAUSE IT IS INVISIBLE FROM THIS FILE: KP = GAIN *
+// RATE_X / ENVELOPE_X laterally and GAIN * 3.0 vertically. ENVELOPE_X is
+// imported; RATE_X and RATE_Y are not exported (interface F1, lane-flow.md
+// R10), so the lateral KP is the one number here this file cannot derive and
+// a change to RATE_X silently retunes the loop. If it rises the loop gets
+// stiffer, the authored positions are still hit, and no overshoot is available
+// at any gain -- so the thing to re-check is the two spread statistics above,
+// NOT the roll count.
 const CONTROLLER_GAIN = 1.0;
 
-// LATERAL DEADBAND, and it is not a tidiness constant -- at the shipped gain
-// it is the difference between ELEVEN barrel rolls per 160 s and the TEN that
-// are actually authored, and at the gain above it is 18 against 14.
+// THE LATERAL DEADBAND IS GONE, AND THIS NOTE IS ITS RECEIPT.
 //
-// player.js arms the roll on a stick SIGN CHANGE with no magnitude condition
-// at all (`const sign = Math.sign(input.x)`). That was safe for every pilot
-// this game has ever had, because all of them were digital: the keyboard
-// emits -1/0/+1 and the old open-loop timeline emitted a slow sine. A
-// position controller is the first ANALOG stick in this build, and a
-// controller parked on its target does not emit zero -- it emits dither.
-// Measured on the 160 s trace: 10 unauthored flick pairs, and EVERY one has
-// at least one side below |0.0057| while the authored wander's own command
-// runs at a median |0.0438| in cruise and |0.0164| in canyon. The dither and
-// the signal are two orders of magnitude apart, which is why a threshold
-// works here at all.
+// R10 added `STICK_DEADBAND_X = 0.01` here because player.js armed the barrel
+// roll on a bare stick SIGN CHANGE (`const sign = Math.sign(input.x)`) with no
+// magnitude condition. That was safe while every pilot was digital; this
+// file's position controller is the build's first ANALOG stick, and a
+// controller parked on its target emits dither rather than zero -- 10
+// unauthored flick pairs per 160 s, every one with a side below |0.0057|.
+// R10's own comment called itself "the half of it that can be done without
+// reaching into another lane's file" and asked for the real repair in the
+// trigger (interface F2).
 //
-// 0.01 BY A STATED RULE: the smallest round value that is at least 1.5x the
-// largest observed dither crossing (1.77x of 0.00565) and still below the
-// QUIETER regime's median command (0.61x of canyon's 0.0164). Its cost is a
-// station-keeping band of 0.01/GAIN envelopes = 0.349 %W, which is 2.7 % of
-// the cruise cx sd this file is authored against. Sized on seed 1 and then
-// checked on seeds 5 and 11 (lane-flow.md §5).
+// F2 LANDED: player.js now carries `ROLL_SLAM_MIN_X = 0.5` and ignores any
+// deflection under half stick. 0.5 strictly dominates 0.01, so the deadband
+// could not fire on anything the trigger would have accepted, and keeping it
+// would have been a second threshold on one concern -- the hand-synced-copy
+// defect that core/cameraGeom.js exists to stop.
 //
-// x ONLY, deliberately: the deadband exists solely to keep dither out of a
-// trigger that reads `input.x`. On y it would buy nothing and cost altitude.
-// The real repair belongs in the trigger -- a flick should need a deflection,
-// not merely a sign -- and is requested as F2; this is the half of it that
-// can be done without reaching into another lane's file.
-const STICK_DEADBAND_X = 0.01;
+// REMOVAL MEASURED, not assumed, same harness as the GAIN table, two trees
+// differing ONLY by this constant:
+//   deaths suppressed, seed 3:  rolls 10 -> 10, 0 unauthored either way;
+//                               cruise cx sd 3.652 -> 3.654 %W,
+//                               canyon 0.759 -> 0.768 %W, canyon cy p5 equal.
+//   deaths ON, seeds 1/3/5/11:  rolls 7/8/6/6 -> 7/8/6/6, the SAME cycles
+//                               missing in both, cx sd differing in the third
+//                               decimal.
+// It was inert. Its only remaining effect was its own stated cost, a
+// station-keeping band of 0.01/GAIN envelopes, and that is gone with it.
 
 const clampStick = (v) => (v > 1 ? 1 : v < -1 ? -1 : v);
 
@@ -433,15 +489,12 @@ export function demoTimeline(simTime, player) {
   }
   const target = demoTarget(simTime);
 
-  // Lateral. error -> commanded rate; the slam gesture bypasses the loop,
-  // deadband and all -- it is the one thing here that must reach player.js as
-  // literal stick.
+  // Lateral. error -> commanded rate; the slam gesture bypasses the loop
+  // entirely -- it is the one thing here that must reach player.js as literal
+  // stick, because the roll trigger reads the stick and not the position.
   const errX = target.x * ENVELOPE_X - player.x;
   let x = target.slamX;
-  if (x === null) {
-    x = clampStick((CONTROLLER_GAIN * errX) / ENVELOPE_X);
-    if (Math.abs(x) < STICK_DEADBAND_X) x = 0;
-  }
+  if (x === null) x = clampStick((CONTROLLER_GAIN * errX) / ENVELOPE_X);
 
   // Vertical. The target is in the SAME asymmetric stick units the authored
   // constants were re-solved in (R7 bisection note above), so it converts to
