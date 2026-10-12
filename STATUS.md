@@ -17,25 +17,51 @@
 > 22 % with the tracking pilot untouched at 18 → 18**. The stick responds on **tick 1** again
 > instead of tick 12, against an arcade that reaches full lateral rate in one frame.
 >
+> **Caveat on the lock figures, stated because they are the round's headline:** the A/B itself
+> stands, but its *justification* quoted the withdrawn envelope claim below, and **the lock cone
+> rides the sight — so these numbers will move when `ENVELOPE_X` is cut.** They are measured, and
+> they are measured on a build whose envelope is about to change. Re-run before citing.
+>
 > **THE R10 ACQUISITION THAT BLOCKED THE DRAWING WORK FOR TWO ROUNDS IS DONE** — an arcade column
 > for the near-aspect head-on enemy, shape from a byte-reproducible longplay frame identified by
 > its HUD digit, colour from the true-native desert still. It held as a drawing target and its
 > acquisition reproduces byte-for-byte.
 >
-> ### THE STANDING LESSON OF R10 AND R11, WHICH HAS NOW INVERTED TWO GAP-LIST ENTRIES IN TWO ROUNDS
+> ### WITHDRAWN MID-ROUND: THE "ENVELOPE_X PASSES" CLAIM. R10 GAP 2 WAS RIGHT ALL ALONG.
 >
-> **Two correct measurements of different things is this repo's dominant failure mode.** R10's
-> judge put our jet's half-envelope at **±17.5 %W** and R11's feel lane at **±34.93 %W**. *Same
-> build.* Stick **held** at full deflection reads 17.52 — but holding the stick is also what rolls
-> the world, so a full-stick reading can never see the rail the jet occupies; **released and
-> settled** it reads 34.93. The ratio is 1.993 and all of it is camera roll.
+> **This block previously said `ENVELOPE_X` passed at 1.19x the arcade and that the real defect was
+> the sight. That was wrong and is retracted.** `judging/R11/arcade_jet_x.csv` is **not a
+> measurement of the player aircraft -- it was reading ENEMY aircraft.** The player is the
+> twin-nozzle F-14; every arcade enemy has ONE nozzle, and at the 0.42 scale it was read at, that
+> distinction is invisible. Three of three re-checked extreme rows land on empty sea, empty sky and
+> a carrier deck. Seven full-resolution reads put the arcade player at 45.5-61 %W, nowhere near the
+> published 19-78 %W.
 >
-> **Binding: compute both definitions and show they differ before calling a disagreement a
-> defect.** The same shape produced R10's DRAW-WEIGHT "inverted sign" (a cross-subject reading of
-> a statistic licensed only same-subject). `ENVELOPE_X` passes at 1.19× the arcade and is
-> deliberately NOT moved; what is 3.5× too wide is the **sight**, and no value of `ENVELOPE_X` can
-> fix it — `combat.js` derives the sight as *jet position + a screen-space offset*, so ours can
-> never move **less** than the jet, while the arcade's moves **2.95× less**.
+> **Corrected position:**
+> - The arcade jet **tracks** its sight, ratio ~1.0, half-envelope about **+-10 %W**.
+> - Ours is **+-34.93 %W**, so **`ENVELOPE_X` is ~3.5x too wide. R10 gap 2 stands.**
+> - `combat.js:714`'s sight-equals-jet-plus-offset gives ratio ~1.0 and the arcade's is ~1.0, so
+>   **the sight derivation is NOT a defect.** `ask-combat.md` is withdrawn.
+> - The derived "arcade jet rate 1.12 fracW/s" is withdrawn. Under ratio 1.0 it is 0.379 against
+>   our 1.064 -- **R10's "2.76x too fast" stands un-rescued.**
+> - **REFERENCE #122's tension is REOPENED, not closed.** The 13.55-vs-12.88 agreement was a
+>   coincidence between two numbers, one of which was garbage.
+>
+> ### THE METHOD FAILURE, WHICH IS THE REUSABLE PART
+>
+> **A precision check does not license a measurement. Identity does.** The withdrawn figure
+> carried a published 1.14 %W test-retest precision, and that was true -- precision was never the
+> problem. **Identity was never validated at the scale the reading was taken at.** The lane DID
+> crop and look, at a scale below what the identity test needs, **which is worse than not looking,
+> because it manufactures confidence.** Binding: when an operator must tell two objects apart,
+> validate the DISCRIMINATION at the working scale, and state the feature that does it (here: two
+> nozzles against one).
+>
+> **And the failure this round is still of the dominant class, just with the sides swapped.** Two
+> correct measurements of DIFFERENT THINGS -- R10's +-17.5 %W (stick held, world at full camera
+> roll) against +-34.93 %W (released and settled) is a real distinction and still true. **Compute
+> both definitions and show they differ before calling a disagreement a defect -- and verify both
+> are measuring the OBJECT you think they are before either.**
 >
 > ### NUMBERS NOBODY MAY CITE AS MEASURED
 >
