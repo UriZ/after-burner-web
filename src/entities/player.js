@@ -47,7 +47,7 @@ import { CAMERA_HEIGHT, CAMERA_PITCH } from '../core/cameraGeom.js';
 // "Jet roams a wide screen area" (ARCHITECTURE.md D7 item 2). Envelope is in
 // world units at the jet's fixed depth in front of the camera — placeholder
 // values, to be tuned against reference video once banked-turn roll lands.
-const ENVELOPE_X = 2.6;
+export const ENVELOPE_X = 2.6;
 
 // R7 (R6 judge gap 5). The vertical envelope is now ASYMMETRIC, and the single
 // `ENVELOPE_Y = 1.1` it replaces is the clamp behind the judge's finding that
@@ -277,6 +277,7 @@ const JET_WORLD_WIDTH = 2.72;
 // suppression is how footage tells a roll apart from a hard bank). Visual
 // only, no i-frames (HG101: the arcade move had none either).
 const ROLL_SLAM_WINDOW_S = 0.35; // max gap between the two opposite flicks that counts as a "slam"
+const ROLL_SLAM_MIN_X = 0.5; // min |stick x| that counts as a flick at all (see the slam detector)
 const ROLL_DURATION_S = 1.1;
 const ROLL_COOLDOWN_S = 0.3; // guards against re-triggering off the same stick motion
 
@@ -562,7 +563,13 @@ export class Player {
 
     // --- Barrel-roll slam detection -----------------------------------
     this._clock += dt;
-    const sign = Math.sign(input.x);
+    // A flick needs MAGNITUDE, not just a sign. `Math.sign` alone armed a roll
+    // on a 0.0005 deflection, which was harmless for as long as every pilot was
+    // digital (keyboard: x is -1, 0 or +1). R10's attract pilot is the build's
+    // first ANALOG stick and it fired 8 unauthored rolls per 160 s cycle on a
+    // wander that merely crossed centre. The authored slam is +-1, so anything
+    // under half deflection is the wander, not a slam.
+    const sign = Math.abs(input.x) >= ROLL_SLAM_MIN_X ? Math.sign(input.x) : 0;
     if (sign !== 0 && sign !== this._lastFlickSign) {
       if (
         this._lastFlickSign !== 0 &&
