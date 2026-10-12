@@ -1,0 +1,80 @@
+# ARCADE PLAYER-JET screen x, HAND-DIGITISED off ruled contact sheets.
+# Instrument: a person + the 5 %W ruler drawn by tools/out/feel-r11/sheet.py.
+# Read point: the midpoint of the aircraft's two afterburner nozzles (the
+#   camera-locked anchor), or the fuselage centre where one nozzle is occluded.
+# Unit: percent of frame width (1028 px). Ruler minor tick = 5 %W; read to 1 %W.
+# Sampling: 1 Hz (ffmpeg -ss T -t 30 -vf fps=1 -vsync 0) over 30 s of each
+#   stage. THIS IS A POSITIONAL EXTREMUM AND CARRIES NO SPEED CLAIM. An
+#   envelope sampled at 1 Hz is a LOWER BOUND on the true envelope.
+# Stage identity: HUD digit read at BOTH ends of each window (look-stage-digits.png).
+# Excluded: stage 1 f001-f004 (carrier catapult launch -- the aircraft is not
+#   under player lateral control); stage 12 f020 (player not identifiable --
+#   a boss sprite fills the right of the frame; recorded as unread, not guessed).
+stage,frame,t_s,x_pctW
+1,f005,94,22
+1,f006,95,36
+1,f007,96,53
+1,f008,97,50
+1,f009,98,26
+1,f010,99,33
+1,f011,100,53
+1,f012,101,54
+1,f013,102,23
+1,f014,103,47
+1,f015,104,59
+1,f016,105,51
+1,f017,106,24.5
+1,f018,107,44.5
+1,f019,108,64
+1,f020,109,54
+1,f021,110,22
+1,f022,111,40
+1,f023,112,51
+1,f024,113,52
+4,f001,202,26
+4,f002,203,64
+4,f003,204,54
+4,f004,205,52
+4,f005,206,20
+4,f006,207,54
+4,f007,208,53
+4,f008,209,76
+4,f009,210,23.5
+4,f010,211,33
+4,f011,212,60
+4,f012,213,76
+4,f013,214,25
+4,f014,215,64.5
+4,f015,216,55
+4,f016,217,73
+4,f017,218,21
+4,f018,219,65
+4,f019,220,54
+4,f020,221,71
+4,f021,222,24
+4,f022,223,66
+4,f023,224,55
+4,f024,225,71
+12,f001,514,24
+12,f002,515,36
+12,f003,516,55
+12,f004,517,77
+12,f005,518,26
+12,f006,519,39
+12,f007,520,59
+12,f008,521,76
+12,f009,522,25
+12,f010,523,36
+12,f011,524,62
+12,f012,525,78
+12,f013,526,25
+12,f014,527,34.5
+12,f015,528,62
+12,f016,529,75
+12,f017,530,26
+12,f018,531,36
+12,f019,532,63.5
+12,f021,534,19
+12,f022,535,37.5
+12,f023,536,62.5
+12,f024,537,73

@@ -14,19 +14,20 @@ import { gunTunable } from './tunables.js';
 //    salvo, MULTIPLE brackets show simultaneously (t100: ~6)."
 //
 // So there are two distinct populations and this file keeps them separate:
-//   - the TRACKING bracket: always exactly one, on the nearest live enemy,
-//     with a hysteresis margin so it does not flicker between two enemies at
-//     similar range (ADOPTED);
+//   - the TRACKING bracket: at most one, on the nearest enemy THE MISSILE
+//     COULD TAKE, with a hysteresis margin so it does not flicker between two
+//     enemies at similar range;
 //   - SALVO brackets: one per accumulated missile lock while the player
 //     holds the missile button, up to 6.
 // A bracket is drawn for the union, so an enemy that is both tracked and
 // locked gets one bracket, not two.
 //
-// "AB2's bracket tracks the nearest threat continuously, not gated on
-// crosshair hover" (behavior adopted at #49) — hence the tracking bracket
-// ignores the sight entirely. Missile LOCK additionally requires the sight
-// near the enemy (prototype: 80 px radius, ADOPTED), which is LOCK_RADIUS_FRAC
-// below.
+// R11: "AB2's bracket tracks the nearest threat continuously, not gated on
+// crosshair hover" (#49, ADOPTED) is RETIRED — the tracking bracket used to
+// ignore the sight entirely, and two independent 60 Hz arcade decodes say the
+// arcade's HUD is empty in 82 % of frames. The gate and its evidence are on
+// `_updateTracking` below. Both populations now test the same thing: the sight
+// near the enemy, LOCK_RADIUS_FRAC below.
 
 export const MAX_LOCKS = 6; // t100: ~6 brackets on screen at once
 const LOCK_INTERVAL_S = 0.10; // locks accumulate while the button is held
@@ -117,15 +118,43 @@ const ARM_FRAC_TRACK = 2.5 / 16.5;
 // neutral and tracking alike, and 100 % of its kills are below the readable
 // gate.
 //
-// It is NOT retuned here, and that is a scoping decision with a measurement
-// behind it rather than a shrug: R8 showed the missile's rate is set by the
-// STOCK BUDGET (flow.js restocks 50 at every stage boundary, ~1.56
-// missiles/s of budget) and not by how many targets the cone admits, so
-// narrowing the cone moves which targets are taken and not how many. The
-// ask is in judging/R8/lane-combat.md.
+// R11 -- IT IS RETUNED HERE, TO THE ARCADE ANCHOR, AND THE REASON THE R8/R10
+// SCOPING DECISION NO LONGER HOLDS IS A MEASUREMENT.
+//
+// R8's reason for leaving it was that the missile's RATE is set by the stock
+// budget, not by the cone, so narrowing it "moves which targets are taken and
+// not how many". True, and beside the point: the defect is not the rate, it is
+// that **a motionless stick gets 83 % of a tracking pilot's kills** -- 15
+// against 18 in 90 s at an identical trigger cadence, 35 launches each
+// (judging/R10/feel-critique.md §1.3, reproduced on a pristine 5e3d57e here at
+// 15/35 against 18/36). A 22 %W cone pinned to a sight parked at screen centre
+// is wide enough that the traffic flies into it on its own, about as often as
+// a pilot can drag the sight onto it. **Which targets are taken IS the skill
+// test.** The cone is where the aiming happens.
+//
+// 0.083 is GAME_SPEC.md §3's only arcade-anchored figure for this quantity
+// (the prototype's ADOPTED 80 px on a 960-wide frame = 8.3 %W), and the 0.22
+// it replaces was tuning with nothing behind it -- REFERENCE ledger row 41,
+// and the argument that produced it is quoted above and does not establish it.
+//
+// THE COUPLING THAT BLOCKED THIS FOR A ROUND IS NOW RESOLVED, not ignored.
+// R10's judge froze LOCK_RADIUS_FRAC, ENVELOPE_X and RATE_X together: at our
+// sight's plateau the sight crosses a whole cone in about one LOCK_ACQUIRE_S,
+// so a sweeping pilot can never finish an acquisition, and narrowing the cone
+// makes that worse. The unfreezing fact is in player.js's ENVELOPE_X note --
+// our lateral envelope and rate are ARCADE-MATCHED once they are compared
+// against the arcade's AIRCRAFT instead of its sight (+-34.93 %W against
+// +-29.5; 1.064 fracW/s against a derived 1.12), so neither of them is moving
+// and the cone is free.
+//
+// And the sweeping pilot is not the arm to protect. A pilot who sweeps the
+// sight across the sky without ever stopping on anything SHOULD NOT get a
+// lock; that is the whole content of the change. The arm that has to keep
+// working is `track`, and it does -- see judging/R11/lane-feel.md §2.
+//
 // Measured from the sight, not from the jet: the sight IS the crosshair the
 // measurement refers to.
-const LOCK_RADIUS_FRAC = 0.22;
+const LOCK_RADIUS_FRAC = 0.083;
 // Lockable depth window. The NEAR end is a timing constraint, not a range
 // limit: a target closer than ~28 units is reached in under half a second,
 // below GAME_SPEC.md §3's measured 0.5-1.5 s launch->impact (the first
@@ -275,7 +304,7 @@ export class LockSystem {
   // which is a description of the frames WHILE the missiles are flying.
   update(dt, enemies, playerNdc, holding, sight, activeTargets = []) {
     this.activeTargets = activeTargets;
-    this._updateTracking(enemies);
+    this._updateTracking(enemies, sight ?? playerNdc);
 
     // Drop locks whose target died, left the field, or has closed inside
     // LOCK_BREAK_DEPTH. The last case matters because locks accumulate over
@@ -361,16 +390,47 @@ export class LockSystem {
     return out;
   }
 
-  _updateTracking(enemies) {
+  // R11 -- THE TRACKING BRACKET IS NOW GATED ON THE AIM, AND THAT RETIRES AN
+  // ADOPTED BEHAVIOUR RATHER THAN TWEAKING IT.
+  //
+  // What stood here: "AB2's bracket tracks the nearest threat continuously,
+  // not gated on crosshair hover" (#49, ADOPTED) -- so this picked the nearest
+  // live enemy with no reference to where the player was looking, and
+  // _drawBrackets drew it unconditionally. The consequence is that a bracket
+  // is on screen whenever ANY enemy is, which is nearly always.
+  //
+  // TWO INDEPENDENT 60 Hz ARCADE DECODES REFUTE IT. Over 1 140 consecutive
+  // frames on stages 1 / 4 / 12, a four-corner-glyph detector relaxed to three
+  // corners (an arcade bracket sits ON an aircraft, so one occluded corner is
+  // the normal case) finds **>=1 bracket in 17.8 % of frames, >=2 in 3.1 %,
+  // maximum 3** -- and independently reproduces the feel lane's two published
+  // ambient figures (3.6 %, max 3) on two stages it never saw
+  // (judging/R10/feel-critique.md §2.2). Ours, measured on a pristine 5e3d57e
+  // over 5 400 consecutive ticks: **>=1 in 72.1 %, >=2 in 27.8 %, maximum 4**
+  // with a motionless stick. 4.0x and 9.0x too often. **AB2's HUD is mostly
+  // empty and ours is wallpaper.**
+  //
+  // #49 is ADOPTED, the 17.8 % is MEASURED, and the measurement wins -- the
+  // same rule that has corrected ARCHITECTURE.md four times.
+  //
+  // The gate is `_lockable`, the identical test the acquisition uses, so the
+  // bracket now means "this is what the missile would take", which is also the
+  // one thing a bracket can usefully tell a player. The nearest-first pick and
+  // the hysteresis below are unchanged inside the gate.
+  _updateTracking(enemies, aimNdc) {
     let best = null;
     let bestD = Infinity;
     for (const e of enemies) {
-      if (!e.alive) continue;
+      if (!this._lockable(e, aimNdc)) continue;
       if (e.d < bestD) {
         bestD = e.d;
         best = e;
       }
     }
+    // Drop a tracked enemy the moment the aim leaves it, for the same reason
+    // `retired` is disqualifying below: a bracket pinned to something the
+    // missile can no longer take is a bracket that lies.
+    if (this.tracked && !this._lockable(this.tracked, aimNdc)) this.tracked = null;
     // `retired` is as disqualifying as `alive === false`, and leaving it out
     // was a real bug worth recording: an enemy that FLIES PAST is removed
     // from the live list with retired=true but alive still true, so a

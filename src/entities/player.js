@@ -45,8 +45,55 @@ import { CAMERA_HEIGHT, CAMERA_PITCH } from '../core/cameraGeom.js';
 // stage instead of only in daylight. Asked for in judging/R6/ask-flow.md.
 
 // "Jet roams a wide screen area" (ARCHITECTURE.md D7 item 2). Envelope is in
-// world units at the jet's fixed depth in front of the camera — placeholder
-// values, to be tuned against reference video once banked-turn roll lands.
+// world units at the jet's fixed depth in front of the camera.
+//
+// R11 -- THE ARCADE COLUMN FOR THIS CONSTANT NOW EXISTS AND THIS CONSTANT
+// PASSES. It is deliberately NOT changed; two rounds of gap lists have asked
+// for it to move and all of them were comparing it against a different object.
+//
+// ARCADE, MEASURED (judging/R11/lane-feel.md §1;
+// tools/out/feel-r11/arcade_jet_x.csv, n = 67, stages 1 / 4 / 12, stage
+// identity read off the HUD digit at BOTH ends of every window): the arcade
+// PLAYER AIRCRAFT's drawn screen x spans **19.0 .. 78.0 %W**, i.e. a
+// half-envelope of **+-29.5 %W** about a 48.5 %W centre. Hand-digitised off
+// ruled contact sheets, because three automatic operators passed their
+// selftests and then failed on real frames -- none of them could tell the
+// player's aircraft from an enemy, a cloud or an explosion. Sampled at 1 Hz;
+// an extremum, so it carries NO speed claim and is a LOWER BOUND.
+//
+// OURS, the same quantity: **+-34.93 %W** settled, +-35.15 %W including
+// transient (tools/out/feel-r11/probe_r11.mjs --mode resp, consecutive 60 Hz
+// ticks). **1.19x the arcade's lower bound -- matched to within the slack the
+// arcade figure itself carries.**
+//
+// THE +-17.5 %W IN R10's JUDGE REPORT §3 IS THIS BUILD TOO, AND IT IS A
+// DIFFERENT OPERATOR, not a different build and not a regression. Measured
+// here on a pristine extraction of that same commit:
+//     stick HELD at full deflection, settled   +-0.35048 NDC = +-17.52 %W
+//     stick RELEASED, settled                  +-0.69865 NDC = +-34.93 %W
+// The ratio is 1.993 and all of it is CAMERA ROLL: `playerNdc` is the drawn
+// jet's screen x through the rolled camera, and holding the stick is also
+// what rolls the world, so a full-stick reading can never see the rail the
+// jet actually occupies. The judge's script held the stick 12 ticks and never
+// released to a settle, so it read the rolled position and called it the
+// rail. The arcade population above contains banked AND level frames, so the
+// quantity to compare it with is the union -- the +-34.93.
+//
+// WHAT IS ACTUALLY 3.5x TOO WIDE IS THE SIGHT, AND IT IS NOT THIS CONSTANT.
+// Ours: +-34.93 %W (reproduced here to 4 significant figures against
+// feel-critique.md §3.4's 34.93). Arcade: +-9.83 / +-10.12 %W, two operators,
+// four stages. So in the arcade the AIRCRAFT roams **2.95x as far as its own
+// sight**, and in our build the sight roams **as far as the aircraft** --
+// because combat.js computes `sight.x = playerNdc.x + up.x * SIGHT_FRAC / 0.5`,
+// a screen-space offset that can only ADD to the jet's excursion. The arcade's
+// sight sits nearer the vanishing point than its aircraft and therefore moves
+// LESS. No value of ENVELOPE_X can produce that; it is a sight-placement
+// defect. combat.js is the combat lane's file -- judging/R11/ask-combat.md.
+//
+// Still coupled, recorded so a later change does not trip over it: spawner.js
+// derives reachability from the exported envelopes, and RATE_X below is
+// written as a multiple of this constant, so moving it moves the lateral rate
+// by the same factor as a side effect. They are different quantities.
 export const ENVELOPE_X = 2.6;
 
 // R7 (R6 judge gap 5). The vertical envelope is now ASYMMETRIC, and the single
@@ -158,30 +205,83 @@ export const ENVELOPE_Y_DOWN = 1.1;
 // integrates it, and the envelope clamps. Three consequences the old model
 // could not have, all of them the thing the owner asked for:
 //
-//   * an ACCELERATION PHASE. Peak per-tick displacement is no longer on tick
-//     1; the jet builds up to its travelling speed.
 //   * a CONSTANT-RATE PLATEAU in the middle of a move, which is what the
 //     arcade's series shows.
-//   * MOMENTUM. Release the stick and the jet COASTS -- the velocity decays
-//     instead of the position stopping. There is now something to anticipate.
+//   * HOLD STATION ON RELEASE. Let the stick go and the jet stays where it is
+//     instead of taking the whole move back. The rails prove the arcade does
+//     this: over 151 tracked detections its sight never leaves [416, 618] of
+//     1028 and its stationary holds sit ON those two values, on four stages
+//     310 s apart. AB2 does not auto-centre.
 //
-// RATE_X / RATE_Y ARE NOT TAKEN FROM THE ARCADE NUMBER ABOVE, DELIBERATELY,
-// and the lane report says so in §3.3. 6.2 px/frame is 0.36 fracW/s and our
-// full-stick rate below is 2.9x that -- but that arcade figure is ONE pilot,
-// ONE 0.3 s window, at an unknown stick deflection, so it is a LOWER BOUND on
-// the arcade's maximum and not the maximum. Tuning the single most-felt
-// constant in the game to a lower bound from n = 1 is the error this project
-// has already paid for four times. The rates below are solved to preserve the
-// committed build's 0-90 % traverse time (0.384 s analytic / 0.400 s measured)
-// so that nothing about reach or responsiveness regresses while the SHAPE is
-// corrected; closing the 2.9x needs a sample of arcade sight tracks and is
-// named as an open gap rather than guessed at.
+// ---------------------------------------------------------------------------
+// R11 -- THE ACCELERATION RAMP IS REMOVED, AND ONLY THE RAMP.
 //
-// Solved, not picked: with velocity saturating at time constant 1/ACCEL_RATE,
-// position reaches 0.9*E at about 0.9*E/RATE + 1/ACCEL_RATE. At
-// ACCEL_RATE = 12 that is 0.083 s of ramp, leaving 0.30 s for 0.9*E, i.e.
-// RATE = 3.0*E per second.
-const ACCEL_RATE = 12.0; // 1/s; the velocity's own lag -- this is the mass
+// R10 also gave the velocity a lag of its own (ACCEL_RATE = 12, a 0.083 s time
+// constant) so that the jet would "build up to its travelling speed". Three
+// independent 60 Hz decodes say the arcade does not do that:
+//
+//   onset, w1 f0098-f0103, an isolated sight glyph over empty sky
+//       x  = 499.5 502.5 502.5 508.5 515.5 521.5      px of 1028
+//       dx =       +3.0    0.0   +6.0  +7.0  +6.0
+//   stop,  w3 f0254-f0279:  +6.0 x6, +3.5, 0.0 x18    -- ONE intermediate frame
+//   reversal, w2 f0254-f0259: 0.0 -4.0 +1.0 0.0 +6.5  -- no ramp at all
+//
+// **No ramp longer than one frame exists anywhere in 138 consecutive-frame
+// steps, across stages 1, 3, 4 and 12 and thirteen separate manoeuvres**
+// (judging/R10/lane-feel.md §3 and feel-critique.md §3.1/§3.3, two operators,
+// two detectors, disjoint stage populations). And the longplay is 30 Hz
+// content frame-doubled to 60 -- its SCORE field changes on every SECOND video
+// frame, verifiable in any consecutive decode -- so the arcade's "one frame" is
+// one 30 Hz game tick, which is the shortest response a 60 Hz model can give.
+//
+// The cost of the ramp, measured on pristine extractions of three trees
+// (feel-critique.md §3.3): onset t90 1 tick -> 12 ticks and mid-travel
+// reversal t90 1 tick -> 14 ticks between 8725647 and 21c789c. ~12x slower to
+// respond, ~7x slower to reverse, against an arcade that does both in one.
+//
+// HOLD-STATION IS NOT WHAT THE RAMP WAS BUYING, which is the thing to get
+// right before deleting anything. The jet holds station because the stick
+// commands a RATE and there is no auto-centre: at zero stick the commanded
+// velocity is zero, so the position stops. That is a property of the rate
+// model, not of the lag. With the lag gone the velocity reaches zero on the
+// release tick instead of coasting ~25 px down an exp(-12*dt) tail, and the
+// position still stays exactly where it was left. R10's own diagnosis was
+// right and only its cure overshot.
+//
+// (The claim that "44 % of the displacement arrives after release" did NOT
+// survive and is not what is being fixed here: it runs 52.6 -> 34.2 -> 22.2 %
+// as the hold lengthens and goes to zero once the hold reaches the rail, so it
+// is a property of the 0.20 s hold, not of the model. The invariant was the
+// ~25 px coast. That is what goes.)
+//
+// RATE_X / RATE_Y ARE UNCHANGED, and the reason in the comment that used to
+// stand here is REFUTED -- corrected rather than deleted, because the next
+// agent would otherwise re-derive it. It read: "that arcade figure is ONE
+// pilot, ONE 0.3 s window, at an unknown stick deflection, so it is a LOWER
+// BOUND on the arcade's maximum and not the maximum." It is not a lower bound:
+// across 138 steps, 13 manoeuvres and 3 stages the distribution SATURATES --
+// 53 steps at +6 px/frame, 9 at +7, one at +8, nothing above, with the
+// intermediate bins (+-3, +-4) holding 9 of 138. A lower bound from unknown
+// deflections would spread; this is a control at its stop. **0.379 fracW/s is
+// the arcade's maximum** -- FOR THE SIGHT.
+//
+// And that last clause is why the rate does not move this round. The 0.379 is
+// the 1.563 %W SIGHT GLYPH's rate; RATE_X moves the AIRCRAFT. Those are
+// different objects and in the arcade they do not travel the same distance:
+// the arcade's sight envelope is +-9.83/+-10.12 %W (two operators, four
+// stages) while its AIRCRAFT's is +-29.5 %W (judging/R11/lane-feel.md §1,
+// hand-digitised, n = 67, three stages) -- a ratio of 2.95. Scaling the
+// sight's own measured maximum by that ratio gives an arcade JET rate of
+// 1.12 fracW/s against our measured 1.064, i.e. within 5 %. That is a
+// DERIVATION resting on the sight being a linear projection of the jet's
+// lateral position, not a measurement, and it is published as such -- but it
+// is enough to say that "our rate is 2.76x the arcade's" is a comparison
+// between two different objects and must not be acted on until the arcade's
+// JET rate is decoded directly. See §1 OPEN.
+//
+// Solved, not picked: 0.9*E/RATE = 0.30 s of traverse, i.e. RATE = 3.0*E per
+// second. With the ramp gone that is now the whole 0-90 % traverse time
+// rather than 0.30 s of it.
 const RATE_X = 3.0 * ENVELOPE_X; // world units/s at full lateral stick
 const RATE_Y_UP = 3.0 * ENVELOPE_Y_UP;
 const RATE_Y_DOWN = 3.0 * ENVELOPE_Y_DOWN;
@@ -537,9 +637,13 @@ export class Player {
     // step across neutral, exactly as the envelope asymmetry did.
     const cmdVX = input.x * RATE_X;
     const cmdVY = input.y * (input.y >= 0 ? RATE_Y_UP : RATE_Y_DOWN);
-    const k = 1 - Math.exp(-ACCEL_RATE * dt);
-    this.vx += (cmdVX - this.vx) * k;
-    this.vy += (cmdVY - this.vy) * k;
+    // R11: the velocity IS the command. No lag, no mass, no coast -- see the
+    // ACCELERATION RAMP note above for the 138 arcade steps that say so. The
+    // velocity fields stay, because the clamp below still has to be able to
+    // kill the outward component and the public x/y setters still have to be
+    // able to stop the jet.
+    this.vx = cmdVX;
+    this.vy = cmdVY;
     // `_x`/`_y`, not `x`/`y`: the public setters exist to KILL momentum on an
     // external re-centre, and integrating through them would zero the
     // velocity every tick -- which is the old first-order lag with extra
