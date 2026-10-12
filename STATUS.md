@@ -1,8 +1,72 @@
 # STATUS — where the rebuild stands
 
-**Last updated**: 2026-10-11, **Round 10 in flight** (two build lanes live in `src/`, work
-uncommitted in the tree; criteria lane editing this file). R10 criteria work and its evidence:
-`judging/R10/lane-criteria.md`; R9's is `judging/R9/lane-criteria.md`.
+**Last updated**: 2026-10-13, **Round 11 in flight.** Two lanes landed and are committed
+(`435926e` enemy art, `6027b49` feel); two are live in `src/` with work uncommitted —
+`effects-r11` in `effects/**`, `enemyShots.js`, `enemy.js`, `spawner.js`, and `combat-r11` in
+`combat.js` and `game/flow/**`. **Do not `stash` / `checkout .` / `reset` on this tree.**
+
+> ## WHERE THE BUILD STANDS — R10 scored 7.5/10 (motion 4 → 6.5, stills 9 → 8); R11 is answering its gap list
+>
+> **R10's gate**: `judging/R10/judge-report.md`, `art-critique.md`, `feel-critique.md`; board at
+> `judging/R10/board/index.html`. **R11 so far**: `judging/R11/lane-enemy-art.md`, `lane-feel.md`.
+>
+> **CLOSED IN R11.** The enemy aircraft — ranked first of ten and named a blocker by the owner —
+> went from **5.7 % of pixels darker than L=80 to 33.9 %** against an arcade 24–29 %, and from
+> **four silhouettes to six** (R10 found four of the eight day head-on sheets were two drawings in
+> four liveries). The lock now requires aiming: **a motionless stick's share of kills fell 83 % →
+> 22 % with the tracking pilot untouched at 18 → 18**. The stick responds on **tick 1** again
+> instead of tick 12, against an arcade that reaches full lateral rate in one frame.
+>
+> **THE R10 ACQUISITION THAT BLOCKED THE DRAWING WORK FOR TWO ROUNDS IS DONE** — an arcade column
+> for the near-aspect head-on enemy, shape from a byte-reproducible longplay frame identified by
+> its HUD digit, colour from the true-native desert still. It held as a drawing target and its
+> acquisition reproduces byte-for-byte.
+>
+> ### THE STANDING LESSON OF R10 AND R11, WHICH HAS NOW INVERTED TWO GAP-LIST ENTRIES IN TWO ROUNDS
+>
+> **Two correct measurements of different things is this repo's dominant failure mode.** R10's
+> judge put our jet's half-envelope at **±17.5 %W** and R11's feel lane at **±34.93 %W**. *Same
+> build.* Stick **held** at full deflection reads 17.52 — but holding the stick is also what rolls
+> the world, so a full-stick reading can never see the rail the jet occupies; **released and
+> settled** it reads 34.93. The ratio is 1.993 and all of it is camera roll.
+>
+> **Binding: compute both definitions and show they differ before calling a disagreement a
+> defect.** The same shape produced R10's DRAW-WEIGHT "inverted sign" (a cross-subject reading of
+> a statistic licensed only same-subject). `ENVELOPE_X` passes at 1.19× the arcade and is
+> deliberately NOT moved; what is 3.5× too wide is the **sight**, and no value of `ENVELOPE_X` can
+> fix it — `combat.js` derives the sight as *jet position + a screen-space offset*, so ours can
+> never move **less** than the jet, while the arcade's moves **2.95× less**.
+>
+> ### NUMBERS NOBODY MAY CITE AS MEASURED
+>
+> - **The arcade's JET per-frame lateral rate.** The R11 attempt FAILED — hand-read precision
+>   ~1.1 %W cannot resolve a 0.6–1.9 %W step, and three automatic trackers were withdrawn for
+>   being unable to establish aircraft identity. `RATE_X` is parked on a **DERIVATION**
+>   (2.95 × the sight's measured 0.379 fracW/s). **This is the top acquisition on the board.**
+> - **Arcade missile launch→impact**: a CANDIDATE 0.43–0.90 s band, not MEASURED.
+>   `MAX_TURN_FRAC_PER_S` is solved, not measured.
+> - Anything tagged ASSUMED in `GAME_SPEC.md`, `HOMING_GAIN` included.
+>
+> ### REFUTED — do not act on these, they appear in older reports
+>
+> - *"Our explosion smoke is too small"* and *"our fireball is too deep-red"*. Both were read off a
+>   motion montage that **is not scale-matched** (arcade panels cover 0.39 of their frame, ours
+>   0.77), so every area taken off it overstates the arcade **~3.9×**. At matched depth our residue
+>   is **1.40 against the arcade's 0.71** — twice as large relative to its own fireball — and we
+>   are the **yellower** of the two at first light. A second agent then mis-gridded the same image
+>   (15 panels of 208 px where the labels prove 13 of 240) and "confirmed" the wrong reading.
+>   **Two agents agreeing on an unreproducible image is not corroboration. Any figure published
+>   here ships its generator and states its crop fractions on both sides.**
+> - *"`-ss` sequence extraction on the AV1 60 fps file starts ~4 s early."* **Refuted four times
+>   over**, once pixel-exact against a committed reference frame. `t = T_ss + (i−1)/60` holds
+>   exactly. **CLAUDE.md still carries the stale warning** and fresh agents keep hedging timestamps
+>   on it; the replacement text is in `judging/R10/lane-criteria.md` §5, awaiting the owner.
+> - *"44 % of displacement arrives after release"* — a property of the 0.20 s hold, not the model.
+> - REFERENCE #122's cruise `cx sd` 12.88 %W is **corroborated** (R11 measured 13.55), not in
+>   conflict with the ±9.83 %W sight rails. Different objects.
+
+R10 criteria work and its evidence: `judging/R10/lane-criteria.md`; R9's is
+`judging/R9/lane-criteria.md`.
 
 > ## R10 CRITERIA HEADLINE — THE INVERSION WAS CHECKED AND IT IS NOT AN INVERSION, AND THE RULE THAT FOUND THAT OUT IS THE DELIVERABLE
 >
