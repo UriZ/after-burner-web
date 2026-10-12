@@ -1,11 +1,12 @@
 node_modules/
 dist/
 tools/out/
-tools/__pycache__/
 .DS_Store
 *.log
 
 # arcade footage cache (large; re-fetch with .claude/skills/youtube-reference)
 .reference-cache/
 assets/reference/motion/
-tools/art/__pycache__/
+
+# compiled bytecode, anywhere -- anchored entries missed judging/ and tools/out/
+__pycache__/
