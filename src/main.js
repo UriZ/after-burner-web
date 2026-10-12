@@ -10,7 +10,12 @@ const seed = params.has('seed') ? Number(params.get('seed')) : 1;
 game.rng = createPrng(seed); // reserved for gameplay systems (spawner, etc.)
 
 if (params.has('demo')) {
-  game.input.setOverride(demoTimeline);
+  // R10: the attract pilot is a POSITION CONTROLLER over the new rate-based
+  // flight model (demoTimeline.js's R10 REPAIR block), so it needs the live
+  // aircraft as well as the clock. core/input.js's override contract is
+  // `fn(simTime)` and that file is not this lane's, so the player is closed
+  // over here instead of widening the contract.
+  game.input.setOverride((simTime) => demoTimeline(simTime, game.player));
 }
 
 if (params.has('fixed')) {
@@ -30,7 +35,9 @@ if (params.has('fixed')) {
   // input override that ?demo=1 uses. Pass null to hand control back.
   window.__setStick = (s) => {
     if (s === null) {
-      game.input.setOverride(params.has('demo') ? demoTimeline : null);
+      game.input.setOverride(
+        params.has('demo') ? (simTime) => demoTimeline(simTime, game.player) : null
+      );
       return;
     }
     const held = { x: 0, y: 0, fire: false, missile: false, throttleIndex: 1, ...s };

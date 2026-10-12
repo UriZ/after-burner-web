@@ -92,6 +92,7 @@ export class Game {
     // the two axes.
     this._pitchQuat = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), CAMERA_PITCH);
     this.worldRoll = 0; // radians; see interface note below
+    this._lastInput = { x: 0, y: 0 }; // measurement-only, see __flowState
     this._applyCameraOrientation();
     this.scene.add(this.camera);
 
@@ -293,6 +294,27 @@ export class Game {
         // frame rather than a defect. True = the sprite is hidden BY THE
         // FLASH on this tick.
         graceFlashHidden: this.flow.state === 'flight' && !this.player.sprite.visible,
+        // R10 flow lane, same measurement-only family and the usual test —
+        // NOT inferable any other way. The stick used to be derivable by
+        // calling demoTimeline(simTime) in the probe, because it was an open
+        // loop; the attract pilot is now a POSITION CONTROLLER (see
+        // flow/demoTimeline.js) whose output depends on the aircraft, so the
+        // only place the commanded stick exists is here. It matters because
+        // player.js arms the barrel roll off a stick SIGN CHANGE: a roll that
+        // fires when it should not is a property of this series and of
+        // nothing else on screen.
+        //
+        // The two attempts this replaces are both in lane-flow.md as
+        // withdrawn: `bankDeg` is NOT a usable stick proxy (player.js stops
+        // updating it for the 1.1 s of a roll, so it loses exactly the flicks
+        // that caused the roll), and NDC x cannot be inverted to world x
+        // because worldRoll rotates the offset before projection.
+        //
+        // Inert by construction — read nowhere in the simulation. Verified,
+        // not asserted: the position trace is bit-identical with and without
+        // this field (lane-flow.md §4).
+        stickX: this._lastInput.x,
+        stickY: this._lastInput.y,
         ...this._playerNdc(),
       });
     }
@@ -332,6 +354,11 @@ export class Game {
     // combat; 'flight' passes rawInput through untouched. See
     // src/game/flow/flow.js for the state machine itself.
     const flow = this.flow.update(dt, rawInput, simTime, this._rng);
+    // Measurement-only (see __flowState's stickX/stickY): the stick the
+    // simulation actually acted on this tick, after the flow state machine
+    // has had its say. Assigned unconditionally so a probe never reads a
+    // stale tick's value.
+    this._lastInput = flow.input;
 
     // Barrel roll (R5 feel fix, feel-critique.md §10 rank 13): GAME_SPEC.md
     // §1 measures the manoeuvre SUPPRESSING world roll for its duration

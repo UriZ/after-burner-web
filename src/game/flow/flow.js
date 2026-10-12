@@ -583,7 +583,11 @@ export class GameFlow {
       AudioBus.music('title');
       return { input: ZERO_INPUT, combatActive: false, playerControlled: false };
     }
-    const demo = demoTimeline(simTime);
+    // R10: `this.player` is the second argument because the attract pilot is
+    // now a position controller over the rate-based flight model — see
+    // demoTimeline.js's R10 REPAIR block. GameFlow is always constructed with
+    // a player (game.js), and this state is unreachable without one.
+    const demo = demoTimeline(simTime, this.player);
     this.throttleIndex = demo.throttleIndex;
     AudioBus.setEngine(THROTTLE_ENGINE_GAIN[this.throttleIndex]);
     return { input: demo, combatActive: true, playerControlled: true };
