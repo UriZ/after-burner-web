@@ -1,0 +1,238 @@
+<title>Round 10 Board</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;700&family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@400;600&display=swap">
+
+<style>
+  :root{
+    --ground:#0a0c10; --panel:#141921; --panel-2:#1b212b; --line:#28313e;
+    --ink:#e7ebf1; --muted:#8c99aa;
+    --sky:#2da8e8;     /* the game's own stage-1 sky */
+    --amber:#f5a623;   /* HUD / fireball */
+    --red:#e8443a;     /* SCORE / HIT */
+    --good:#3fc98a;
+    --display:"Chakra Petch",system-ui,sans-serif;
+    --body:"IBM Plex Sans",system-ui,sans-serif;
+    --mono:"IBM Plex Mono",ui-monospace,monospace;
+  }
+  /* Deliberately single-theme: this is an arcade cabinet screen, dark in any host. */
+  *{box-sizing:border-box}
+  body{
+    margin:0; background:var(--ground); color:var(--ink);
+    font-family:var(--body); font-size:16px; line-height:1.6;
+    padding:48px 24px 96px;
+  }
+  .wrap{max-width:1040px; margin:0 auto; display:flex; flex-direction:column; gap:44px}
+
+  header{display:flex; flex-direction:column; gap:10px}
+  .eyebrow{
+    font-family:var(--mono); font-size:12px; letter-spacing:.18em; text-transform:uppercase;
+    color:var(--amber);
+  }
+  h1{
+    font-family:var(--display); font-weight:700; font-size:clamp(34px,6vw,54px);
+    margin:0; line-height:1.05; text-wrap:balance; letter-spacing:-.01em;
+  }
+  .sub{color:var(--muted); max-width:62ch; margin:0}
+
+  /* score tiles */
+  .scores{display:grid; grid-template-columns:repeat(auto-fit,minmax(190px,1fr)); gap:14px}
+  .tile{
+    background:var(--panel); border:1px solid var(--line); border-radius:4px;
+    padding:20px 22px; display:flex; flex-direction:column; gap:4px;
+    border-top:3px solid var(--line);
+  }
+  .tile.main{border-top-color:var(--amber)}
+  .tile.up{border-top-color:var(--good)}
+  .tile.down{border-top-color:var(--red)}
+  .tile .k{font-family:var(--mono); font-size:11px; letter-spacing:.14em; text-transform:uppercase; color:var(--muted)}
+  .tile .v{font-family:var(--display); font-weight:700; font-size:40px; line-height:1; font-variant-numeric:tabular-nums}
+  .tile .d{font-size:13px; color:var(--muted)}
+  .tile .d b{color:var(--good); font-weight:600}
+  .tile .d i{color:var(--red); font-style:normal; font-weight:600}
+
+  h2{
+    font-family:var(--display); font-weight:700; font-size:13px; letter-spacing:.2em;
+    text-transform:uppercase; color:var(--amber); margin:0 0 14px; padding-bottom:9px;
+    border-bottom:1px solid var(--line);
+  }
+  section{display:block}
+  p{margin:0 0 14px}
+  p:last-child{margin-bottom:0}
+  b{font-weight:600}
+  .n{font-family:var(--mono); color:var(--amber); font-variant-numeric:tabular-nums}
+  .ok{color:var(--good); font-weight:600}
+  .bad{color:var(--red); font-weight:600}
+
+  figure{margin:0; background:var(--panel); border:1px solid var(--line); border-radius:4px; overflow:hidden}
+  figure img{display:block; width:100%; height:auto; image-rendering:pixelated; background:#000}
+  figcaption{padding:14px 18px; font-size:14px; color:var(--muted); border-top:1px solid var(--line)}
+  figcaption b{color:var(--ink)}
+  .two{display:grid; grid-template-columns:repeat(auto-fit,minmax(300px,1fr)); gap:14px}
+
+  ol.gaps{list-style:none; counter-reset:g; margin:0; padding:0; display:flex; flex-direction:column; gap:1px}
+  ol.gaps li{
+    counter-increment:g; background:var(--panel); padding:16px 20px 16px 62px; position:relative;
+    border-left:2px solid var(--line);
+  }
+  ol.gaps li::before{
+    content:counter(g); position:absolute; left:20px; top:16px;
+    font-family:var(--display); font-weight:700; font-size:20px; color:var(--amber);
+    font-variant-numeric:tabular-nums;
+  }
+  ol.gaps li.top{border-left-color:var(--red)}
+  ol.gaps li.top::before{color:var(--red)}
+  .gt{font-weight:600; display:block; margin-bottom:2px}
+  .gd{font-size:14px; color:var(--muted)}
+
+  .note{
+    background:var(--panel-2); border:1px solid var(--line); border-left:3px solid var(--sky);
+    border-radius:4px; padding:18px 22px; font-size:15px;
+  }
+  .note .h{font-family:var(--mono); font-size:11px; letter-spacing:.14em; text-transform:uppercase; color:var(--sky); display:block; margin-bottom:6px}
+
+  footer{border-top:1px solid var(--line); padding-top:18px; color:var(--muted); font-size:13px;
+    font-family:var(--mono); display:flex; flex-wrap:wrap; gap:10px 22px}
+</style>
+
+<div class="wrap">
+
+  <header>
+    <span class="eyebrow">After Burner II &middot; Round 10</span>
+    <h1>The missile can miss now</h1>
+    <p class="sub">Four systems changed for real. Three fresh-context agents re-measured everything
+    and refuted four claims, including both of mine.</p>
+  </header>
+
+  <section class="scores">
+    <div class="tile main">
+      <span class="k">Composite</span><span class="v">7.5</span>
+      <span class="d">was 7.0 in R9</span>
+    </div>
+    <div class="tile up">
+      <span class="k">Motion &amp; feel</span><span class="v">6.5</span>
+      <span class="d"><b>&uarr; from 4</b> &mdash; the round's work</span>
+    </div>
+    <div class="tile down">
+      <span class="k">Stills &amp; art</span><span class="v">8</span>
+      <span class="d"><i>&darr; from 9</i> &mdash; new evidence, not a regression</span>
+    </div>
+  </section>
+
+  <section>
+    <h2>TL;DR</h2>
+    <p><b>The missile could not miss.</b> Its entire impact test was a depth comparison with no
+    lateral term, and the homing had no turn limit. On the committed build the pilot who
+    <b>never aimed</b> had the <span class="bad">higher</span> hit rate &mdash;
+    <span class="n">100.0%</span> against <span class="n">89.6%</span>. Aiming was worth negative.
+    It now has a fuse radius and a turn cap, and <span class="n">4 of 19</span> crossings miss.</p>
+    <p><b>But a motionless stick still gets <span class="n">83%</span> of a tracking pilot's
+    kills.</b> The lock cone is <span class="n">22%W</span> against the arcade's
+    <span class="n">8.3%W</span> &mdash; enemies fly into it on their own. R10 made the missile
+    able to miss; it did not make the <i>lock</i> require aiming, and the lock is where the aiming
+    happens.</p>
+    <p><b>The explosion's timing is fixed</b> &mdash; a 0.683&thinsp;s plateau is now a
+    0.150&thinsp;s flash. <b>Its shape is not.</b> The arcade's fireball fragments into a sparse
+    debris spray and re-flares white-hot at +100&ndash;133&thinsp;ms on three kills of four. Ours
+    is white-hot for two frames, then a compact ball that only changes colour.</p>
+  </section>
+
+  <section>
+    <h2>The one picture that matters</h2>
+    <figure>
+      <img src="img/enemy.png" alt="Arcade enemy aircraft above; our grey and camo head-on sprites below">
+      <figcaption><b>Top: the arcade. Bottom: ours.</b> <code>enemy-grey-head.png</code> is
+      <span class="n">5.7%</span> of pixels darker than L=80; the arcade's equivalent is
+      <span class="n">25&ndash;34%</span>. A white bird where the arcade has a dark, readable dart
+      &mdash; and it is the head-on livery for stage&nbsp;1 <i>and</i> stage&nbsp;3, for three
+      enemy types. The object the player looks at longest.</figcaption>
+    </figure>
+  </section>
+
+  <section>
+    <h2>Unblocked after two rounds</h2>
+    <div class="two">
+      <figure>
+        <img src="img/acquired.png" alt="Arcade near-aspect head-on enemy, resampled to native equivalent and magnified">
+        <figcaption><b>An arcade column for the near-aspect head-on enemy.</b> Shape from a
+        byte-reproducible longplay frame identified by its HUD digit; colour from the true-native
+        desert still. This sprite owns <span class="n">69.2%</span> of enemy screen area and had
+        no measurable anchor until now.</figcaption>
+      </figure>
+      <figure>
+        <img src="img/game.png" alt="Current build, stage 1">
+        <figcaption><b>The build today</b> &mdash; stage 1, sea, HUD and lock bracket all
+        measuring correctly. Criterion&nbsp;A holds in ordinary play.</figcaption>
+      </figure>
+    </div>
+  </section>
+
+  <section>
+    <h2>Where I was wrong</h2>
+    <div class="note">
+      <span class="h">Corrected by the judge</span>
+      <p>I read off the effects lane's motion montage that our explosion smoke was far too small
+      and our fireball too red. <b>Both are refuted.</b> The montage is not scale-matched &mdash;
+      the arcade panels cover <span class="n">0.39</span> of their frame, ours
+      <span class="n">0.77</span> of theirs, so every area I eyeballed overstated the arcade by
+      <span class="n">~3.9&times;</span>. At matched depth our residue is about <i>twice</i> as
+      large relative to its own fireball as the arcade's, and ours is the <i>yellower</i> of the
+      two at first light.</p>
+      <p style="margin-top:12px">The art critic independently <i>confirmed</i> my reading &mdash;
+      and that is void too: it gridded the montage as 15 panels of 208&thinsp;px where the labels
+      prove 13 of 240. <b>Two agents agreeing on an unreproducible image is not corroboration.</b>
+      The montage's generator was never saved. That is the actual defect.</p>
+    </div>
+  </section>
+
+  <section>
+    <h2>Ranked &mdash; Round 11</h2>
+    <ol class="gaps">
+      <li class="top"><span class="gt">Redraw the enemy aircraft</span>
+        <span class="gd">Six of eight sheets are untouched, and four of the eight are really
+        <i>two</i> drawings in four liveries &mdash; byte-identical alpha planes, so R9 redrew one
+        silhouette, not two. The arcade column now exists. Nothing else changes as many pixels in
+        as many frames.</span></li>
+      <li class="top"><span class="gt">Make the lock require aiming</span>
+        <span class="gd">22%W cone against the arcade's 8.3%W. Blocked on the arcade's lateral
+        envelope, which gates <code>ENVELOPE_X</code>, <code>RATE_X</code> and
+        <code>LOCK_ACQUIRE_S</code> together &mdash; the cheapest high-value measurement left.</span></li>
+      <li class="top"><span class="gt">Undo the stick's acceleration ramp</span>
+        <span class="gd">The arcade goes from stationary to maximum lateral rate in <b>one
+        frame</b>, and stops the same way; no ramp longer than one frame exists in 138 steps across
+        three stages. We now peak on tick 12 where the old build peaked on tick 1 &mdash; ~12&times;
+        slower. The diagnosis was right; the cure overshot.</span></li>
+      <li><span class="gt">Give the explosion a break-up phase</span>
+        <span class="gd">It needs to fragment and re-flare, against <code>explosions.js:498</code>'s
+        own comment that the decay has no white-hot core. The arcade contradicts it on 3 kills of 4.</span></li>
+      <li><span class="gt">An aim-error term for enemy fire</span>
+        <span class="gd">Named in R6, still absent. Enemy shots are a 2-pixel speck for 2.5&thinsp;s
+        where the arcade's are a 6&ndash;8 pixel fireball for 0.37&thinsp;s &mdash; and the size fix
+        alone quadruples a death rate already out of band.</span></li>
+      <li><span class="gt">An arcade turn rate for the missile</span>
+        <span class="gd"><code>MAX_TURN_FRAC_PER_S</code> is solved, not measured. Three attempts
+        were made and withdrawn, one of which tracked expanding fireballs and called them missiles.</span></li>
+      <li><span class="gt">The player jet's level cell reads as a face</span>
+        <span class="gd">Two round orange eyes, a dark-red mouth dash, two ears &mdash; because the
+        wings are a constant-thickness bar with a brighter rectangle bolted on across a hard seam.</span></li>
+    </ol>
+  </section>
+
+  <section>
+    <h2>Process</h2>
+    <p><b>Four instruments passed their synthetic selftests and were withdrawn for failing on real
+    frames</b> this round &mdash; 438 of 1080 null, 15 of 193 recall, a tracker sitting on the
+    player's own afterburner nozzles for 28 frames, and the judge's own, twice. Every one was
+    published instead of the numbers it produced.</p>
+    <p><b>Five of the criteria lane's own figures were refuted during the round, four by the lanes
+    using them.</b> The rule it published in the morning killed its own headline by the afternoon.
+    <span class="ok">No R10 statistic gated anything</span> &mdash; which is the correct answer to
+    writing criteria and building against them in the same round.</p>
+  </section>
+
+  <footer>
+    <span>HEAD 97aeced</span><span>judge-r10 &middot; art-critic-r10 &middot; feel-critic-r10</span>
+    <span>all figures 60&nbsp;Hz consecutive, both sides</span>
+  </footer>
+
+</div>

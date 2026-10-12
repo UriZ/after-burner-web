@@ -5,7 +5,9 @@ extraction at `.../scratchpad/fc10/tree21c789c`, not on the working tree. At the
 the tree carries the flow lane's uncommitted work in `game/flow/demoTimeline.js`, `flow.js` and
 `src/main.js`; `player.js`, `combat.js`, `lockSystem.js` and `missiles.js` are clean at HEAD. The
 four A/B arms in §3.4 are **separate extractions of the same commit with one or two constants
-changed**, named per row. No commit, no stash, no checkout, no reset, no push.
+changed**, named per row, and the pre-R10 baseline in §3.3 is its own pristine
+`git archive 8725647`. Six trees, every figure labelled with the one it came from. No commit,
+no stash, no checkout, no reset, no push.
 
 **Every temporal figure on both sides is a CONSECUTIVE 60 Hz series and says so.**
 Arcade: `ffmpeg -ss T -i ab2-longplay-60fps.mp4 -frames:v N -vsync 0`.
@@ -34,7 +36,7 @@ choose, which is the only kind of agreement worth anything here.
 | `glyph2.py` | two-polarity four-corner-glyph detector (sight + lock bracket) | **selftest 10/10**, incl. both polarities at both sizes, a null, a moving glyph recovered at exactly 1 px/frame, and **three negatives** (a cloud, a solid square, a dithered noise field) — then **checked on real frames and relaxed**, because the synthetic suite could not see that a real lock bracket is usually occluded (§2.2) |
 | `track.py` | links detections into consecutive-frame tracks | — |
 | `fcprobe.mjs` | per-tick traces from the simulation's own state | — |
-| `tmatch.py` | NCC template tracking of the sight | **WITHDRAWN — see §1.3** |
+| `tmatch.py` | NCC template tracking of the sight | **WITHDRAWN — see §1.5** |
 
 ### The anchor, re-derived not inherited
 
@@ -63,7 +65,8 @@ grouped on proximity alone and put its box on a sandbar; that is in `det-w2.png`
 
 `arc-rails-look.png` (four stationary detections, three stages — all four are unambiguously the
 four-corner sight glyph), `arc-onset-look.png` (§3.3's onset, an isolated glyph over empty sky),
-`arc-reversal-look.png` (§1.3's withdrawal), `det-w*.png` (the first detector's false positives).
+`arc-reversal-look.png` (§1.5's withdrawal), `arc-outliers.png` (nine random out-of-rail
+detections, §3.1), `det-w*.png` (the first detector's false positives).
 
 ---
 
@@ -237,6 +240,14 @@ distribution is tight (n = 55) but I did not track individual brackets through a
   the sight glyph (`arc-rails-look.png`). **AB2 does not auto-centre, and its lateral sight
   envelope is ±10 %W.**
 
+  **The population for that figure is the TRACKED detections (151 of 454), and that selection is
+  load-bearing.** The raw detection set spans x = 6 to 1021 and **32.4 % of it lies outside the
+  rails** — so a reader taking the raw histogram would conclude the arcade sight roams the whole
+  screen. I sampled nine of those 147 outliers at random and cropped them (`arc-outliers.png`):
+  **nine of nine are dithered terrain, the SCORE banner's lettering, an enemy wing or the frame
+  border. Zero are a sight glyph.** A ≥6-frame track at the right size with continuous motion is
+  the identity test; a single detection is not.
+
 ### 3.2 Our step response, tree 21c789c, consecutive 60 Hz
 
 Start is the **left rail** (120 ticks full-left, 30 neutral) — the one deterministic
@@ -280,18 +291,30 @@ dx =       +3.0    0.0   +6.0   +7.0   +6.0
 > frame** into a hold. w2 f0254–f0259 reverses direction `0.0 −4.0 +1.0 0.0 +6.5` with no ramp
 > at all. **No ramp longer than one frame exists anywhere in 138 steps.**
 
-**Our stick is ~12× slower to respond than the arcade's and ~7× slower to reverse. This is new
-in R10.** The committed `8725647` build put its peak per-frame step on **tick 1**; the R10 build
-puts it on tick 12. The lane's own before/after table records that as the headline improvement —
-*"an ACCELERATION PHASE. Peak per-tick displacement is no longer on tick 1"* — and against the
-arcade it is the regression.
+**I measured the pre-R10 build rather than taking the lane's table for it** — a second pristine
+extraction, `git archive 8725647`, same probe, same seed, same URL:
 
-**The diagnosis was right and the cure overshot.** The old defect was real: release took the
-whole move back. But the arcade holds station on release because it is a **rate control with no
-auto-centre**, not because it coasts — its stops are one frame long. R10 fixed the auto-centre
-(correct, and the rails prove it) and bought it with 0.2 s of velocity lag on every input edge
-(not correct, and nothing in the arcade data asks for it). `ACCEL_RATE = 12` is the whole of the
-cost and it is a single constant.
+| | onset t90 | mid-travel reversal t90 | 0.20 s hold: during → after release | peak step |
+|---|---|---|---|---|
+| **8725647** (pre-R10) | **1 tick** | **1 tick (0.017 s)** | +79.55 px → **−77.49 px** | 10.83 px on **tick 1** |
+| **21c789c** (R10) | **12 ticks** | **14 ticks (0.233 s)** | +44.12 px → **+22.95 px**, then holds | 5.59 px on tick ~20 |
+| **ARCADE** | **1 frame** | **≤2 frames*** | — → **holds station** | 2.02 npx/f |
+
+\* *The arcade's reversal time is INFERRED, not observed: no full-rate sign flip survives in my
+138 steps, and the round's one direct observation is withdrawn in §1.5. It is bounded by the
+one-frame onset and the one-frame stop, which are both observed and both cropped.*
+
+> **R10 traded a transient response that exactly matched the arcade for a steady state that
+> exactly matches the arcade, and the two were never in conflict.** The old build reversed in one
+> tick — the arcade's own behaviour — and then threw the whole move away on release. The new
+> build holds its position — the arcade's own behaviour — and takes 0.233 s to change its mind.
+> A rate control with **no velocity lag and no auto-centre** has both, and that is what the
+> arcade is.
+
+**The diagnosis was right and the cure overshot.** The arcade holds station on release because it
+is a rate control with no auto-centre, not because it coasts — its stops are one frame long.
+`ACCEL_RATE = 12` is the entire cost, it is one constant, and nothing in the arcade data asks
+for it.
 
 **What the owner has been calling "responsiveness" for nine rounds is this, and R10 made it
 worse.**
@@ -367,7 +390,7 @@ the ambient bracket count **as a floor**.
 
 **Measured on ours.** Hit rate, crossings, lateral miss, flight times and launch counts at a
 fixed trigger cadence; step response, coast, onset and reversal; lock and drawn-bracket
-populations; the four-arm rate/envelope A/B.
+populations; the four-arm rate/envelope A/B; the pre-R10 baseline step response on 8725647.
 
 **Derived, not measured.** The arcade's rail-to-rail traverse (span ÷ rate). The aim-precision
 diagnostic (no arcade side exists).
@@ -387,11 +410,13 @@ flow lane is live in that file).
 
 **1. The stick gained 0.2 s of velocity lag where the arcade has one frame.**
 Onset t90 **12 ticks**, reversal t90 **14 ticks**, against an arcade that reaches full rate in
-**1 frame** and stops in **1**. One constant, `ACCEL_RATE = 12.0` (`player.js:184`). R10's
-diagnosis of the release behaviour was right; applying it to the whole controller was not. The
-arcade holds station on release because it is a rate control with no auto-centre — keep that,
-it is the round's real win and the rails prove it — and delete the inertia. This is what the
-owner has been calling "responsiveness", and it is currently worse than the build R10 replaced.
+**1 frame** and stops in **1**, and against the pre-R10 build's own **1 tick and 1 tick**
+(measured here on a pristine `8725647`, not taken from a table). One constant,
+`ACCEL_RATE = 12.0` (`player.js:184`). R10's diagnosis of the release behaviour was right;
+applying it to the whole controller was not. Keep the no-auto-centre rate model — it is the
+round's real win and the rails prove it — and delete the inertia. **This is what the owner has
+been calling "responsiveness", and on this axis the build is now measurably worse than the one
+R10 replaced.**
 
 **2. The envelope is 3.45× too wide and the rate 2.76× too fast, and they must move together.**
 Measured, four named trees: adopting both lands rail-to-rail at 0.583 s against the arcade's
