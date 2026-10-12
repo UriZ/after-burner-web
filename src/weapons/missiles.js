@@ -49,6 +49,99 @@ import { missileTexture } from './projectileSprites.js';
 // plume's measured ratio is 1.07 — essentially flat.
 // ---------------------------------------------------------------------------
 
+// ---------------------------------------------------------------------------
+// R10 — THE SEEKER. Until this round the whole impact condition was
+//
+//     const hit = target && m.depth >= target.d;
+//
+// with NO LATERAL TERM: the missile destroyed whatever it was locked to the
+// instant its depth reached that target's depth, wherever either of them was
+// on screen, and the homing above it was a direct interpolation of screen
+// position with no turn-rate limit. Measured consequence (judging/R9/
+// feel-critique.md §1.2): 93.8 % of launches killed, and the three that did
+// not were targets that flew off the field. No manoeuvre could defeat it,
+// because the outcome never consulted the target's lateral position at all.
+//
+// Two constants fix that, and both are anchored below rather than picked.
+// ---------------------------------------------------------------------------
+
+// PROXIMITY FUSE radius, in ISOTROPIC frame-width fractions (x in half-NDC,
+// y through 224/320) -- the same unit lockSystem.js's LOCK_RADIUS_FRAC is in.
+//
+// ANCHOR, and it is an ADOPTION of a measured arcade quantity rather than a
+// direct measurement of the arcade's own fuse, which footage cannot show:
+// AB2's lock bracket is 5.15 %W square, and that is one of the most
+// thoroughly measured numbers in this repo -- 5.10 %W at t116 on a 1.9 %W
+// target and 5.16 %W at t100.75 on an 8.8 %W target, two frames whose targets
+// differ by nearly 7x and whose brackets agree to 0.06 %W. My own detector
+// (tools/out/feel-r10/brackets.py, selftest 5/5) reproduces it independently
+// on frames I picked before looking: 5.16-5.45 %W across stage 1 t100.3-100.9.
+// The bracket is the box the arcade itself draws to say "this target is
+// engaged", so a missile that arrives inside it hits. Half of 5.15 %W is
+// 2.575 %W, rounded to 0.026.
+//
+// THE SAME DETECTOR REPRODUCES THE ARCADE SIGHT AT 1.46-1.56 %W against its
+// published 1.563 %W, which is the control that lets the bracket figure be
+// quoted at all -- two published numbers out of one unvalidated-until-now
+// operator, on frames chosen for neither.
+const HIT_RADIUS_FRAC = 0.026;
+
+// MAXIMUM TURN RATE, in frame-width fractions per second of LATERAL screen
+// travel.
+//
+// WHAT THIS IS NOT. It is NOT a measurement of the arcade's own seeker. I
+// tried three operators for that and all three failed (judging/R10/
+// lane-feel.md §1.4): tracking the red rocket plumes gave 0.62-0.80 fracW/s
+// peaks across nine tracks, and CROPPING IT AND LOOKING showed the tracked
+// objects were EXPANDING FIREBALLS whose centroids wander -- three of the
+// nine had zero net displacement over 0.6-0.85 s. Withdrawn. Reading flight
+// times off the HIT counter failed because the counter's digit cell shares
+// pixels with the sight reticle's blinking dot. Launch-to-detonation
+// geometry failed because the arcade pilot holds the trigger, so a
+// detonation cannot be attributed to the missile rather than the gun.
+//
+// SO IT IS SOLVED FROM TWO REQUIREMENTS, and the first one is the reason the
+// first value I tried (0.35, adopted from the arcade SIGHT's measured sweep
+// rate) was WRONG AND MEASURED SO before it shipped: at 0.35 a pilot flying
+// the sight directly onto the target hit 35.0 % of crossings with a MEDIAN
+// LATERAL MISS OF 0.135 -- five times the fuse radius. That is not a weapon
+// that can be out-turned, it is a weapon that cannot turn.
+//
+//   1. THE SEEKER MUST BE ABLE TO UNDO ITS OWN LAUNCH SPLAY. A missile
+//      leaves the pylon at SPLAY_NDC_X_PER_S = 1.1 NDC/s outward and
+//      SPLAY_NDC_Y_PER_S = -0.7 NDC/s down (both below, both there for
+//      measured reasons), which in these units is
+//          hypot(1.1 * 0.5, 0.7 * 0.35) = 0.602 fracW/s
+//      and it does not even start steering until HOMING_DELAY_S = 0.3 s. A
+//      seeker with less authority than its own launch transient has its
+//      outcome decided by the splay rather than by the target, which is the
+//      same defect as the old no-limit interpolation wearing the opposite
+//      sign.
+//   2. IT MUST CLOSE THE LOCK CONE WITHIN THE MEASURED FLIGHT TIME. The only
+//      ARCADE-ANCHORED figure for the cone is GAME_SPEC §3's ADOPTED 80 px of
+//      960 = 0.083 fracW, and the measured launch->impact floor is 0.5 s:
+//          0.083 / 0.5 = 0.166 fracW/s
+//
+//      0.602 + 0.166 = 0.768  ->  0.77
+//
+// Note which cone that is: the ARCADE's 8.3 %W, not lockSystem.js's shipped
+// 0.22, which that file's own comment records as tuning with no arcade
+// behind it. A missile locked at the edge of OUR wider cone is therefore
+// marginal by construction -- it has to be flown onto the target rather than
+// merely designated -- and that is the intended direction.
+//
+// THE CONSEQUENCE IS MEASURED, NOT ASSUMED: §1.3 of the lane report gives
+// the hit rate this produces for an aiming pilot and for a blind one, and
+// the two are no longer the same number.
+const MAX_TURN_FRAC_PER_S = 0.77;
+
+// A missile that has crossed its target's depth and missed goes ballistic
+// (it cannot steer at something now behind it) and recedes for this long
+// before it is retired. Long enough that the player SEES the shot sail past
+// -- the whole point of a weapon that can miss -- and short enough that a
+// wasted salvo does not leave six ribbons in the sky.
+const MISS_FLYOUT_S = 0.7;
+
 const HOMING_DELAY_S = 0.3; // ADOPTED: missiles run straight before homing
 const MAX_LIFE_S = 5.0; // ADOPTED
 // Speed profile. MEASURED-TO-SPEC rather than picked: GAME_SPEC.md §3 puts
@@ -297,6 +390,20 @@ export class Missiles {
     this.live = [];
     this.spritePool = [];
     this.trailPool = [];
+    this.t = 0;
+    // One row per RETIREMENT, drained by combat.js's __missileDrain. A miss
+    // has to be a NUMBER in a ledger and not an absence in a kill count:
+    // R9 measured "93.8 % of launches kill" by counting kills and launches
+    // separately, which cannot say whether the 6.2 % were defeated or just
+    // flew off the field. `lat` is the lateral miss distance at the depth
+    // crossing, so every outcome carries its own reason.
+    //
+    // CAPPED, because NOTHING DRAINS IT IN NORMAL PLAY: __missileDrain only
+    // exists under `?fixed=1`. An uncapped ledger is an unbounded array in a
+    // ten-minute session for the sake of a measurement hook. Same shape and
+    // the same reasoning as combat.js's `killLog` / `killsDropped`.
+    this.outcomes = [];
+    this.outcomesDropped = 0;
     // Set by the weapon manager; called with the enemy a missile reached.
     this.onImpact = null;
     // Stage palette for the trail/puffs/billow. Daylight until the game
@@ -339,6 +446,13 @@ export class Missiles {
       velX: side * SPLAY_NDC_X_PER_S,
       velY: SPLAY_NDC_Y_PER_S,
       puffTimer: 0,
+      // R10 seeker state. `targetLost` is set by the fuse when the missile
+      // crosses its target's depth outside HIT_RADIUS_FRAC -- the shot is
+      // spent and the round goes ballistic from that moment.
+      targetLost: false,
+      missAt: 0,
+      resolved: false,
+      lastTurnFrac: 0,
       prevNdcX: playerNdc.x + side * PYLON_NDC_X,
       prevNdcY: playerNdc.y + PYLON_NDC_Y,
       // Seeded from the splay velocity so the first puff of a trail is
@@ -422,9 +536,19 @@ export class Missiles {
 
   update(dt) {
     const pos = new THREE.Vector3();
+    this.t += dt;
     for (let i = this.live.length - 1; i >= 0; i--) {
       const m = this.live[i];
       m.age += dt;
+
+      // Position at the START of the tick, kept for the depth-crossing
+      // interpolation below. Without it the fuse would be evaluated at
+      // whatever point the missile happened to land on AFTER overshooting
+      // the crossing by up to v*dt = 0.77 depth units, which at a 0.026
+      // radius is a decision made on the wrong side of the target.
+      const x0 = m.ndcX;
+      const y0 = m.ndcY;
+      const d0 = m.depth;
 
       const v = Math.min(V_MAX, V0 + ACC * m.age);
       m.depth += v * dt;
@@ -437,7 +561,8 @@ export class Missiles {
       m.velX *= decay;
       m.velY *= decay;
 
-      const target = m.target && m.target.alive ? m.target : null;
+      const target = m.target && m.target.alive && !m.targetLost ? m.target : null;
+      m.lastTurnFrac = 0;
       if (target && m.age > HOMING_DELAY_S) {
         // Steer by the fraction of the REMAINING depth gap covered this
         // frame: the lateral error then closes exactly as the depth gap
@@ -446,8 +571,35 @@ export class Missiles {
         // arrives.
         const remain = Math.max(0.1, target.d - m.depth);
         const steer = Math.min(1, ((v * dt) / remain) * HOMING_GAIN);
-        m.ndcX += (target.ndc.x - m.ndcX) * steer;
-        m.ndcY += (target.ndc.y - m.ndcY) * steer;
+        let stepX = (target.ndc.x - m.ndcX) * steer;
+        let stepY = (target.ndc.y - m.ndcY) * steer;
+        // R10: AND THE STEP IS CAPPED. `steer` saturates at 1 whenever
+        // `remain <= 1.30` depth units, which at V_MAX is the final 0.028 s
+        // -- under two ticks -- during which the two lines above SET the
+        // missile's screen position equal to the target's. That is the
+        // "convergence the player sees in the last two frames is not flown,
+        // it is assigned" of feel-critique.md §1.1, and it is also why no
+        // manoeuvre could break the lock: an unbounded interpolation always
+        // arrives.
+        //
+        // The cap is on LATERAL SCREEN RATE in isotropic frame-width
+        // fractions, which is the unit the arcade measurement is in and the
+        // unit HIT_RADIUS_FRAC and LOCK_RADIUS_FRAC are in. A missile can now
+        // be out-turned: a target that moves laterally faster than
+        // MAX_TURN_FRAC_PER_S for long enough arrives at the crossing outside
+        // the fuse radius, and the shot is wasted.
+        const fx = stepX * 0.5;
+        const fy = stepY * FRAC_Y_PER_NDC;
+        const mag = Math.hypot(fx, fy);
+        const cap = MAX_TURN_FRAC_PER_S * dt;
+        if (mag > cap && mag > 0) {
+          const k = cap / mag;
+          stepX *= k;
+          stepY *= k;
+        }
+        m.lastTurnFrac = Math.min(mag, cap) / dt;
+        m.ndcX += stepX;
+        m.ndcY += stepY;
       }
 
       // Screen tangent of the path THIS tick, in isotropic width-fraction
@@ -513,11 +665,67 @@ export class Missiles {
         )
       );
 
-      const hit = target && m.depth >= target.d;
-      if (hit || m.age > MAX_LIFE_S || m.depth > MAX_DEPTH) {
+      // --- THE FUSE -------------------------------------------------------
+      // The depth crossing is now a PROXIMITY TEST at the crossing, not an
+      // unconditional kill on arrival. `d0 < target.d <= m.depth` is the
+      // crossing frame; `f` is where in this tick's depth step it happened,
+      // and the missile's screen position is interpolated to that instant.
+      // (The target's own screen position is taken at the tick's end, which
+      // is the only value available; the residual is one tick of its own
+      // lateral motion and is far below the radius for every pattern the
+      // spawner emits.)
+      let hit = false;
+      if (target && d0 < target.d && m.depth >= target.d) {
+        const span = m.depth - d0;
+        const f = span > 1e-6 ? (target.d - d0) / span : 1;
+        const cx = x0 + (m.ndcX - x0) * f;
+        const cy = y0 + (m.ndcY - y0) * f;
+        const lat = Math.hypot(
+          (target.ndc.x - cx) * 0.5,
+          (target.ndc.y - cy) * FRAC_Y_PER_NDC
+        );
+        hit = lat <= HIT_RADIUS_FRAC;
+        this._record({
+          t: Number(this.t.toFixed(3)),
+          age: Number(m.age.toFixed(4)),
+          hit,
+          lat: Number(lat.toFixed(5)),
+          tgtD: Number(target.d.toFixed(2)),
+          tgtX: Number(target.ndc.x.toFixed(4)),
+          tgtY: Number(target.ndc.y.toFixed(4)),
+        });
+        m.resolved = true;
+        if (!hit) {
+          // Past it. A seeker cannot steer at something behind it, so the
+          // round goes ballistic and recedes; the player watches the shot
+          // they wasted leave the screen.
+          m.targetLost = true;
+          m.missAt = m.age;
+        }
+      }
+      const flewOut = m.targetLost && m.age - m.missAt > MISS_FLYOUT_S;
+      if (hit || flewOut || m.age > MAX_LIFE_S || m.depth > MAX_DEPTH) {
+        if (!m.resolved) {
+          // Retired without ever reaching a crossing: the target died to
+          // something else, or flew off the field. Recorded as its own
+          // outcome so the ledger's rows sum to the launches.
+          m.resolved = true;
+          this._record({
+            t: Number(this.t.toFixed(3)),
+            age: Number(m.age.toFixed(4)),
+            hit: false,
+            lat: null,
+            reason: m.age > MAX_LIFE_S || m.depth > MAX_DEPTH ? 'expired' : 'notarget',
+          });
+        }
         this._retire(i, hit ? target : null);
       }
     }
+  }
+
+  _record(row) {
+    if (this.outcomes.length < 2048) this.outcomes.push(row);
+    else this.outcomesDropped += 1;
   }
 
   _retire(i, hitTarget) {

@@ -30,6 +30,68 @@ import { gunTunable } from './tunables.js';
 
 export const MAX_LOCKS = 6; // t100: ~6 brackets on screen at once
 const LOCK_INTERVAL_S = 0.10; // locks accumulate while the button is held
+
+// ---------------------------------------------------------------------------
+// R10 — ACQUISITION. A lock used to land on the FIRST TICK the button was
+// down (16.7 ms) and a locked target drew the byte-identical bracket to the
+// merely-nearest one, so the player got no confirmation that the button had
+// done anything (judging/R9/feel-critique.md §2). Two changes, and the second
+// is deliberately the smallest one the arcade leaves room for.
+//
+// 1. A LOCK IS NOW HELD FOR. `_nearestLockable` picks a CANDIDATE; the
+//    candidate has to stay the candidate for LOCK_ACQUIRE_S before it
+//    becomes a lock, and sweeping the sight onto a different target restarts
+//    the clock. That is the skill the salvo never priced.
+//
+// 2. THE BOX DOES NOT ANIMATE. I checked before building anything, because
+//    "the brackets fill" was the brief and an unchecked brief is how this
+//    project has retired three acceptance criteria. tools/out/feel-r10/
+//    brackets.py (selftest 5/5, including a two-different-sizes case and a
+//    null) over 420 CONSECUTIVE 60 Hz frames of arcade stage 1 gives a
+//    cleanly BIMODAL width histogram -- a mode at 14-16 px = 1.36-1.56 %W
+//    and a mode at 52-56 px = 5.06-5.45 %W, which are the published arcade
+//    SIGHT (1.563 %W) and the published arcade BRACKET (5.15 %W),
+//    reproduced by an operator validated on neither. And the longest single
+//    bracket TRACK, 19 detections over f93-f118, reads
+//        54 53 54 54 52 53 56 53 54 54 54 54 51 54 54 54 53 53 53
+//    -- flat. **The arcade's lock bracket appears at its final size and does
+//    not converge onto the target.** Do not reintroduce a shrinking box.
+//
+//    So the acquisition is shown in the one degree of freedom the arcade's
+//    own measurements leave open: the ARM LENGTH. The two published frames
+//    agree on box size to 0.06 %W and DISAGREE ON ARM LENGTH BY ROUGHLY 2x
+//    (t116: 5-9 px of 35 = 14-26 %; t100.75: 14-15 px of 53 = 27 %) -- see
+//    the bracket-geometry note below, which has said so since R4. An
+//    acquisition that walks the arm from short to full moves through exactly
+//    the range those two frames bracket, so it contradicts neither.
+//
+//    THE LOCKED LOOK IS BYTE-FOR-BYTE WHAT IT WAS: a completed lock, and a
+//    target with a missile in flight, both draw at ARM_FRAC_OF_BOX = 0.25.
+//    Only the two states that USED to be indistinguishable from it have
+//    changed, and they changed in the direction of looking weaker.
+//
+// LOCK_ACQUIRE_S IS NOT MEASURED AND SAYS SO. Footage cannot show it: the
+// arcade's acquisition time is the delay between a button press I cannot
+// observe and a bracket I can. It is derived instead from two things that
+// ARE arcade-anchored -- MAX_LOCKS = 6 (GAME_SPEC §3, t100: ~6 brackets at
+// once) and the arcade's own salvo cadence, which my night burst puts at a
+// ~6-missile salvo whose impacts span t187.20-t187.67 after a launch flame
+// at t186.72. 0.22 s per lock makes a full six-lock salvo cost 1.32 s of
+// held sweep, against the 2 s that R9's trace of the shipped build took to
+// accumulate THREE locks from a motionless stick. The salvo therefore gets
+// no slower; it gets earned.
+const LOCK_ACQUIRE_S = 0.22;
+// Corner arm length, as a fraction of the box side, for the state that is
+// not a completed lock. ARM_FRAC_OF_BOX (0.25, below) is the completed one
+// and is unchanged.
+//
+// 0.1515 is NOT rounded to: it is ARM_MIN_PX / BRACKET_BOX_PX = 2.5 / 16.5,
+// i.e. exactly this file's own legibility floor. Anything smaller clamps,
+// which would put a DEAD ZONE at the start of every acquisition where the
+// arms grow and nothing on screen changes -- the defect being fixed, in
+// miniature. So the weak state is the smallest legible bracket and the
+// acquisition ramp is monotone over its whole length: 2.5 px -> 4.125 px.
+const ARM_FRAC_TRACK = 2.5 / 16.5;
 // Radius around the SIGHT within which an enemy can be locked.
 //
 // THE COMMENT THAT USED TO BE HERE SAID 15 %W AND THE CONSTANT HAS BEEN 0.22
@@ -181,6 +243,10 @@ export class LockSystem {
     this.tracked = null; // Enemy | null
     this.locks = []; // Enemy[], the salvo set
     this.lockTimer = 0;
+    // R10: the lock being WORKED ON. { enemy, t } or null. `t` runs 0 ->
+    // LOCK_ACQUIRE_S; the bracket's arms grow with it and the lock only
+    // joins `locks` when it completes.
+    this.acquiring = null;
     this.brackets = [];
     this.pool = [];
     this._wasHolding = false;
@@ -223,20 +289,58 @@ export class LockSystem {
       if (!e.alive || e.retired || e.d < LOCK_BREAK_DEPTH) this.locks.splice(i, 1);
     }
 
+    // R10: ACQUISITION. The old body of this block took a lock on the first
+    // tick the button went down and one more every LOCK_INTERVAL_S; see the
+    // LOCK_ACQUIRE_S note at the top for why that is now a hold.
+    //
+    // LOCK_INTERVAL_S still exists and still binds, as the floor BETWEEN
+    // completed acquisitions, so a dense cluster cannot be swept up in
+    // consecutive ticks.
     if (holding) {
-      // First lock lands immediately on press, so a tap still fires one
-      // missile; subsequent locks accumulate on the timer.
-      if (!this._wasHolding) this.lockTimer = 0;
+      if (!this._wasHolding) {
+        this.lockTimer = 0;
+        this.acquiring = null;
+      }
       this.lockTimer -= dt;
       if (this.lockTimer <= 0 && this.locks.length < MAX_LOCKS) {
-        const next = this._nearestLockable(enemies, sight ?? playerNdc);
-        if (next) {
-          this.locks.push(next);
-          this.lockTimer = LOCK_INTERVAL_S;
-        } else {
-          this.lockTimer = 0.05; // retry soon; nothing in the cone yet
+        const aim = sight ?? playerNdc;
+        // THE ACQUISITION IS STICKY, and the first version was not. It
+        // re-picked `_nearestLockable` every tick and restarted the clock
+        // whenever the answer changed, so with a sweeping sight the
+        // candidate flickered between aircraft and the acquisition almost
+        // never finished: measured, 120 s of a sweeping pilot produced
+        // **2 launches** against the shipped build's 48, with the
+        // acquisition timer topping out at 0.2167 s against a 0.22 s
+        // requirement -- thirteen ticks, every time, one short.
+        //
+        // Sticking to the enemy already being worked on for as long as it
+        // stays in the cone is also the right MODEL: a seeker that re-aims
+        // at whatever is momentarily nearest is not acquiring anything. The
+        // skill is still priced -- sweeping OFF the target still costs the
+        // progress -- it is just no longer charged for traffic moving past.
+        if (this.acquiring && !this._lockable(this.acquiring.enemy, aim)) this.acquiring = null;
+        if (!this.acquiring) {
+          const next = this._nearestLockable(enemies, aim);
+          if (next) this.acquiring = { enemy: next, t: 0 };
+        }
+        if (this.acquiring) {
+          this.acquiring.t += dt;
+          if (this.acquiring.t >= LOCK_ACQUIRE_S) {
+            this.locks.push(this.acquiring.enemy);
+            this.acquiring = null;
+            this.lockTimer = LOCK_INTERVAL_S;
+          }
         }
       }
+    } else {
+      this.acquiring = null;
+    }
+    // A candidate that died, retired or closed inside the break depth during
+    // its own acquisition is dropped here rather than completing onto a
+    // corpse.
+    if (this.acquiring) {
+      const e = this.acquiring.enemy;
+      if (!e.alive || e.retired || e.d < LOCK_BREAK_DEPTH) this.acquiring = null;
     }
     this._wasHolding = holding;
 
@@ -289,17 +393,24 @@ export class LockSystem {
     }
   }
 
+  // One enemy's admissibility, factored out of _nearestLockable so the
+  // sticky acquisition above asks exactly the same question of the target it
+  // is already working on. Two copies of this test drifting apart is how
+  // LOCK_RADIUS_FRAC came to have three values in the tree at once (R7 gap 5).
+  _lockable(e, sightNdc) {
+    if (!e || !e.alive || e.retired) return false;
+    if (e.d < LOCK_DEPTH_MIN || e.d > LOCK_DEPTH_MAX) return false;
+    const dx = (e.ndc.x - sightNdc.x) * 0.5;
+    const dy = (e.ndc.y - sightNdc.y) * 0.5 * (224 / 320);
+    return dx * dx + dy * dy <= this.radius * this.radius;
+  }
+
   _nearestLockable(enemies, sightNdc) {
-    const aspectY = 224 / 320;
     let best = null;
     let bestD = Infinity;
     for (const e of enemies) {
-      if (!e.alive) continue;
       if (this.locks.includes(e)) continue;
-      if (e.d < LOCK_DEPTH_MIN || e.d > LOCK_DEPTH_MAX) continue;
-      const dx = (e.ndc.x - sightNdc.x) * 0.5;
-      const dy = (e.ndc.y - sightNdc.y) * 0.5 * aspectY;
-      if (dx * dx + dy * dy > this.radius * this.radius) continue;
+      if (!this._lockable(e, sightNdc)) continue;
       if (e.d < bestD) {
         bestD = e.d;
         best = e;
@@ -318,10 +429,32 @@ export class LockSystem {
       }
       return;
     }
-    if (this.tracked && this.tracked.alive) wanted.push(this.tracked);
-    for (const e of this.locks) if (!wanted.includes(e)) wanted.push(e);
+    // R10: `wanted` carries a STYLE now, not just an enemy. Three states,
+    // all at the arcade's measured 5.15 %W box (BRACKET_BOX_PX) -- only the
+    // CORNER ARM length separates them. Strongest state wins, so an enemy
+    // that is both tracked and locked draws as locked.
+    //
+    //   tracked only   arms 0.11 of the box   four small ticks, costs nothing
+    //   acquiring      arms 0.11 -> 0.25      grows while the button is held
+    //   locked / away  arms 0.25              UNCHANGED -- the published look
+    //
+    // Before this the three drew ONE call with no style argument, so the
+    // bracket the player got for free was pixel-identical to the one a
+    // committed missile earned (feel-critique.md §2.2).
+    const put = (e, armFrac) => {
+      if (!e || !e.alive) return;
+      const prev = wanted.find((w) => w.e === e);
+      if (prev) prev.armFrac = Math.max(prev.armFrac, armFrac);
+      else wanted.push({ e, armFrac });
+    };
+    put(this.tracked, ARM_FRAC_TRACK);
+    if (this.acquiring) {
+      const q = Math.min(1, this.acquiring.t / LOCK_ACQUIRE_S);
+      put(this.acquiring.enemy, ARM_FRAC_TRACK + (ARM_FRAC_OF_BOX - ARM_FRAC_TRACK) * q);
+    }
+    for (const e of this.locks) put(e, ARM_FRAC_OF_BOX);
     for (const e of this.activeTargets ?? []) {
-      if (e && e.alive && !e.retired && !wanted.includes(e)) wanted.push(e);
+      if (e && !e.retired) put(e, ARM_FRAC_OF_BOX);
     }
 
     while (this.brackets.length < wanted.length) {
@@ -334,8 +467,8 @@ export class LockSystem {
     }
 
     for (let i = 0; i < wanted.length; i++) {
-      const e = wanted[i];
-      this._placeCorners(this.brackets[i], e.ndc.x, e.ndc.y, e.d, BRACKET_BOX_PX);
+      const { e, armFrac } = wanted[i];
+      this._placeCorners(this.brackets[i], e.ndc.x, e.ndc.y, e.d, BRACKET_BOX_PX, { armFrac });
       for (const c of this.brackets[i]) c.visible = true;
     }
   }
@@ -464,8 +597,11 @@ export class LockSystem {
   //     at this size is 1.6 px; the arcade's are 2.
   _placeCorners(bars, ndcX, ndcY, depth, boxPx, opts = {}) {
     const strokePx = opts.strokePx ?? STROKE_PX;
+    // `armFrac` (R10) replaces ARM_FRAC_OF_BOX for one call. The MIN/MAX
+    // bounds still apply and still bind at the bottom: ARM_MIN_PX = 2.5 on a
+    // 16.5 px box IS ARM_FRAC_TRACK, by construction -- see that constant.
     const arm = opts.armPx ?? Math.min(
-      Math.max(ARM_FRAC_OF_BOX * boxPx, ARM_MIN_PX),
+      Math.max((opts.armFrac ?? ARM_FRAC_OF_BOX) * boxPx, ARM_MIN_PX),
       ARM_MAX_FRAC_OF_BOX * boxPx
     );
     // `halfPx` is where a bar's CENTRE goes along its own long axis; `halfS`
@@ -513,6 +649,7 @@ export class LockSystem {
   clear() {
     this.tracked = null;
     this.locks.length = 0;
+    this.acquiring = null;
     for (const set of this.brackets) {
       for (const c of set) c.visible = false;
       this.pool.push(set);

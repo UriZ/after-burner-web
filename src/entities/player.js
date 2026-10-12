@@ -118,7 +118,73 @@ const ENVELOPE_X = 2.6;
 // through __setStick — the two agree to 0.000000 NDC.
 export const ENVELOPE_Y_UP = 1.55;
 export const ENVELOPE_Y_DOWN = 1.1;
-const FOLLOW_RATE = 6.0; // 1/s exponential approach toward the stick target
+
+// ---------------------------------------------------------------------------
+// THE FLIGHT MODEL — R10. THE ENVELOPES ABOVE ARE UNCHANGED AND STILL MEAN
+// EXACTLY WHAT THEY MEANT: they are now CLAMPS rather than the targets of an
+// exponential chase, and the settled position at full stick is identical to
+// five decimals, so every rail measurement in the R7/R8 record still holds.
+//
+// WHAT CHANGED AND WHY. Until this round:
+//
+//     const t = 1 - Math.exp(-FOLLOW_RATE * dt);   // FOLLOW_RATE = 6.0
+//     this.x += (targetX - this.x) * t;
+//
+// There was no velocity state in the aircraft at all. Position chased the
+// stick with a 0.167 s time constant, which makes the per-tick step a
+// geometric decay at exp(-6/60) = 0.8948 -- the jet is at its FASTEST on the
+// first tick of every input and decelerating from then on, it cannot coast,
+// and it cannot overshoot in any direction. R9 measured all of that to five
+// decimal places (feel-critique.md §3): peak per-tick on tick 1 for all four
+// step inputs, overshoot +0.00000 on all four.
+//
+// THE ARCADE'S OWN AIM POINT DOES NOT DO THAT, and this is the first
+// measurement of it in the project. Tracking AB2's 1.563 %W sight glyph
+// across CONSECUTIVE 60 Hz frames (judging/R10/lane-feel.md §3; the tracker
+// is tools/out/feel-r10/brackets.py, whose two size modes independently
+// reproduce the two published arcade HUD sizes) gives, in burstA f107-f118:
+//
+//     x = 548 554 560 567 573 580 586 592 599 605 ... 618   (px of 1028)
+//     per-frame step = 6.2 px, DEAD CONSTANT over twelve frames
+//     then f120-f122: 608 602 596 -- reversal at 6.0 px/frame, same magnitude
+//
+// A constant rate while held, reversing at full magnitude, is the signature
+// of a RATE control -- the stick commands a speed, not a position. An
+// exponential position chase cannot produce a flat velocity plateau at any
+// gain. Those are the two models and the arcade's series picks one.
+//
+// So: the stick commands a VELOCITY (RATE_*), the velocity lags the command
+// with its own time constant (ACCEL_RATE -- this is the mass), position
+// integrates it, and the envelope clamps. Three consequences the old model
+// could not have, all of them the thing the owner asked for:
+//
+//   * an ACCELERATION PHASE. Peak per-tick displacement is no longer on tick
+//     1; the jet builds up to its travelling speed.
+//   * a CONSTANT-RATE PLATEAU in the middle of a move, which is what the
+//     arcade's series shows.
+//   * MOMENTUM. Release the stick and the jet COASTS -- the velocity decays
+//     instead of the position stopping. There is now something to anticipate.
+//
+// RATE_X / RATE_Y ARE NOT TAKEN FROM THE ARCADE NUMBER ABOVE, DELIBERATELY,
+// and the lane report says so in §3.3. 6.2 px/frame is 0.36 fracW/s and our
+// full-stick rate below is 2.9x that -- but that arcade figure is ONE pilot,
+// ONE 0.3 s window, at an unknown stick deflection, so it is a LOWER BOUND on
+// the arcade's maximum and not the maximum. Tuning the single most-felt
+// constant in the game to a lower bound from n = 1 is the error this project
+// has already paid for four times. The rates below are solved to preserve the
+// committed build's 0-90 % traverse time (0.384 s analytic / 0.400 s measured)
+// so that nothing about reach or responsiveness regresses while the SHAPE is
+// corrected; closing the 2.9x needs a sample of arcade sight tracks and is
+// named as an open gap rather than guessed at.
+//
+// Solved, not picked: with velocity saturating at time constant 1/ACCEL_RATE,
+// position reaches 0.9*E at about 0.9*E/RATE + 1/ACCEL_RATE. At
+// ACCEL_RATE = 12 that is 0.083 s of ramp, leaving 0.30 s for 0.9*E, i.e.
+// RATE = 3.0*E per second.
+const ACCEL_RATE = 12.0; // 1/s; the velocity's own lag -- this is the mass
+const RATE_X = 3.0 * ENVELOPE_X; // world units/s at full lateral stick
+const RATE_Y_UP = 3.0 * ENVELOPE_Y_UP;
+const RATE_Y_DOWN = 3.0 * ENVELOPE_Y_DOWN;
 
 // Jet-sprite bank, R5 feel fix (feel-critique.md §3/§10 rank 3). MEASURED
 // arcade behaviour: the drawn jet snaps between a quantised ladder of SIX
@@ -219,8 +285,21 @@ export class Player {
     this.sprite = createJetSprite(JET_WORLD_WIDTH);
     this.baseY = baseY;
     this.baseZ = baseZ;
-    this.x = 0;
-    this.y = 0;
+    // R10: THE AIRCRAFT HAS A VELOCITY NOW (see the FLIGHT MODEL note above
+    // ENVELOPE_X), and that makes a plain `x` field unsafe. `x`/`y` are
+    // ACCESSORS over `_x`/`_y` whose setters zero the matching velocity,
+    // because two files OUTSIDE this lane write the position directly to
+    // re-centre the jet -- game/flow/launchSequence.js:215 and
+    // game/flow/deathSequence.js:406 -- and with momentum in the model a
+    // re-centre that leaves `vx` alone hands the new life the old life's
+    // velocity and slides the jet off the moment control returns. Doing it
+    // here rather than asking those lanes to add two lines keeps the
+    // invariant with the state it protects, and `player.x = 0` keeps meaning
+    // exactly what its callers think it means.
+    this._x = 0;
+    this._y = 0;
+    this.vx = 0; // world units/s, integrated into _x each tick
+    this.vy = 0;
     this.sprite.position.set(0, baseY, baseZ);
 
     this._bankDeg = 0;
@@ -445,15 +524,37 @@ export class Player {
   // on-screen) position identical to the worldRoll=0 case. That
   // conjugation reduces to "rotate around _rollAxisWorld by worldRoll" —
   // see the axis derivation above.
+  // See the constructor: an external `player.x = 0` must also stop the jet.
+  get x() { return this._x; }
+  set x(v) { this._x = v; this.vx = 0; }
+  get y() { return this._y; }
+  set y(v) { this._y = v; this.vy = 0; }
+
   update(dt, input, worldRoll = 0) {
-    const targetX = input.x * ENVELOPE_X;
-    // Piecewise and continuous at input.y = 0 (both branches give 0), so the
-    // only thing the asymmetry costs is a gain step across neutral — 1.41x in
-    // world units, 1.33x on screen once the perspective term is folded in.
-    const targetY = input.y * (input.y >= 0 ? ENVELOPE_Y_UP : ENVELOPE_Y_DOWN);
-    const t = 1 - Math.exp(-FOLLOW_RATE * dt);
-    this.x += (targetX - this.x) * t;
-    this.y += (targetY - this.y) * t;
+    // Commanded RATE, not commanded position. Piecewise and continuous at
+    // input.y = 0 (both branches give 0), so the asymmetry costs only a gain
+    // step across neutral, exactly as the envelope asymmetry did.
+    const cmdVX = input.x * RATE_X;
+    const cmdVY = input.y * (input.y >= 0 ? RATE_Y_UP : RATE_Y_DOWN);
+    const k = 1 - Math.exp(-ACCEL_RATE * dt);
+    this.vx += (cmdVX - this.vx) * k;
+    this.vy += (cmdVY - this.vy) * k;
+    // `_x`/`_y`, not `x`/`y`: the public setters exist to KILL momentum on an
+    // external re-centre, and integrating through them would zero the
+    // velocity every tick -- which is the old first-order lag with extra
+    // steps, and would pass every rail test while silently removing the
+    // whole change.
+    this._x += this.vx * dt;
+    this._y += this.vy * dt;
+    // The envelopes are the RAILS. Clamping the position and killing only the
+    // OUTWARD component of the velocity is what keeps the settled full-stick
+    // position identical to the committed build's -- and keeps the jet from
+    // storing up momentum against a rail it is already resting on, which
+    // would make the first tick of the reverse input do nothing.
+    if (this._x > ENVELOPE_X) { this._x = ENVELOPE_X; if (this.vx > 0) this.vx = 0; }
+    if (this._x < -ENVELOPE_X) { this._x = -ENVELOPE_X; if (this.vx < 0) this.vx = 0; }
+    if (this._y > ENVELOPE_Y_UP) { this._y = ENVELOPE_Y_UP; if (this.vy > 0) this.vy = 0; }
+    if (this._y < -ENVELOPE_Y_DOWN) { this._y = -ENVELOPE_Y_DOWN; if (this.vy < 0) this.vy = 0; }
 
     const offset = new THREE.Vector3(this.x, this.baseY + this.y - CAMERA_HEIGHT, this.baseZ);
     offset.applyAxisAngle(_rollAxisWorld, worldRoll);

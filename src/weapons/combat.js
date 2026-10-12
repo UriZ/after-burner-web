@@ -482,6 +482,77 @@ export class Combat {
           sets,
         };
       };
+      // R10: THE LOCK, per tick, including the state that did not exist
+      // before this round -- the acquisition in progress. `armFrac` is read
+      // off the live bracket sprites' geometry rather than recomputed, so
+      // "the bracket looks different while acquiring" is a READ and not a
+      // claim: `arm` is each set's drawn corner-arm length in native px.
+      window.__lockState = () => ({
+        t: this.t ?? 0,
+        locks: this.locks.locks.length,
+        acquiring: this.locks.acquiring
+          ? Number(this.locks.acquiring.t.toFixed(4))
+          : null,
+        tracked: !!this.locks.tracked,
+        inFlight: this.missiles.live.length,
+        stock: this.missileStock,
+        hold: !!this._lockHold,
+        // One entry per drawn bracket: its box span and its arm length, both
+        // in native px of 320x224, measured from the sprite scales the
+        // renderer is about to use.
+        drawn: this.locks.brackets
+          .filter((set) => set[0].visible)
+          .map((set) => {
+            const d = set[0].position.distanceTo(this.space.camera.position);
+            const px = this.space.worldWidthFor(1 / 320, d) || 1;
+            return {
+              arm: Number((Math.max(set[0].scale.x, set[0].scale.y) / px).toFixed(2)),
+            };
+          }),
+      });
+      // R10: EVERY LIVE MISSILE'S TRAJECTORY, per tick. The missile's
+      // behaviour is a shape over time and every statistic this project has
+      // taken of it was an aggregate (93.8 % of launches kill) that cannot
+      // tell a seeker from a timer. Touches no RNG, allocates a small array.
+      //
+      // `lat` is the quantity the R9 critique found missing from the hit
+      // test entirely: the missile's screen distance from its target, in
+      // ISOTROPIC frame-width fractions (x in half-NDC, y through the
+      // 224/320 aspect) -- the same unit LOCK_RADIUS_FRAC and the new
+      // HIT_RADIUS_FRAC are in, so a trace and a constant are comparable
+      // without a conversion step in between.
+      window.__missiles = () => {
+        const aspectY = 224 / 320;
+        return this.missiles.live.map((m) => {
+          const t = m.target;
+          const lat =
+            t && t.alive
+              ? Math.hypot(
+                  (t.ndc.x - m.ndcX) * 0.5,
+                  (t.ndc.y - m.ndcY) * 0.5 * aspectY
+                )
+              : null;
+          return {
+            age: Number(m.age.toFixed(4)),
+            depth: Number(m.depth.toFixed(3)),
+            ndcX: Number(m.ndcX.toFixed(5)),
+            ndcY: Number(m.ndcY.toFixed(5)),
+            turn: Number((m.lastTurnFrac ?? 0).toFixed(6)),
+            lat: lat === null ? null : Number(lat.toFixed(5)),
+            tgt: t && t.alive ? { d: Number(t.d.toFixed(3)), x: t.ndc.x, y: t.ndc.y } : null,
+            dead: !!m.targetLost,
+          };
+        });
+      };
+      // R10 missile outcome ledger, drained like __killDrain and for the same
+      // reason. One row per RETIREMENT, with the lateral miss distance at the
+      // depth crossing -- so "it missed" is a number and not an absence.
+      window.__missileDrain = () => {
+        const out = this.missiles.outcomes;
+        this.missiles.outcomes = [];
+        return out;
+      };
+      window.__missileDropped = () => this.missiles.outcomesDropped;
       // R8 kill ledger, drained. Returns every kill since the last call and
       // empties the buffer; touches no RNG. See the constructor for why this
       // is a drain and not a ring.
