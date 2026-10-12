@@ -643,13 +643,40 @@ spread.
   > narrower band. REFERENCE ledger row 29 already made this class binding; the citation format
   > had no field to record the rate in until R10 added **field 6**.
   >
-  > **THE ARCADE'S MISSILE HAS NEVER BEEN MEASURED BY ANYONE AT ANY RATE, AND THE BOUND IS
-  > KNOWN.** At 60 Hz every arcade *kill* dates to ±1/60 s, but a kill cannot be attributed to a
-  > launch: the player's missiles fly away from the camera and are lost in the launch billow
-  > within a few frames, and the billow is indistinguishable from the previous kill's smoke at
-  > 686×480 or 1028×720 (R9 judge §2.7). **Acquisition item, highest on the board: a 60 fps
-  > decode following SINGLE arcade missiles from launch flare to detonation — turn rate, flight
-  > time, trail length. Until it exists, do not tune the missile.**
+  > **R10: HALF OF THIS IS NOW SOLVED. LAUNCH IS DATABLE TO ONE FRAME AT 60 Hz; IMPACT IS NOT.**
+  > The feel lane dates launches off the **arcade's own missile-stock counter** — red components
+  > `R>130 ∧ G<95 ∧ B<95`, area ≥ 4, inside `y[668:686] x[780:915]` of 1028×720 (the small-icon
+  > row; the tall icons' red bands at `y[645:668]` are counted separately), a launch being the
+  > frame the small-icon count decrements, median-filtered against 1–2 frame excursions from
+  > explosions passing behind the HUD. **Hand-validated on four frames before use — f0001 8,
+  > f0480 5, f0720 3, f0840 1; the detector returns 8/5/3/1** — and monotone-decreasing over 1080
+  > frames with a visible restock. Burst N result, 60 Hz: launches at **t = 176.00, 177.33,
+  > 177.67, 179.52, 183.98, 184.82, 186.77, 189.27**, restock at 189.80; intervals **0.33–4.5 s**.
+  >
+  > **IMPACT CANNOT BE DATED, AND THREE OPERATORS WERE BUILT AND WITHDRAWN TRYING.** (i) Tracking
+  > the red plumes across the t186.77 salvo gave a tidy 0.62–0.80 fracW/s across nine tracks —
+  > **cropped and looked at, the tracked objects are EXPANDING FIREBALLS; three of the nine have
+  > zero net displacement while reporting 4–5 px/frame.** (ii) Flight times off the HIT counter —
+  > the HIT digit cell shares pixels with the attitude indicator's **blinking dot on a 2-frame
+  > cycle**, so the field hash changes on ~40 % of frames with the counter unchanged. (iii)
+  > Launch-to-detonation geometry — **the arcade pilot holds the trigger**, so no detonation is
+  > attributable to a weapon.
+  >
+  > **CANDIDATE BAND, with its assumption named and NOT tagged MEASURED.** For the six-missile
+  > salvo whose stock decrement is at **t = 186.767**: launch flame visible at **+0.05 s**,
+  > missiles distinguishable from the plume at **+0.15–0.28 s**, first fireballs on **bracketed**
+  > targets at **+0.43 s**, still arriving at **+0.90 s**. *If* at least one of those fireballs is
+  > from this salvo — six missiles, six brackets, fireballs landing on bracketed targets, so
+  > likely but **UNPROVEN** — the arcade's launch→impact falls in **0.43–0.90 s**.
+  > **`missiles.js` must not call its speed profile "MEASURED-TO-SPEC" against this band either.**
+  >
+  > **HOW TO ACTUALLY CLOSE IT, for whoever takes it**: find a window with **no gun fire** (or no
+  > vulcan tracer stream), so a fireball has exactly one possible cause. 25 s of footage did not
+  > contain one. **This needs a targeted search, not another operator** — three have now failed.
+  >
+  > **Ours, for contrast, is exact (telemetry, 60 Hz, 19 crossings): min 0.550 s, median 0.917 s,
+  > max 2.450 s.** The **2.45 s tail is a defect of ours, not a datum** — an `overtake` target
+  > receding faster than the seeker closes, ended only by `MAX_LIFE_S = 5.0`.
   >
   > **And `HOMING_GAIN = 1.7` in `src/weapons/missiles.js:136` — the constant that decides how
   > hard a heat-seeker turns, which the owner has named twice — is ASSUMED, not MEASURED.** It
@@ -658,15 +685,63 @@ spread.
   > **Tag it ASSUMED in the source rather than leaving it bare** — a declared exception is a
   > criterion nobody has to argue with (REFERENCE's R9 process rule).
   >
-  > *Source state: still bare on the R10 working tree with the feel lane live in this file. If
-  > that lane produces an arcade turn rate, this paragraph is superseded by its measurement and
-  > the band above is re-derived from it — do not keep both.*
+  > **R10 RESOLUTION: the feel lane produced NO arcade turn rate — three operators built, three
+  > withdrawn (above) — so `HOMING_GAIN` stays ASSUMED. But its BLAST RADIUS SHRANK even though
+  > its provenance did not improve, and that is worth recording as the useful kind of partial
+  > progress.** The steering step is now clamped by **`MAX_TURN_FRAC_PER_S = 0.77`**, so
+  > `HOMING_GAIN` only binds where the demanded lateral step is already below
+  > `0.77 × dt = 0.01283 fracW/tick`. **Above that the gain's value does not reach the simulation
+  > at all.** An unanchored constant that governs less is strictly better than one that governs
+  > more; it is not the same as an anchored one.
+  >
+  > **Three constants, three honest tags — copy this pattern rather than leaving bare numbers:**
+  >
+  > | constant | tag | basis |
+  > |---|---|---|
+  > | `HOMING_GAIN = 1.7` | **ASSUMED** | none. Now largely subordinate to the clamp |
+  > | `MAX_TURN_FRAC_PER_S = 0.77` | **DERIVED / ASSUMED** | `0.602 + 0.166` — our own launch splay `hypot(1.1×0.5, 0.7×0.35)`, which the seeker must be able to cancel, plus §3's arcade-anchored **8.3 %W** cone over the 0.5 s flight floor. **Half of this is our own number: see REFERENCE ledger row 56 on hybrid provenance — label each input, not the result** |
+  > | `HIT_RADIUS_FRAC = 0.026` | **ADOPTED** | half the arcade's 5.15 %W bracket, which R10's whole-sequence detector independently reproduces at 5.246 %W. **Footage cannot show a fuse radius**; this is a convention, not a measurement |
+  >
+  > **And one measured negative worth as much as a positive**: the first `MAX_TURN_FRAC_PER_S`
+  > tried was **0.35**, adopted from the arcade's own measured sight rate — and it was **wrong,
+  > measured so before shipping**: an aiming pilot hit only **35.0 %** of crossings with a median
+  > lateral miss of **0.135, five times the fuse radius.** *An arcade-measured number imported
+  > into the wrong system is still an unanchored constant.*
+  >
+  > **"TURN RATE" IS DEFINED HERE AS A SCREEN-SPACE STEP, NOT A HEADING RATE, and the reason is
+  > conditioning**: these missiles fly almost along the view axis, where world heading is
+  > ill-conditioned — the same degeneracy `missiles.js` already documents for its ribbon
+  > cross-product. The operator is
+  > `turn = hypot(dNdcX × 0.5, dNdcY × 0.5 × 224/320) / dt` in **fracW/s**, which is also the unit
+  > `LOCK_RADIUS_FRAC` and `HIT_RADIUS_FRAC` are in, so a trace and a constant compare with no
+  > conversion step between them. **If an arcade turn rate is ever measured, it must be reduced
+  > the same way or it is ledger row 27 again.**
   >
   > **The "~6 lock boxes at once" count is from t100 — the SAME retired frame** — and it is
   > already ledger row 41 together with the 22 %W lock radius it justifies, against the only
   > arcade anchor for that radius, **8.3 %W**. Ours acquires one lock per 0.117 s against
   > `LOCK_INTERVAL_S = 0.10` and peaks at **3 locks / 4 bracket sets** (R9 §2.6, 60 Hz,
   > `bd73b52`). **Do not close the 3-vs-6 gap by citing t100.**
+  >
+  > **R10 RESTATES THE CLAUSE AND LEAVES THE 6 OPEN.** On a clean whole-sequence sample (420
+  > consecutive frames, 60 Hz, stage 1, mostly non-salvo) the arcade shows **max 3 simultaneous
+  > brackets and ≥2 in only 3.6 % of frames** — so the **AMBIENT** count is ≤3 and usually ≤1.
+  > The recall-rich night sample reaches 6 but is **precision-poor and is an upper bound only**.
+  > **Defensible form: "≤3 ambient, more during a salvo", 6 OPEN.** See REFERENCE,
+  > "Lock-on bracket geometry", for the operator and both samples — **and for the new clause the
+  > same pass established: the arcade's bracket DOES NOT ANIMATE IN SIZE** (flat within ±2 px
+  > across 26 consecutive frames; it appears at its final size). **Do not build a filling or
+  > shrinking lock box.**
+  >
+  > **`LOCK_ACQUIRE_S = 0.22` and `LOCK_INTERVAL_S = 0.10` are ASSUMED and NOT MEASURABLE FROM
+  > FOOTAGE** — acquisition time is the gap between a button press that cannot be observed and a
+  > bracket that can. R9's "one lock per 7 ticks" was a measurement of **our** build against
+  > **our** constant, with no arcade column; that remains true.
+  >
+  > **COUPLING WARNING, and it binds anyone tempted to "fix" row 41's 0.22 alone**: our sight
+  > covers **71.5 native px in 13 ticks** at full sweep, which is **one whole 0.22 cone radius in
+  > exactly one `LOCK_ACQUIRE_S`.** The cone width, the sight speed and the acquisition time are
+  > **one coupled system — do not move any of the three alone.**
 - **Lock-on display, three distinct elements (round-4 state map, MEASURED on the
   t84–118 reticle strip and the t115–118 engagement at 0.25 s)**:
   1. **The small dashed SIGHT square** leading the player's nose — the aim point,

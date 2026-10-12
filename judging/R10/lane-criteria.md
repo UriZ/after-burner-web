@@ -484,3 +484,651 @@ is intersected with `alpha > 0` **before** the largest-component step — worth 
    for exactly those statistics.** Pairs that predate a criterion are the ones worth saving;
    `tools/known_quality_pair.py`'s `PAIRS` table records which is which, and the "settled by" field
    is the one that makes a row evidence rather than an assertion.
+
+---
+
+# ADDENDUM — the effects lane applied my own rule to my own section, and it refuted two of my figures
+
+Written after `7265ba3`, on the effects lane's delivery (`judging/R10/lane-envelope.md`).
+**Ledger rows 51–56. Two of the three figures I published in the TIME-ENVELOPE box are corrected,
+and one of the corrections is my own defect, not an inherited one.**
+
+This is the round's sharpest process result and it is worth stating plainly: **the known-quality
+pair rule was published in §1 and used against §2 within a day, by a different lane, and the thing
+it killed was mine.** That is the loop working at the fastest it has ever worked here.
+
+## A1. `w60`/`n60` fails a known-quality triple — REFUTED, and this one is clean
+
+Matched harness, matched depth, matched seed, one constant set changed at a time, quality settled
+**by looking at the crops**. The committed `plateau` arm reads **`w60` 6 / `n60` 8** against the
+shipped flash's **8/8** — *the plateau scores better.* Mechanism: both are normalised by peak and
+our sprite **boils**, so the 60 %-of-peak run is short on a mass that sits on screen for two
+thirds of a second.
+
+**This refutation is the STRONG kind and I want the reason on the record**: `w60` was
+**pre-specified** — R9 named it as the explosion's headline figure before the triple existed, so
+the triple cannot have been chosen to suit it. **Retired as gate candidates, demoted to reported
+diagnostics.** The arcade's 0.067 s survives as a licensed arcade *fact*; what it may not be is a
+number a lane is scored against. Row 53.
+
+Also under-specified, which the effects lane raised loudly and correctly: R9's phrase never said
+whether it meant the **contiguous** run or the **total**. They coincide on the arcade (4 and 4)
+and do not on our build (**6 vs 16**). **My "publish the contiguous run" addition was half the
+repair; the answer is publish both, and neither alone.**
+
+## A2. My 6.03 % is the wrong operator, and the exact reproduction is what hid it
+
+**I reproduced R9's arcade peak to the digit and treated that as proof the operator was pinned.
+What I actually confirmed is that I was running R9's operator** — which has no largest-component
+step. Decomposed on my own 300 frames:
+
+> raw mask **6.028 %** → persistence-excluded **5.969 %** → **largest component 4.317 %**
+
+against the effects lane's independent **4.32** on a different decode. The exclusion removes 442 px
+(**0.060 %** of frame); **the entire difference is the component step** — at its peak the arcade
+frame is **28 % other fire-coloured material not connected to the ball**. `w60` (4 vs 4) and
+`r100` (0.157 vs 0.157) reproduce exactly.
+
+**Binding, and it is now a corollary on citation field 3: an exact reproduction proves you ran
+THEIR operator. It says nothing about whether it is the licensed one. Reproducibility and
+correctness are orthogonal, and this project's instinct is to read the first as evidence of the
+second.** Rows 14/22/27 again — committed by the lane that maintains the ledger, in a section
+written the same day, *while citing the reproduction as evidence the operator was settled.* Row 51.
+
+## A3. "Ours peaks 40 % smaller" — WITHDRAWN, class 2, mine
+
+The arcade's own peak spans **0.83–6.03 % across five events in one stage — a factor of 7.3** —
+because peak scales with the killed target's **depth**. **I compared ours against the maximum of
+five**, in the same box as a rule requiring every figure to state its population. **PEAK IS OPEN:
+no threshold, no ratio.** The depth-matched ratio that would remove the confound was attempted by
+the effects lane and **failed on the arcade side** — stage-1 kills detonate at or behind the
+player, where the target is not separable before first light. At **matched depth** the direction
+reverses: shipped peaks **39 % higher** than the plateau it replaced. Row 54.
+
+## A4. Why I declined the proposed gate, and what I propose instead
+
+The effects lane proposed **`life10` ∈ 8–18 frames**. It ranked the triple correctly (40/15/9).
+**Declined, on three measured grounds, none of which is a doubt about their work:**
+
+1. **It does not reproduce** — **21 frames here against their 14**, on one event, with the same
+   mask, same exclusion, **same peak, same `w60`, same `r100` to three digits.** I tested two
+   explanations and **refuted both**: the per-run persistence exclusion is stable (438–444 px
+   across four derivation windows, `life10` = 21 under all four), and window length sits on a
+   **plateau of 21 across 25–50 frames**. What remains is the **event boundary, which the operator
+   does not define** — 10 % of peak falls inside the residual-debris floor (post-peak series
+   0.39–0.87 % against a 0.43 % threshold). **A band of 8–18 with a 7-frame reproduction gap on a
+   single event is narrower than its own error.**
+2. **It does not reproduce across populations on our side either** — their own harness 9, in-situ
+   15, from component merging with an enemy nozzle.
+3. **It is the statistic most exposed to the `r9` recovery problem** (54.9 % → 18.5 % across one
+   event), so near the 10 % threshold it is substantially reading a palette transition.
+
+**`r100` is the better candidate and the reasons are independent of the triple**, which matters:
+it **reproduced to three digits across two implementations and two decodes**, and being a **single
+named lag** it needs no event-boundary definition and cannot inherit one. It also ranks the triple
+correctly. **Pre-register it; test it on the next pair.**
+
+## A5. The rule gained a clause from being used: REFUTATION vs SELECTION
+
+> **Refuting a PRE-SPECIFIED statistic with a known-quality pair is strong.** The statistic was
+> named before the pair existed.
+> **SELECTING the winner from a menu of statistics against one pair is FITTING, not validation** —
+> run seven statistics against one triple and one of them ranks it best by construction.
+> **Binding: a statistic chosen because it ranked a known pair must be PRE-REGISTERED and tested
+> on the NEXT pair before it is gated. One pair can kill a criterion; it takes a second, unseen
+> pair to license one.**
+
+This is the clause that makes my `life10` refusal principled rather than fussy, and it applies to
+my own §1 result symmetrically: **RP90's survival across seven pairs is not a licence either** —
+it is a refutation that failed, which is weaker than a validation.
+
+## A6. Rows filled and rows that stay open
+
+**FILLED: the smoke, and it is PEACH.** R9's refusal was not beaten — it was **sidestepped**, with
+a kill over **open sea, no cloud in frame**. Mean RGB **(236, 188, 162)**, dominant `#f4c8b3`,
+peak **7.20 %**, **≥ 0.8 s by eye, n = 1**. **This settles a standing `explosions.js` argument in
+its favour on both halves**: the daylight arcade explosion has no grey, and authoring grey from a
+**night** frame would have been ledger row 12 again. **Decay envelope and size distribution stay
+OPEN** — near a cloud bank the largest component flips **17.35 % → 0.09 %** between frames, which
+is the mask failing, not the smoke moving. *"Ours leaves no smoke" is now false*, measured at
+60 Hz either way; but ours is measured by **exact palette match, an operator that does not exist
+on the arcade side**, so **5.78 vs 7.20 is two operators and not a comparison.**
+
+**Row 55 — the 60 fps file is genuinely 60 unique Hz, and the instrument is the finding.** R6's
+*"duplicate frames, 1/30 s effective rate, verified by hashing"* is refuted: **hashing cannot test
+this on an AV1 re-encode**, since every frame gets a distinct hash whether or not the content
+repeats. The md5 test is **vacuous in both directions**. Pixel differences: 119 consecutive pairs,
+mean per-channel |Δ| **17.4–37.6, none identical**. **Anyone who stepped at 1/30 s on that sentence
+halved their resolution for nothing.**
+
+**Row 56 — a new taxon, and it is row 37's cousin rather than its repeat.** The two "incompatible"
+arcade claims about enemy shots are **both true and not both arcade figures**: the 0.11 s spacing
+is **our own `enemy.js` constant projected onto the arcade**. Row 37 is a closed loop between
+**two** of our own numbers; this is a **HYBRID** — one real arcade measurement making our own
+assumption look sourced. **Binding: when a figure is derived from more than one input, label the
+provenance of EACH INPUT, not of the result.**
+
+**Citation field 3 extended rather than a seventh field added**, per the effects lane's request:
+**a masked operator states its recovery against ground truth per side, or states that it is
+unobtainable on one of them.** This generalises R9's DRAW-WEIGHT mask rule from sprite masks to
+every mask in the document. Folding it into field 3 rather than adding field 7 is deliberate —
+two rules with one meaning is how this project acquires ledger rows.
+
+## A7. What I did not do
+
+- **I did not re-measure the effects lane's our-side figures.** Their before/after sit on two
+  different trees (HEAD moved to `7265ba3` mid-round and another lane changed `player.js`), they
+  flagged it themselves, and the matched-tree evidence is the triple. **The 3.33 % → 2.04 % pair
+  is excluded from REFERENCE as a peak comparison**, at their request and on the merits.
+- **I did not gate anything.** Licensed this round: the operator, the arcade column on the correct
+  operator, the `w60`/`n60` refutation, `r100`'s reproducibility, and the smoke palette. Open with
+  reasons: peak, `life10`, the burst statistic, the smoke decay, the enemy-shot reconciliation.
+
+---
+
+# ADDENDUM 2 — the feel lane, and a standing caveat of this project's turns out to be wrong
+
+Ledger rows **57–59**, plus a classification added to the known-quality-pair rule. Sources:
+`judging/R10/lane-feel.md`. **The headline is that a caveat I propagated into three documents
+this morning is refuted — and I refuted it on my own decode, not on their word.**
+
+## B1. `-ss` is exact, and the "~4 s early" warning is costing precision
+
+CLAUDE.md has warned since before R1 that `-ss` sequence extraction on the AV1 60 fps file starts
+~4 s early. **Three independent invocations this round say otherwise, and one of them is mine:**
+
+| test | result |
+|---|---|
+| feel lane, `-ss 98.5` f-0136 vs `reference/stage1-missile-salvo-t100.75.png` | **mean \|Δ\| = 0.0000** |
+| **this lane, `-ss 96.0` f0286 vs the same committed frame** | **0.0000**, neighbours **21.3 / 23.5** |
+| effects lane, `-ss 99.0 -i F` vs `-ss 95.0 -i F -ss 4.0` | **12 byte-identical frames** |
+
+`t = T_ss + (i−1)/60` is exact for `ffmpeg -ss T -i FILE … -vsync 0` on this file. **The caveat
+must name the form it applies to or be retired.** Row 57.
+
+**The part worth generalising: a standing caveat that is wrong is as expensive as a missing one,
+and much harder to notice, because being careful feels free.** It cost this round two hedged
+timestamp sets and one re-derivation. **And the verification is one minute** — compare the frame
+at the predicted index against a committed reference PNG. **A correct anchor is a ZERO WITH LARGE
+NEIGHBOURS**; a plateau of small values means you matched a static scene and proved nothing. That
+recipe is now in REFERENCE and SKILL.md. **CLAUDE.md is not mine — flagged to the TL.**
+
+## B2. Two published figures are now free of the four retired frames
+
+A blind detector over **420 consecutive frames** returns a cleanly bimodal width histogram:
+
+| mode | n | R10 whole-sequence | previously published | by |
+|---|---|---|---|---|
+| lock bracket | 75 | **5.246 %W** | 5.15 %W | R5 |
+| nose sight | 68 | **1.493 %W** | 1.563 %W | R7 |
+
+**Two numbers, two lanes, two rounds, recovered by one operator shown neither, on frames selected
+for neither.** This is the strongest corroboration shape available here and it is precisely what
+rows 37 and 41 ask for. Published with the lane's **declared precision failure** (the night
+stage's ground speckle produces a false-positive continuum, so any night count is an upper bound)
+and with the convention warning that the detector reports **outer span** where `lockSystem.js`
+uses **centre-to-centre** — convert, or it is row 27 again.
+
+## B3. Restatements and a new clause
+
+- **"~6 lock boxes at once" → "≤3 ambient, more during a salvo", 6 OPEN.** Clean sample: max 3,
+  and ≥2 in only **3.6 %** of frames. The *ambient* figure is the new fact: **a build showing
+  several brackets continuously is wrong even if its salvo peak is right.**
+- **NEW: the arcade's lock bracket does not animate in size** — flat within ±2 px across 26
+  consecutive frames, appearing at its final size. The lane was briefed to make ours "fill" and
+  **did not build it because of this measurement.**
+- **First ever measurement of arcade stick behaviour**: steps quantised in **whole native pixels**
+  (0, 1 or 2 per frame, never more), and **rails at ±101 px = ±9.83 %W** — nine stationary runs,
+  eight at two identical sub-pixel x values. **AB2 does not auto-centre.**
+
+## B4. Row 58 — the feel lane found row 37's shape in its own figures and declined its own gate
+
+Ours is **2.5–3.0× the arcade's sight rate**; our envelope is **3.2–3.5× too wide**; so
+**centre-to-rail is 0.31 s against 0.24 s — nearly matched.** A rate gate would slow a stick that
+already crosses its own screen in about the right time, **because the rate gate is measuring the
+envelope.** Row 37 closed its loop by re-measuring our own build; **this one closes by normalising
+one of our own wrong numbers out of the statistic**, which is harder to see. Binding: **publish
+the rate, the span and the traverse time, or none of them.**
+
+## B5. Row 59 — the ledger records defects caught, never features prevented
+
+Noticed because R10 produced a third one. Rows 42, 43 and the bracket-animation finding are all
+**PREVENTED-BY-MEASUREMENT**, and all three came from lanes measuring the thing they were about to
+build. **That is the cheapest version of this ledger's win and nothing was counting it.** Three
+instances in two rounds is a pattern.
+
+## B6. A classification the pair rule needed, and the feel lane earned it by asking
+
+They asked whether their statistics needed known-quality pairs and argued no. **They are right,
+and the reason generalises into four kinds** — now in REFERENCE:
+
+**QUALITY RANKING** (direction internal to the statistic) is **the only kind that can have an
+inverted sign**, and the only kind the pair test gates. A **FIDELITY MATCH** has the arcade for a
+direction. A **CONSTRAINT** has none. A **DIAGNOSTIC** has no preferred direction and must not
+become a gate by habit — their hit rate is the worked example, where **higher is explicitly not
+better, because 100.0 % was the defect.**
+
+> **The trap the table exists to close: a FIDELITY MATCH degenerates into a QUALITY RANKING the
+> moment its anchor goes missing — which is exactly ledger row 44.** Check for the anchor, not for
+> the wording.
+
+## B7. Carried, not resolved
+
+- **`HOMING_GAIN` stays ASSUMED**; three arcade operators built and withdrawn, each cropped and
+  looked at before withdrawal. **Its blast radius shrank without its provenance improving** —
+  a new clamp means its value does not reach the simulation above `0.01283 fracW/tick`. That is
+  the useful kind of partial progress and the tag table in GAME_SPEC is the pattern to copy.
+- **Launch→impact: launch now datable to one frame; impact not.** A **candidate** 0.43–0.90 s band
+  is published with its assumption named and **not** tagged MEASURED. The route to closing it is a
+  **window with no gun fire** — a targeted search, not a fourth operator.
+- **The attract-mode regression is declared by the lane that caused it** and is handed on. **Any
+  citation of R9's attract-cycle credit needs the caveat** until `demoTimeline.js` is re-authored.
+- **Coupling on row 41**: cone width, sight speed and acquisition time are one system; moving any
+  one alone is a mistake the document now warns against.
+
+---
+
+# ADDENDUM 3 — row 57 closed at a third seek point, and the guard the feel lane asked for
+
+## C1. Two more anchors, 76 s away, reproduced here
+
+The first three row-57 tests all sat within 3 s of each other and could not rule out a seek that
+drifts elsewhere in the file. The feel lane found **two committed stage-3 stills inside its own
+night window** and anchored against them; I reproduced the first independently rather than taking
+it:
+
+| test | reference | best frame | mean \|Δ\| | separation | implied t |
+|---|---|---|---|---|---|
+| feel lane, `-ss 174.0` | `stage3-night-level-t175.png` | f-0061 | 1.796 | 2.7× / 3.3× | **175.000** |
+| **this lane, `-ss 174.0`** | the same | **f0061** | **1.796** | **2.8× / 3.1×** | **175.000, residual +0.000 s** |
+| feel lane, `-ss 174.0` | `stage3-night-lockon-t186.png` | f-0721 | 2.034 | 3.3× | **186.000** |
+
+**Five invocations, three lanes, three seek points spanning 76 s.** Row 57 is closed as far as
+this file is concerned.
+
+**The recipe gained a case I had written too narrowly.** I published *"a correct anchor is a zero
+with large neighbours"* — true only at matched resolution. These stills are 686×480 against
+1028×720 frames, so **a zero is impossible and the test is a SHARP MINIMUM (~3×)**. Both forms are
+now in REFERENCE, with the shared failure mode named: **a plateau of small values at either
+resolution means you matched a static scene and proved nothing.** *Resolution mismatch does not
+stop you anchoring; it changes which signature you look for* — and had I left the zero form
+standing, the next lane with only a resampled still would have concluded it could not anchor.
+
+## C2. The real price of a wrong caveat, as the lane that paid it priced it
+
+I had written that the bad caveat cost two hedged timestamp sets and a re-derivation. **The feel
+lane's own accounting is worse and more useful: it cost a check they had the materials for and
+did not run** — two committed stills sat inside their own window, unused, *because being careful
+felt like it had already discharged the obligation.*
+
+> **That is the expensive half, and it leaves no trace at all.** A hedge is visible in the text
+> and someone can go and test it. An unrun check is invisible: there is no sentence to audit, no
+> number to reproduce, nothing for a reviewer to find. Row 57 carries this.
+
+They also withdrew the hedge **in those words, with the table**, rather than quietly deleting it —
+which is why it was auditable at all.
+
+## C3. The figure guard, written as asked
+
+The feel lane noticed row 44's trap landing on two of their own plots: strip the arcade band and
+*"peak step moved 9.63 → 5.54"* becomes an improvement score with no referent. They put the band
+inside the image and asked me for a stronger guard. Published:
+
+> **The anchor travels with the FIGURE, not with the caption.** A fidelity match loses its anchor
+> **by being quoted**, not by being wrong, and nobody has to make a mistake for it to happen — it
+> is the normal lifecycle of a number here (rows 21, 30 and 32 are the same lifecycle one step
+> further on). Draw the arcade band inside the image; state the anchor in the same sentence as
+> the figure, every time.
+> **Companion: a before/after pair with no arcade band is not a fidelity match — it is two of our
+> own numbers, and the only honest reading is "it changed", not "it improved".**
+
+## C4. Two corrections carried, and one that needed nothing
+
+- **The feel lane's baseline command is `git archive 8725647`, not `git archive HEAD`** — HEAD
+  moved to `7265ba3` after their captures, so the command as first written is now a trap.
+  **Checked: I never quoted it in any of my files, so nothing needed fixing here.** Recorded so
+  the next reader of their report uses the hash.
+- `judging/R10/envelope_r10.py` is the effects lane's and was swept into `7265ba3` mid-edit; both
+  lanes have now marked it and left it alone.
+
+## C5. On row 59, from the lane it came from
+
+Worth recording verbatim in substance, because the PREVENTED-BY-MEASUREMENT class only pays if
+near-misses get reported: **they were about to build the shrinking lock box.** The brief said the
+brackets fill, it is a good-looking feature, and the only thing between it and the diff was
+deciding to run the histogram before opening the editor. **Until the class exists that is a
+coin-flip of temperament, not a process.** It exists now.
+
+---
+
+# ADDENDUM 4 — my own pre-registration refuted, same day, by the lane I pre-registered against
+
+Ledger rows **60–61**. **I pre-registered `r100` as the gate candidate this morning and it is
+withdrawn tonight. Both of the grounds I registered it on turned out to be the defect.**
+
+## D1. Verified before accepting, and it is worse than they put it
+
+The effects lane's claim is that `r100` is read at a lag where "largest component" has already
+re-targeted. I ran it on my own decode of arcade D rather than taking theirs:
+
+| lag | area % | centroid jump | centroid |
+|---|---|---|---|
+| **0 — peak** | 4.317 | — | **(141, 227)** |
+| +1 | 0.874 | 9.1 %W | (99, 143) |
+| +5 | 0.485 | **51.2 %W** | (484, 456) |
+| **+6 — where `r100` is read** | 0.677 | 1.6 %W | **(471, 465)** |
+
+**At the lag `r100` is read from, the "fireball" is an object 39.6 %W away from the peak fireball,
+in the opposite corner of the frame. The arcade's `r100 = 0.157` is one object's area over another
+object's area.** Their D-horizon of +1 at T = 5 %W reproduces exactly on my data.
+
+I also ran their `--selftest`: **control 6 is real and non-vacuous** (a decoy overlapping the real
+event *with no gap* — an earlier version left one and passed vacuously). Untracked `r100` reads
+**0.836** against a prescribed truth of **0.068**.
+
+## D2. Both grounds were the defect, and the first one is my own rule turned around
+
+1. *"Reproduced to three digits across two implementations and two decodes"* — **shared-defect
+   agreement. This is ledger row 51 one level down, committed inside the repair for it.** Both
+   implementations run the same largest-component selection, so both re-target in the same frame
+   onto the same wrong object and agree exactly. Row 38's cancelling errors, except these do not
+   cancel — **they are identical.** I wrote *"an exact reproduction proves you ran THEIR operator,
+   not that it is the licensed one"* this morning and then used reproducibility as a licence by
+   the afternoon.
+2. *"A single named lag, so no event boundary to inherit"* — **true and insufficient.
+   Boundary-free is not attribution-free.** I had correctly identified that `life10` inherits a
+   missing definition, and then assumed the only such definition was the boundary.
+
+**And row 52's diagnosis was wrong too.** I called the 21-vs-14 an event-boundary problem and
+asked for a debounce rule. The lane implemented it and swept it: K = 1…8 gives `life10`
+**14, 14, 26, 26, 84, 84, 84, 84**. *It parameterises the disagreement instead of removing it* —
+"two readers differ" becomes "two readers pick different K". **A repair that converts a
+disagreement into a free parameter is not a repair**, and I should have recognised that shape
+from the mask-rule history.
+
+## D3. What is published instead, and it is worth more than the gate
+
+**THE ATTRIBUTION HORIZON** — the first lag at which the largest component's centroid jumps more
+than `T` of frame width. **Any statistic beyond it is unlicensed.** A detector, not a tracker: it
+only has to notice the selection broke, so it needs one threshold instead of a motion model.
+
+> **Binding precondition: every envelope figure publishes its LAG and that event's HORIZON, and a
+> figure beyond the horizon is not published.** Mechanical, and it would have caught **all three**
+> bad numbers — both `life10` readings and my `r100`.
+
+I took this over a gate deliberately. **A precondition that is mechanically checkable and catches
+known defects is worth more this round than a threshold nobody can defend**, and it is the shape
+the project's best rules already have (population assertion, stage digit, field 6).
+
+## D4. The structural finding, which is the part that outlives this operator
+
+`w60`/`n60` are confined to frames at ≥60 % of peak, where the component is dominant **by
+construction** — so they are inside the horizon on all four arcade events.
+
+> **The statistics the known-quality triple refuted as RANKERS are the only ones that are
+> ATTRIBUTABLE. The statistics that rank are the ones that are not.**
+
+**This is not bad luck and not an artefact of this mask.** A statistic that discriminates a
+*decay* must read the *decayed state*, and the decayed state is by definition the one in which
+the subject is no longer the largest thing in the frame. **Discriminating power and
+attributability are in direct tension; no threshold resolves it, only identity.** That is why the
+answer is a tracker and not a better cut-off, and why I am not asking for one more threshold.
+
+**Plus an asymmetry nobody had looked for**: our horizon is **+10 to >12**, the arcade's **+1 to
++9** — not because our operator is better but because our frames hold far fewer competing
+fire-coloured objects. **A population difference, so no lag statistic is symmetric between the
+sides by default**, and it is invisible to any control that runs on one side only.
+
+## D5. My ruling on their question: do NOT build the third tracker this round
+
+They offered to spend remaining time on a real tracker. **No — and the reason is this round's own
+rule.** Two designs failed in an afternoon, **both found by cropping rather than by the numbers**,
+which means a third built under end-of-round pressure would most likely produce a plausible
+broken instrument. Worse, the chain to a gate is two steps, not one: a tracker needs its own
+correctness validation (control 6 is the right harness and already exists), **and then the
+statistic on top of it still needs the known-quality triple re-run.** That does not fit, and a
+half-validated tracker is how this project acquires the defects it spends rounds removing.
+
+**Shipped instead**: the horizon as a precondition, their threshold-sweep script requested for the
+tree, and the tracker written up as a next-round acquisition item **with its validation
+requirement stated up front** — control 6 plus crops for the tracker, then the triple for the
+statistic. The validation harness existing before the instrument is the right order and is rarer
+than it should be.
+
+## D6. What this says about the round
+
+**Three of my own published or pre-registered figures were refuted this round by the lanes using
+them** — `w60` as the headline statistic, the 6.03 % arcade peak, and now `r100` — and **every one
+was found by a lane applying a rule I had just written.** That is the loop working at its fastest,
+and it is also the honest health warning on everything in this file: **R10's criteria are the
+least-tested things on the board, and the pair rule's own clause applies to them — one refutation
+can kill a criterion; nothing here has survived a second, unseen pair.**
+
+---
+
+# ADDENDUM 5 — the horizon detector's own negative was weak, and the crop that caught it
+
+Ledger row **62**. The effects lane corrected the horizon table it sent me a message earlier,
+unprompted, having cropped its own long horizons before believing them. **I verified the mechanism
+on my own decode rather than taking it, and the crop refines it.**
+
+## E1. The finding, in one line
+
+> **A long horizon is not evidence of clean attribution. It is only the absence of an ABRUPT
+> break.**
+
+Their jump-only detector reported a **28-frame** horizon on one arcade kill; from about lag 6 the
+selection was sitting on **the player's own afterburner nozzle discs** — orange, in every frame of
+every stage, un-removable by the persistence exclusion (which removes only what is *stationary*),
+and **moving smoothly, so no jump ever fires.** f069's 28 is now **7**.
+
+**This is the project's standing negative-result rule arriving on a detector rather than on a
+measurement**: a negative is only as good as the instrument's ability to see the thing it denies.
+A detector with only a jump test reports **its longest, most confident horizons exactly where it
+is most wrong** — the failure is anti-correlated with the confidence.
+
+## E2. I cropped lag 11 of arcade D, and the competitor set has at least two classes
+
+`tools/out/criteria-r10/envelope/lag11-what-is-it.png` — the selected component painted magenta.
+
+| class | what it is | behaviour | caught by |
+|---|---|---|---|
+| **another kill's fireball** | lag 11 of event D: a **7 778 px** mass directly beneath the player | appears abruptly, elsewhere | the **jump** test |
+| **the player's own nozzles** | plainly visible in the same crop, two lit orange discs | **moves smoothly with the jet** | **only the size floor** |
+
+**So my lag-11 re-target is the transient class and theirs is the persistent class — two distinct
+failure modes, and only one of them was ever visible to the test built first.** The crop is worth
+opening for its own sake: the frame contains the decaying fireball, a second kill's fireball, the
+player's two lit nozzles and a lock-on bracket, all fire-coloured or bright, all competing for
+"largest component". **That single image is the best argument in this round for why the envelope
+family needs identity rather than thresholds.**
+
+## E3. The repair, and the control that found its sharp edge
+
+**Size floor**, derived per run like the exclusion: `clutter` = median largest-component area over
+the frames **before first light**; once the component falls to **2 × clutter** it is
+indistinguishable from the junk whether or not it jumped. Horizon = **the earlier of the two
+conditions**.
+
+**The clutter window must stop at first light, not at the peak.** Measured from the peak it
+swallows the event's own rise and puts the floor *above* the peak, cutting the licence at lag 1 on
+both control arms — **found by the control, which is what controls are for.** That detail is in
+REFERENCE because it is exactly the kind of thing a re-implementer gets wrong silently.
+
+**Side effect worth as much as the fix: the threshold stopped being load-bearing.** Every event is
+now flat across **T = 0.08–0.20**, where the jump test alone wobbled 3 → 7 → >12. *A parameter
+that stops mattering once the operator is right is the strongest evidence the operator is right* —
+and it is the opposite of row 52's debounce K, which made a parameter matter more.
+
+**Control 8b** encodes the failure mode: an object drifting 1.5 px/frame from the event's own
+location, max jump **0.47 %W** — below every threshold — caught by the floor at the prescribed lag.
+Their selftest is **30 checks, PASS**; I ran it.
+
+## E4. What this closes off, so nobody re-opens it
+
+**There is no clean-attribution arcade kill to be found by choosing the scene.** The open-sea trick
+that rescued the smoke row removes *clouds*; nothing removes **the player's own jet**, which is in
+every frame of every stage and carries two lit orange nozzles. All 14 candidate kills across both
+decoded windows were scanned and the three long horizons were all nozzles. **Recorded so the next
+lane does not spend an afternoon on it** — and it was my suggestion that sent them looking, so the
+negative is worth more to me than the idea was.
+
+**Carried into the tracker #4 acquisition item**: mask the player's own airframe *before* the
+envelope operator runs. The nozzles are findable — a fixed-size pair whose screen position the HUD
+and the jet already give us — and removing them takes out the single worst competing object on our
+side and the arcade's alike. **A pre-step that belongs with the tracker, not instead of it.**
+
+## E5. Process notes
+
+**They folded the horizon into `envelope_r10.py` as `--horizon` rather than shipping it beside
+the tool, and print the lag profile in the same block as the horizon so the two cannot be quoted
+apart.** Both are the right call and both are this round's lessons applied without being asked:
+a second operator under a second name is what rows 14/22/27/34/51 are made of, and a figure that
+can be separated from its licence eventually will be.
+
+**Row 61 lands on me and on them equally.** I spent two messages treating a long horizon as a
+licensed lag, on a detector whose negative neither of us had tested. The difference this time is
+only that **the crop came before the publication** — which is the entire margin this project
+operates on.
+
+---
+
+# ADDENDUM 6 — the our-side horizon was two populations, and the persistent class is ours too
+
+Ledger row **63**. Self-reported by the effects lane after my lag-11 crop prompted them to run the
+equivalent check on our side. **I looked at their crop before publishing it.**
+
+## F1. The correction, and it is row 21's class inside the box that enforces row 21
+
+The our-side horizon column went into REFERENCE as **">9 / 10"**. Those are **two populations, not
+two readings of one quantity**. Over the 30 frames before first light:
+
+| capture | competing components / frame | total masked |
+|---|---|---|
+| `?combatexpl=1` harness | **0** (max 0) | **0.000 % of frame** |
+| `?demo=2` in-situ | **16** (max 19) | 0.287 % |
+
+**The harness's ">9" is not a long horizon — it is an event ending before anything could
+out-compete it.** Only the in-situ **10** was ever comparable to the arcade's 1–9. Corrected;
+the harness figure is dropped from the column.
+
+**The asymmetry conclusion survives and is weaker than I published it: arcade 1–9 against our 10,
+one population against one — not a range against a range.**
+
+## F2. The clause the precondition shipped without
+
+> **The attribution horizon is a property of the CAPTURE** — not of the build and not of the
+> operator. **It must be measured in the same capture as the figure it licenses; a harness horizon
+> and an in-situ horizon are not interchangeable readings of one quantity.**
+
+My precondition said *publish the lag and the horizon* and never said where the horizon had to
+come from. **Row 63 is what that hole produced inside a day.** The reason it is a capture property
+is one line: **what the horizon measures is how much OTHER FIRE is in your frames.**
+
+## F3. The persistent competitor class is ours too — confirmed by looking
+
+`tools/out/envelope-r10/ours-competitor-set.png`, every component painted, directly parallel to my
+lag-11 crop. **I opened it.** Fifteen components; the two largest by a factor of four:
+
+| px | what |
+|---|---|
+| **459** | **the player's own LEFT nozzle disc** |
+| **441** | **the player's own RIGHT nozzle disc** |
+| 117, 117, 99, 72, 63, 63 | the vulcan column climbing from the nose |
+| 63, 54, 45, 45 | enemy shots |
+
+**So the persistent class is not an arcade artefact** — same object, same mechanism, largest
+competitor on both sides. The arcade's frames merely add the transient class on top.
+
+**This upgrades airframe masking from an arcade-side convenience to the one pre-step that moves
+both sides — and makes it testable before it is trusted**, because our own airframe has ground
+truth and the arcade's does not. Validate on our side, then apply. That ordering is now in the
+tracker #4 item.
+
+## F4. A worry their measurement killed, and the limit it exposed
+
+They expected their own `FRAC_FAR` change — each enemy shot ~5.6× larger in area, in a colour
+inside the `r9` mask — to have raised our clutter floor and shortened our horizon: **a build change
+silently invalidating a figure I had just published.** Not confirmed: the floor is set by the
+largest competitor (459 px nozzle) and the largest shot is 143 px.
+
+**Reported anyway, which is the right call, and the general form is the keeper: the size floor is
+a MAX, not a SUM.** It is insensitive to everything smaller than the biggest competitor — and
+therefore **entirely hostage to that one object.** Remove the nozzles and the floor is set by
+whatever is next, which nobody has characterised. **That is a caveat on the pre-step in F3**: the
+fix that lengthens the horizon also moves the floor onto an uncharacterised object, so the
+pre-step and a re-characterisation of the floor have to land together.
+
+## F5. Count
+
+**Four of my published figures were corrected this round** — `w60` as the headline statistic, the
+6.03 % arcade peak, the pre-registered `r100`, and now the our-side horizon column. **Three were
+found by the lanes using them and one by me; none by a reviewer.** Every correction arrived with
+its measurement attached and, in three cases, with the reporting lane withdrawing its own number
+in the same message. That is the loop working, and it is also the reason the health warning at the
+end of Addendum 4 stands unchanged: **R10's criteria are the least-tested things on the board.**
+
+---
+
+# ADDENDUM 7 — the post-nozzle floor, characterised; closing the round
+
+The last exchange of the round, and it is the shape I would want every one of them to have: **I
+named an uncharacterised quantity in a caveat, and the effects lane closed it with the existing
+operator on captures already on disk — no fourth instrument.**
+
+## G1. The number my caveat asked for
+
+Competitor size by rank, **60 pre-event in-situ frames, no explosion present**
+(`tools/out/envelope-r10/ours-final-insitu/`):
+
+| rank | median | p10 | p90 | what |
+|---|---|---|---|---|
+| 1 | **324 px** (0.050 %) | 125 | 614 | **nozzle disc** |
+| 2 | 148 px (0.023 %) | 108 | 334 | **nozzle disc** |
+| 3 | **108 px** (0.017 %) | 90 | 189 | vulcan column |
+| 4 | 94 px (0.015 %) | 72 | 117 | vulcan / enemy shots |
+
+> **Floor today = 2 × rank 1 = 648 px (0.100 %). Floor with the airframe masked = 2 × rank 3 =
+> 216 px (0.033 %). A 3.0× drop.**
+
+**My caveat was right and the magnitude is 3×** — masking the nozzles without re-deriving the
+floor would silently lengthen every licensed lag. Not bookkeeping.
+
+**Figures are the effects lane's. I did not re-derive them**, and I have said so in REFERENCE
+rather than letting the placement imply otherwise. The captures are on disk; the claim changes no
+licensed figure — it characterises an item that was OPEN.
+
+## G2. The part I did not see, and it inverts my own caveat
+
+**The cliff is good news for the pre-step.** The floor is hostage to its top competitor only while
+a **dominant** one exists. The nozzles are 2–3× the next object; **below them the distribution is
+flat** (108 vs 94, overlapping p10–p90). **So after masking, the floor is set by a POPULATION
+rather than by a single object — which is exactly the condition under which a max stops being
+fragile.**
+
+**The pre-step does not only lengthen the horizon; it fixes the fragility I raised against it.** I
+had written the caveat as a cost of the fix. It is a cost *and* the fix for the thing the caveat
+was about. That is a better outcome than the one I was arguing for, and it came from the lane I
+was arguing with.
+
+## G3. Closing position of this lane
+
+- **Nothing is gated.** Licensed: the operator, the arcade column on the correct operator, the
+  `w60`/`n60` refutation, the smoke palette, the bracket and sight whole-sequence corroborations,
+  the attribution horizon **as a precondition**.
+- **Open with reasons**: `peak`, `life10`, `r100`, the burst statistic, smoke decay, the
+  enemy-shot reconciliation, arcade missile launch→impact, JET-SIL blade cant, VALUE-STAT black
+  share, the known-quality-pair rule for behaviours.
+- **Ledger contiguous through 63.** `tools/known_quality_pair.py` 6/6, `inkspan.py` 8/8,
+  `envelope_r10.py` 30/30, envelope control exact. **No `src/` edit by this lane at any point.**
+
+**Five of my published figures were corrected or withdrawn this round** — `w60` as the headline
+statistic, the 6.03 % arcade peak, the pre-registered `r100`, the our-side horizon column, and the
+"ours peaks 40 % smaller" comparison. **Four were found by the lanes using them, one by me, none by
+a reviewer.** Every one arrived with its measurement attached, and in four cases the reporting lane
+withdrew one of its own numbers in the same message.
+
+**That is the strongest evidence this round produced that the loop works, and it is also the health
+warning on everything above: R10's criteria are the least-tested things on the board.** The pair
+rule's own clause applies to them without exception — *one refutation can kill a criterion; it
+takes a second, unseen pair to license one, and nothing published this round has had one.*

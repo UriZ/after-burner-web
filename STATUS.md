@@ -79,33 +79,229 @@ uncommitted in the tree; criteria lane editing this file). R10 criteria work and
 > transient is worth nothing without its rate** — "ours leaves no smoke", "there is no flash" are
 > claims a 4 Hz sampler produces for free.
 >
-> **TIME-ENVELOPE is published, operator LICENSED VERBATIM from the R9 judge and the arcade column
-> REPRODUCED INDEPENDENTLY before publication** — separate decode, separate implementation, same
-> numbers: **peak 6.028 %, HOLD 4 frames = 0.067 s, decay 0.275× at +0.100 s**, against the
-> judge's 6.03 / 4 / 0.28. Ours: **0.600 s — 9× — at a peak 40 % smaller, and no residue where the
-> arcade leaves a pale mass for over 1.27 s.** One addition of mine: **HOLD publishes its
-> CONTIGUOUS RUN, not only a count** — on the arcade the two agree exactly, and that agreement is
-> the only evidence in the figure that it is one flash rather than four scattered frames.
+> **TIME-ENVELOPE is published — and WITHIN A DAY the known-quality-pair rule was applied to it by
+> the effects lane and REFUTED ITS HEADLINE STATISTIC. Two of the three figures this lane
+> published in that box are corrected below, and one of the corrections is this lane's own
+> defect.** Ledger rows 51–56.
 >
-> **THE GATE IS OPEN AND SAYS SO. No threshold is published**, because inventing one would be
-> ledger row 37's defect — a gate with one of our own numbers on both sides. Our side stays the
-> judge's `bd73b52` reading; the effects lane owns the our-side figure and the threshold.
-> **One direction warning that is a criteria finding: ours peaks 40 % SMALLER and lasts 9× longer.
-> A flash is brighter and shorter together — cutting the duration alone gives a small brief puff,
-> a third wrong answer that would pass a duration gate.** The arcade's smoke stays deliberately
-> **un-numbered**; the judge could not segment it past the clouds and that refusal is upheld.
+> **(1) `w60`/`n60` — "ticks within 60 % of peak", R9's headline figure and the number this
+> criterion was built on — FAILS A KNOWN-QUALITY TRIPLE AND INVERTS.** Matched harness, matched
+> depth, matched seed, quality settled by looking at the crops: the committed plateau reads
+> **6/8** against the shipped flash's **8/8** — *the plateau scores better*, because both are
+> normalised by peak and our sprite **boils**. **RETIRED as gate candidates, demoted to reported
+> diagnostics**; the arcade's 0.067 s stands as a licensed arcade *fact*, not a number a lane may
+> be scored against. **Control 7's lesson arriving on a second criterion: the statistic that reads
+> most naturally as the defect is nearly blind to it — here, inverted.** Row 53. *The phrase was
+> also under-specified: contiguous run vs total coincide on the arcade (4 and 4) and did not on
+> our build (6 vs 16). Publish both; neither is reportable alone.*
+>
+> **(2) THE ARCADE PEAK THIS LANE PUBLISHED, 6.03 %, IS A DIFFERENT OPERATOR — the licensed one
+> reads 4.317 %.** I reproduced R9's figure "to the digit" and took that as proof the operator was
+> pinned. **What I had confirmed is that I was running R9's operator, which has no
+> largest-component step.** Decomposed: raw **6.028** → persistence-excluded **5.969** → largest
+> component **4.317** (effects lane, independently: **4.32**); the exclusion removes 0.060 % of
+> frame and **the whole difference is the component step** — the arcade frame at peak is **28 %
+> other fire-coloured material.** `w60` (4/4) and `r100` (0.157/0.157) reproduce exactly.
+> **Binding: an exact reproduction proves you ran THEIR operator; it says nothing about whether it
+> is the licensed one.** Rows 14/22/27 again, by the lane that maintains the ledger, same day.
+> Row 51.
+>
+> **(3) "OURS PEAKS 40 % SMALLER" IS WITHDRAWN — class 2, and it is mine.** The arcade's own peak
+> spans **0.83–6.03 % across five events in ONE STAGE, a factor of 7.3**, because peak scales with
+> the killed target's **depth**; the sentence compared ours against **the maximum of five**, in the
+> same box as a rule requiring every figure to state its population. **PEAK IS OPEN — no
+> threshold, no ratio.** The depth-matched ratio that would fix it was attempted and **failed on
+> the arcade side** (stage-1 kills detonate at or behind the player, where the target is not
+> separable before first light). At **matched depth** the direction reverses: shipped peaks **39 %
+> HIGHER** than the plateau it replaced — shorter *and* bigger, which is what a flash is. Row 54.
+>
+> **NOTHING IS GATED, AND THE REASON GOT DEEPER TWICE IN ONE DAY.** `life10` does not reproduce —
+> 21 frames here against the effects lane's 14 — and I diagnosed that as a missing **event
+> boundary** (row 52). **That diagnosis was wrong.** The debounce rule I asked for does not
+> converge: K = 1…8 gives `life10` **14, 14, 26, 26, 84, 84, 84, 84** — it *parameterises* the
+> disagreement instead of removing it.
+>
+> **THE CAUSE IS ATTRIBUTION: "largest component per frame" is a SELECTION, and it silently
+> re-targets.** Verified on my own decode of arcade D — the peak fireball's centroid is
+> **(141, 227)**; by +5 the selected component has jumped **51.2 %W** to the opposite corner, and
+> **at +6, where `r100` is read, it is a different kill 39.6 %W away.**
+>
+> **SO `r100` — WHICH I PRE-REGISTERED THIS MORNING — IS WITHDRAWN, AND BOTH GROUNDS I REGISTERED
+> IT ON WERE THE DEFECT.** *"Reproduced to three digits across two implementations"* is
+> **shared-defect agreement — row 51 one level down, committed inside the repair for it**: both
+> implementations run the same selection, so both re-target onto the same wrong object and agree
+> exactly. *"A single named lag, no boundary to inherit"* is true and insufficient —
+> **boundary-free is not attribution-free**; a control with a prescribed answer has untracked
+> `r100` reading **0.836 against a truth of 0.068.** Rows 60–61. **The pre-registration was still
+> right as a process — it is what sent the effects lane to measure the horizon. Pre-registration
+> buys honesty about selection, not correctness.**
+>
+> **PUBLISHED INSTEAD OF A GATE, AND WORTH MORE: THE ATTRIBUTION HORIZON.** The first lag at which
+> the largest component's centroid jumps more than `T` of frame width; **any statistic beyond it
+> is unlicensed.** Binding precondition: *every envelope figure publishes its lag and that event's
+> horizon, and a figure beyond the horizon is not published.* **It would have caught all three of
+> our bad numbers.** The arcade `life10` column is **withdrawn as a measurement by the lane that
+> produced it**, downgraded to an upper bound.
+>
+> **AND THE STRUCTURAL FINDING UNDERNEATH, which is the part that generalises:** `w60`/`n60` are
+> confined to frames at ≥60 % of peak, where the component is dominant **by construction**, so
+> they are inside the horizon on all four arcade events. **The statistics the triple refuted as
+> RANKERS are the only ones that are ATTRIBUTABLE; the ones that rank are the ones that are not.**
+> That is not bad luck — *a statistic that discriminates a decay must read the decayed state, and
+> the decayed state is by definition where the subject is no longer the largest thing in frame.*
+> **Discriminating power and attributability are in direct tension, and only identity resolves it,
+> never a threshold.**
+>
+> **One asymmetry nobody had looked for: the arcade's horizon is +1 to +9, ours is +10** — not
+> because our operator is better, but because our frames hold far fewer competing fire-coloured
+> objects. **A population difference, so no lag statistic is symmetric between the sides by
+> default**, and that is invisible to any control run on one side only.
+>
+> > **CORRECTED, ledger row 63, by the lane that produced the figure: the our-side column was
+> > first published as ">9 / 10" and those are TWO POPULATIONS, not two readings.** The
+> > `combatexpl` harness carries **ZERO competing components** before first light; the in-situ
+> > capture carries **16 per frame**. **The harness's ">9" is not a long horizon — it is an event
+> > ending before anything could out-compete it.** Only the in-situ **10** was ever comparable.
+> > *Row 21's class, inside the box that enforces it, one message after that box was written.*
+> >
+> > **It forced the clause the precondition shipped without: THE HORIZON IS A PROPERTY OF THE
+> > CAPTURE** — not of the build, not of the operator — **and must be measured in the same capture
+> > as the figure it licenses**, because what it measures is how much other fire is in your frames.
+> >
+> > **And the same check found that the player's own nozzle discs (459 and 441 px) are the two
+> > largest competitors on OUR side too**, four times anything else — so the persistent class is
+> > not an arcade artefact, and **masking the player's airframe is the one pre-step that moves both
+> > sides**, validatable on ours first because our airframe has ground truth. **Caveat on the floor
+> > itself: it is a MAX, not a sum — insensitive to everything smaller than the biggest competitor,
+> > and therefore hostage to that one object.**
+>
+> **AND THE RULE ITSELF GAINED A CLAUSE FROM BEING USED: REFUTATION IS STRONG, SELECTION IS
+> FITTING.** Refuting a **pre-specified** statistic is binding — the pair cannot have been chosen
+> to suit it. **Picking the winner from a menu of seven statistics against one known triple is
+> fitting, not validation.** A statistic selected that way must be **pre-registered and tested on
+> the NEXT pair** before it is gated. *One pair can kill a criterion; it takes a second, unseen
+> pair to license one.*
+>
+> **THE SMOKE ROW IS FILLED, AND IT IS PEACH, NOT GREY.** R9's refusal was not beaten, it was
+> **sidestepped** — a kill over **open sea with no cloud in frame**. Mean RGB **(236, 188, 162)**,
+> dominant **`#f4c8b3`**, peak 7.20 % of frame, **≥ 0.8 s by eye, n = 1**. This settles a standing
+> argument in `explosions.js` **in its favour on both halves**: the daylight arcade explosion has
+> no grey, and authoring grey from a **night** frame would have been ledger row 12 again. **The
+> decay envelope and size distribution stay OPEN** — near a cloud bank the mask's largest component
+> flips **17.35 % → 0.09 % between frames**, which is the mask failing, not the smoke moving. And
+> *"ours leaves no smoke"* **is now false**: 3 peach puffs, 1.067 s at ≥10 % of peak — measured by
+> exact palette match, **an operator that does not exist on the arcade side**, so 5.78 vs 7.20 is
+> not a comparison and the gap must not be "closed".
+>
+> **TWO INSTRUMENT FACTS FROM THE EFFECTS LANE, BOTH OF WHICH CORRECT STANDING CLAIMS.**
+> **(a) The 60 fps longplay is genuinely 60 UNIQUE Hz** — R6's *"the file carries duplicate
+> frames; 1/30 s is its effective unique rate, verified by hashing"* is **REFUTED, and the
+> instrument is the finding: hashing cannot test this on an AV1 re-encode**, because every frame
+> gets a distinct hash whether or not the content repeats. The md5 test is **vacuous in both
+> directions**; the pixel-difference test is the one that works — 119 consecutive pairs, mean
+> per-channel \|Δ\| **17.4–37.6, no pair identical**. **Anyone who stepped at 1/30 s on the
+> strength of that sentence halved their resolution for no reason.** Row 55. **(b) The arcade's
+> explosion SPRITE animates at 30 Hz inside 60 Hz logic** — sampling at 60 Hz does not make the
+> subject a 60 Hz subject.
+>
+> **A NEW TAXON, and it is row 37's cousin rather than its repeat.** The repo's two "incompatible"
+> arcade claims about enemy shots — `≤0.37 s` vs `10–16 fireballs at ~0.11 s spacing` — are **BOTH
+> TRUE AND NOT BOTH ARCADE FIGURES: the 0.11 s is OUR OWN `enemy.js` constant projected onto the
+> arcade.** Row 37 is a closed loop between **two** of our own numbers; this is a **HYBRID** — one
+> real arcade measurement doing the work of making our own assumption look sourced. **Binding:
+> when a figure is derived from more than one input, label the PROVENANCE OF EACH INPUT, not of
+> the result.** Row 56.
 >
 > **A RATE HAS NO SHAPE.** The arcade kills at t = 96.333, 99.433, 100.267, 100.500, 100.633 — a
 > 3.100 s drought, then **three kills in 0.367 s**, an instantaneous **~8 kills/s against the
 > 0.42–0.54/s average ARCADE-PACING quotes.** Ours delivers 0.519/s smoothly and the criterion
 > cannot tell. **Burst statistic owed; no threshold, because n = 5 kills is one observation.**
 >
+> ## R10's FOURTH BLOCK — THE FIRST MEASUREMENT OF ARCADE STICK BEHAVIOUR, AND A STANDING CAVEAT REFUTED
+>
+> **CLAUDE.md's *"`-ss` sequence extraction on the AV1 60 fps file starts ~4 s early"* is REFUTED
+> for the input-seek form, by three independent invocations.** This lane anchored its own decode
+> against a committed reference frame: `-ss 96.0` f0286 vs `reference/stage1-missile-salvo-t100.75.png`
+> reads **mean |Δ| = 0.0000** with neighbours at **21.3 / 23.5** — a spike, not a plateau. The feel
+> lane got 0.0000 from `-ss 98.5`; the effects lane got 12 byte-identical frames across two seek
+> forms. **`t = T_ss + (i−1)/60` is exact.** The caveat must name the form it applies to or be
+> retired — **as written it costs precision**: two lanes hedged their timestamps and a third
+> re-derived the anchor, all for nothing. *A standing caveat that is wrong is as expensive as a
+> missing one, and harder to notice, because being careful feels free.* **CLAUDE.md is not this
+> lane's file — flagged to the TL.** Row 57. Stage identity is still read from the HUD digit.
+>
+> **TWO PUBLISHED FIGURES ARE NOW FREE OF THE FOUR RETIRED FRAMES.** A blind detector over **420
+> CONSECUTIVE frames** returns a cleanly bimodal histogram: **lock bracket 5.246 %W (n = 75)**
+> against R5's 5.15, and **nose sight 1.493 %W (n = 68)** against R7's 1.563. *Two numbers from
+> two lanes in two rounds, recovered by one operator shown neither, on frames selected for
+> neither* — the strongest corroboration shape this project has.
+>
+> **"~6 LOCK BOXES AT ONCE" IS RESTATED AND THE 6 IS LEFT OPEN.** The clean sample gives **max 3
+> simultaneous and ≥2 in only 3.6 % of frames**; the night sample reaching 6 is precision-poor and
+> an upper bound. **Defensible: "≤3 ambient, more during a salvo."** The ambient figure is the new
+> fact — **a build showing several brackets continuously is wrong even if its salvo peak is right.**
+>
+> **NEW AND SOLID: THE ARCADE'S LOCK BRACKET DOES NOT ANIMATE IN SIZE** — flat within ±2 px across
+> 26 consecutive frames; it appears at its final size. **The feel lane was briefed to make ours
+> "fill" and did not build it, because of this.** Logged as a row class in its own right —
+> **PREVENTED-BY-MEASUREMENT** — because this ledger records only defects *caught*, never features
+> *prevented*, and that is now three instances in two rounds (rows 42, 43, 59).
+>
+> **ARCADE STICK, FIRST EVER MEASUREMENT.** 418 consecutive-frame steps, 25 tracks, two stages,
+> 60 Hz: the sight's steps are **quantised in whole native pixels — 0, 1 or 2 per frame, never
+> more** (ceiling 0.409 fracW/s). **And it has RAILS: nine stationary runs, eight of them at
+> x = 618.0 or 415.5 — ±101 px = ±9.83 %W of centre. A human cannot stop at an identical
+> sub-pixel x six times in fifteen seconds. AB2 does NOT auto-centre.**
+>
+> **DO NOT GATE THE SIGHT RATE ALONE — row 58, and it is row 37's shape.** Ours is 2.5–3.0× the
+> arcade's rate *and* our envelope is 3.2–3.5× too wide, so **centre-to-rail time is 0.31 s against
+> 0.24 s — nearly matched.** A rate gate would slow a stick that already crosses its screen in
+> about the right time, **because the rate gate is measuring the envelope.** Found by the feel lane
+> in its own figures, which then declined to propose the gate. **Publish rate, span and traverse
+> time, or none of them.**
+>
+> **A CLASSIFICATION ADDED TO THE PAIR RULE, because the feel lane asked the right question about
+> its own work**: only a **QUALITY RANKING** can have an inverted sign and need a pair. A
+> **FIDELITY MATCH** has the arcade for a direction; a **CONSTRAINT** has none; a **DIAGNOSTIC**
+> has no preferred direction and must not become a gate by habit (hit rate: **higher is explicitly
+> NOT better — 100.0 % was the defect**). **The trap: a fidelity match degenerates into a quality
+> ranking the moment its anchor is missing** — which is exactly row 44.
+>
+> **REGRESSION, DECLARED BY THE LANE THAT CAUSED IT**: the stick change breaks attract mode.
+> `game/flow/demoTimeline.js` is an analog curve authored against a **position** controller and
+> now means "drift at this speed" under a **rate** controller; isolated to HEAD + `player.js`
+> alone. Handed to the flow lane. **Any citation of R9's attract-cycle credit needs this caveat
+> until that file is re-authored.**
+>
 > **THE MISSILE IS ASSUMED, NOT MEASURED, AND NOW SAYS SO.** `HOMING_GAIN = 1.7` carries no tag in
 > a file where every other constant does. Its launch→impact band — *"2–4 frames of 0.25 s"*, which
 > `missiles.js` calls "MEASURED-TO-SPEC" — is a **4 Hz sample of a sub-second event on one of the
-> four frames ledger row 37 retired**, true support **0.25–1.25 s**. Ledger row 49. **The arcade's
-> missile remains unmeasured by anyone at any rate** and the bound on why is published rather than
-> filled. **Highest acquisition item on the board.**
+> four frames ledger row 37 retired**, true support **0.25–1.25 s**. Ledger row 49.
+>
+> **R10: HALF OF IT IS SOLVED AND THE HALF THAT ISN'T NOW HAS A METHOD.** **Launch is datable to
+> one frame at 60 Hz** off the arcade's own missile-stock counter — hand-validated on four frames
+> (8/5/3/1, detector agrees) before use. **Impact cannot be dated and three operators were built
+> and withdrawn trying**: plume tracking gave a tidy 0.62–0.80 fracW/s across nine tracks and
+> **the tracked objects were expanding fireballs — three of nine had zero net displacement while
+> reporting 4–5 px/frame**; the HIT counter shares pixels with a **blinking dot on a 2-frame
+> cycle**; and **the arcade pilot holds the trigger**, so no detonation is attributable. **The way
+> to close it is a window with no gun fire — a targeted search, not a fourth operator.**
+> A **CANDIDATE** band of **0.43–0.90 s** is published with its assumption named and explicitly
+> **not tagged MEASURED**.
+>
+> **`HOMING_GAIN` stays ASSUMED — but its BLAST RADIUS SHRANK even though its provenance did not
+> improve**, which is the useful kind of partial progress: a new `MAX_TURN_FRAC_PER_S = 0.77`
+> clamp means the gain only binds below `0.01283 fracW/tick` and above that **its value does not
+> reach the simulation at all.** The clamp is tagged **DERIVED/ASSUMED with its derivation
+> visible**, and half of it is our own number — **row 56's hybrid provenance, labelled per input.**
+> And a measured negative worth as much as a positive: the first clamp tried was **0.35, taken
+> from the arcade's own measured sight rate, and it was WRONG and measured so before shipping**
+> (35.0 % hit rate, median lateral miss five times the fuse radius). *An arcade-measured number
+> imported into the wrong system is still an unanchored constant.*
+>
+> **COUPLING WARNING on row 41**: our sight covers one whole 0.22 cone radius in exactly one
+> `LOCK_ACQUIRE_S`. **Cone width, sight speed and acquisition time are one coupled system — do
+> not move any of the three alone.**
 >
 > ## R10's THIRD FINDING — THE TOOL NOBODY USED WOULD NOT HAVE FOUND IT EITHER
 >

@@ -50,9 +50,16 @@ ffmpeg -nostdin -loglevel error -ss 96.0 -t 5.0 \
 
 - **Use the 60 fps cache file**, `ab2-longplay-60fps.mp4`. The 30 fps copy cannot resolve a
   0.067 s event, and `--height 480` can never yield 60 fps from this source (see `--min-fps`).
-- **`-ss` sequence extraction on the AV1 60 fps file starts ~4 s early.** The *envelope* of an
-  event — its shape over time — is a relative measurement and is unaffected. **An absolute
-  timestamp is not**: verify alignment against the HUD stage digit before quoting one.
+- **ALIGNMENT: the old "`-ss` starts ~4 s early" warning is REFUTED for this form and this file
+  (R10).** Three independent invocations are exact, one anchored against a committed reference
+  PNG at **mean |Δ| = 0.0000** with neighbours at 21–23. **`t = T_ss + (i−1)/60` holds for
+  `ffmpeg -ss T -i FILE … -vsync 0` on `ab2-longplay-60fps.mp4`.**
+  **Verify rather than hedge — it takes one minute:** decode, then compare the frame at the
+  predicted index against a committed `reference/*.png` by mean absolute pixel difference.
+  **A correct anchor is a ZERO WITH LARGE NEIGHBOURS**; a plateau of small values means you
+  matched a static scene and proved nothing.
+- **Stage identity still comes from the HUD digit, never from a timestamp.** An exact seek tells
+  you which frame you got, not which stage it is.
 - **Output to a UNIQUE directory**, per CLAUDE.md. Any tool writing a fixed path corrupts
   concurrent agents' work silently.
 - **STATE THE RATE.** REFERENCE.md citation **field 6** is binding: every figure touching time
