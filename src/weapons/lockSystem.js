@@ -137,15 +137,22 @@ const ARM_FRAC_TRACK = 2.5 / 16.5;
 // it replaces was tuning with nothing behind it -- REFERENCE ledger row 41,
 // and the argument that produced it is quoted above and does not establish it.
 //
-// THE COUPLING THAT BLOCKED THIS FOR A ROUND IS NOW RESOLVED, not ignored.
-// R10's judge froze LOCK_RADIUS_FRAC, ENVELOPE_X and RATE_X together: at our
-// sight's plateau the sight crosses a whole cone in about one LOCK_ACQUIRE_S,
-// so a sweeping pilot can never finish an acquisition, and narrowing the cone
-// makes that worse. The unfreezing fact is in player.js's ENVELOPE_X note --
-// our lateral envelope and rate are ARCADE-MATCHED once they are compared
-// against the arcade's AIRCRAFT instead of its sight (+-34.93 %W against
-// +-29.5; 1.064 fracW/s against a derived 1.12), so neither of them is moving
-// and the cone is free.
+// THE COUPLING THAT BLOCKED THIS FOR A ROUND IS DISCHARGED BY MOVING THE WHOLE
+// SET, WHICH IS WHAT R10's JUDGE ASKED FOR. It froze LOCK_RADIUS_FRAC,
+// ENVELOPE_X and RATE_X together, because at our sight's plateau the sight
+// crossed a whole cone in about one LOCK_ACQUIRE_S, so a sweeping pilot could
+// never finish an acquisition and narrowing the cone alone makes that worse.
+//
+// **All three moved in the same change.** player.js now rails at the arcade's
+// +-9.85 %W at the arcade's 0.379 fracW/s, so the sight crosses this 8.3 %W cone
+// in 0.44 s against LOCK_ACQUIRE_S's 0.22 -- i.e. the ratio went the RIGHT way
+// and a moving sight has twice the time it needs, where before it had exactly
+// as long as it needed and no more.
+//
+// (An earlier version of this comment licensed the change by claiming our
+// envelope and rate were already arcade-matched at +-34.93 %W. **That rested on
+// a withdrawn arcade measurement -- see player.js's ENVELOPE_X note.** The
+// change stands on its own A/B below, which never depended on it.)
 //
 // And the sweeping pilot is not the arm to protect. A pilot who sweeps the
 // sight across the sky without ever stopping on anything SHOULD NOT get a

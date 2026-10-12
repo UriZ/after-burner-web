@@ -1,157 +1,147 @@
 # R11 — the FEEL lane: the envelope, the lock, the stick
 
-**Trees, named for every figure.** Our-side numbers come from two **pristine `git archive`
-extractions of `5e3d57e`** (HEAD at the start of this round) into
-`.../scratchpad/tree-before` and `tree-after`; `tree-after` is the same extraction with this
-lane's two changed files copied over it and nothing else. The working tree carried other lanes'
-live, uncommitted edits throughout — the enemy-art, effects and world lanes were all in it, and
-the set changed under me while I worked — and **no figure in this file was taken from the
-working tree**, which is the only way an A/B means anything on a shared tree.
-No commit, no stash, no checkout, no reset, no push.
+> ## RETRACTION FIRST, because an earlier version of this file said the opposite
+>
+> **This file originally reported an arcade player-aircraft envelope of ±29.5 %W, concluded that
+> `ENVELOPE_X` passed at 1.19× and must not move, and said so to the TL, who built the round's
+> narrative on it. It was wrong. `judging/R11/arcade_jet_x.csv` was reading ENEMY AIRCRAFT.**
+> The combat lane challenged it; I re-read my own frames at 1:1 and it does not survive.
+> **`ENVELOPE_X` was 3.55× too wide — R10 gap 2 was right all along — and it is cut in this
+> round.** §1.1 is the post-mortem, kept because the failure is more reusable than the number.
+> `judging/R11/ask-combat.md` is withdrawn by both lanes.
 
-**Sampling rate, both sides, every temporal figure.**
-Arcade: `ffmpeg -ss T -i .reference-cache/video/ab2-longplay-60fps.mp4 -frames:v N -vsync 0`,
-consecutive 60 Hz. Ours: one `window.__step(1)` per sample with the state read in the same
-`page.evaluate`. **§1's envelope is sampled at 1 Hz and is a POSITIONAL EXTREMUM — it makes no
-speed claim and says so wherever it appears.**
+**Trees, named for every figure.** Our-side numbers come from pristine `git archive` extractions
+of **`5e3d57e`** into `.../scratchpad/tree-before` and `tree-after`; `tree-after` is the same
+extraction with this lane's two changed files copied over it and nothing else. The working tree
+carried other lanes' live, uncommitted edits throughout and **no figure here was taken from it**.
+Three arms are reported per quantity so the two halves of this lane's change can be separated:
+**`5e3d57e`** / **+lock+ramp only** / **+envelope+rate cut**. No commit, no stash, no checkout,
+no reset, no push.
 
-**Page errors: 0** across every arm in this file (2 step arms, 6 combat arms, 2 attract arms).
+**Sampling rate, both sides, every temporal figure.** Arcade:
+`ffmpeg -ss T -i ab2-longplay-60fps.mp4 -frames:v N -vsync 0`, consecutive 60 Hz. Ours: one
+`window.__step(1)` per sample, state read in the same `page.evaluate`.
 
-**Scripts for every figure, committed:** `judging/R11/sheet.py`, `jet_envelope.py`,
-`jet_nozzles.py`, `analyse.py`, `probe_r11.mjs`, `demo_check.mjs`, and the hand-read data
-`arcade_jet_x.csv`. Images (gitignored, large) under `tools/out/feel-r11/evidence/`.
+**Page errors: 0** across every arm in this file (3 step arms, 11 combat arms, 3 attract arms).
 
----
-
-## 0. THE HEADLINE, because it changes what the next three rounds should work on
-
-> **The arcade's player AIRCRAFT roams ±29.5 %W. Ours roams ±34.93 %W. `ENVELOPE_X` was never
-> the defect — every gap list that has asked for it to move for two rounds has been comparing
-> OUR AIRCRAFT against THE ARCADE'S SIGHT.** The quantity that really is 3.5× too wide is our
-> **sight**, and no value of `ENVELOPE_X` can fix it, because `combat.js` builds the sight as
-> the jet's position **plus** a screen-space offset, and in the arcade the sight moves **less**
-> than the aircraft, not more — by a factor of 2.95.
-
-Three constants were frozen together on that comparison (R10 judge gap 2: *"until the arcade's
-jet envelope exists, `ENVELOPE_X`, `RATE_X` and `LOCK_ACQUIRE_S` are all frozen"*). **Two of
-them turn out to be already right and are deliberately not touched; the third is unfrozen and
-the lock cone moved with it.**
+**Scripts for every figure, committed:** `judging/R11/{sheet,jet_envelope,jet_nozzles,analyse}.py`,
+`probe_r11.mjs`, `demo_check.mjs`. Images under `tools/out/feel-r11/evidence/` (gitignored).
 
 ---
 
-## 1. JOB 1 — THE ARCADE'S LATERAL ENVELOPE, FOR THE AIRCRAFT
+## 1. JOB 1 — THE ARCADE'S LATERAL ENVELOPE
 
-### 1.1 What was measured, and the three instruments that failed first
+### 1.1 THE WITHDRAWN MEASUREMENT, AND WHY IT LOOKED FINE
 
-I built, selftested and **withdrew three automatic operators** before measuring this by hand.
-All three pass their synthetic suites and all three fail on real frames, for the same reason:
-**they cannot tell the player's aircraft from an enemy, a cloud, an explosion fragment or the
-bottom HUD**, and identity is the whole problem.
+I hand-digitised the arcade player's screen x off ruled contact sheets rendered at **0.42
+scale**, n = 67, three stages, stage identity read off the HUD digit at both ends of every
+window, and published ±29.5 %W.
 
-| instrument | selftest | what it did on real frames |
-|---|---|---|
-| `jet_envelope.py`, airframe mass (desaturated, in a lower band) | **11/11**, incl. two independent labellers agreeing to the pixel | found fuselage *fragments*, and put one box on a cloud. `evidence/look-w1-boxes2.png` |
-| the same, with morphological closing | — | merged the jet with clouds **and with the SPEED/STAGE HUD strip**; boxes span half the frame. Same montage |
-| `jet_nozzles.py`, the afterburner nozzle PAIR | **13/13**, incl. a lowest-pair rule and an over-wide-pair rejection | median pair separation **133 px** — it was pairing nozzles belonging to **two different aircraft**. Retuned with a hand-measured 22–58 px separation prior, then landed on the **HUD missile icons** and on stage 4's brown rock, which is inside the orange hue band. `evidence/look-nz-s4.png` |
+**The identity test I was applying needs more resolution than I was giving it. The player's F-14
+has TWO afterburner nozzles; every arcade enemy has ONE. At 0.42 scale that distinction is
+invisible.** I was reading whichever aircraft I happened to resolve.
 
-`jet_envelope.py` is kept and still runs — its gate `DARK_MIN` is calibrated on real numbers
-(player-jet bbox **3.6 %** dark pixels on w1/f0001 against a cloud's **0.14 %** on w1/f0220, a
-26× separation) and it now has a cloud-rejection control. It is a usable operator for a frame
-where a person has already said which blob is the jet. **It is not an identity test and is not
-used as one here.**
+Checked by drawing my read and the combat lane's on my own disputed frames and looking at **1:1**:
 
-### 1.2 The measurement
+| frame | my published read | what is actually there at 1:1 | the twin-nozzle player |
+|---|---|---|---|
+| s1 f005 (t=94) | 22 %W | **the carrier deck** | **50.8 %W**, dead centre, flanked by three SINGLE-nozzle enemies |
+| s4 f005 (t=206) | 20 %W | **empty water** | ~48 %W |
+| s12 f012 (t=525) | 78 %W | **empty sky over ground** | ~52.8 %W |
 
-**Hand-digitised off ruled contact sheets** (`sheet.py` draws a labelled 5 %W ruler on each
-panel; the sheets are `evidence/sheet-s{1,4,12}{a,b}.png`). Read point: the midpoint of the
-aircraft's two afterburner nozzles, or the fuselage centre where one is occluded.
+Seven of my own reads at 1:1, including four frames the combat lane did not use:
+**45.5 / 48.3 / 50.0 / 50.5 / 50.8 / 52.8 / 61.0 %W.** Nothing outside 45–61.
 
-* **Population**: 3 windows × 30 s, **1 Hz**, stages **1 / 4 / 12**.
-* **Stage identity read off the HUD digit at BOTH ends of every window** —
-  `evidence/look-stage-digits.png`, six crops, all unambiguous.
-* **Excluded and named**: stage 1 f001–f004 (the carrier catapult launch — the aircraft is not
-  under player lateral control) and stage 12 f020 (a boss sprite fills the right of the frame
-  and I could not identify the player; **recorded as unread, not guessed**).
-* **n = 67.** Data: `arcade_jet_x.csv`.
+> **The reusable failure: I validated the ruler's PRECISION — a 1.14 %W test-retest, computed
+> from three repeating 4-sample cycles — and published it as though it licensed the
+> measurement. Precision was never the problem. IDENTITY was, and I never checked identity at
+> the scale I was reading at.** Three automatic trackers were withdrawn earlier in this same
+> round *for being unable to establish identity*; I then built a manual operator with the same
+> hole and did not notice, because its numbers were stable and plausible. "Crop it and look"
+> done below the resolution the question needs is worse than not looking: it manufactures
+> confidence.
 
-| population | n | min | max | mean | **sd** | half-span |
-|---|---|---|---|---|---|---|
-| stage 1 | 20 | 22.0 | 64.0 | 42.95 | **13.55** | 21.00 |
-| stage 4 | 24 | 20.0 | 76.0 | 51.50 | 19.13 | 28.00 |
-| stage 12 | 23 | 19.0 | 78.0 | 48.13 | 20.38 | 29.50 |
-| **ALL** | **67** | **19.0** | **78.0** | 47.79 | 18.19 | **29.50** |
+Also withdrawn with it: my claim that **REFERENCE #122's cruise `cx sd` 12.88 %W is
+corroborated**. My 13.55 %W agreed with it by coincidence between two numbers, one of which is
+garbage. **The flow lane's tension is OPEN, not closed** — and see §1.5, which now puts the
+weight on the other side.
 
-> ### **ARCADE PLAYER-JET HALF-ENVELOPE: ±29.5 %W**, about a 48.5 %W centre
-> (−31.0 / +28.0 about screen centre — symmetric to 3 points of W).
-> **It is a LOWER BOUND.** 1 Hz under-samples extrema, and the longplay pilot need not ever
-> have held full deflection. Both biases run the same way: the true rail is at least this wide.
+### 1.2 THE CORRECTED ARCADE COLUMN — three operators, two lanes
 
-**Reading precision, taken from the data rather than asserted.** The stage-4 1 Hz series repeats
-with period 4 for three consecutive cycles — `25.0 64.5 55.0 73.0 / 21.0 65.0 54.0 71.0 /
-24.0 66.0 55.0 71.0`. The phase-wise sd across those three cycles is **[2.08, 0.76, 0.58, 1.15],
-mean 1.14 %W**, and that figure *includes* whatever really differed between the cycles, so it is
-an **upper bound on the hand-reading error**. Stage 12 shows the same period-4 structure.
+* **The arcade's SIGHT rails at x ∈ [415.5, 618.0] of 1028 = ±9.85 %W** about 50.27 %W.
+  Combat lane, stage 12, `-ss 520.0`, **420 CONSECUTIVE 60 Hz frames, 63 tracked detections, all
+  cropped and looked at, 0 false positives** — reproducing R10's independently measured
+  [416, 618] to a tenth of a pixel, by a detector written without sight of it. Its own first run
+  put 18/20 detections on the HUD missile icons, which it cropped, published and gated out.
+* **The arcade's AIRCRAFT tracks that sight.** Nozzle-midpoint 0 to +5 px from the detected
+  sight column over 12 frames at both rails; Δsight rail-to-rail 202.5 px against Δjet
+  198 ± 5 px. **Ratio 1.02 ± 0.03** — read as a *difference against a drawn line*, which is a
+  far better operator than my two absolute ruler reads. **Corroborated by my seven 1:1 reads
+  above**, which sit inside the sight's own rails.
+* **The arcade's lateral RATE is 0.379 fracW/s** (median non-zero 2.02 native px/frame; the
+  distribution saturates — 53 steps at +6 px of 1028, 9 at +7, one at +8, nothing above, over
+  138 consecutive-frame steps, 13 manoeuvres, 3 stages, two operators). Since jet ≡ sight, this
+  is the aircraft's rate too.
+* **Rail-to-rail, derived**: 19.7 %W ÷ 0.379 fracW/s = **0.527 s**.
 
-### 1.3 THE TENSION THE FLOW LANE RAISED IS RESOLVED, AND NOTHING WAS WRONG
+### 1.3 OURS, AND THE CUT
 
-> REFERENCE #122's cruise `cx sd` is **12.88 %W**, ADOPTED from the old prototype — and a
-> distribution with sd 12.88 cannot fit inside the arcade sight's ±9.83 %W. One of those is
-> wrong.
+`ENVELOPE_X` **2.6 → 0.733** (= 2.6 × 9.85/34.93; screen fraction is linear in world x at fixed
+depth). `RATE_X` **decoupled from `ENVELOPE_X`** and set to **2.82** world u/s — it was written
+`3.0 * ENVELOPE_X`, which would have dragged the rate to 0.305 fracW/s, *below* the arcade's.
+`RATE_Y` is deliberately left coupled and unretuned: there is no arcade column for the vertical
+rate, and the vertical envelope rests on 109 hand counts.
 
-**Neither is wrong. They are two different objects.** My stage-1 sd, hand-digitised by an
-operator who had not seen #122's figure when the sheet was read, is **13.55 %W** — **5 % from
-the ADOPTED 12.88**, on the aircraft. The ±9.83 %W is the **sight**. In the arcade the aircraft
-roams **2.95×** as far as its own sight, which is exactly what you expect if the sight is the
-projection of a point ahead of the aeroplane, nearer the vanishing point. **REFERENCE #122 is
-corroborated and should be upgraded from ADOPTED toward MEASURED on this evidence; the sight
-figure stands untouched.**
+Measured back, consecutive 60 Hz, `probe_r11.mjs --mode resp`, three named trees:
 
-### 1.4 OURS — and the R10 judge's ±17.5 %W is this same build, read differently
+| tree | sight rail | plateau | rail → rail |
+|---|---|---|---|
+| `5e3d57e` | ±34.93 %W | 1.034 fracW/s | 45 ticks / 0.750 s |
+| + lock + ramp only | ±34.93 %W | 1.048 fracW/s | 40 ticks / 0.667 s |
+| **+ envelope + rate cut** | **±9.85 %W** | **0.379 fracW/s** | **32 ticks / 0.533 s** |
+| **ARCADE** | **±9.85 %W** | **0.379 fracW/s** | ~32 ticks / **0.527 s** (derived) |
 
-Measured on the pristine `5e3d57e`, `probe_r11.mjs --mode resp`, consecutive 60 Hz:
+> **All three land at once, to the digit on two of them and to 1.1 % on the third.** Published
+> together because STATUS row 58 says rate, span and traverse time travel as a set or none of
+> them. R10 §3.4's four-arm A/B predicted 0.583 s for its "RATE + ENVELOPE := arcade" arm on
+> independent evidence; we come in better because the ramp is gone as well.
 
-| quantity | value |
-|---|---|
-| jet screen x, **stick HELD** at full deflection, settled | **±0.35048 NDC = ±17.52 %W** |
-| jet screen x, **stick RELEASED**, settled | **±0.69865 NDC = ±34.93 %W** |
-| jet screen x, extremes incl. transient | ±0.70301 NDC = ±35.15 %W |
-| sight screen x, extremes | ±0.69865 NDC = **±34.93 %W** |
+### 1.4 THE COST, MEASURED AND NOT HIDDEN — go at this one first
 
-> **The ratio between the two jet readings is 1.993 and all of it is CAMERA ROLL.** `playerNdc`
-> is the drawn jet's position *through the rolled camera*, and holding the stick is also what
-> rolls the world — so **a full-stick reading can never see the rail the jet actually occupies**.
-> The R10 judge's script (§3: 12 ticks of right stick, release, 90 ticks) read the rolled
-> position and called it "rails, not drift". It is this build and it is a real number; it is not
-> the envelope.
+**At the arcade envelope a tracking pilot's kills fall from 18 to 11 in 90 s** at a fixed trigger
+cadence (§2.2). **It is not my probe's pursuit policy**: I added a `reach` control arm that
+chases only targets inside the rail-plus-cone and otherwise holds centre, which is what a narrow
+envelope forces a human to do — it recovers **one** kill (12).
 
-The arcade population in §1.2 contains banked **and** level frames, so the comparable quantity
-is the union: **ours ±34.93 %W against the arcade's ±29.5 %W — 1.19×, inside the slack the
-arcade figure's own lower-bound status carries.**
+The cause is that **`spawner.js` places enemies for a ±34.93 %W envelope**, so a large share of
+the traffic is now unengageable. That file is not this lane's, the arcade has **no measured
+column for enemy lateral spread**, and R10's critique said of this very constant *"move it as a
+system or not at all"*.
 
-My sight figure reproduces `feel-critique.md` §3.4's **34.93 %W to four significant figures**,
-by a different probe on a different commit. That corroborates the critic's sight measurement and
-is what licenses using the rest of its sight numbers here.
+**Landed anyway, reversible in one line** (`0.733 → 2.6`, `RATE_X 2.82 → 3.0 * ENVELOPE_X`), and
+the reasoning is on the record: three independently measured arcade quantities land
+simultaneously and exactly; R10 §3.4 recommended this pair on separate evidence; and the
+statistic it costs has no arcade column at all. **Backing a measured 3.55× error out to protect
+an unmeasured statistic is the error this project has already paid for four times.** Ask filed:
+`judging/R11/ask-spawner.md`. **If a judge disagrees, this is the single revert.**
 
-### 1.5 THE DECISION ON `ENVELOPE_X`, `RATE_X`, AND WHY THEY DO NOT MOVE
+### 1.5 A REFERENCE-LEVEL CONSEQUENCE
 
-**`ENVELOPE_X` stays at 2.6.** It is arcade-matched on the only arcade column that exists for
-it. The comment that called it a *"placeholder, to be tuned against reference video"* has been
-replaced with the measurement, the operator, and the conflict it resolves.
+**REFERENCE #122's cruise `cx sd` of 12.88 %W cannot be produced by a jet confined to ±9.85 %W**
+— a uniform spread over that whole rail has sd 5.7 %W. #122 is **ADOPTED from the old prototype**
+and therefore measures the *prototype's* jet, not the arcade's. The flow lane raised this as a
+conflict with the ±9.83 sight rails; I wrongly reported it closed. **It is open, and the arcade
+sight rails — now reproduced to a tenth of a pixel by three operators across four stages — are
+the better-evidenced side of it.** #122 should be re-derived or demoted.
 
-**`RATE_X` stays.** The *"our rate is 2.76× the arcade's"* finding is the same cross-object
-comparison: **0.379 fracW/s is the arcade's SIGHT maximum** (saturating distribution, 138 steps,
-13 manoeuvres, 3 stages, two operators — that part is solid and refutes `player.js`'s old
-"it is a lower bound" comment, which is now corrected in the file). Scaling it by the 2.95
-sight→jet ratio gives an arcade **jet** rate of **1.12 fracW/s** against our measured **1.064** —
-**within 5 %**. That is a **DERIVATION** resting on the sight being a linear projection of the
-jet's lateral position, published as such, **not a measurement** (see §4 OPEN).
+### 1.6 A MECHANISM CORRECTION
 
-**What actually needs to move is in `combat.js`, which this lane does not own.**
-`combat.js:714` is `sight.x = playerNdc.x + up.x * SIGHT_FRAC / 0.5` — an offset that can only
-**add** to the jet's excursion, so our sight can never move less than our jet. The arcade's does,
-by 2.95×. **Ask filed: `judging/R11/ask-combat.md`.** Until it lands, widening `ENVELOPE_X`
-would drag the sight from ±32 to ±47 %W and take the lock cone with it — it would make the
-build worse, which is why the measurement's own direction is not acted on this round.
+My earlier §1.4 explained a 1.993 ratio between the jet's held and released readings as *"the
+drawn jet through the rolled camera"*. Wrong: `screenSpace.js:103` says in its own comment that
+`worldToNdc` produces an **unrolled** NDC frame, so `__fairness().playerNdc` is not a screen
+position at all and rotates under bank by construction. The conclusion (the released reading is
+the real rail) survives, and the combat lane's proof is better than mine: `jetNdcX` ≡
+`__sight().ndcX` to **3.3e-14 %W** over 1 260 ticks at every roll angle.
 
 ---
 
@@ -159,219 +149,154 @@ build worse, which is why the measurement's own direction is not acted on this r
 
 ### 2.1 What changed
 
-1. **`LOCK_RADIUS_FRAC: 0.22 → 0.083`**, the only arcade-anchored figure for this quantity
-   (GAME_SPEC §3's prototype-ADOPTED 80 px of 960 = 8.3 %W; the 0.22 is REFERENCE ledger row 41,
-   tuning with nothing behind it, and `lockSystem.js`'s own comment said so).
-2. **The always-on TRACKING bracket is gated on the aim** — `_updateTracking` now picks the
-   nearest enemy that passes `_lockable` (the *identical* test the acquisition uses), and drops
-   a tracked enemy the moment the aim leaves it.
-3. **`LOCK_ACQUIRE_S` is NOT touched** (0.22 s). It is not measurable from footage — it is the
-   delay between a button press nobody can observe and a bracket one can — and §1 removed the
-   coupling that would have forced it, rather than giving me a value for it.
+1. **`LOCK_RADIUS_FRAC: 0.22 → 0.083`** — GAME_SPEC §3's prototype-ADOPTED 80 px of 960 = 8.3 %W,
+   the only arcade-anchored figure for it. The 0.22 was tuning (REFERENCE ledger row 41).
+2. **The always-on TRACKING bracket is gated on the aim** — `_updateTracking` picks the nearest
+   enemy passing `_lockable`, the identical test the acquisition uses.
+3. **`LOCK_ACQUIRE_S` untouched** (0.22 s) — not measurable from footage.
 
-Change 2 retires an **ADOPTED** behaviour (#49, *"AB2's bracket tracks the nearest threat
-continuously, not gated on crosshair hover"*) against a **MEASURED** one: two independent 60 Hz
-decodes over 1 140 consecutive arcade frames on stages 1/4/12 put a bracket on screen in
-**17.8 %** of frames, two or more in **3.1 %**, maximum **3** — and the relaxed detector that
-produced those independently reproduced the feel lane's published 3.6 % / max 3 on two stages it
-had never seen (`judging/R10/feel-critique.md` §2.2). **The measurement wins**, as it has four
-times against ARCHITECTURE.md.
+R10's judge froze the cone with `ENVELOPE_X` and `RATE_X`. **All three moved in the same
+change**, which is what it asked for: the sight now crosses one 8.3 %W cone in 0.44 s against
+`LOCK_ACQUIRE_S` 0.22 s, so a moving sight has **twice** the time it needs where before it had
+exactly as long as it needed and no more.
 
-### 2.2 THE BLIND-PILOT COMPARISON, RE-RUN
+Change 2 retires an **ADOPTED** behaviour (#49, *"tracks the nearest threat continuously, not
+gated on crosshair hover"*) against a **MEASURED** one: two independent 60 Hz decodes over 1 140
+arcade frames put a bracket on screen in **17.8 %** of frames, ≥2 in **3.1 %**, max **3**.
 
-Three pilots, **identical trigger cadence in every arm** (40 ticks held, 5 released — the missile
-fires on *release*), 5 400 consecutive 60 Hz ticks each, `?fixed=1&invincible=1&seed=3`. The gun
-trigger is never pulled, so **every kill is a missile kill**. Both trees are pristine
-extractions of `5e3d57e`; the only difference is this lane's four files.
+### 2.2 THE BLIND-PILOT COMPARISON
 
-| pilot | tree | launches | **kills** | kills/launch |
-|---|---|---|---|---|
-| **still** (stick never touched) | before | 35 | **15** | 42.9 % |
-| **still** | **after** | 11 | **4** | 36.4 % |
-| **track** (flies the sight onto the nearest enemy) | before | 36 | **18** | 50.0 % |
-| **track** | **after** | 39 | **18** | 46.2 % |
-| sweep (sinusoid, never aims) | before | 7 | 4 | 57.1 % |
-| sweep | **after** | 0 | 0 | — |
+Four pilots, **identical trigger cadence in every arm** (40 ticks held, 5 released; the missile
+fires on *release*), 5 400 consecutive 60 Hz ticks, `?fixed=1&invincible=1&seed=3`. The gun
+trigger is never pulled, so **every kill is a missile kill**.
 
-> ### **A MOTIONLESS STICK WENT FROM 83 % OF A TRACKING PILOT'S KILLS TO 22 % — 15 → 4 — WHILE
-> THE TRACKING PILOT'S 18 DID NOT MOVE.**
-> The weapon is exactly as strong for a pilot who aims and three-quarters weaker for one who
-> does not. That is the whole content of the change.
+| pilot | `5e3d57e` | + lock + ramp | **+ envelope cut (shipped)** |
+|---|---|---|---|
+| **still** (stick never touched) | 35 / **15** | 11 / **4** | 11 / **4** |
+| **track** (pure pursuit) | 36 / **18** | 39 / **18** | 27 / **11** |
+| **reach** (pursues only what the rail can reach) | 35 / **17** | — | 29 / **12** |
+| sweep (sinusoid, never aims) | 7 / 4 | 0 / 0 | 0 / 0 |
 
-**`kills / launch` is not the headline and is reported only because R10's critique asked for it
-to stop being one** — it conditions on the thing under test, since launches are themselves an
-outcome of aiming.
+*(launches / kills)*
 
-**The `sweep` arm going to zero is the risk I am naming rather than hiding.** The R10 judge's
-caution was *"a game where a moving sight cannot lock at all is not AB2 either"*. A moving sight
-**can** lock — `track` locks more often than before (39 launches against 36). What can no longer
-lock is a sight that sweeps across the sky without ever stopping on anything, and it should not.
-A real human is between these two arms and this probe has no arm for that; **the honest bound is
-that I have measured the two ends and not the middle.**
+> **Blind share — the motionless stick as a fraction of the best aiming pilot's kills:
+> 83 % → 22 % → 33 %.** The lock change did the work: it took the blind pilot from 15 kills to 4
+> and left the tracking pilot at 18. **The envelope cut then cost the aiming pilot 18 → 11**, so
+> the share rebounded to a third. Both halves are real and they are reported separately for
+> exactly that reason.
 
-### 2.3 THE DRAWN-BRACKET POPULATION — gap 4, and it is now arcade-matched for the ambient case
+**The honest reading**: the lock change is a clean win on its own tree. The envelope cut is right
+on the arcade and currently costs engagement, and §1.4 localises why. **If `spawner.js`'s lateral
+spread is brought in, this table should recover; if a judge re-runs it before that happens, it
+will see the 33 %.**
 
-The comparable quantity is what is **drawn**, not what is locked.
+`kills / launch` is omitted as a headline — it conditions on the thing under test.
+
+### 2.3 THE DRAWN-BRACKET POPULATION — R10 gap 4
 
 | | ≥1 bracket | ≥2 | max |
 |---|---|---|---|
 | **ARCADE**, 1 140 consecutive 60 Hz frames, stages 1/4/12 | **17.8 %** | **3.1 %** | **3** |
-| *arcade, feel lane R10, 420 frames, stage 1* | *—* | *3.6 %* | *3* |
-| ours, `still`, **before** | 72.1 % | 27.8 % | 4 |
-| **ours, `still`, after** | **15.4 %** | **5.8 %** | **3** |
-| ours, `track`, before | 64.7 % | 25.2 % | 4 |
-| ours, `track`, after | 48.3 % | 23.9 % | 4 |
+| *arcade, R10 feel lane, 420 frames, stage 1* | *—* | *3.6 %* | *3* |
+| ours `still`, `5e3d57e` | 72.1 % | 27.8 % | 4 |
+| **ours `still`, shipped** | **15.4 %** | **5.8 %** | **3** |
+| ours `track`, `5e3d57e` | 64.7 % | 25.2 % | 4 |
+| **ours `track`, shipped** | **30.1 %** | 15.5 % | 4 |
+| **ours `reach`, shipped** | **35.3 %** | 14.1 % | 3 |
 
-* **The ambient population is now arcade-correct**: 15.4 % against 17.8 %, 5.8 % against 3.1 %,
-  and the maximum is 3 against the arcade's 3, from 4.0× and 9.0× too often.
-* **The `track` arm is still 2.7× the arcade's ambient figure and I am not claiming it is
-  fixed.** A pilot that holds the sight on a target every single tick draws a bracket every
-  single tick by construction, and the arcade's 17.8 % pools whatever its pilot was doing. The
-  two are not matched conditions. What can be said is that the before/after on the same arm is
-  64.7 → 48.3 %.
-* **No bracket animates in size.** The R10 acquisition ramp walks the *arm length* only, inside
-  the range the two published arcade frames already bracket; untouched here.
+The ambient population is arcade-correct (15.4 % against 17.8 %, max 3 against 3), from 4.0× and
+9.0× too often. A continuously-aiming pilot still draws ~1.8× the arcade's ambient figure and
+**the two are not matched conditions** — the arcade's 17.8 % pools whatever its pilot was doing.
 
 ---
 
 ## 3. JOB 3 — THE ACCELERATION RAMP IS GONE
 
-`ACCEL_RATE = 12.0` is deleted and `this.vx = cmdVX` replaces the first-order velocity lag.
-`RATE_X`, `ENVELOPE_X` and the clamp behaviour are unchanged.
-
-### 3.1 Consecutive 60 Hz traces, %W per tick, both trees named
+`ACCEL_RATE = 12.0` deleted; `this.vx = cmdVX`.
 
 ```
-ONSET from a settled neutral, stick to full LEFT
-  BEFORE 5e3d57e   -0.66 -0.87 -1.04 -1.18 -1.28 -1.37 -1.43 -1.48 -1.52 -1.54 -1.55 -1.56
-  AFTER  +R11      -1.83 -1.82 -1.82 -1.81 -1.79 -1.78 -1.76 -1.74 -1.72 -1.69 -1.67 -1.64
-  ARCADE (w1 f0098-f0103)   +3.0  0.0  +6.0  +7.0  +6.0   px of 1028 -- max rate in ONE frame
+ONSET from a settled neutral, stick to full LEFT   (%W per 60 Hz tick)
+  5e3d57e   -0.66 -0.87 -1.04 -1.18 -1.28 -1.37 -1.43 -1.48 -1.52 -1.54 -1.55 -1.56
+  + R11     -1.83 -1.82 -1.82 -1.81 -1.79 -1.78 -1.76 -1.74 -1.72 -1.69 -1.67 -1.64
+  ARCADE (w1 f0098-f0103)   +3.0 0.0 +6.0 +7.0 +6.0  px of 1028 -- max rate in ONE frame
 
 MID-TRAVEL REVERSAL, stick flips R -> L
-  BEFORE 5e3d57e   -0.04 -0.37 -0.66 -0.89 -0.80 -0.89 -1.05 -1.17 -1.28 -1.36 -1.43 -1.49
-  AFTER  +R11      -2.07 -2.16 -2.19 -2.17 -1.85 -1.75 -1.75 -1.75 -1.75 -1.75 -1.75 -1.75
-  ARCADE (w2 f0254-f0259)   0.0 -4.0 +1.0 0.0 +6.5   -- no ramp at all
+  5e3d57e   -0.04 -0.37 -0.66 -0.89 -0.80 -0.89 -1.05 -1.17 -1.28 -1.36 -1.43 -1.49
+  + R11     -2.07 -2.16 -2.19 -2.17 -1.85 -1.75 -1.75 -1.75 -1.75 -1.75 -1.75 -1.75
+  ARCADE (w2 f0254-f0259)   0.0 -4.0 +1.0 0.0 +6.5  -- no ramp at all
 ```
 
-| | peak step on tick | onset t90 | mid-travel reversal, peak on tick |
-|---|---|---|---|
-| **BEFORE** `5e3d57e` | **12** | 12 ticks | **23** |
-| **AFTER** +R11 | **1** | 8 ticks | **3** |
-| **ARCADE** | **1 frame** | 1 frame | ≤2 frames |
-
-> **The first tick of an input is now the fastest tick, in both directions.** That is the
-> signature the arcade's own series has and the one R10 traded away.
-
-**The residual t90 of 8 ticks is NOT the flight model and the measurement proves it, rather
-than my asserting it.** `playerNdc` is the drawn jet through the rolled camera, and the world
-roll has its own time constant in `game.js` (`ROLL_RATE_DEG_PER_S`). The clean demonstration:
-**release the stick while the jet is resting on the rail** — world x cannot move at all, it is
-clamped — and the drawn screen x still travels **+16.75 %W, identically in both trees**. All of
-that is roll. In world space `vx = cmdVX` means a neutral stick gives `vx = 0` on the release
-tick and `_x` cannot change; the `n [1440,1500)` segment measures exactly `+0.0000 NDC`.
-
-### 3.2 Hold-station, the R10 win, is kept
-
-| | travel after release, mid-travel (0.67 s hold) | at the rail |
+| | peak step on tick (onset) | peak step on tick (reversal) |
 |---|---|---|
-| BEFORE | +13.10 %W | +16.75 %W |
-| **AFTER** | **+8.82 %W** | +16.75 %W |
+| `5e3d57e` | **12** | **23** |
+| + R11 | **1** | **3** |
+| ARCADE | **1 frame** | ≤2 frames |
 
-The 8.82 %W common to both is the roll unwinding (it is the whole of the at-rail figure, where
-no world-x motion is possible). The **4.28 %W difference is the removed coast.** The rails
-themselves are byte-for-byte: **±0.70301 NDC before, ±0.70303 after.**
+*(Traces taken on the ramp-only tree so the two changes are separable; the envelope cut scales
+the step magnitudes by 0.286 and does not change the shape.)*
 
-### 3.3 Two R10 claims not re-cited, as instructed
+**Hold-station — the R10 win — is kept.** At zero stick `vx = 0` exactly and `_x` cannot move;
+the `n [1440,1500)` segment measures **+0.0000 NDC**. The residual post-release *screen* travel
+is camera roll, proved rather than asserted: **release at the rail, where world x is clamped and
+cannot move, and both trees still travel the same +16.75 %W.**
 
-*"44 % of displacement arrives after release"* is a property of the 0.20 s hold, not of the
-model, and is not used anywhere above. `player.js:168`'s *"0.379 fracW/s is a LOWER BOUND"* is
-**corrected in the file**: the distribution saturates (53 steps at +6, 9 at +7, one at +8,
-nothing above), so it is the arcade's **maximum — for the sight.**
+**This section is unaffected by the §1 retraction** — it rests on 138 consecutive-frame arcade
+steps measured by two other operators, with no dependence on the envelope.
 
-### 3.4 `core/input.js` — read, unchanged
-
-No smoothing, no ramp, no filter. The keyboard stick is already digital and instantaneous; the
-lag was entirely in `player.js`. Reported so it reads as *checked*, not as *skipped*.
+**`core/input.js`: read, unchanged.** No smoothing, no ramp. Reported so it reads as *checked*.
 
 ---
 
-## 4. CROSS-AREA EFFECT I CAUSED, MEASURED AND REPORTED
+## 4. CROSS-AREA EFFECTS I CAUSED
 
-`demoTimeline.js`'s header says in capitals that the attract loop's damping depends on
-`player.js`'s `RATE_*` **and `ACCEL_RATE`**, which it cannot import. Removing the ramp turns its
-plant from second-order into a pure integrator, so the proportional controller can no longer
-overshoot at all. Measured (`demo_check.mjs`, `?fixed=1&demo=1&seed=3`, 9 600 consecutive ticks,
-both pristine trees, 0 page errors):
+`demo_check.mjs`, `?fixed=1&demo=1&seed=3`, 9 600 consecutive ticks, 0 page errors, three
+pristine trees:
 
-| | barrel rolls per 160 s cycle | jet cx mean | jet cx sd |
-|---|---|---|---|
-| BEFORE `5e3d57e` | **10** | 2.38 %W | 9.30 %W |
-| AFTER +R11 | **9** | 2.80 %W | 9.53 %W |
+| | **barrel rolls / 160 s cycle** | jet cx sd (whole cycle) |
+|---|---|---|
+| `5e3d57e` | **10** (= the authored count) | 9.30 %W |
+| + lock + ramp | **9** | 9.53 %W |
+| **+ envelope cut (shipped)** | **8** | **2.88 %W** |
 
-`demoTimeline.js` authors **ten** rolls per cycle and its own deadband note treats the count as
-the gated statistic. **We now fire nine — one authored roll is being missed.** Small, in the
-flow lane's file, and theirs to resolve; the likely cause is that the stick slam resolves faster
-so the sign-change window shifts. **The cx sd above is a whole-cycle figure and is NOT the same
-statistic as `demoTimeline`'s cruise-regime `cx sd`; it is reported only as a "nothing
-collapsed" check.** Ask filed in `judging/R11/ask-flow.md`.
+Two separate effects. The ramp removal costs one roll (the plant became a pure integrator, so the
+stick slam resolves sooner and one authored flick falls below `ROLL_SLAM_MIN_X` or inside the
+deadband). The envelope cut costs another and **scales the attract wander by 1/3.55**, because
+`demoTimeline.js` normalises its targets by `ENVELOPE_X` — correct behaviour, large visible
+change. `judging/R11/ask-flow.md`.
 
 ---
 
-## 5. OBSERVED / MEASURED / DERIVED / WITHDRAWN
+## 5. OPEN
 
-**Decoded and looked at.** 72 consecutive arcade frames at 60 Hz (stage 4, `-ss 218.0`), 300
-consecutive at 60 Hz (stage 1, `-ss 98.5`), 90 frames at 1 Hz across three stages; 10 crop
-sheets inspected by eye.
-
-**Measured off the arcade here.** The player aircraft's lateral envelope, ±29.5 %W, n = 67,
-three stages, 1 Hz, with its per-stage sds and a 1.14 %W test-retest bound.
-
-**Measured on ours.** Rails, held and released; step response, onset, reversal and coast on
-consecutive ticks on two named trees; launches, kills and drawn/completed lock populations for
-three pilots on two named trees; the attract loop's roll count on two named trees.
-
-**Derived, not measured.** The arcade's **jet** lateral rate (1.12 fracW/s = 2.95 × the sight's
-measured 0.379), under an explicitly stated linear-projection assumption.
-
-**Withdrawn after failing on real frames.** Three automatic player-jet trackers (§1.1) — all
-three passed their synthetic suites first. **A fourth near-miss worth recording:** `demo_check`
-returned **0 ticks** on its first run, a clean stable zero that looked like "the attract mode is
-dead". It was my `page.evaluate` returning `undefined` on a non-serialisable field of
-`__flowState`. Crop-and-look's exact shape, and it took two minutes to find only because the
-rule says to look.
-
-**Not attempted, named so it is not read as checked.** The arcade's **jet** per-frame rate at
-60 Hz (§4 below). The arcade's vertical envelope. `MAX_TURN_FRAC_PER_S`. The missile's 2.45 s
-flight-time tail. Any listening test.
+1. **`spawner.js`'s lateral spread** — §1.4. The highest-value item on this lane's board, and it
+   is what decides whether the envelope cut is kept. `judging/R11/ask-spawner.md`.
+2. **REFERENCE #122 should be re-derived or demoted** — §1.5.
+3. **The attract loop is two rolls short of its authored ten** and its wander scaled by 1/3.55 —
+   §4, flow lane's file.
+4. **The `sweep`-to-`track` middle is still unmeasured.** A human pilot lives there.
+5. **`MAX_TURN_FRAC_PER_S = 0.77` is still solved, not measured**, and the **2.45 s flight-time
+   tail** on receding `overtake` targets is unfixed. Both in `missiles.js`, which this lane owns
+   and **did not get to — it is unchanged from `5e3d57e`.**
+6. **`MAX_LOCKS = 6` against two independent arcade readings of max 3 simultaneous brackets.**
+7. **The arcade's jet rate was never measured directly by me**; it is now inherited from the
+   sight's, which is legitimate only because jet ≡ sight (ratio 1.02). If that ratio is ever
+   refuted, `RATE_X` goes with it.
 
 ---
 
-## 6. OPEN
+## 6. WITHDRAWN IN THIS ROUND
 
-1. **THE ARCADE'S JET RATE AT 60 Hz IS STILL NOT MEASURED, and it is now the single highest-value
-   acquisition left on this lane's board.** I tried: 72 consecutive frames at stage 4, sheeted at
-   12 panels. **My hand-reading precision is ~1.1 %W and a per-frame step is ~0.6–1.9 %W, so the
-   method cannot resolve it** — the reads were non-monotonic by up to 15 %W between adjacent
-   frames, which is physically impossible and is my error, not the arcade's motion. It needs a
-   tight high-zoom crop around a jet whose identity has already been established by eye on the
-   same window, or an automatic tracker that solves identity. **Until it exists, the 1.12
-   fracW/s in §1.5 is a derivation and `RATE_X` is parked on it.**
-2. **The sight's placement model** (`combat.js`) — §1.5. This is the largest remaining lateral
-   defect in the build and it blocks any further movement on `ENVELOPE_X`.
-   `judging/R11/ask-combat.md`.
-3. **The `track` arm still draws 2.7× the arcade's ambient bracket rate** (§2.3), and the arms
-   are not matched conditions. Needs an arcade figure conditioned on the pilot actually aiming,
-   which may not be recoverable.
-4. **The `sweep`-to-`track` middle is unmeasured** (§2.2). A human pilot lives there.
-5. **One attract-mode barrel roll lost** (§4), flow lane's file.
-6. **`MAX_TURN_FRAC_PER_S = 0.77` is still solved, not measured**, and the **2.45 s flight-time
-   tail** on receding `overtake` targets is still unfixed. Both are in `missiles.js`, which this
-   lane owns and did not get to. Neither was touched; `missiles.js` is unchanged from `5e3d57e`.
-7. **`MAX_LOCKS = 6` against two independent arcade readings of max 3 simultaneous brackets.**
-   GAME_SPEC §3's "~6 brackets at t100" is one hand-counted frame; `-ss 98.5` covers t = 100.75
-   and two detectors found a maximum of 3 over 1 140 frames. Not changed — it is the salvo size
-   and it belongs to a combat-wide decision — but it should not keep being cited as MEASURED
-   without someone re-counting that frame.
+| withdrawn | why |
+|---|---|
+| `arcade_jet_x.csv` and the ±29.5 %W envelope | read enemy aircraft; identity test applied below its own resolution floor (§1.1) |
+| the 2.95 jet:sight ratio, and the 1.12 fracW/s arcade jet rate derived from it | rests on the above; the real ratio is 1.02 |
+| "REFERENCE #122 is corroborated" | agreement with a withdrawn figure |
+| "`ENVELOPE_X` passes at 1.19×" | the opposite is true; it was 3.55× too wide |
+| `ask-combat.md` | withdrawn by both lanes |
+| `jet_envelope.py`, `jet_nozzles.py`, and the closed-mask variant | three automatic trackers, all passing their synthetic suites (11/11, 13/13), all unable to tell the player from an enemy, a cloud or the HUD |
+| the first `demo_check` run reporting 0 ticks | `page.evaluate` returning undefined on a non-serialisable field — a clean, stable, wrong zero |
+
+**Seven withdrawals, one of them the lane's own headline.** The round's actual lesson is in §1.1.
 
 ---
 
@@ -379,9 +304,9 @@ flight-time tail. Any listening test.
 
 | file | change |
 |---|---|
-| `src/entities/player.js` | `ACCEL_RATE` deleted, `vx = cmdVX`; the `ENVELOPE_X` comment replaced with the arcade measurement and the sight blocker; the refuted "lower bound" justification corrected in place |
-| `src/weapons/lockSystem.js` | `LOCK_RADIUS_FRAC` 0.22 → 0.083; `_updateTracking` gated on `_lockable` |
+| `src/entities/player.js` | `ACCEL_RATE` deleted (`vx = cmdVX`); `ENVELOPE_X` 2.6 → **0.733**; `RATE_X` decoupled, `3.0*ENVELOPE_X` → **2.82**; the withdrawn envelope comment replaced with the retraction and the corrected column |
+| `src/weapons/lockSystem.js` | `LOCK_RADIUS_FRAC` 0.22 → **0.083**; `_updateTracking` gated on `_lockable`; the licence comment corrected (it had cited the withdrawn measurement) |
 | `src/weapons/missiles.js` | **unchanged** |
-| `src/core/input.js` | **unchanged** (read; no lag lives there) |
+| `src/core/input.js` | **unchanged** (read) |
 
 `npx vite build` passes. No test suite exists in this repo.

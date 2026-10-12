@@ -1,3 +1,21 @@
+# ############################################################################
+# WITHDRAWN -- THIS FILE IS NOT A MEASUREMENT OF THE PLAYER AIRCRAFT.
+#
+# It was hand-digitised off contact sheets rendered at 0.42 scale. The identity
+# test it relies on is "the player's F-14 has TWO afterburner nozzles and every
+# arcade enemy has ONE", and AT 0.42 SCALE THAT DISTINCTION IS INVISIBLE. The
+# rows are a mixture of the player and enemy aircraft.
+#
+# Checked at 1:1 on its own extreme rows: the 22 %W at stage 1 f005 is the
+# CARRIER DECK, the 20 %W at stage 4 f005 is EMPTY WATER, and the 78 %W at
+# stage 12 f012 is EMPTY SKY. The player in those frames is at 50.8, ~48 and
+# ~52.8 %W.
+#
+# The arcade player aircraft tracks its SIGHT (ratio 1.02 +- 0.03) and rails at
+# +-9.85 %W. See judging/R11/lane-feel.md section 1 and judging/R11/lane-combat.md.
+#
+# DO NOT CITE ANY NUMBER BELOW. Kept only so the withdrawal is auditable.
+# ############################################################################
 # ARCADE PLAYER-JET screen x, HAND-DIGITISED off ruled contact sheets.
 # Instrument: a person + the 5 %W ruler drawn by tools/out/feel-r11/sheet.py.
 # Read point: the midpoint of the aircraft's two afterburner nozzles (the

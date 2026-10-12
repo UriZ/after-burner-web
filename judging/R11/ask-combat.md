@@ -1,3 +1,21 @@
+# WITHDRAWN — R11 feel lane → combat lane
+
+**This ask is WITHDRAWN by both lanes and must not be actioned.**
+
+It asked the combat lane to change `combat.js`'s sight placement so the sight would move ~1/2.95
+of the jet's excursion. **Its entire premise — an arcade jet:sight excursion ratio of 2.95 —
+came from `judging/R11/arcade_jet_x.csv`, which was reading ENEMY aircraft.** The real ratio is
+**1.02 ± 0.03**: the arcade's aircraft tracks its sight. `combat.js`'s `sight = playerNdc + up *
+SIGHT_FRAC` is therefore CORRECT and needs no change.
+
+The defect was `ENVELOPE_X` in `player.js` all along, and the feel lane cut it in this round.
+See `judging/R11/lane-feel.md` §1 (retraction and corrected column) and
+`judging/R11/lane-combat.md` for the decode that caught it.
+
+Original text preserved below for the record only. **Do not act on it.**
+
+---
+
 # R11 feel lane → combat lane: the SIGHT moves with the jet, and the arcade's moves against it
 
 **One ask, one file, one line.** `src/weapons/combat.js` is yours; `src/entities/player.js` and

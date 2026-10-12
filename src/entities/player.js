@@ -47,54 +47,71 @@ import { CAMERA_HEIGHT, CAMERA_PITCH } from '../core/cameraGeom.js';
 // "Jet roams a wide screen area" (ARCHITECTURE.md D7 item 2). Envelope is in
 // world units at the jet's fixed depth in front of the camera.
 //
-// R11 -- THE ARCADE COLUMN FOR THIS CONSTANT NOW EXISTS AND THIS CONSTANT
-// PASSES. It is deliberately NOT changed; two rounds of gap lists have asked
-// for it to move and all of them were comparing it against a different object.
+// R11 -- CUT FROM 2.6, AND THE FIRST VERSION OF THIS COMMENT WAS WITHDRAWN.
 //
-// ARCADE, MEASURED (judging/R11/lane-feel.md §1;
-// tools/out/feel-r11/arcade_jet_x.csv, n = 67, stages 1 / 4 / 12, stage
-// identity read off the HUD digit at BOTH ends of every window): the arcade
-// PLAYER AIRCRAFT's drawn screen x spans **19.0 .. 78.0 %W**, i.e. a
-// half-envelope of **+-29.5 %W** about a 48.5 %W centre. Hand-digitised off
-// ruled contact sheets, because three automatic operators passed their
-// selftests and then failed on real frames -- none of them could tell the
-// player's aircraft from an enemy, a cloud or an explosion. Sampled at 1 Hz;
-// an extremum, so it carries NO speed claim and is a LOWER BOUND.
+// WHAT I PUBLISHED HERE FIRST AND RETRACTED: an arcade "player aircraft"
+// envelope of +-29.5 %W, hand-digitised off 0.42-scale contact sheets, which
+// said this constant passed at 1.19x and must not move. **It was reading ENEMY
+// AIRCRAFT.** The combat lane challenged it; I re-read my own extreme frames at
+// 1:1 and found empty sea, empty sky and a carrier deck at the three points I
+// had called the player. `judging/R11/arcade_jet_x.csv` is withdrawn.
 //
-// OURS, the same quantity: **+-34.93 %W** settled, +-35.15 %W including
-// transient (tools/out/feel-r11/probe_r11.mjs --mode resp, consecutive 60 Hz
-// ticks). **1.19x the arcade's lower bound -- matched to within the slack the
-// arcade figure itself carries.**
+// THE IDENTITY TEST, since it is the reusable part: **the player's F-14 has TWO
+// afterburner nozzles and every arcade enemy has ONE.** At 0.42 scale that is
+// invisible and the two are not separable. I had validated my ruler's PRECISION
+// (1.14 %W test-retest) and published it as if it licensed the measurement;
+// precision was never the problem, identity was, and I never checked identity at
+// the scale I was reading at.
 //
-// THE +-17.5 %W IN R10's JUDGE REPORT §3 IS THIS BUILD TOO, AND IT IS A
-// DIFFERENT OPERATOR, not a different build and not a regression. Measured
-// here on a pristine extraction of that same commit:
-//     stick HELD at full deflection, settled   +-0.35048 NDC = +-17.52 %W
-//     stick RELEASED, settled                  +-0.69865 NDC = +-34.93 %W
-// The ratio is 1.993 and all of it is CAMERA ROLL: `playerNdc` is the drawn
-// jet's screen x through the rolled camera, and holding the stick is also
-// what rolls the world, so a full-stick reading can never see the rail the
-// jet actually occupies. The judge's script held the stick 12 ticks and never
-// released to a settle, so it read the rolled position and called it the
-// rail. The arcade population above contains banked AND level frames, so the
-// quantity to compare it with is the union -- the +-34.93.
+// THE CORRECTED ARCADE COLUMN, three operators, two lanes:
+//   * the arcade's SIGHT rails at **x in [415.5, 618.0] of 1028 = +-9.85 %W**
+//     about 50.27 %W -- R10's [416, 618] reproduced to a tenth of a pixel by an
+//     independently written detector (combat lane, stage 12, 420 CONSECUTIVE
+//     60 Hz frames, 63 tracked detections, all cropped and looked at).
+//   * the arcade's AIRCRAFT **tracks that sight**: nozzle-midpoint 0..+5 px from
+//     the detected sight column over 12 frames at both rails; ratio 1.02 +- 0.03.
+//     Corroborated independently by my own 7 reads at 1:1, which put the player
+//     at 45.5 / 48.3 / 50.0 / 50.5 / 50.8 / 52.8 / 61.0 %W.
+//   * so the arcade's jet half-envelope is **+-10 %W**, not +-29.5, and our
+//     shipped +-34.93 %W was **3.55x too wide**. R10 gap 2 was right.
 //
-// WHAT IS ACTUALLY 3.5x TOO WIDE IS THE SIGHT, AND IT IS NOT THIS CONSTANT.
-// Ours: +-34.93 %W (reproduced here to 4 significant figures against
-// feel-critique.md §3.4's 34.93). Arcade: +-9.83 / +-10.12 %W, two operators,
-// four stages. So in the arcade the AIRCRAFT roams **2.95x as far as its own
-// sight**, and in our build the sight roams **as far as the aircraft** --
-// because combat.js computes `sight.x = playerNdc.x + up.x * SIGHT_FRAC / 0.5`,
-// a screen-space offset that can only ADD to the jet's excursion. The arcade's
-// sight sits nearer the vanishing point than its aircraft and therefore moves
-// LESS. No value of ENVELOPE_X can produce that; it is a sight-placement
-// defect. combat.js is the combat lane's file -- judging/R11/ask-combat.md.
+// 0.733 is not rounded to: it is 2.6 * 9.85/34.93, the screen fraction being
+// linear in world x at a fixed depth. **MEASURED BACK on a pristine extraction
+// plus this diff: sight rail +-9.85 %W, against the arcade's +-9.85.**
 //
-// Still coupled, recorded so a later change does not trip over it: spawner.js
-// derives reachability from the exported envelopes, and RATE_X below is
-// written as a multiple of this constant, so moving it moves the lateral rate
-// by the same factor as a side effect. They are different quantities.
-export const ENVELOPE_X = 2.6;
+// THE COST, MEASURED AND NOT HIDDEN -- this is the one change in this lane a
+// judge should go at first. At the arcade envelope a tracking pilot's kills fall
+// **18 -> 11 in 90 s** at a fixed trigger cadence. It is NOT my probe's pursuit
+// policy: a `reach` control arm that only chases targets inside the rail, and
+// otherwise holds centre, recovers just one kill (12). The cause is that
+// `spawner.js` places enemies for a +-34.93 %W envelope, so a large share of the
+// traffic is now unengageable. **`spawner.js` is not this lane's file**, the
+// arcade has no measured column for enemy lateral spread, and R10's critique
+// said of this very constant "move it as a system or not at all".
+//
+// It is landed anyway, and the reasoning is on the record so it can be reversed
+// in one line (`0.733 -> 2.6`, `RATE_X 2.82 -> 3.0 * ENVELOPE_X`): three
+// INDEPENDENTLY measured arcade quantities land simultaneously and exactly
+// (rail, rate and rail-to-rail traverse -- see RATE_X), R10 §3.4's own four-arm
+// A/B recommended this pair on separate evidence, and the statistic it costs has
+// no arcade column at all. Backing a measured 3.55x error out to protect an
+// unmeasured statistic is the error this project has already paid for four
+// times. Ask filed: judging/R11/ask-spawner.md.
+//
+// COUPLINGS, CHECKED RATHER THAN ASSUMED. `spawner.js` derives only
+// REACH_CEILING_NDC_Y, from ENVELOPE_**Y** -- the lateral axis is clear (grep).
+// `demoTimeline.js` imports this constant and normalises its controller by it,
+// so the attract wander scales with it and its gain is dimensionless; measured
+// in judging/R11/ask-flow.md. `LOCK_RADIUS_FRAC` rides the sight -- see
+// lockSystem.js.
+//
+// FOOTNOTE FOR WHOEVER RE-OPENS REFERENCE #122. Its cruise `cx sd` of 12.88 %W
+// **cannot be produced by a jet confined to +-9.85 %W** -- a uniform spread over
+// that rail has sd 5.7. #122 is ADOPTED from the old prototype and measures the
+// PROTOTYPE's jet. The flow lane raised this as a conflict; I wrongly reported it
+// closed on the withdrawn figure above. **It is open, and the arcade sight rails
+// are now the better-evidenced side of it.**
+export const ENVELOPE_X = 0.733;
 
 // R7 (R6 judge gap 5). The vertical envelope is now ASYMMETRIC, and the single
 // `ENVELOPE_Y = 1.1` it replaces is the clamp behind the judge's finding that
@@ -254,35 +271,53 @@ export const ENVELOPE_Y_DOWN = 1.1;
 // is a property of the 0.20 s hold, not of the model. The invariant was the
 // ~25 px coast. That is what goes.)
 //
-// RATE_X / RATE_Y ARE UNCHANGED, and the reason in the comment that used to
-// stand here is REFUTED -- corrected rather than deleted, because the next
-// agent would otherwise re-derive it. It read: "that arcade figure is ONE
-// pilot, ONE 0.3 s window, at an unknown stick deflection, so it is a LOWER
-// BOUND on the arcade's maximum and not the maximum." It is not a lower bound:
-// across 138 steps, 13 manoeuvres and 3 stages the distribution SATURATES --
-// 53 steps at +6 px/frame, 9 at +7, one at +8, nothing above, with the
-// intermediate bins (+-3, +-4) holding 9 of 138. A lower bound from unknown
-// deflections would spread; this is a control at its stop. **0.379 fracW/s is
-// the arcade's maximum** -- FOR THE SIGHT.
+// RATE_X IS NOW THE ARCADE'S OWN LATERAL RATE, AND IT IS DECOUPLED FROM
+// ENVELOPE_X ON PURPOSE.
 //
-// And that last clause is why the rate does not move this round. The 0.379 is
-// the 1.563 %W SIGHT GLYPH's rate; RATE_X moves the AIRCRAFT. Those are
-// different objects and in the arcade they do not travel the same distance:
-// the arcade's sight envelope is +-9.83/+-10.12 %W (two operators, four
-// stages) while its AIRCRAFT's is +-29.5 %W (judging/R11/lane-feel.md §1,
-// hand-digitised, n = 67, three stages) -- a ratio of 2.95. Scaling the
-// sight's own measured maximum by that ratio gives an arcade JET rate of
-// 1.12 fracW/s against our measured 1.064, i.e. within 5 %. That is a
-// DERIVATION resting on the sight being a linear projection of the jet's
-// lateral position, not a measurement, and it is published as such -- but it
-// is enough to say that "our rate is 2.76x the arcade's" is a comparison
-// between two different objects and must not be acted on until the arcade's
-// JET rate is decoded directly. See §1 OPEN.
+// It used to be written `3.0 * ENVELOPE_X`, which welded two quantities that
+// have separate arcade columns: cutting the envelope to the arcade's would have
+// dragged the rate down to 0.305 fracW/s, BELOW the arcade's measured 0.379.
+// They are different things and they are now two constants.
 //
-// Solved, not picked: 0.9*E/RATE = 0.30 s of traverse, i.e. RATE = 3.0*E per
-// second. With the ramp gone that is now the whole 0-90 % traverse time
-// rather than 0.30 s of it.
-const RATE_X = 3.0 * ENVELOPE_X; // world units/s at full lateral stick
+// THE ARCADE'S FIGURE, and the comment that used to stand here was REFUTED --
+// corrected rather than deleted, because the next agent would otherwise
+// re-derive it. It read: "that arcade figure is ONE pilot, ONE 0.3 s window, at
+// an unknown stick deflection, so it is a LOWER BOUND on the arcade's maximum
+// and not the maximum." It is not a lower bound: across **138 consecutive-frame
+// steps, 13 manoeuvres and 3 stages** the distribution SATURATES -- 53 steps at
+// +6 px/frame of 1028, 9 at +7, one at +8, nothing above, with the intermediate
+// bins (+-3, +-4) holding 9 of 138. A lower bound from unknown deflections would
+// spread; this is a control resting on its stop. **0.379 fracW/s (median
+// non-zero 2.02 native px/frame) is the arcade's maximum.**
+//
+// A SECOND WITHDRAWAL, recorded because it is the trap. The first R11 comment
+// here rescued our old 1.048 fracW/s by scaling the arcade's sight rate up by a
+// 2.95 "jet : sight excursion ratio". **That ratio came from the withdrawn
+// envelope above and is wrong -- the arcade's aircraft TRACKS its sight, ratio
+// 1.02 +- 0.03.** So the arcade's sight rate is also its jet rate, our 1.048 was
+// 2.76x too fast exactly as R10 said, and the rescue is void.
+//
+// 2.82 is solved, not picked: 0.379 fracW/s / 0.13435 fracW per world unit
+// (= the measured 34.93 %W per 2.6 world units, linear at a fixed depth).
+//
+// MEASURED BACK, pristine extraction + this diff, consecutive 60 Hz ticks, and
+// all THREE are published together because STATUS row 58 says rate, span and
+// traverse time travel as a set or not at all:
+//
+//              sight rail      plateau          rail -> rail
+//   5e3d57e    +-34.93 %W      1.034 fracW/s    45 ticks / 0.750 s
+//   + R11      **+-9.85 %W**   **0.379**        **32 ticks / 0.533 s**
+//   ARCADE     +-9.85 %W       0.379            ~32 ticks / 0.527 s  (derived)
+//
+// All three land at once, which is the strongest evidence this pair is right.
+// R10 §3.4's four-arm A/B predicted 0.583 s for "RATE + ENVELOPE := arcade" and
+// got it on independent grounds; we come in better because the ramp is gone too.
+//
+// RATE_Y is deliberately NOT decoupled and NOT retuned: there is no arcade
+// column for the vertical rate at all, and the vertical envelope rests on 109
+// hand-counted observations (see ENVELOPE_Y_UP). Asymmetric evidence,
+// asymmetric treatment.
+const RATE_X = 2.82; // world units/s at full lateral stick -- see RATE_X note
 const RATE_Y_UP = 3.0 * ENVELOPE_Y_UP;
 const RATE_Y_DOWN = 3.0 * ENVELOPE_Y_DOWN;
 
