@@ -1,0 +1,269 @@
+<title>Round 11 Board</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;700&family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@400;600&display=swap">
+
+<style>
+  :root{
+    --ground:#0a0c10; --panel:#141921; --panel-2:#1b212b; --line:#28313e;
+    --ink:#e7ebf1; --muted:#8c99aa;
+    --sky:#2da8e8; --amber:#f5a623; --red:#e8443a; --good:#3fc98a;
+    --display:"Chakra Petch",system-ui,sans-serif;
+    --body:"IBM Plex Sans",system-ui,sans-serif;
+    --mono:"IBM Plex Mono",ui-monospace,monospace;
+  }
+  /* Single-theme by intent: this is an arcade cabinet screen. */
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--ground);color:var(--ink);font-family:var(--body);
+    font-size:16px;line-height:1.6;padding:48px 24px 96px}
+  .wrap{max-width:1040px;margin:0 auto;display:flex;flex-direction:column;gap:44px}
+
+  header{display:flex;flex-direction:column;gap:10px}
+  .eyebrow{font-family:var(--mono);font-size:12px;letter-spacing:.18em;
+    text-transform:uppercase;color:var(--amber)}
+  h1{font-family:var(--display);font-weight:700;font-size:clamp(34px,6vw,54px);
+    margin:0;line-height:1.05;text-wrap:balance;letter-spacing:-.01em}
+  .sub{color:var(--muted);max-width:64ch;margin:0}
+
+  .scores{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:14px}
+  .tile{background:var(--panel);border:1px solid var(--line);border-radius:4px;
+    padding:20px 22px;display:flex;flex-direction:column;gap:4px;border-top:3px solid var(--line)}
+  .tile.main{border-top-color:var(--amber)}
+  .tile.up{border-top-color:var(--good)}
+  .tile .k{font-family:var(--mono);font-size:11px;letter-spacing:.14em;
+    text-transform:uppercase;color:var(--muted)}
+  .tile .v{font-family:var(--display);font-weight:700;font-size:40px;line-height:1;
+    font-variant-numeric:tabular-nums}
+  .tile .d{font-size:13px;color:var(--muted)}
+  .tile .d b{color:var(--good);font-weight:600}
+
+  h2{font-family:var(--display);font-weight:700;font-size:13px;letter-spacing:.2em;
+    text-transform:uppercase;color:var(--amber);margin:0 0 14px;padding-bottom:9px;
+    border-bottom:1px solid var(--line)}
+  p{margin:0 0 14px} p:last-child{margin-bottom:0}
+  b{font-weight:600}
+  .n{font-family:var(--mono);color:var(--amber);font-variant-numeric:tabular-nums}
+  .ok{color:var(--good);font-weight:600}
+  .bad{color:var(--red);font-weight:600}
+  code{font-family:var(--mono);font-size:.9em;color:var(--sky)}
+
+  table{width:100%;border-collapse:collapse;font-size:14px;
+    font-variant-numeric:tabular-nums}
+  .scroll{overflow-x:auto;border:1px solid var(--line);border-radius:4px;background:var(--panel)}
+  th,td{padding:10px 14px;text-align:right;border-bottom:1px solid var(--line);white-space:nowrap}
+  th:first-child,td:first-child{text-align:left}
+  thead th{font-family:var(--mono);font-size:11px;letter-spacing:.1em;
+    text-transform:uppercase;color:var(--muted)}
+  tbody tr:last-child td{border-bottom:none}
+  tr.hi td{background:#1d2630;font-weight:600}
+
+  figure{margin:0;background:var(--panel);border:1px solid var(--line);
+    border-radius:4px;overflow:hidden}
+  figure img{display:block;width:100%;height:auto;image-rendering:pixelated;background:#000}
+  figcaption{padding:14px 18px;font-size:14px;color:var(--muted);border-top:1px solid var(--line)}
+  figcaption b{color:var(--ink)}
+
+  ol.gaps{list-style:none;counter-reset:g;margin:0;padding:0;
+    display:flex;flex-direction:column;gap:1px}
+  ol.gaps li{counter-increment:g;background:var(--panel);padding:16px 20px 16px 62px;
+    position:relative;border-left:2px solid var(--line)}
+  ol.gaps li::before{content:counter(g);position:absolute;left:20px;top:16px;
+    font-family:var(--display);font-weight:700;font-size:20px;color:var(--amber);
+    font-variant-numeric:tabular-nums}
+  ol.gaps li.top{border-left-color:var(--red)}
+  ol.gaps li.top::before{color:var(--red)}
+  .gt{font-weight:600;display:block;margin-bottom:2px}
+  .gd{font-size:14px;color:var(--muted)}
+  .tag{font-family:var(--mono);font-size:10px;letter-spacing:.1em;padding:2px 6px;
+    border-radius:3px;margin-left:8px;vertical-align:middle}
+  .tag.arc{background:#1e3a2c;color:var(--good)}
+  .tag.ours{background:#3a2a1e;color:var(--amber)}
+
+  .note{background:var(--panel-2);border:1px solid var(--line);
+    border-left:3px solid var(--sky);border-radius:4px;padding:18px 22px;font-size:15px}
+  .note.warn{border-left-color:var(--red)}
+  .note .h{font-family:var(--mono);font-size:11px;letter-spacing:.14em;
+    text-transform:uppercase;color:var(--sky);display:block;margin-bottom:6px}
+  .note.warn .h{color:var(--red)}
+
+  footer{border-top:1px solid var(--line);padding-top:18px;color:var(--muted);
+    font-size:13px;font-family:var(--mono);display:flex;flex-wrap:wrap;gap:10px 22px}
+</style>
+
+<div class="wrap">
+
+  <header>
+    <span class="eyebrow">After Burner II &middot; Round 11</span>
+    <h1>Aiming does matter</h1>
+    <p class="sub">The complaint was real &mdash; about the measurement. Three independent
+    re-measurements of the same question gave 85 %, 91 % and 53 %, and only the last one used
+    a pilot that could actually hit anything.</p>
+  </header>
+
+  <section class="scores">
+    <div class="tile main"><span class="k">Composite</span><span class="v">8.0</span>
+      <span class="d">was 7.5 in R10</span></div>
+    <div class="tile up"><span class="k">Motion &amp; feel</span><span class="v">7.5</span>
+      <span class="d"><b>&uarr; from 6.5</b></span></div>
+    <div class="tile up"><span class="k">Stills &amp; art</span><span class="v">8.5</span>
+      <span class="d"><b>&uarr; from 8</b></span></div>
+  </section>
+
+  <section>
+    <h2>TL;DR</h2>
+    <p><b>Three arcade lateral quantities landed at once.</b> The jet's rail, its top speed and
+    its rail-to-rail time all match the arcade &mdash; two to the digit, the third within
+    <span class="n">1.1 %</span>. The jet used to slide across most of the screen; it now sits
+    where the arcade's does. Verified by a judge who wrote its own probe without copying ours.</p>
+    <p><b>The enemy jets are no longer white birds</b> &mdash; <span class="n">5.7 %</span> to
+    <span class="n">33.9 %</span> of pixels dark, six distinct silhouettes where four existed.
+    And a criterion repair found the arcade band was itself measured off an upscaled frame, which
+    puts our number <i>inside</i> it rather than above it.</p>
+    <p><b>Eleven withdrawals, three of them headlines.</b> Three share one cause:
+    <i>an instrument run below its own stated validity floor.</i> Aircraft identity read at
+    0.42&times; scale. An attract statistic measured with deaths on. A kill table with the trigger
+    never pulled. All three produced stable, plausible, wrong numbers &mdash; and in all three the
+    limitation was already written down without its consequence drawn.</p>
+  </section>
+
+  <section>
+    <h2>The question you asked, measured three times</h2>
+    <div class="scroll">
+      <table>
+        <thead><tr><th>what a motionless stick scores, vs a pilot that aims</th>
+          <th>seeds</th><th>result</th></tr></thead>
+        <tbody>
+          <tr><td>build lane &mdash; missile only, probe never fired the gun</td>
+            <td>1</td><td>22 %</td></tr>
+          <tr><td>same, with the gun counted</td><td>1</td><td>85 %</td></tr>
+          <tr><td>judge, independently</td><td>3</td><td>91 %</td></tr>
+          <tr class="hi"><td><b>feel critic &mdash; aiming pilot flying where the gun can kill</b></td>
+            <td><b>8</b></td><td><b>53 %</b></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p style="margin-top:14px">The "best aiming pilot" everyone measured against was flying the
+    nearest enemy at depth <span class="n">26&ndash;88</span>. The gun can only kill between
+    <span class="n">2.6</span> and <span class="n">7.06</span>. <b>The two bands do not overlap
+    &mdash; in every gun arm, the aiming pilot was pointing at empty sky.</b> Give it the gun's
+    real licence and a player gets <span class="n">43</span> kills per 90 s where a dead stick
+    gets <span class="n">24</span>. That is a difference you can feel.</p>
+  </section>
+
+  <section>
+    <h2>The build today</h2>
+    <figure>
+      <img src="img/game.png" alt="Current build, stage 1, with redrawn enemy aircraft">
+      <figcaption><b>Stage 1 on the shipped tree.</b> Criterion&nbsp;A holds in ordinary play
+      &mdash; 58&ndash;69 colours, 22 channel values at worst, against limits of 256 and 32.</figcaption>
+    </figure>
+  </section>
+
+  <section>
+    <h2>The enemy redraw</h2>
+    <figure>
+      <img src="img/enemy-level.png" alt="Grey head-on enemy, committed version left, R11 redraw right">
+      <figcaption><b>Left: before. Right: after.</b> Dark share
+      <span class="n">5.7 % &rarr; 33.9 %</span>, mean luminance 189.8 &rarr; 119.0 against an
+      arcade 122. The strongest check is the <code>camo</code> livery, whose palette was
+      <i>not</i> touched &mdash; only its drawing &mdash; and which lands at
+      <span class="n">91.2 %</span> dark against the arcade's true-native
+      <span class="n">92.5 %</span>. One drawing program, two liveries, two stages, both correct.
+      <br><br><b>Still wrong:</b> 45 % of the drawing sits on one flat tone, and the
+      leading-edge polarity is inverted &mdash; the arcade's wing is near-black at the leading
+      edge and brightest mid-chord; ours is brightest at the edge and monotone down.</figcaption>
+    </figure>
+  </section>
+
+  <section>
+    <h2>Where we were wrong</h2>
+    <div class="note warn">
+      <span class="h">Corrected during the round</span>
+      <p><b>I measured a dead file and reported it as a root cause.</b> I told you 75.5 % of the
+      explosion sprite was too dark. The number is exact &mdash; and <b>nothing imports that
+      file; the build emits no explosion asset at all.</b> The on-screen explosion is procedural
+      and already fragments and re-flares like the arcade's. R10's critic made the same error and
+      prescribed a fix for it. <b>Two agents agreeing to the digit on the same wrong object is not
+      corroboration.</b></p>
+      <p style="margin-top:12px"><b>A gap I wrote was inverted, then un-inverted.</b> I said the
+      jet's envelope was fine and the sight was broken. A lane proved the opposite, retracted its
+      own measurement under challenge, and shipped the right fix &mdash; the arcade data it had
+      published was reading <i>enemy</i> aircraft, because at 0.42&times; scale a twin-nozzle F-14
+      and a single-nozzle enemy are the same shape.</p>
+      <p style="margin-top:12px"><b>And the lever everyone named for R12 is a null lever.</b>
+      Both lanes and I converged on the gun's assist cone. Sweeping it changes nothing: the
+      assist supplies <b>no lateral aim at all</b>, only a depth ramp.</p>
+    </div>
+  </section>
+
+  <section>
+    <h2>Acquired &mdash; an arcade column for the lock bracket</h2>
+    <div class="note">
+      <span class="h">Worth more than the critique it came in</span>
+      <p>The arcade's sight and its lock bracket are both drawn glyphs, so the distance between
+      them is readable. <b>11 of 12 arcade bracket tracks never come within 8.3 %W of the arcade's
+      own sight</b> &mdash; median closest approach <span class="n">18.6 %W</span>, all twelve
+      cropped and looked at, four windows, three stages, consecutive 60&nbsp;Hz.</p>
+      <p style="margin-top:12px">R11 gated our tracking bracket on the missile's cone and retired
+      the old rule that the bracket tracks the nearest threat continuously. <b>The measurement says
+      the old rule was right.</b> The gate matched the arcade's bracket-presence percentage by
+      deleting exactly the brackets the arcade draws.</p>
+    </div>
+  </section>
+
+  <section>
+    <h2>Ranked &mdash; Round 12</h2>
+    <ol class="gaps">
+      <li class="top"><span class="gt">Separate the tracking bracket from the missile lock
+        <span class="tag arc">ARCADE</span></span>
+        <span class="gd">One radius is doing two jobs. The spec already distinguishes them; put
+        the bracket back on nearest-threat bounded by the arcade's max of 3, and leave the cone
+        to the missile.</span></li>
+      <li class="top"><span class="gt">The traffic arrives centred, and the spawner never moved
+        <span class="tag ours">OURS</span></span>
+        <span class="gd">Median screen position when an enemy becomes killable is 5.94 %W on a
+        ±9.85 %W rail &mdash; and the distribution is element-for-element identical to the pre-cut
+        tree. 50 % of authored traffic is already inside one gun hit-radius of dead centre. The
+        rail moved 3.55×; this did not move at all.</span></li>
+      <li class="top"><span class="gt">The gun's depth ramp, not its cone
+        <span class="tag ours">OURS</span></span>
+        <span class="gd">An unassisted round crosses the median gun-kill depth at
+        <code>p = 0.023</code> &mdash; still at the muzzle. Fix the path or bound the hit test.</span></li>
+      <li><span class="gt">The missile got nothing this round
+        <span class="tag arc">ARCADE</span></span>
+        <span class="gd">Untouched since R10. Homing gain ASSUMED, turn rate solved not measured,
+        launch-to-impact only a candidate band. R10 published the method that closes it: a longplay
+        window with no gun fire.</span></li>
+      <li><span class="gt">Our own jet is now the worst drawing in the game
+        <span class="tag ours">OURS</span></span>
+        <span class="gd">The level cells read as a face &mdash; two round orange eyes, a dark-red
+        mouth dash, two ears &mdash; dead centre of every frame. Ranked third-worst in R10 and
+        untouched since R9.</span></li>
+      <li><span class="gt">The attract jet is frozen for 6.7 seconds at a time
+        <span class="tag arc">ARCADE</span></span>
+        <span class="gd">Median stationary run: arcade 5 frames, ours 402. Two obvious statistics
+        were blind to it; the third separates by 80×.</span></li>
+    </ol>
+  </section>
+
+  <section>
+    <h2>Process</h2>
+    <p><b>Every claim in this round was challenged by someone who did not write it.</b> A lane
+    retracted its own headline under challenge and shipped the opposite fix. Two lanes appeared to
+    disagree and the reconciliation found neither was wrong &mdash; each had called a different
+    tree "wide" &mdash; and that reconciliation produced the round's strongest result. The feel
+    critic withdrew its <i>own</i> first table before publishing the second.</p>
+    <p><b>And a mechanism shipped that should outlast the project:</b> a constant derived from
+    another is now <i>imported</i> rather than transcribed, with a witness recording what the
+    figures were measured at. Change the source and it prints one line naming every figure that
+    just went stale and the tool that re-measures them. It warns rather than throws &mdash; a hard
+    failure would turn a stale comment into a black screen &mdash; and it is verified to fire.</p>
+  </section>
+
+  <footer>
+    <span>HEAD 4b0d2c6</span>
+    <span>judge-r11 &middot; art-critic-r11 &middot; feel-critic-r11</span>
+    <span>all figures 60 Hz consecutive, both sides, tree named by sha</span>
+  </footer>
+
+</div>
