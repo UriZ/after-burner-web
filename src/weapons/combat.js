@@ -430,6 +430,16 @@ export class Combat {
       // there and covered" stay separable. Returns NDC through the LIVE
       // (rolled) camera, which is the frame the question is asked in --
       // "does the sight hold station on the nose while the world rolls".
+      // R11, measurement-only, and it is the one quantity the death-sequence
+      // hole cannot be measured without. `deathSequence.js` now ends its
+      // starburst phase on `explosions.busy()`; a probe that wants to assert
+      // "no frame in the death sequence draws nothing" has to read the same
+      // predicate the phase reads, not a pixel proxy for it, or it cannot tell
+      // "the field is idle" from "the field is drawing something too faint for
+      // my mask". Touches no RNG -- deliberately unlike __combatDebug(), which
+      // consumes one from the shared stream and would shift the scenario if a
+      // probe polled it per tick.
+      window.__explBusy = () => this.explosions.busy();
       window.__sight = () => {
         const cam = this.space.camera;
         const v = new THREE.Vector3();

@@ -19,7 +19,8 @@ consecutive 60 Hz. Ours: one `window.__step(1)` per sample, state read in the sa
 
 **Scripts, all committed, all with selftests**: `judging/R11/sight.py` (16/16),
 `judging/R11/sight_probe.mjs` (6/6), `judging/R11/roll_check.mjs` (9/9),
-`judging/R11/gun_check.mjs` (4/4), plus `judging/R11/pairsheet.py` (the hand-reading panels).
+`judging/R11/gun_check.mjs` (4/4), `judging/R11/human_arm.mjs` (9/9),
+`judging/R11/death_hole.mjs` (8/8), plus `judging/R11/pairsheet.py` (the hand-reading panels).
 **Evidence images, with the generator that made each and its crop stated on the panel
 itself** (gitignored, large): `tools/out/combat-r11/evidence/` — `w1/w2/w3-marks.png` are
 49x49 px crops centred on every surviving detection at 3x; `pair-w1.png`, `pair-w3-a.png`,
@@ -325,12 +326,16 @@ cadence, `?fixed=1&invincible=1&seed=3`, 5 400 consecutive 60 Hz ticks per arm, 
 | | track | **50** | **37** |
 | | **blind share** | **42.0 %** | **56.8 %** |
 
-> **The lock lane's headline survives the cut in direction and loses about a third of its
-> margin.** A motionless stick is still far weaker than a tracking one on both weapons — but
-> the blind share rose 22 → 36 % on missiles and 42 → 57 % on the gun, and **it rose entirely
-> because the TRACKING pilot lost kills (18 → 11, 50 → 37) while the blind pilot's score did not
-> move at all (4 → 4, 21 → 21).** That is the signature of lost reach, not of a weaker weapon:
-> the sight can no longer be flown onto targets it used to cover.
+> **The lock lane's headline survives the cut in direction** — a motionless stick is still far
+> weaker than a tracking one on both weapons, and the blind pilot's score does not move at all
+> across the cut (4 → 4 missiles, 21 → 21 gun). Everything that moved, moved on the tracking arm.
+>
+> ### CORRECTION, §5: THE "18 → 11" IS ONE SEED AND DOES NOT SURVIVE THREE.
+> The same arm on the same tree reads **11 / 19 / 13** across seeds 3 / 5 / 11, against the
+> pre-cut tree's **18 / 18 / 25**. The means are 14.3 against 20.3 — a real **−30 %** — but
+> 18 → 11 is the extreme pair of two distributions whose spread is ±4 kills, and both the feel
+> lane and I published it from seed 3 alone. **The −39 % figure is withdrawn; −30 % at n = 3 is
+> what the data supports, and §5 shows the sign depends on the pilot's latency.**
 
 **The mechanism is a coupling nobody has priced, and it is in my file.** `ASSIST_RADIUS_FRAC =
 0.13` and `LOCK_RADIUS_FRAC = 0.083` are **screen-space radii about the sight** and did not
@@ -356,6 +361,9 @@ caveat, and reproduces the direction on a different weapon with a different trig
 
 ## 4. OPEN, with reasons
 
+*(§§5–7 were added after `ENVELOPE_X` landed; item 1 below is superseded in part by §5 and item 3
+by §6–7. The list is kept as filed and the supersessions are named.)*
+
 1. **`ASSIST_RADIUS_FRAC` and `LOCK_RADIUS_FRAC` against the cut envelope.** §3. The gun's assist
    cone is now wider than the sight's entire reach. The quantity that would settle it is the
    arcade's own gun convergence or assist behaviour, which nobody has measured; a ratio-matching
@@ -378,3 +386,154 @@ caveat, and reproduces the direction on a different weapon with a different trig
    it: in `-ss 210.0` f0001 and `-ss 520.0` f0021 the sight sits **below** the airframe, where our
    `SIGHT_NDC_Y_OFFSET` puts it 0.30 NDC above. Two frames is not a measurement; flagged only so
    the next lane knows the question is still live.
+
+
+---
+
+## 5. THE HUMAN MIDDLE — a swept reaction DELAY, and it inverts
+
+The feel lane named this gap itself: *"a real human is between these two arms and this probe has
+no arm for that."* `judging/R11/human_arm.mjs` (selftest 9/9) is `track` — identical pure pursuit,
+gain 3.0, same depth band, same trigger cadence, same seed, same `invincible=1`, same 5 400
+consecutive 60 Hz ticks — with **the stick applied on tick i computed from the world as it was on
+tick i − N**. N is the swept parameter, because latency is the thing a person actually has, and
+**N = 0 reproduces `track` exactly** (18 and 11 kills on the two trees at seed 3, matching both my
+`probe_r11.mjs` run and the feel lane's to the kill) **and is run as the control rather than
+assumed**. 9 ticks = 150 ms is in the sweep because `feel-critique.md` §3.4 already used that
+loop delay for its aim-precision diagnostic.
+
+**Missile kills, 3 seeds (3 / 5 / 11) at every delay marked n = 3, gun trigger never pulled:**
+
+| rail | 0 ms | 100 ms | **150 ms** | 200 ms | **300 ms** | 500 ms |
+|---|---|---|---|---|---|---|
+| `82daaa4` ±34.93 %W | **20.3** (18/18/25) | — | **16.3** (15/12/22) | — | **5.3** (5/5/6) | — |
+| `final` ±9.85 %W | **14.3** (11/19/13) | 14.0 | **14.7** (17/15/12) | 14.0 | **14.3** (16/13/14) | 13.0 |
+
+> ### **THE ENVELOPE CUT MADE THE LOCK LATENCY-TOLERANT, AND THAT IS THE OPPOSITE OF THE WORRY.**
+> On the wide rail a 300 ms pilot loses **74 %** of its kills (20.3 → 5.3, and the per-seed values
+> are **5 / 5 / 6** — that is not noise). On the cut rail it loses **nothing measurable**
+> (14.3 → 14.3, per-seed 16 / 13 / 14). **The cut tree is worse than the wide tree only for a
+> pilot with zero reaction time; at 150 ms the gap is −10 %, and by 300 ms the sign has
+> reversed and the cut tree scores nearly three times as much.**
+>
+> Offered as a mechanism and **not** as a measurement: on a wide rail the sight must travel far
+> to reach a target, so a laggy pilot overshoots and hunts; on a rail whose whole span is about
+> one lock cone wide, roughly pointing is enough and latency stops costing anything.
+
+**BINDING, and it is why this is in §5 and not in the gap list: this arm has NO ARCADE COLUMN.**
+Nobody has measured the arcade pilot's reaction latency and nothing here pretends to. It is a
+**DIAGNOSTIC** in the feel lane's own classification — it can **refute** a claim about our build,
+and the claim it refutes is "the envelope cut costs a realistic pilot a third of its kills",
+which rests entirely on the one arm whose latency is known to be unlike a human's. It **must not
+become a gate**: with no anchor, "more kills" is a direction, and only a direction can have a
+sign.
+
+---
+
+## 6. JOB 3 — THE 0.200 s OF EMPTY SKY IS CLOSED, AND THE STALE THING WAS NOT THE CONSTANT
+
+`judging/R11/death_hole.mjs` (selftest 8/8), 600 consecutive 60 Hz ticks of
+`?fixed=1&demo=2&seed=1&forcedeath=2.0`. It reads the **same predicate the phase gate reads** —
+`window.__explBusy()`, a new measurement-only hook on `combat.js` that returns
+`explosions.busy()` and **draws no RNG** — beside `__flowState().deathPhase`, so the hole is a
+count of ticks and not an area fraction. A HOLE TICK is `deathPhase === 'starburst'` with the
+field idle; the jet sprite is hidden by construction in that phase, so an idle field means
+nothing at all is drawing. Two trees differing only by `deathSequence.js`, both carrying the
+effects lane's live `explosions.js`/`smoke.js`. 0 page errors.
+
+| | longest hole | hole ticks | starburst | tumble | **DEATH_TOTAL** | respawn starts |
+|---|---|---|---|---|---|---|
+| before | **12 ticks = 0.200 s** at t 3.817 | 12 | 1.300 s | 4.017 s | **7.733 s** | 8.033 s |
+| **after** | **1 tick = 0.017 s** | 1 | 1.117 s | 4.200 s | **7.733 s** | 8.033 s |
+
+**Cropped and looked at, both sides** (`tools/out/combat-r11/evidence/strip-dh-{before,after}.png`,
+25 panels each at ticks around the boundary, 960×672 downscaled to 240×168, tick stamped on
+every panel, generator in `death_hole.mjs --strip`). **Before: eleven consecutive panels of
+nothing but sky and sea** — no jet, no fire, no smoke — then the hulk. **After: the residue is
+still drawing at t 3.800, one empty panel at t 3.817, hulk at t 3.833.**
+
+**I DECLINED THE STOPGAP, AND THE REASON IS THE ROUND'S OWN RULE.** `STARBURST_S` 1.3 → 1.08
+closes the hole exactly, and **1.3 is an arcade measurement** — t201.25 → t202.55 off the same
+contiguous decode every other boundary in that file comes from. The hole is not that the phase is
+too long; it is that **our starburst's cover (1.084 s) is 0.216 s shorter than the arcade's
+starburst**. Cutting the constant would discard an arcade number to patch a shortfall on our
+side. R10 estimated this hole at ~0.13 s by eye and left the constant alone; it was right then too.
+
+**What I took instead**: the phase ends when its cover ends, and **the tumble absorbs the slack**,
+so `DEATH_TOTAL_S` and the respawn boundary do not move — measured identical to the tick, 464
+ticks both sides. The tumble is the only phase with slack to give (a free-running spin with a
+length and no internal arcade boundary); every other boundary in the file is pinned to a frame.
+The 0.216 s of divergence is now spent on *"the hulk appears a sixth of a second early"* instead
+of *"the screen is empty"*.
+
+**Floor and ceiling, both derived, per the TL's instruction not to consume `busy()` bare:**
+* **FLOOR = `FIREBALL_S`.** The starburst is the larger lobe on both sides (ours spawns at scale
+  2.7 against 1.1; the arcade's is 1.30 s against 0.68 s), so it must never come out shorter than
+  the fireball phase it follows. Derived, not chosen. The effects lane reports `busy()` is already
+  true on the spawn tick, so this is belt-and-braces — which is where a floor belongs.
+* **CEILING = 1.5 s**, clearing **both** bounds it has to clear: 0.167 s above the effects lane's
+  measured 1.333 s worst case over 24 spawn rotations, so it cannot truncate a healthy phase;
+  and above the arcade's measured 1.300 s, so it cannot truncate a phase that is the right length
+  either. It covers the one named leak path (a caller that hides the field without ticking it) by
+  degrading to 0.2 s longer than today's constant rather than hanging.
+* **No hard dependency**: if `explosions.busy` is not a function the phase falls back to
+  `STARBURST_S` exactly, i.e. to today's behaviour.
+
+**THE RESIDUAL ONE TICK IS NOT THE GATE AND CANNOT BE CLOSED FROM `flow/**`.** `game.js:356`
+runs `flow.update` (which runs `deathSequence`) **before** `game.js:419/428` runs `combat.update`
+(which runs `explosions.update`). So on the tick that drains the last puff, the death sequence has
+already read `busy()` as true; it switches on the next tick. **Exactly one rendered frame is
+empty, bounded by construction.** Closing it means swapping those two calls in `game.js`, which is
+not my file and is not a change to make blind — combat would then act on the previous tick's
+player position. Named, not taken.
+
+---
+
+## 7. THE ATTRACT WANDER AFTER THE ENVELOPE CUT: it SCALES, it does not saturate
+
+The TL asked which of two opposite things happened, because they need opposite fixes. **It scales.**
+`demoTimeline.js`'s curve is authored in normalised screen position and the loop divides by
+`ENVELOPE_X`, so the closed loop in normalised units has no envelope in it (§2.4). Measured, deaths
+suppressed, seed 3, 9 600 consecutive ticks:
+
+* cruise cx sd **12.827 → 3.654 %W**, a ratio of **0.2849** against the envelope's own
+  **0.733 / 2.6 = 0.2819** — it tracked the rail to 1 %.
+* cruise cx **p5 −5.63 / p95 +5.44 %W inside a ±9.85 %W rail**. The authored peak is
+  `CRUISE_X_A + CRUISE_X_B = 0.662` of the rail = **6.52 %W**. **Nothing clips.** The authored
+  choreography fits inside the new envelope with 34 % of the rail to spare.
+
+### 7.1 TWO SHAPE STATISTICS TRIED, BOTH NEARLY BLIND, AND THE THIRD SEPARATES BY 80×
+
+The standing claim is that our wander is the wrong *shape* — a continuous sine where the arcade
+bursts and parks. **The obvious statistic does not show it.** Share of consecutive 60 Hz ticks on
+which the drawn jet does not move by a whole native pixel (0.3125 %W), the arcade's own grid:
+
+| | zero-step share | median step on MOVING frames | **median stationary RUN** |
+|---|---|---|---|
+| **ARCADE** (w3, 420 consecutive frames, stage 12) | **86.2 %** | 2.0 native px (saturated) | **5 frames** (p90 18, max ≥18) |
+| *arcade w2, stage 4* | *52.6 %* | *2.0 native px* | *3 frames (max 6)* |
+| ours `82daaa4` | 88.5 % | 0.67 native px | 265 frames |
+| ours `final` | **97.4 %** | 1.05 native px | **402 frames** (p90 475, max 768) |
+
+> **On the zero-step share ours looks MORE arcade-like than the arcade** (97.4 % against 86.2 %),
+> and on the moving-frame step size it looks nearly right (1.05 native px against 2.0). **Both are
+> nearly blind to the defect**, because a sine slow enough to move under one native pixel per
+> frame reads as "parked" on almost every tick. This is the project's recurring lesson arriving on
+> a new statistic: *the statistic that reads most naturally as the defect is the one that cannot
+> see it.*
+>
+> **The run length separates them by eighty times. Our attract jet holds visually still for a
+> median of 402 frames — 6.7 seconds — and then creeps one pixel. The arcade's never holds for
+> more than about 0.3 s in these windows before a saturated burst.** That is the shape difference,
+> and it is now a number.
+
+**Caveat, stated because it bounds the figure and not the direction:** the arcade runs are
+computed only over consecutive *detected* pairs, so a stationary spell longer than the detector's
+own run cannot be observed — w3's longest observable hold is censored at 18 frames by the window
+edge, and R10 reports holds of 26 frames (0.43 s) elsewhere. **Take the arcade median as 5 frames
+and its maximum as "about 0.4 s"; against our median of 402 the conclusion survives either way.**
+
+**Not acted on.** Re-authoring the wander as bursts and parks is a rewrite of every amplitude in
+`demoTimeline.js`, against an arcade column that exists for the *attract* pilot only as R10's
+"~35 %W/s bursts" note, which I have not re-measured. Published as the operator plus both sides'
+numbers so the next lane starts from a statistic that works rather than from the two that do not.

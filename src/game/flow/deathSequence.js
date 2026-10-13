@@ -71,6 +71,81 @@ const TUMBLE_S = 4.0;
 const RESPAWN_S = 1.7;
 export const DEATH_TOTAL_S = FIREBALL_S + STARBURST_S + TUMBLE_S + RESPAWN_S; // 7.7s
 
+// --- R11: 0.200 s OF EMPTY SKY, AND WHY THE STALE THING IS NOT THIS CONSTANT
+//
+// THE DEFECT, measured by the effects lane on 300 consecutive 60 Hz ticks of
+// `?fixed=1&demo=2&seed=1&forcedeath=2.0` (whole-frame fire- and warm-mask
+// area with the pre-death floor subtracted, verified by eye on a 13-panel
+// strip, not only by the number):
+//
+//   t 2.033  death triggers, fireball-phase explosion spawns
+//   t 2.733  starburst-phase explosion spawns   (= 2.033 + FIREBALL_S)
+//   t 3.817  LAST FRAME WITH ANYTHING ON SCREEN
+//   t 3.817 .. 4.033   NOTHING DRAWS -- 13 frames, 0.216 s
+//   t 4.033  the tumbling hulk appears          (= 2.033 + 0.7 + 1.3)
+//
+// Total cover 1.784 s against the 2.000 s the two phases hold.
+//
+// THE OBVIOUS FIX IS THE WRONG ONE AND IT WAS DECLINED. `STARBURST_S` 1.3 ->
+// 1.08 closes the hole exactly, and 1.3 is an ARCADE MEASUREMENT -- t201.25 ->
+// t202.55 off the contiguous decode above, the same decode every other
+// boundary in this file comes from. Cutting it would discard an arcade number
+// to patch a shortfall on OUR side: the hole is not that the phase is too
+// long, it is that our starburst's cover (1.084 s) is 0.216 s shorter than the
+// arcade's starburst. R10 guessed this hole at ~0.13 s by eye and left the
+// constant alone; the constant was right then too.
+//
+// WHAT IS ACTUALLY TAKEN: the phase ENDS WHEN ITS COVER ENDS, and the TUMBLE
+// ABSORBS THE SLACK so the arcade-anchored total does not move. The visible
+// 0.216 s of divergence is spent on "the hulk appears a sixth of a second
+// early" instead of on "the screen is empty", which is the only choice
+// available while the cover is short, and it is not close.
+//
+//   starburst -> tumble  when `explosions.busy()` goes false, floored and
+//                        ceilinged (below)
+//   tumble length        DEATH_TOTAL_S - RESPAWN_S - (actual elapsed), so
+//                        DEATH_TOTAL_S = 7.7 s and the respawn boundary are
+//                        preserved EXACTLY whatever the cover does
+//
+// The tumble is the one phase with slack to give: it is a free-running spin
+// and recede with no internal arcade boundary, only a length, and 0.216 s on
+// a 4 s spin is not a thing anyone can see. Every other boundary in this file
+// is pinned to a frame.
+//
+// FLOOR AND CEILING, BOTH DERIVED, because a phase gated bare on "is the
+// effect alive" inherits any leak in the effect system as a soft-lock and any
+// first-frame failure as a skipped death:
+//
+//   FLOOR = FIREBALL_S. The starburst is the LARGER lobe on both sides (ours
+//   spawns at scale 2.7 against 1.1; the arcade's is 1.30 s against 0.68 s),
+//   so it must never come out SHORTER than the fireball phase it follows.
+//   Derived, not chosen. The effects lane reports `busy()` is already true on
+//   the spawn tick -- `spawn()` pushes to `live` before any `update()` -- so
+//   this is belt-and-braces rather than load-bearing, which is where a floor
+//   belongs.
+//
+//   CEILING = 1.5 s, and it clears BOTH bounds it has to clear. The effects
+//   lane measured `busy()` false at 1.133 s nominal and 1.333 s worst case
+//   over 24 spawn rotations spanning the whole residue-life jitter, at scale 1
+//   and at this file's own 2.7 (arithmetic bound LIFE_S 0.267 + max puff life
+//   1.062 = 1.329 s, agreeing to one tick) -- so 1.5 sits 0.167 s = 10 ticks
+//   above the worst case and cannot truncate a healthy phase. It is ALSO above
+//   the arcade's measured 1.30 s, so it cannot truncate a phase that is the
+//   right length either. The named leak path is a caller that hides the field
+//   without ticking it (both arrays drain only inside `update(dt)`); the
+//   ceiling is what covers that, and it degrades to 0.2 s longer than today's
+//   constant rather than hanging.
+//
+// AND IT DEGRADES TO TODAY'S BEHAVIOUR WITHOUT THE ACCESSOR. If
+// `explosions.busy` is not a function the phase falls back to `STARBURST_S`
+// exactly, so this file does not hard-depend on another lane's interface.
+const STARBURST_MIN_S = FIREBALL_S;
+const STARBURST_MAX_S = 1.5;
+// Only reachable if the cover ever ran so long that the tumble had no room
+// left; at the measured cover the tumble comes out 4.216 s. A spin shorter
+// than this would read as a cut rather than a fall.
+const TUMBLE_MIN_S = 3.0;
+
 // THE 0.72 s WE KNOWINGLY DIVERGE BY, stated rather than buried. The arcade's
 // slide-in is 0.98 s (t206.57 -> t207.55) and the player has the stick from
 // there, with the READY card still blinking over LIVE FLIGHT for another
@@ -307,6 +382,10 @@ export class DeathSequence {
     this.active = true;
     this.phase = 'fireball';
     this.t = 0;
+    // Whole-sequence clock. `this.t` is reset at every phase boundary, so it
+    // cannot answer "how much of DEATH_TOTAL_S is left for the tumble".
+    this._elapsed = 0;
+    this._tumbleS = TUMBLE_S;
     this._rng = rng;
     this._spawned = false;
   }
@@ -336,6 +415,16 @@ export class DeathSequence {
     }
   }
 
+  /** Has the starburst lobe finished COVERING the screen? Floor, cover,
+   * ceiling — in that order, and the fallback is today's constant. See the
+   * EMPTY SKY block at the top of the file for every number in here. */
+  _starburstDone() {
+    const field = this.combat && this.combat.explosions;
+    if (!field || typeof field.busy !== 'function') return this.t >= STARBURST_S;
+    if (this.t >= STARBURST_MAX_S) return true;
+    return this.t >= STARBURST_MIN_S && !field.busy();
+  }
+
   // READY card colour phase (GAME_SPEC.md §2: "yellow, then cyan"), null
   // outside the respawn phase. Consumed by game.js to drive cards.js.
   get readyPhase() {
@@ -346,6 +435,7 @@ export class DeathSequence {
   update(dt) {
     if (!this.active) return false;
     this.t += dt;
+    this._elapsed += dt;
     const s = this.player.sprite;
     switch (this.phase) {
       case 'fireball':
@@ -368,8 +458,12 @@ export class DeathSequence {
           this.combat.explosions.spawn(s.position, this.combat.playerNdc.depth, this._rng, 2.7);
           s.visible = false; // the jet reads as GONE inside this lobe, unlike the fireball phase
         }
-        if (this.t >= STARBURST_S) {
+        if (this._starburstDone()) {
           this.phase = 'tumble';
+          // The tumble absorbs whatever the starburst gave back, so
+          // DEATH_TOTAL_S and the respawn boundary do not move. See the
+          // EMPTY SKY block above.
+          this._tumbleS = Math.max(TUMBLE_MIN_S, DEATH_TOTAL_S - RESPAWN_S - this._elapsed);
           this.t = 0;
           s.visible = true;
           this._setBurnt(true);
@@ -378,11 +472,11 @@ export class DeathSequence {
         break;
 
       case 'tumble': {
-        const q = Math.min(1, this.t / TUMBLE_S);
+        const q = Math.min(1, this.t / this._tumbleS);
         s.position.z = this._tumbleStart.z + TUMBLE_Z_DRIFT * q;
         s.position.y = this._tumbleStart.y + Math.sin(this.t * 3.1) * 0.12;
         s.material.rotation += TUMBLE_SPIN_RAD_PER_S * dt;
-        if (this.t >= TUMBLE_S) {
+        if (this.t >= this._tumbleS) {
           this.phase = 'respawn';
           this.t = 0;
           this._setBurnt(false);

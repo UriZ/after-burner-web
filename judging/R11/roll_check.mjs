@@ -101,6 +101,7 @@ async function main() {
   await page.waitForFunction('window.__frameReady === true', { timeout: 20000 });
 
   const cruise = [], canyon = [], cruiseY = [], canyonY = [], rolls = [], flicks = [], states = [];
+  const xs_series = [];
   let wasRolling = false, lastSign = 0, lastT = 0;
   for (let i = 0; i < ticks; i++) {
     const s = await page.evaluate(() => {
@@ -124,6 +125,7 @@ async function main() {
       // SCREEN fractions: cx in %W from centre, cy in %H from the top.
       const inCruise = t % CYCLE_S < 11;
       (inCruise ? cruise : canyon).push(s.jet * 50);
+      xs_series.push(s.jet * 50);
       (inCruise ? cruiseY : canyonY).push(50 - s.jy * 50);
     }
   }
@@ -137,6 +139,41 @@ async function main() {
     const q = (p) => +s2[Math.min(s2.length - 1, Math.floor(p * s2.length))].toFixed(3);
     return { n: a.length, mean: +m.toFixed(3), sd: +sd.toFixed(3), p5: q(0.05), p95: q(0.95) };
   };
+  // SHAPE, not size: the share of consecutive 60 Hz ticks on which the drawn
+  // jet does not move at all. The arcade's lateral control PARKS between
+  // bursts -- 86.2 % zero-steps over 420 consecutive stage-12 frames
+  // (judging/R11/lane-combat.md 2.6) -- and a sum of sines cannot do that at
+  // any amplitude. Quantised to the arcade's own native pixel (1/320 of frame
+  // width = 0.3125 %W) so the two sides are compared on the same grid.
+  const NATIVE_PCTW = 100 / 320;
+  let steps = 0, zero = 0, maxStep = 0;
+  const moved = [];
+  for (let i = 1; i < xs_series.length; i++) {
+    const d = Math.abs(xs_series[i] - xs_series[i - 1]);
+    steps++;
+    if (d < NATIVE_PCTW / 2) zero++; else moved.push(d);
+    if (d > maxStep) maxStep = d;
+  }
+  // THE DISCRIMINATING HALF. The zero-step share alone does NOT separate a
+  // burst-and-park pilot from a slow sine -- a sine whose peak rate is under
+  // one native pixel per frame reads as "parked" on 97 % of ticks. What
+  // separates them is how fast the MOVING frames move: the arcade's saturate
+  // at its rail rate, a sine's creep. Median over the moving frames only.
+  moved.sort((a, b) => a - b);
+  const medMoved = moved.length ? +moved[Math.floor(moved.length / 2)].toFixed(4) : null;
+  // AND THE ONE THAT ACTUALLY SEPARATES THEM: how LONG the stationary spells
+  // are. "86 % of ticks are stationary" is produced equally by a pilot that
+  // parks for 20 frames and then slams, and by a sine so slow it quantises to
+  // stationary every other tick. The run length tells those apart and neither
+  // of the two statistics above can.
+  const runs = [];
+  let run = 0;
+  for (let i = 1; i < xs_series.length; i++) {
+    if (Math.abs(xs_series[i] - xs_series[i - 1]) < NATIVE_PCTW / 2) run++;
+    else { if (run) runs.push(run); run = 0; }
+  }
+  if (run) runs.push(run);
+  runs.sort((a, b) => a - b);
   const xs = cruise.concat(canyon);
   const n = xs.length;
   const m = xs.reduce((a, b) => a + b, 0) / n;
@@ -152,6 +189,12 @@ async function main() {
     unauthored: unauthored.map((r) => +r.t.toFixed(3)),
     cxMeanPctW: +m.toFixed(3), cxSdPctW: +sd.toFixed(3), flightTicks: n,
     cruiseCx: stat(cruise), canyonCx: stat(canyon),
+    zeroStepShare: steps ? +(zero / steps).toFixed(4) : null, stepN: steps,
+    maxStepPctW: +maxStep.toFixed(4), medMovedStepPctW: medMoved, movedN: moved.length,
+    stillRunN: runs.length,
+    stillRunMedian: runs.length ? runs[Math.floor(runs.length / 2)] : null,
+    stillRunP90: runs.length ? runs[Math.floor(runs.length * 0.9)] : null,
+    stillRunMax: runs.length ? runs[runs.length - 1] : null,
     cruiseCy: stat(cruiseY), canyonCy: stat(canyonY),
     rollTimes: rolls.map((r) => +r.t.toFixed(3)),
     stateChanges: states.length,
