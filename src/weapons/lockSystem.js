@@ -159,6 +159,32 @@ const ARM_FRAC_TRACK = 2.5 / 16.5;
 // lock; that is the whole content of the change. The arm that has to keep
 // working is `track`, and it does -- see judging/R11/lane-feel.md §2.
 //
+// ---------------------------------------------------------------------------
+// R11b -- THE SCOPE OF THAT RESULT, which is narrower than it was published.
+//
+// The 83 % -> 22 % blind share above is a MISSILE-ONLY statistic. The probe
+// that produced it never set `input.fire`, so every kill it could count was a
+// missile kill by construction. Re-run with the gun enabled (`--weapons both`,
+// the probe now has the flag and declares it on every run), 5 400 consecutive
+// ticks, same trees:
+//
+//     pilot    wide +-34.93 %W          cut +-9.85 %W
+//     still    28  [missile 14, gun 14]  23  [missile  5, gun 18]
+//     track    31  [missile 24, gun  7]  25  [missile 14, gun 11]
+//     reach    26  [missile 15, gun 11]  27  [missile 17, gun 10]
+//
+// **THE LOCK CHANGE DID WHAT IT CLAIMS: the motionless stick's MISSILE kills
+// fall 14 -> 5.** But with a full loadout the blind pilot still takes **85 %**
+// of the best aiming pilot's kills on the cut tree and **90 %** on the wide one
+// -- because the VULCAN gives them away instead. `combat.js`'s
+// ASSIST_RADIUS_FRAC = 0.13 is now **1.32x the sight's entire reach** (it was
+// 0.37x before the envelope cut and did not move with it), so the gun assists
+// onto essentially anything the player could ever aim at.
+//
+// **So "aiming now matters" is true of the MISSILE and not yet of the GAME.**
+// The next move on this gap is the gun's assist cone, in combat.js, not
+// anything in this file. Recorded here because this is where the claim lives.
+//
 // Measured from the sight, not from the jet: the sight IS the crosshair the
 // measurement refers to.
 const LOCK_RADIUS_FRAC = 0.083;
