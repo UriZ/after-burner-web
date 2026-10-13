@@ -21,8 +21,22 @@ function repoRoot(from) {
   return process.cwd();
 }
 const ROOT = repoRoot(path.dirname(fileURLToPath(import.meta.url)));
-const root = path.resolve(process.argv[process.argv.indexOf('--root') + 1] ?? ROOT);
-const TICKS = Number(process.argv[process.argv.indexOf('--ticks') + 1] ?? 9600);
+
+// `argv.indexOf(flag)` returns -1 when the flag is absent, so `argv[-1 + 1]` is
+// `argv[0]` -- the NODE BINARY PATH -- and `??` never fires, because a string is
+// not nullish. As committed this made `--root` default to the node binary (so
+// the script could not run at all without the flag) and `--ticks` default to
+// NaN. Read the flag properly instead.
+function flag(name, fallback) {
+  const i = process.argv.indexOf(name);
+  return i === -1 || i + 1 >= process.argv.length ? fallback : process.argv[i + 1];
+}
+const root = path.resolve(flag('--root', ROOT));
+const TICKS = Number(flag('--ticks', 9600));
+if (!Number.isFinite(TICKS) || TICKS <= 0) {
+  console.error(`--ticks must be a positive number, got "${flag('--ticks', 9600)}"`);
+  process.exit(2);
+}
 
 const server = await createServer({ root, configFile: path.join(root, 'vite.config.js'),
   server: { host: '127.0.0.1', strictPort: false, hmr: false, watch: null }, logLevel: 'error' });
