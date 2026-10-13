@@ -38,7 +38,9 @@ import {
 } from '../src/weapons/projectileSprites.js';
 import { telegraphTextures } from '../src/weapons/telegraph.js';
 import { burstTexturesForProbe, chunkTexturesForProbe } from '../src/effects/explosions.js';
-import { smokePuffTexture, trailPuffTexture, billowTexture, SMOKE_VALUES } from '../src/effects/smoke.js';
+import {
+  smokePuffTexture, trailPuffTexture, billowTexture, SMOKE_VALUES, killSmokeTexturesForProbe,
+} from '../src/effects/smoke.js';
 import { makePixelTexture } from '../src/effects/pixelTexture.js';
 
 // Every element this lane composites into the scene. `kind` picks the
@@ -60,6 +62,12 @@ function elements() {
     out.push({ name: `trailPuff[v${v}]`, kind: 'effect', tex: trailPuffTexture(i) });
     out.push({ name: `billow[v${v}]`, kind: 'effect', tex: billowTexture(i) });
   });
+  // R10 gap 10. The post-kill residue is on screen after EVERY kill and was
+  // the one composited element this probe did not audit: the accessor was
+  // exported for it and never wired up, so the lane that shipped the residue
+  // had to verify its palette from captured pixels instead. One line.
+  killSmokeTexturesForProbe().forEach((t, i) =>
+    out.push({ name: `killSmoke[p${i}]`, kind: 'effect', tex: t }));
   return out;
 }
 

@@ -1,6 +1,9 @@
 import { Enemy, APPROACH_SPAWN_DEPTH, FLY_PAST_DEPTH } from '../entities/enemy.js';
 import { AudioBus } from '../audio/index.js';
 import { gunTunable } from '../weapons/tunables.js';
+// Imported, not transcribed: the guard below has to compare against the LIVE
+// value, and a copied number is the exact failure this file is guarding.
+import { ENVELOPE_X } from '../entities/player.js';
 
 // Stage-1 wave choreography.
 //
@@ -288,6 +291,138 @@ function clearCorridorAbout(x, cx) {
 }
 
 // ---------------------------------------------------------------------------
+// THE LATERAL DIMENSION, AND ITS COUPLING TO THE PLAYER'S ENVELOPE.
+//
+// R11. `player.js ENVELOPE_X` was cut 2.6 -> 0.733 mid-round, and the question
+// put to this file was whether its lateral spread is now tuned to an envelope
+// that no longer exists. MEASURED ANSWER: NO CHANGE IS WARRANTED, and the
+// reason is structural rather than lucky — so it is written down here, with
+// its guard, rather than left to be rediscovered.
+//
+//                  THE ENGAGEABLE BAND, DERIVED
+//
+// A missile lock needs the enemy inside LOCK_RADIUS_FRAC of the SIGHT, and
+// the sight is the airframe lifted 0.30 NDC (combat.js SIGHT_NDC_Y_OFFSET).
+// So the lateral half-width a player can bring the cone onto is
+//
+//     ENGAGEABLE = player's own NDC rail  +  LOCK_RADIUS_FRAC / 0.5
+//                = 0.2027 + 0.166 = 0.3687 NDC = 18.4 %W
+//
+// The rail is MEASURED, not converted: `ENVELOPE_X` is in WORLD units and the
+// map to NDC is not the proportionality it looks like — 2.6 gives +-0.3505 NDC
+// and 0.733 gives +-0.2027, a 3.55x change in the constant for a 1.73x change
+// in the rail, because the jet rolls as it slides and the projection is of a
+// roll-compensated sprite. `judging/R11/reach_probe.mjs` prints the rail in
+// one line; RE-MEASURE IT RATHER THAN SCALING IT.
+//
+//          WHY THE SPREAD IS NOT A REACHABILITY PARAMETER AT ALL
+//
+// Because the screen path advances by SIZE (1/d), not by time (enemy.js), a
+// wave does almost all of its lateral travel in the last fraction of its
+// depth — below the lock floor. Measured per pattern, `?fixed=1&demo=2&seed=1`,
+// 5 400 consecutive ticks, enemy telemetry (judging/R11/reach_probe.mjs,
+// analysed by judging/R11/reach.py), |x| in %W:
+//
+//   pattern    inside the lock window (d 26-88)   below the floor (d < 26)
+//              median   p90    max                median   p90    max
+//   approach     3.03   6.04   8.47                 5.19  14.66  37.30
+//   overtake     5.28   9.10  10.91                 7.35  17.34  23.70
+//   crosser     29.00  30.50  31.05                16.25  26.62  34.01
+//
+// EVERY approach and overtake spends its ENTIRE lockable window inside
+// 11 %W — well inside the 18.4 %W band — and the fan-out that `baseB` and
+// `k * 0.26` author happens afterwards, where it is a composition and
+// collision parameter and not a reach one. Engageable-by-missile fractions,
+// three seeds, both trees:
+//
+//   pattern     ENVELOPE_X 2.6      ENVELOPE_X 0.733
+//   approach    85-91 %             100 %     <- the cut IMPROVED the main traffic
+//   overtake    100 %               100 %
+//   crosser     100 %               0 %
+//
+//            THE CROSSER IS A GUN TARGET, AND ALWAYS WAS
+//
+// The whole loss is one pattern, completely, on every seed. It is not a
+// regression: a crosser spawns at depth 30-44 and reaches depth 3, and the
+// 1/d law means it is still at |x| 22-31 %W when it falls through the lock
+// floor — so it is lockable only out at the side. Before the cut the player
+// could slide out to +-36 %W and take it there, which is CHASING, and the
+// arcade's own rail is +-9.85 %W (feel lane, R11) with the same 8.3 %W cone,
+// so an arcade player could not have locked it either.
+//
+// What the arcade does with these is visible at 60 Hz in
+// `tools/out/spawner-r11/ARC-crosser-approach.png` and `ARC-t118.png`
+// (t = 116.5-119.4, GAME_SPEC.md 4's own crosser citation): the aircraft
+// converge toward the centre as they grow, pass LARGE and NEAR across the
+// player's own column, and sweep out to the sides. That is a gun engagement,
+// and ours is too — kills by weapon and pattern, `?demo=2`, three seeds,
+// 90 s each (judging/R11/kill_census.mjs):
+//
+//                     ENVELOPE_X 2.6     ENVELOPE_X 0.733
+//   crosser kills      10 (9 vulcan)      11 (all vulcan)
+//   TOTAL kills        25                 44
+//
+// The crosser's kill count is unchanged and total kills nearly DOUBLE. The
+// "18 -> 11 kills" that opened this question is a MISSILE-ONLY count from a
+// probe pilot that holds the missile button and never touches the trigger
+// (`judging/R11/probe_r11.mjs` sets `{...stick, missile: held}` and no
+// `fire`), so a gun pattern reads there as a total loss while being entirely
+// fightable.
+//
+// SO: NOTHING IS RETUNED. Cramming traffic toward the centre would raise that
+// probe's number and would be wrong — it would move a distribution with no
+// arcade column to recover a statistic that is an artefact of the pilot.
+//
+// THE GUARD BELOW IS THE DELIVERABLE. Every figure above was taken at one
+// value of ENVELOPE_X; if it moves again, they are void, and the failure mode
+// is silent — which is exactly how REACH_CEILING_NDC_Y's derivation rotted
+// (R7 gap 5, three stale inputs, one of them corrected in this same round).
+//           THE SET THIS CONSTANT BELONGS TO — R10's "move it as a system
+//           or not at all", enumerated so the next lane does not have to
+//           rediscover the membership
+//
+// The engageable band is NOT a spawn-spread question on its own. Three
+// constants in three files now scale against the same rail, and the envelope
+// cut moved all three ratios at once without any of them being edited:
+//
+//   constant                        file                 as a multiple of
+//                                                        the SIGHT's reach
+//                                                        at 2.6   at 0.733
+//   ENVELOPE_X -> the rail itself   entities/player.js    1.00     1.00
+//   LOCK_RADIUS_FRAC   0.083        weapons/lockSystem.js 0.24     0.84
+//   ASSIST_RADIUS_FRAC 0.13         weapons/combat.js     0.37     1.32
+//   the lateral spread              THIS FILE             (see above)
+//
+// **THE GUN'S ASSIST CONE IS NOW WIDER THAN THE WHOLE DISTANCE THE SIGHT CAN
+// TRAVEL** (1.32x), and the lock cone is most of it (0.84x), where both used
+// to be a fraction. Found and verified by the R11 combat lane; the ratios
+// reproduce exactly here (0.13/0.0985 = 1.32, 0.083/0.0985 = 0.84, against
+// 0.13/0.3493 = 0.37 and 0.083/0.3493 = 0.24).
+//
+// NEITHER RADIUS IS THIS LANE'S TO MOVE and neither was moved: LOCK_RADIUS_FRAC
+// was deliberately FROZEN in R10 and ASSIST_RADIUS_FRAC has no arcade anchor
+// at all, so a lane with no column for either would be guessing. What this
+// comment exists to do is record that **they are one set**: a future change to
+// any of the four invalidates the engageable band below, and therefore every
+// per-pattern figure above. The guard catches the rail moving; it cannot catch
+// the radii moving, so that is a reading job and this table is where it starts.
+const ENGAGEABLE_HALF_NDC_X = 0.3687;
+// The value of player.js's ENVELOPE_X that ENGAGEABLE_HALF_NDC_X and the
+// tables above were measured at. Not a copy to be used — a WITNESS.
+const ENVELOPE_X_AT_MEASUREMENT = 0.733;
+if (ENVELOPE_X !== ENVELOPE_X_AT_MEASUREMENT && typeof console !== 'undefined') {
+  // Warn, never throw: a hard failure here turns a stale comment into a black
+  // screen, which is worse. One line, once, at module load.
+  console.warn(
+    `spawner.js: player.js ENVELOPE_X is ${ENVELOPE_X} but the lateral ` +
+    `reachability figures in this file were measured at ${ENVELOPE_X_AT_MEASUREMENT}. ` +
+    `ENGAGEABLE_HALF_NDC_X (${ENGAGEABLE_HALF_NDC_X}) and the per-pattern tables ` +
+    `above are VOID. Re-measure with judging/R11/reach_probe.mjs + reach.py ` +
+    `before trusting them.`
+  );
+}
+
+// ---------------------------------------------------------------------------
 // THE VERTICAL DIMENSION. R5's game-feel critique ranked this #1 of twelve and
 // it is the largest single defect this lane has had: "the game is played on a
 // wire". Measured on this build before the fix (tools/out/combat-r6/base/,
@@ -362,12 +497,24 @@ const NEAR_BAND = [
 //
 //   input                     comment says   SHIPPED
 //   player ndcY ceiling       +0.106         +0.4597  (ENVELOPE_Y_UP 1.1 -> 1.55, R7)
-//   lock radius               8.3 %W         22 %W    (lockSystem.js, since R3)
-//   re-derived ceiling        +0.64          +1.388
+//   lock radius               8.3 %W         8.3 %W   (lockSystem.js; see below)
+//   re-derived ceiling        +0.64          +0.997
 //
-// +1.388 is past the top of the screen, so **the reachability argument no
+// +0.997 is the top edge of the screen, so **the reachability argument no
 // longer binds at all** and 0.64 is now undocumented suppression of the
 // enemy altitude band rather than a reach bound.
+//
+// R11 CORRECTION TO THIS TABLE'S MIDDLE ROW, which said "22 %W (lockSystem.js,
+// since R3)" and gave a re-derived ceiling of +1.388. THE SHIPPED LOCK RADIUS
+// IS 8.3 %W: `lockSystem.js:164` reads `LOCK_RADIUS_FRAC = 0.083` and its own
+// R10 note records that the round FROZE it there. The 22 %W was true of some
+// intermediate tree and the row outlived it — a comment citing a fact that is
+// not true, which is the thing this file's own history says is worse than no
+// comment. Re-derived with the shipped value: sight ceiling +0.4597 + 0.30 =
+// +0.7597, lock radius 0.083 fracW = 0.083/0.35 = 0.237 NDC in y after the
+// 224/320 aspect term, so the ceiling is +0.997. The CONCLUSION is unchanged
+// — +0.997 is the top of the frame, so the bound still does not bind — and
+// 0.64 still stands on the side effect below, not on this chain.
 //
 // WHY IT IS STILL 0.64, stated honestly as a side effect rather than a
 // derivation: the statistic it suppresses is one that ALREADY MATCHES the

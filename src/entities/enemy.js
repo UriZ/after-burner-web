@@ -1,6 +1,15 @@
 import * as THREE from 'three';
 import { makeBillboard } from '../effects/pixelTexture.js';
 import * as enemySprite from './enemySprite.js';
+// Imported, not transcribed: this file's fly-past size derives from the
+// camera, and cameraGeom.js exists precisely to stop that number being
+// written down twice (see ENEMY_WORLD_WIDTH).
+import { worldWidthAtDepth } from '../core/cameraGeom.js';
+
+// The native frame, which is what every %W figure in this file is a fraction
+// of. REFERENCE.md's measurements are all taken on it.
+const NATIVE_W = 320;
+const NATIVE_H = 224;
 
 const { DETAIL_SWITCH_NATIVE_PX } = enemySprite;
 
@@ -176,21 +185,56 @@ export const poseCensus = { byDeg: {}, posedTicks: 0, levelOnlyTicks: 0 };
 // separates that from a frozen-scale bug (R2 report gap 5's criterion).
 // ---------------------------------------------------------------------------
 
-// Wingspan in world units. Fixes the fly-past size: the shipped camera
-// (FOV 55, aspect 320/224) shows 1.4873344 world units of width per unit of
-// depth, so at FLY_PAST_DEPTH the span is
-//   1.05 / (1.4873344 * 2.6) = 0.2715 = 27.2%W
-// — the centre of REFERENCE.md "Enemies / Size at closest approach"'s
-// measured 25-30%W band (ADOPTED #105). Re-derive if the camera FOV or
-// FLY_PAST_DEPTH changes. The silhouette in enemySprite.js fills its canvas
-// edge to edge, so occupied width == quad width and this number is the
-// measurable one.
+// Wingspan in world units. Fixes the fly-past size: at FLY_PAST_DEPTH the
+// span is ENEMY_WORLD_WIDTH / (width-per-unit-depth * FLY_PAST_DEPTH) =
+// 27.15 %W — the centre of REFERENCE.md "Enemies / Size at closest
+// approach"'s measured 25-30 %W band (ADOPTED #105). The silhouette in
+// enemySprite.js fills its canvas edge to edge, so occupied width == quad
+// width and this number is the measurable one.
+//
+// R11: THE CAMERA TERM IS DERIVED NOW, NOT TRANSCRIBED. It stood here as the
+// literal `1.4873344` with a comment asking the next agent to "re-derive if
+// the camera FOV or FLY_PAST_DEPTH changes" — which is a request, not a
+// mechanism, and this round watched two of those rot (spawner.js's
+// REACH_CEILING_NDC_Y lost three inputs; deathSequence.js's phase lengths
+// lost their effect). `core/cameraGeom.js` already EXPORTS the solver, so the
+// number does not need to exist here at all. Derive where you can; guard only
+// what you cannot derive — see the SPAWNER GUARD note in
+// judging/R11/lane-effects.md §4B.5.
+//
+// It was correct when replaced: `worldWidthAtDepth(1, 320/224)` returns
+// 1.4873344301478464, and 1.05 / (1.4873344 * 2.6) = 27.15 %W. The point of
+// deriving it is that the NEXT camera change cannot silently invalidate it.
+const WORLD_WIDTH_PER_DEPTH = worldWidthAtDepth(1, NATIVE_W / NATIVE_H);
 export const ENEMY_WORLD_WIDTH = 1.05;
 
 // Depth at which an approaching enemy is retired. This is what CAPS the
 // fly-past span, so it is a fidelity constant, not a cleanup threshold:
 // anything closer renders above 30%W and leaves the measured band.
 export const FLY_PAST_DEPTH = 2.6;
+
+// THE GUARD on the two lines above, and the half that a derivation alone
+// cannot give you. Deriving `WORLD_WIDTH_PER_DEPTH` from cameraGeom.js means
+// the camera can no longer go stale SILENTLY — but it can still go stale
+// LOUDLY-IN-PRINCIPLE-AND-QUIETLY-IN-FACT, because nothing was checking that
+// the result still lands in the band REFERENCE.md measured. A FOV change
+// would recompute this correctly and move the fly-past span straight out of
+// 25-30 %W with no symptom but a slightly wrong-sized aeroplane.
+//
+// Warns, never throws: a hard failure here turns a drifted constant into a
+// black screen, which is worse than a drifted constant. One line, once, at
+// module load. Verified to fire by `node judging/R11/guard_test.mjs --file
+// src/entities/enemy.js --witness ENEMY_WORLD_WIDTH --stale 2.0`.
+const FLY_PAST_SPAN_PCT_W = (100 * ENEMY_WORLD_WIDTH) / (WORLD_WIDTH_PER_DEPTH * FLY_PAST_DEPTH);
+if ((FLY_PAST_SPAN_PCT_W < 25 || FLY_PAST_SPAN_PCT_W > 30) && typeof console !== 'undefined') {
+  console.warn(
+    `enemy.js: the fly-past span derives to ${FLY_PAST_SPAN_PCT_W.toFixed(2)} %W, outside ` +
+    `REFERENCE.md "Enemies / Size at closest approach"'s measured 25-30 %W (ADOPTED #105). ` +
+    `Inputs: ENEMY_WORLD_WIDTH ${ENEMY_WORLD_WIDTH}, FLY_PAST_DEPTH ${FLY_PAST_DEPTH}, ` +
+    `camera width/depth ${WORLD_WIDTH_PER_DEPTH.toFixed(7)} (core/cameraGeom.js). ` +
+    `One of the three moved; re-solve rather than clamping the symptom.`
+  );
+}
 
 // Spawn depth for head-on approaches. 90 units puts the sprite at
 // 1.05/(1.4873344*90) = 0.78%W = 2.5 px on a 320-wide frame: a visible dot,
@@ -326,6 +370,78 @@ const MIN_TRAIN_ROUNDS = 4;
 // from the FIRING AIRCRAFT's own motion between rounds and from perspective,
 // which at 0.11 s intervals and a 52..24 depth band is the larger effect.
 const TRAIN_SWEEP_STEP_NDC = 0.012;
+
+// ---------------------------------------------------------------------------
+// AIM ERROR. Named in the R6 feel critique, asked for again by R10's effects
+// lane as the one lever that decouples enemy-fire LETHALITY from enemy-fire
+// SPEED, and absent until now. This is the per-train offset between the
+// player's position when the flare lights and the point the train is actually
+// aimed at.
+//
+// WHY A TRAIN NEEDS ONE AT ALL. Today the only thing that makes aimed fire
+// miss is that the player MOVES between the aim snapshot and the impact:
+// `pHit` is a pure read of the displacement distribution at the fairness lag
+// (TELEGRAPH_S + time of flight = 3.24-6.04 s on the shipped geometry). That
+// couples two things that should be independent — how fast an enemy round
+// crosses the screen, which is a FIDELITY fact measured off the arcade, and
+// how often it kills you, which is a BALANCE fact measured against the
+// arcade's death rate. Any change to the first moves the second by the slope
+// of that distribution, which is why enemyShots.js's own header says
+// "MOVE NONE OF THESE FOUR ALONE".
+//
+// PERPENDICULAR TO THE RAKE, NOT ISOTROPIC, and that is the whole design.
+// A train already sweeps a capsule of length (n-1) * TRAIN_SWEEP_STEP_NDC and
+// radius PLAYER_HIT_RADIUS_FRAC along `sweep`. An error ALONG that axis
+// slides the capsule along itself and barely changes the area it covers; an
+// error ACROSS it moves the whole capsule off the player. So the offset is
+// applied along the rake's perpendicular, which is both the efficient
+// direction and the legible one: the train visibly passes to one SIDE of you
+// rather than landing short or long in a way that reads as noise.
+//
+// IT IS NOT THE R4 RANDOM BIAS COMING BACK, and the difference is not one of
+// degree. judging/R4/feel-critique.md killed a 0.22-0.85 NDC offset in a
+// RANDOM DIRECTION applied to UNANNOUNCED fire: "a rake that sweeps a random
+// part of the screen ... no tell, no lead you can read, and nothing you can
+// learn". The telegraph is what changed: the flare still lights, still lasts
+// TELEGRAPH_S, and still predicts the train's arrival TIME exactly. What the
+// offset costs is a bounded amount of the flare's accuracy about WHERE, and
+// at the magnitudes below the aim point stays inside the sweep the train
+// already draws across the screen.
+//
+// NOT ONE DRAW FROM THE SHARED STREAM. CLAUDE.md's recurring bug class:
+// "adding one conditional draw silently shifts every later draw", which cost
+// R10's effects lane an hour on a capture that diverged at tick 300. The
+// magnitude is hashed out of state the aircraft ALREADY has — the sweep angle
+// `a` that was just drawn, plus its own age and depth — so AIM_ERROR_NDC = 0
+// is byte-identical to the build without this term, and every arm of the
+// sweep below shares one PRNG stream with the control. Verified: the
+// `?demo=2&seed=1` kill at tick 707 lands on the same tick and within 1 px of
+// the same screen position on both.
+//
+// THE VALUE IS MEASURED, and the measurement is in
+// judging/R11/lane-effects.md §3. tools/fairness_probe.mjs, `?demo=1`,
+// 7 seeds x 300 s per arm (~2 500 round-crossings per arm, against 43 deaths
+// — the deaths are the prediction, `pHit` is the estimator; R8 interface I27).
+const AIM_ERROR_NDC = 0.0;
+
+// Deterministic hash in [0,1) of three floats. Used only to derive the aim
+// error without touching the shared PRNG; it is NOT a random source and
+// nothing else may use it for one. Its distribution is checked in
+// judging/R11/aim_error_control.mjs (chi-square over 20 bins on 4 000
+// telegraph events taken from live play, not from a synthetic sweep).
+function aimHash(a, age, depth) {
+  const s = Math.sin(a * 91.3458 + age * 47.0393 + depth * 13.7131) * 43758.5453123;
+  return s - Math.floor(s);
+}
+
+// Measurement-only census of the hash's output ON THE INPUTS LIVE PLAY
+// ACTUALLY PRODUCES. A hash that is uniform over synthetic inputs can still
+// be degenerate over the narrow, correlated (angle, age, depth) triples a
+// real telegraph produces — four instruments were withdrawn in R10 for
+// passing a selftest and failing on real data, so this one is checked on real
+// data. Read by judging/R11/aim_error_control.mjs. Same shape and the same
+// zero-cost increment as `poseCensus` above; nothing in the game reads it.
+export const aimErrorCensus = { n: 0, bins: new Array(20).fill(0) };
 
 // Every train is 8 rounds — the top of GAME_SPEC.md §4's measured "trains of
 // 4-8" — and the length is fixed rather than drawn for two reasons.
@@ -801,11 +917,19 @@ export class Enemy {
           this.telegraph = TELEGRAPH_S;
           this.telegraphFrac = 0;
           this.fireTimer = 1.5 + rng() * 0.5;
-          this.aimX = playerNdc.x;
-          this.aimY = playerNdc.y;
           const a = rng() * Math.PI * 2;
           this.sweepX = Math.cos(a);
           this.sweepY = Math.sin(a) * 0.6; // flatter than tall, as t330 reads
+          // The aim error, perpendicular to the rake. Signed and uniform on
+          // [-AIM_ERROR_NDC, +AIM_ERROR_NDC]; the 0.6 on y is the same
+          // flattening the sweep carries, so the offset stays in the plane
+          // the train is drawn in.
+          const hv = aimHash(a, this.age, this.d);
+          aimErrorCensus.bins[Math.min(19, Math.floor(hv * 20))] += 1;
+          aimErrorCensus.n += 1;
+          const e = AIM_ERROR_NDC * (2 * hv - 1);
+          this.aimX = playerNdc.x - Math.sin(a) * e;
+          this.aimY = playerNdc.y + Math.cos(a) * e * 0.6;
         }
       }
     } else {

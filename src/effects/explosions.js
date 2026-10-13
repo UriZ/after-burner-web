@@ -148,7 +148,8 @@ const SPIKE_HALF_W = 0.058;
 // size: 0.30 * 0.62 = 0.186 against the old 0.225 * 0.85 = 0.191. The
 // canvas also goes 48 -> 64 px: a spike projecting 0.22 of the canvas width
 // is 10 texels at 48 and 14 at 64, and below ~10 it rasterises to a bump
-// rather than to a point.
+// rather than to a point. (R11 took it to 96 — see BURST_PX — so the same
+// spike is 21 texels; the argument is unchanged and the headroom is larger.)
 const LOBE_INSET = 0.62;
 
 // Cavity radius as a fraction of the lobe radius — the dark-red interior
@@ -181,6 +182,119 @@ const CORE_MASK = [
 const CORE_ROWS = CORE_MASK.length;
 const CORE_COLS = CORE_MASK[0].length;
 
+// ---------------------------------------------------------------------------
+// R11 — THE BREAK-UP. Read this before touching PHASES or BREAKUP below.
+//
+// R10 fixed this explosion's DURATION and left its SHAPE wrong, and the R10
+// judge named the mechanism (judging/R10/judge-report.md §1.4): the arcade's
+// fireball FRAGMENTS into a wide sparse spray of yellow and red chunks, and
+// its white-hot fraction PEAKS LATE (+100 to +133 ms on three of four kills)
+// because it flares again as it bursts. Ours stayed a compact lobed ball that
+// only changed colour.
+//
+// MEASURED ON BOTH SIDES, 60 Hz consecutive, with two DIMENSIONLESS shape
+// statistics so no scale matching is needed (judging/R11/fx_r11.py, selftest
+// 39/39; judging/R11/lane-effects.md for the tables, the crops and the
+// blind spots):
+//
+//   fill   = masked area / area of its own convex hull   (filled disc = 1.00)
+//   spread = radius of gyration / sqrt(area/pi)          (filled disc = 0.707)
+//
+//   arcade, 2 stage-1 kills, t=101.67 and t=102.40, m_material, licensed lags
+//     compact phase    fill 0.31-0.60   spread 0.81-1.04   components 6-20
+//     BURST phase      fill 0.08-0.26   spread 1.31-2.03   components 25-88
+//
+//   OURS at 5e3d57e, the authored canvases themselves, same mask
+//     phase 0          fill 0.565       spread 0.812       components 1
+//     phase 1          fill 0.834       spread 0.721       components 1-3
+//     phase 2          fill 0.851       spread 0.720       components 2
+//
+// BOTH STATISTICS RAN THE WRONG WAY. The arcade's fill FALLS and its spread
+// RISES across the event; ours did the opposite — it got MORE disc-like as it
+// aged, because the decay phases simply dropped the bright bands off a mass
+// whose arrangement never changed. 0.72 is the filled-disc value to three
+// decimals. We were drawing a disc and recolouring it.
+//
+// (The comparison is licensed against the medium: putting our own authored
+// canvas through the arcade's presentation chain — nearest to 96 native px,
+// bilinear to the longplay's 3.2125x, lossy re-encode — moves `fill` by
+// <=0.027 and `spread` by <=0.030. The gap is 3x to 10x that.)
+//
+// SO PHASES 1 AND 2 ARE NO LONGER THE SAME DRAWING WITH FEWER BANDS. They are
+// a RADIAL STARBURST OF SEPARATED FLECKS, which is what the arcade frames
+// show at 2x (tools/out/effects-r11/ARC-residue-origin.png — nine consecutive
+// 60 Hz frames of one isolated kill over open sky: ball, then a star of
+// separated red flecks with a white-hot centre, then the residue). The flecks
+// are drawn as integer `fillRect`s, so they antialias against nothing and
+// cost no off-palette seam colours at all.
+//
+// AND PHASE 1 HAS A WHITE-HOT CORE AGAIN, against what this file used to
+// assert two hundred lines down ("the decay phases have no white-hot core:
+// the fire is going out"). That sentence is true of our sprite and false of
+// the arcade's, which re-flares at +100-133 ms on three of four measured
+// kills. Our phase 1 occupies +83 to +167 ms, so the re-flare lands in it by
+// construction.
+//
+// THE CANVAS GOES 64 -> 96 TEXELS, and the reason is resolution rather than
+// taste: the sprite is drawn at PEAK_FRAC 0.30 of 320 native px = 96 native
+// px, so at 64 it was being UPSAMPLED 1.5x and a 2-texel fleck arrived as a
+// 3-px smudge. At 96 the canvas is 1:1 with the screen at peak size and a
+// fleck is a fleck. (Same argument as the 48 -> 64 step under LOBE_INSET.)
+const BURST_PX = 96;
+
+// THE BREAK-UP GEOMETRY, one entry per decay phase, all lengths as canvas
+// fractions:
+//
+//   inner  radius inside which the CORE SCATTER sits — the dense cluster of
+//          hot chunks the rays emerge from
+//   reach  how far the outermost ray fleck projects
+//   rays   number of radial streaks;  per  flecks per streak
+//   gamma  radius law exponent: r = reach * u^gamma, u = k/(per-1) in
+//          [inner/reach, 1]. >1 BUNCHES the flecks inward, which is what
+//          makes a streak read as a streak instead of as four dots.
+//   fleck  [inner size, outer size]
+//   lumps  how many chunks in the core scatter; `lump` their size
+//   core   white-hot patch size (0 = none)
+//
+// SOLVED FIRST, then corrected against the drawing. For flecks of area A_k at
+// radius r_k:
+//   fill   ~= sum(A_k) / (pi * reach^2)
+//   spread ~= sqrt(sum(A_k r_k^2) / sum(A_k)) / sqrt(sum(A_k)/pi)
+// against the arcade's measured burst band of fill 0.08-0.26 and spread
+// 1.31-2.03 (two stage-1 kills, licensed lags, judging/R11/lane-effects.md).
+// Phase 1 sits at the dense end and phase 2 at the sparse end, which is the
+// order the arcade's own consecutive frames run in.
+//
+// TWO THINGS THE SOLVE GOT WRONG AND THE CROP CAUGHT, both recorded because
+// the numbers were inside their bands while the sprite was not AB2:
+//
+//  1. `per` 3 AND A LINEAR RADIUS LAW DRAW CONFETTI, NOT A BURST. Three
+//     flecks evenly spaced along a ray are three dots; the eye needs ~5 with
+//     the inner ones close together before it joins them into a streak. The
+//     statistics could not see the difference — fill 0.23 / spread 1.03 /
+//     ncomp 31 is inside the arcade band either way. This is the
+//     statistics-cannot-replace-artwork case in its own lane's file.
+//  2. THE RE-FLARE CORE WAS THREE BIG WHITE SQUARES, 53 % of the phase-1
+//     mask against the arcade's 11-41 % peak and 2-7 % typical. It read as a
+//     white blob with sparks round it. It is now a small ragged scatter
+//     inside the chunk cluster.
+const BREAKUP = [
+  // phase 1, +83..+167 ms: the BURST. A dense hot chunk cluster with streaks
+  // of fat flecks tearing out of it, and the re-flare.
+  {
+    inner: 0.13, reach: 0.42, rays: 16, per: 5, gamma: 1.5,
+    fleck: [0.052, 0.026], lumps: 9, lump: 0.045, core: 0.065,
+  },
+  // phase 2, +167..+267 ms: the SPRAY. The cluster is gone, the streaks are
+  // wider, finer and cooler, and only a trace of core is left — the arcade's
+  // hot fraction falls back after its re-flare (judge §1.4: 0.051 at
+  // +150 ms on event D, 0.063 on my own event F at the same lag).
+  {
+    inner: 0.10, reach: 0.49, rays: 16, per: 6, gamma: 1.25,
+    fleck: [0.038, 0.017], lumps: 4, lump: 0.026, core: 0.030,
+  },
+];
+
 // THE PHASE LADDERS. Phase 0 is the fireball; 1 and 2 are the DECAY, and
 // they replace the opacity ramp that used to end the sprite's life.
 //
@@ -201,16 +315,40 @@ const CORE_COLS = CORE_MASK[0].length;
 // Each entry is [colour, band radius], outermost first, same solved-area
 // construction as phase 0 (see the long note in `blobs`). `core` is the
 // white-hot texel grid; only the fireball has one.
+// Only phase 0 is a lobe cluster now; `bands` for 1 and 2 are the fleck
+// colour ladders, read outermost-first (see drawBreakup).
 const PHASES = [
   { core: true, spike: 1.0, bands: [[E_RIM, 1.0], [E_DEEP, 0.938], [E_ORANGE, 0.86],
     [E_AMBER, 0.78], [E_GOLD, 0.60], [E_YELLOW, 0.42]] },
-  { core: false, spike: 0.78, bands: [[E_RIM, 1.0], [E_DEEP, 0.90], [E_ORANGE, 0.72],
-    [E_AMBER, 0.46]] },
-  { core: false, spike: 0.55, bands: [[E_RIM, 1.0], [E_DEEP, 0.78], [E_ORANGE, 0.40]] },
+];
+
+// Fleck colours by RING, outermost first. The arcade's spray is red at the
+// outside and yellow at the inside on every frame of
+// tools/out/effects-r11/ARC-residue-origin.png, which is the same hue ramp
+// phase 0's bands already carry (rim 0deg -> mid 40deg -> hot 59-69deg) — the
+// break-up re-arranges the fireball, it does not repaint it.
+// E_YELLOW IS NOT IN EITHER LADDER, and that is a measured decision rather
+// than an omission. The judge's YELLOW class is `G/R > 0.62 AND R > 180`,
+// which E_AMBER (0.686) and E_GOLD (0.741) are both inside — so a ladder that
+// also carries E_YELLOW puts three of its five steps in one class, and the
+// break-up measured 70 % yellow against the arcade's 0.05-0.34 at the same
+// lag. Five steps GOLD -> AMBER -> ORANGE -> DEEP -> RIM span the same hue
+// ramp (59deg -> 0deg) with one step per class.
+const FLECK_RINGS = [
+  [E_RIM, E_DEEP, E_ORANGE, E_AMBER, E_GOLD], // phase 1, read outermost-first
+  // Phase 2 spends FOUR of its six steps on the two reds. By +100 ms the
+  // arcade's fire-coloured area has collapsed — event D goes from 47 % of
+  // its ROI at +83 ms to 4.8 % at +100 ms, one frame — and what is left in
+  // the frame is a scatter of DEEP RED flecks with the odd warm one. Both
+  // reds are outside the r9 fire band (E_RIM R 156 < 180, E_DEEP G 0 < 60),
+  // so spending area on them is also what brings `r100` down: at an even
+  // four-step ladder this phase measured r100 0.284 against an arcade column
+  // of 0.036-0.157.
+  [E_RIM, E_DEEP, E_DEEP, E_ORANGE],
 ];
 
 function drawBurst(arrangement, phaseIndex = 0) {
-  const phase = PHASES[phaseIndex];
+  const phase = PHASES[phaseIndex];  // only phase 0 is a lobe cluster
   return (ctx, w, h) => {
     const cx = w / 2;
     const cy = h / 2;
@@ -495,7 +633,10 @@ function drawBurst(arrangement, phaseIndex = 0) {
     // points across all three phases, since it is an authored texel grid on
     // a texture that only cycles between three lobe arrangements.
     ctx.setTransform(1, 0, 0, 1, 0, 0);
-    // The decay phases have no white-hot core: the fire is going out.
+    // R11: the sentence that stood here — "the decay phases have no white-hot
+    // core: the fire is going out" — was refuted by the arcade on three kills
+    // of four (judge-report §1.4) and the decay phases are no longer drawn by
+    // this function at all. See drawBreakup, which carries the re-flare.
     if (!phase.core) return;
     const side = 0.27 * w;
     const cell = side / CORE_COLS;
@@ -507,11 +648,114 @@ function drawBurst(arrangement, phaseIndex = 0) {
         if (CORE_MASK[r][c] !== '#') continue;
         // Integer device coordinates: a fractional rect is the Canvas2D
         // antialiasing trap CLAUDE.md lists as a recurring bug class here, and
-        // on a 64-texel canvas a half-covered texel is 1.5% of the sprite.
+        // on the 96-texel canvas a half-covered texel is 1.0% of the sprite
+        // (it was 1.5% at 64, where this note was written).
         const x0 = Math.round(ox + c * cell);
         const y0 = Math.round(oy + r * cell);
         ctx.fillRect(x0, y0, Math.round(cell) || 1, Math.round(cell) || 1);
       }
+    }
+  };
+}
+
+// THE BREAK-UP, phases 1 and 2. See the R11 note above BREAKUP for the
+// measurement this is built against.
+//
+// EVERY MARK IS AN INTEGER `fillRect`. Not a stylistic choice: a `ctx.arc`
+// fill antialiases against whatever is under it, and `makePixelTexture`'s
+// palette snap then resolves each seam texel to one of the two colours that
+// made it — which is correct but means the SHAPE of a small fleck is decided
+// by a rounding rule rather than by this file. At 2-5 texels a fleck that is
+// half a texel out is a different fleck. Squares at integer coordinates are
+// also what the arcade's own spray is: crop
+// tools/out/effects-r11/ARC-residue-origin.png at 2x and every chunk in it is
+// a hard-edged rectangle of one colour.
+//
+// `variant` (0..2) perturbs the ray rotation and the per-ray radius jitter so
+// the three cached arrangements differ; it is a pure function of the index,
+// as the seeded-render rule requires.
+function drawBreakup(variant, phaseIndex) {
+  const g = BREAKUP[phaseIndex - 1];
+  const ring = FLECK_RINGS[phaseIndex - 1];
+  return (ctx, w, h) => {
+    const cx = w / 2;
+    const cy = h / 2;
+    const px = (x, y, s, fill) => {
+      // Half-open integer rect. `Math.max(1, ...)` because a fleck that
+      // rounds to zero texels is a fleck that silently is not there — which
+      // is how a sparse arrangement turns back into a dense one at a smaller
+      // canvas size without anything failing.
+      const s0 = Math.max(1, Math.round(s));
+      ctx.fillStyle = fill;
+      ctx.fillRect(Math.round(x - s0 / 2), Math.round(y - s0 / 2), s0, s0);
+    };
+
+    // THE CORE SCATTER — the dense cluster of hot chunks the streaks tear
+    // out of. Golden-angle placement inside `inner`, so it is irregular and
+    // deterministic at once (the seeded-render rule); radius grows with the
+    // index so the cluster is denser at the middle.
+    for (let i = 0; i < g.lumps; i++) {
+      const a = i * 2.399 + variant * 0.83;
+      const rr = g.inner * w * Math.sqrt((i + 0.35) / g.lumps);
+      const s = g.lump * w * (1.15 - 0.5 * (i / g.lumps));
+      // Weighted toward E_ORANGE rather than cycling evenly: E_AMBER and
+      // E_GOLD both fall in the judge's YELLOW class (G/R 0.686 and 0.741,
+      // against its 0.62 threshold), so an even cycle puts two thirds of the
+      // cluster's area in one class and the sprite measures as lemon.
+      px(cx + Math.cos(a) * rr, cy + Math.sin(a) * rr, s,
+        i % 4 === 0 ? E_GOLD : (i % 4 === 1 ? E_AMBER : E_ORANGE));
+    }
+
+    // THE STREAKS. Each is `per` flecks marching outward, shrinking, cooling
+    // from the inside out — the arcade's own hue ramp read along a radius.
+    const rot = 0.37 + variant * (Math.PI * 2) / (g.rays * 3);
+    for (let j = 0; j < g.rays; j++) {
+      const a = (j / g.rays) * Math.PI * 2 + rot;
+      // Deterministic per-ray length jitter on a golden-angle sequence, so
+      // neighbouring streaks do not end on a circle. A spray whose tips lie
+      // on a circle reads as an ANNULUS, which is a ring and not a burst —
+      // and `spread` cannot tell those apart (it reads 1.51 for an annulus,
+      // squarely inside the band this is tuned to), so it is a thing only
+      // the crop catches.
+      const jit = 0.74 + 0.52 * (((j * 0.6180339887 + variant * 0.31) % 1));
+      for (let k = 0; k < g.per; k++) {
+        const u = k / (g.per - 1);
+        const frac = g.inner / g.reach + (1 - g.inner / g.reach) * u ** g.gamma;
+        const r = g.reach * w * frac * jit;
+        const s = w * (g.fleck[0] + (g.fleck[1] - g.fleck[0]) * u);
+        // `ring` is listed OUTERMOST-FIRST, so the index runs backwards along
+        // the streak: the tip of a ray is the coldest thing in it and the
+        // root of it is the hottest. Written the other way round first, which
+        // drew a dark-red centre inside a gold halo — the arcade's own ramp
+        // exactly inverted, and visible at a glance on the sheet while every
+        // shape statistic stayed where it was.
+        const ci = Math.min(ring.length - 1, Math.round((1 - u) * (ring.length - 1)));
+        px(cx + Math.cos(a) * r, cy + Math.sin(a) * r, s, ring[ci]);
+        // Every third streak drops a second, darker fleck just off-axis.
+        // This is what takes `ncomp` up WITHOUT taking `fill` up: two small
+        // separated marks cover the same convex hull as one.
+        if (k >= 1) {
+          px(cx + Math.cos(a + 0.13 * (1 + (j % 3))) * r * 0.88,
+            cy + Math.sin(a + 0.13 * (1 + (j % 3))) * r * 0.88,
+            s * 0.92, E_RIM);
+        }
+      }
+    }
+
+    // THE RE-FLARE. The arcade's white-hot fraction peaks at +100 to +133 ms
+    // — INSIDE phase 1 — because the fireball flares as it bursts into its
+    // debris spray (judge-report §1.4, three kills of four). Drawn last so
+    // nothing covers it, as explicit integer texels for the same reason the
+    // phase-0 core is: a path fill under an active transform rendered ZERO
+    // texels there, and the bisection that found that is in the long note
+    // above CORE_MASK.
+    if (g.core <= 0) return;
+    const n = phaseIndex === 1 ? 5 : 2;
+    for (let i = 0; i < n; i++) {
+      const a = i * 2.399 + variant * 1.1;
+      const rr = g.inner * w * 0.55 * Math.sqrt((i + 0.4) / n);
+      px(cx + Math.cos(a) * rr, cy + Math.sin(a) * rr,
+        g.core * w * (1.2 - 0.3 * (i / n)), E_HOT);
     }
   };
 }
@@ -532,13 +776,20 @@ function drawChunk(top, bottom) {
 
 let burstTextures = null;
 let chunkTextures = null;
-// Indexed [phase][arrangement]. Phase 0 is the fireball and cycles through
-// all three arrangements as it boils; the two decay phases need only one
-// each, since by then the mass is collapsing rather than boiling.
+// Indexed [phase][arrangement], 3 arrangements per phase. Phase 0 is the
+// fireball and cycles through the three lobe arrangements as it boils; phases
+// 1 and 2 cycle through three BREAK-UP variants, which boil the same way —
+// the arcade's spray is a different scatter on every frame, not one frozen
+// star that scales (ARC-residue-origin.png, consecutive frames).
 function bursts() {
-  burstTextures ??= PHASES.map((_, phase) =>
+  burstTextures ??= [
     ARRANGEMENTS.map((a) =>
-      makePixelTexture(drawBurst(a, phase), 64, 64, { palette: EXPLOSION_PALETTE })));
+      makePixelTexture(drawBurst(a, 0), BURST_PX, BURST_PX, { palette: EXPLOSION_PALETTE })),
+    [0, 1, 2].map((v) =>
+      makePixelTexture(drawBreakup(v, 1), BURST_PX, BURST_PX, { palette: EXPLOSION_PALETTE })),
+    [0, 1, 2].map((v) =>
+      makePixelTexture(drawBreakup(v, 2), BURST_PX, BURST_PX, { palette: EXPLOSION_PALETTE })),
+  ];
   return burstTextures;
 }
 
@@ -608,13 +859,26 @@ const LIFE_S = 16 / 60;
 // animates at 30 Hz inside 60 Hz logic. At 14 Hz the new 4-tick phase 0 would
 // show a single arrangement and the mass would not boil at all.
 const BOIL_HZ = 30;
-// Life fractions at which the fire steps down a phase: 5 ticks, then 5, then
-// 6. The area decay the arcade has comes mostly from HERE rather than from
-// `grow` — phase 1 drops E_YELLOW and E_GOLD and phase 2 drops E_AMBER too,
-// so the fire-coloured area collapses while the mass itself keeps expanding,
-// which is what a real fireball turning into smoke does.
-const DECAY_FROM = 5 / 16;
-const DECAY_MID = 10 / 16;
+// Life fractions at which the fire steps down a phase. R11: SIX ticks, then
+// five, then five — the ball, the burst, the spray.
+//
+// Six and not five because phase 0 is now the only phase that is a lobe
+// cluster, so the whole-event area maximum lives inside it and `t_rise` is
+// bounded by its length: the sprite's first tick is not rendered (the kill
+// spawns after that frame's draw), so a 5-tick phase 0 can rise over at most
+// four frames and a 6-tick one over five. See the `grow` note in update().
+//
+// The boundaries also place the RE-FLARE. Phase 1 runs +100 to +183 ms of a
+// 267 ms life, and the arcade's white-hot fraction peaks at +100 to +133 ms
+// on three kills of four (judge-report §1.4). The core is in phase 1
+// (BREAKUP[0].core) precisely so that it lands there.
+//
+// The area decay the arcade has comes mostly from HERE rather than from
+// `grow`: phase 1 is a burst and phase 2 a spray, so the fire-coloured area
+// collapses while the mass itself keeps expanding, which is what a real
+// fireball turning into smoke does.
+const DECAY_FROM = 6 / 16;
+const DECAY_MID = 11 / 16;
 
 // Debris outlives the fire. It used to share LIFE_S, so shortening the fire
 // by 3x would have taken the chunks with it and the kill would throw nothing.
@@ -626,17 +890,22 @@ const CHUNK_LIFE_S = 0.45;
 // The residue. See the KILL SMOKE block in effects/smoke.js for the arcade
 // measurement behind the palette; these are the sizes and the life.
 //
-// Arcade: the plume reaches 7.20 % of the frame about 0.17 s after the fire
-// peak and is still plainly there a second later. Ours is DELIBERATELY UNDER
-// that — three puffs growing 0.09 -> 0.19 of frame width cover roughly 4-6 %
-// — because the arcade figure is ONE event and its decay could not be
-// separated from stage 1's cloud banks by any mask this lane could build
-// (the same blind spot R9 hit). Under-shooting a number measured once is the
-// cheap error; over-shooting it puts a peach mass over the sky on every kill.
+// R11, RE-SIZED AGAINST A DIFFERENT OBJECT. R10 sized these against a plume
+// measured at 7.20 % of the frame which turns out to be the GROUND-IMPACT
+// column, not the post-air-kill ball (smoke.js has the crops). The ball
+// itself, measured on an isolated kill over open sky at 60 Hz, has a bounding
+// box of 146x138 and 168x156 px on a 1028-wide frame — 14.2 % and 16.3 % of
+// frame WIDTH, at ages of about 0.09 s and 0.17 s after the fire goes out.
+//
+// So three puffs growing 0.085 -> 0.145 of frame width with a 0.030 offset
+// span roughly 0.175 W at the end of their life, against a measured
+// 0.142-0.163 W at a third of it. The offset is 0.030 and not R10's 0.060
+// because at 0.060 the three puffs read as THREE BALLS where the arcade has
+// one lumpy mass (OURS-before-after-FINAL.png at +233 ms, before and after).
 const SMOKE_PUFFS = 3;
 const SMOKE_LIFE_S = 0.9;
-const SMOKE_FRAC_START = 0.09;
-const SMOKE_FRAC_END = 0.19;
+const SMOKE_FRAC_START = 0.085;
+const SMOKE_FRAC_END = 0.145;
 
 export class ExplosionField {
   constructor(scene, space) {
@@ -727,7 +996,7 @@ export class ExplosionField {
     // reads as a slab rather than as pixel art. Capped at the largest thing
     // this lane actually measured.
     const sScale = Math.min(e.scale, 1.6);
-    const spread = this.space.worldWidthFor(0.06 * sScale, e.depth);
+    const spread = this.space.worldWidthFor(0.030 * sScale, e.depth);
     const a = e.rot;
     for (let i = 0; i < SMOKE_PUFFS; i++) {
       const p = e.pos.clone();
@@ -787,13 +1056,47 @@ export class ExplosionField {
       // is gone (see the opacity note below). Growth with a fade is the thing
       // that was wrong; growth at opacity 1 is not, and R10 restores it.
       //
-      // Up in TWO TICKS, then keep expanding. R10: the old form reached full
-      // size in 0.135 s and then SHRANK 12 % across the rest of the life,
-      // which is the wrong sign — the arcade's mass keeps growing while its
-      // fire-coloured fraction collapses into the phases below. Expanding
+      // Up in FOUR TICKS, then keep expanding. R10: the pre-R10 form reached
+      // full size in 0.135 s and then SHRANK 12 % across the rest of the
+      // life, which is the wrong sign — the arcade's mass keeps growing while
+      // its fire-coloured fraction collapses into the phases below. Expanding
       // while the bands cool is what makes the thing read as a detonation
       // turning into smoke rather than as a sprite being switched off.
-      const grow = t < 2 / 16 ? 0.45 + (t / (2 / 16)) * 0.55 : 1.0 + (t - 2 / 16) * 0.21;
+      //
+      // R11, TWO TICKS -> FIVE AND EASED, and this is a consequence of the
+      // break-up rather than a retune of it. The decay phases now hold far
+      // less fire-band area than the old recoloured ball did (r9 sees
+      // E_ORANGE, E_AMBER and E_GOLD and neither red), so the whole-event
+      // area MAXIMUM moved back off tick 5 onto tick 3 and `t_rise` fell to
+      // 0.050 s — UNDER the arcade's measured 0.067-0.117 s.
+      //
+      // WHICH MEANS THE OLD BUILD PASSED t_rise FOR THE WRONG REASON, and it
+      // is worth saying so because the number did not move when the defect
+      // did: its 0.083 s came from phase 1 carrying MORE fire-band area than
+      // phase 0 (series 1.68 -> 1.99 -> 2.02 across the phase boundary), i.e.
+      // from the decay being brighter than the flash. That is the plateau
+      // R10 removed, measured from the other end.
+      //
+      // The arcade's own fireball EXPANDS before it bursts — event D's masked
+      // area runs 21 / 22 / 28 / 30 / 36 / 37 / 45 / 48 % of its ROI over
+      // eight consecutive frames, event F's 4.4 / 5.4 / 6.6 / 7.3 / 9.6 /
+      // 10.5 % over six — so a four-tick rise is the faithful shape and not
+      // just the shape that lands the statistic.
+      //
+      // The 0.65 EXPONENT is the second half and it buys `n60`: a linear ramp
+      // puts only two frames within 60 % of the peak (arcade 3-8) because the
+      // area goes as grow^2 and a linear grow spends its first ticks far
+      // below threshold. Easing out gives 3. Measured every way in the same
+      // harness, same seed, same window: `?combatexpl=1&seed=1`, --event
+      // 66,104, 60 Hz consecutive, judging/R10/envelope_r10.py:
+      //
+      //   ramp            t_rise   w60  n60  r100   life10
+      //   2/16 linear     0.050    3    3    0.161  15
+      //   4/16 linear     0.050    2    2    0.168  15
+      //   5/16 linear     0.067    2    2    0.138  15
+      //   5/16 ^0.65      0.067    3    3    0.138  15   <- shipped
+      //   arcade, n=4     .067-.117 2-8  3-8  .036-.157  8-18
+      const grow = t < 5 / 16 ? 0.45 + 0.55 * (t / (5 / 16)) ** 0.65 : 1.0 + (t - 5 / 16) * 0.21;
       // R7: the LAST QUARTER OF THE LIFE IS A PALETTE SEQUENCE, not an alpha
       // ramp. See PHASES above for why it ends in deep red rather than in the
       // grey smoke judging/R6/art-critique.md asked for.
@@ -823,6 +1126,69 @@ export class ExplosionField {
         c.sprite.material.opacity = 1;
       }
     }
+  }
+
+  // TRUE WHILE ANY FIRE OR RESIDUE FROM ANY LIVE SPAWN IS STILL DRAWING.
+  //
+  // Shipped for `src/game/flow/deathSequence.js` (R11, at the TL's
+  // instruction) so a death phase can end when its effect ends rather than on
+  // a constant. The constants it replaces were timed against a 0.75 s
+  // fireball three rounds ago, and R10's effects lane wrote down exactly what
+  // would happen next: *"`FIREBALL_S` and `STARBURST_S` are no longer matched
+  // to the thing they are waiting for. They happen to be covered now. If
+  // either the fire or the smoke life moves again, the cover goes with it,
+  // and the right fix is for the phase to end when the effect does rather
+  // than on a constant that remembers a value from three rounds ago."*
+  // Measured a round later at 60 Hz: 0.200 s of empty sky at the end of
+  // `starburst` (judging/R11/lane-effects.md §4).
+  //
+  // THE THREE PROPERTIES THE FLOW LANE ASKED ABOUT, each answered rather than
+  // asserted:
+  //
+  // 1. **DOES IT GO FALSE? YES, ON A BOUND — PROVIDED `update(dt)` KEEPS
+  //    BEING CALLED.** Every registration drains on a positive clock and
+  //    nothing re-arms it: a `live` entry is spliced at `age >= CHUNK_LIFE_S`
+  //    (0.45 s) and each residue puff is retired by `SmokeField.update` at
+  //    `age >= life`, where `life` is `SMOKE_LIFE_S * (0.82 + 0.18*(1+sin x))`
+  //    and therefore lies in **0.738-1.062 s**, strictly positive for every x.
+  //    The residue is spawned once, at fire-out, on a `fireOut` latch that is
+  //    never cleared, so a spawn cannot re-enter the smoke path.
+  //    **Worst case from `spawn()` to false: LIFE_S 0.267 + 1.062 = 1.329 s by
+  //    the arithmetic, and MEASURED at 1.333 s** — one 60 Hz tick, which is
+  //    the quantisation — over 24 spawn rotations driving the whole range of
+  //    the life jitter, at scale 1 and at `deathSequence`'s scale 2.7.
+  //    **That is the number to put the flow lane's ceiling above.**
+  //    THE ONE PATH WHERE IT DOES NOT GO FALSE is a caller that stops ticking
+  //    us: both arrays drain only inside `update(dt)`, so a state that hides
+  //    the field without updating it holds `busy()` true indefinitely.
+  //    `clear()` resolves it immediately and is the correct call on a flow
+  //    transition. Stated because the TL asked for the leak paths by name.
+  //
+  // 2. **DOES IT COUNT RESIDUE, NOT JUST FIRE? YES, AND IT HAS TO.** On the
+  //    measured death the last FIRE frame is t = 2.967 and the last frame
+  //    with anything on screen is t = 3.817 — 0.85 s of the cover is residue
+  //    alone. A fire-only predicate would have reported idle for most of the
+  //    phase it is meant to hold open.
+  //    `this.smoke` is this field's OWN `SmokeField` and holds nothing but
+  //    kill residue (see the constructor note), so missile trail puffs — which
+  //    live in `combat.js`'s separate field — cannot hold this true. That
+  //    isolation is why the accessor can be this simple.
+  //
+  // 3. **IS IT CHEAP AND PURE? YES.** Two array-length reads, O(1), no
+  //    allocation, no mutation, no PRNG draw. Call it every tick. It is NOT a
+  //    measurement hook and does not behave like `__combatDebug()`, which
+  //    consumes a draw from the shared stream.
+  //
+  // ALL THREE ARE MEASURED, NOT ASSERTED: `node judging/R11/busy_control.mjs`,
+  // **10/10**, driving the real `ExplosionField` and the real `SmokeField`
+  // (scene and space stubbed, because the drain is what is under test). It
+  // pins: idle before a spawn; TRUE on the spawn tick before any update;
+  // 50 calls change nothing; the residue is actually reached; it goes false at
+  // 1.133 s on the nominal spawn with a **0.867 s residue-only window** after
+  // the fire ends at 0.267 s; the worst case over 24 rotations is 1.333 s at
+  // both scales; and `clear()` resolves it immediately.
+  busy() {
+    return this.live.length > 0 || this.smoke.live.length > 0;
   }
 
   clear() {
