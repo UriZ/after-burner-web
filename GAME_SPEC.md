@@ -719,7 +719,8 @@ spread.
   >
   > **The "~6 lock boxes at once" count is from t100 — the SAME retired frame** — and it is
   > already ledger row 41 together with the 22 %W lock radius it justifies, against the only
-  > arcade anchor for that radius, **8.3 %W**. Ours acquires one lock per 0.117 s against
+  > anchor of any kind for that radius, the prototype-ADOPTED **8.3 %W** — **not an arcade
+  > measurement; see §3's corrected note.** Ours acquires one lock per 0.117 s against
   > `LOCK_INTERVAL_S = 0.10` and peaks at **3 locks / 4 bracket sets** (R9 §2.6, 60 Hz,
   > `bd73b52`). **Do not close the 3-vs-6 gap by citing t100.**
   >
@@ -790,8 +791,11 @@ spread.
      variants at t104; white at night (t186).
   AB2's bracket tracks the nearest threat continuously, not gated on crosshair hover
   (behavior adopted at #49). Weapon lock for missile homing additionally requires the
-  crosshair near the enemy (prototype: 80 px radius, 0.5 s grace — ADOPTED = **8.3 %W, and this
-  is the ONLY arcade-anchored figure for this quantity**; the shipped `lockSystem.js` runs
+  crosshair near the enemy (prototype: 80 px radius, 0.5 s grace — ADOPTED = **8.3 %W. THIS IS
+  NOT AN ARCADE MEASUREMENT.** It is the OLD PROTOTYPE's constant, carried across at #49, and it
+  is the only *anchor* of any kind for this quantity — which is a different claim. Earlier text
+  here and in ledger row 41 called it "the only arcade anchor"; that was wrong and is corrected,
+  R11. **There is no arcade column for the lock radius at either end of the ratio.**; the shipped `lockSystem.js` runs
   **0.22 = 22 %W, 2.65× it**, justified by the "~6 brackets" count above. **REFERENCE.md ledger
   row 41 retires that count as a licence for the radius**: it is one frame, that frame is
   `stage1-lockon-missile-t100.png` — one of the four hand-picked frames behind retired row 37 —
