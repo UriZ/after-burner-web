@@ -20,6 +20,8 @@ import { mkdir, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
+import { createRequire } from 'node:module';
+const require2 = createRequire(import.meta.url);
 
 // Walk up to the repo root rather than counting directories: this file is
 // copied into judging/R11/ for the record and tools/out/feel-r11/ for use, and
@@ -34,8 +36,23 @@ function repoRoot(from) {
 }
 const ROOT = repoRoot(path.dirname(fileURLToPath(import.meta.url)));
 
+// Every arm this probe can fly. The dispatch below is a lookup, not an
+// if/else chain with a fall-through, so adding a pilot means adding it here.
+const PILOTS = ['still', 'track', 'reach', 'sweep'];
+// R11b: WHICH WEAPONS THE ARM IS ALLOWED TO USE, and it is a first-class
+// declaration because every kill statistic this lane published turned on it.
+// `window.__setStick` defaults `fire` to FALSE, and the first version of this
+// probe never set it -- so **every kill it could count was a missile kill by
+// construction**, on arms presented as representing a player. The lane did say
+// "the gun trigger is never pulled" beside its table, but stating a property is
+// not the same as drawing its consequence: a pattern that is a GUN target reads
+// as unengageable, and the envelope-cut "regression" was largely that.
+// `both` is the default for anything claiming to represent a player.
+const WEAPONS = ['both', 'missile', 'gun'];
+
 function args() {
-  const a = { mode: 'resp', out: null, params: 'invincible=1', seed: 3, root: ROOT, pilot: 'still', secs: 90 };
+  const a = { mode: 'resp', out: null, params: 'invincible=1', seed: 3, root: ROOT, pilot: 'still',
+              secs: 90, weapons: 'both' };
   const v = process.argv.slice(2);
   for (let i = 0; i < v.length; i++) {
     if (v[i] === '--mode') a.mode = v[++i];
@@ -45,7 +62,35 @@ function args() {
     else if (v[i] === '--root') a.root = path.resolve(v[++i]);
     else if (v[i] === '--pilot') a.pilot = v[++i];
     else if (v[i] === '--secs') a.secs = Number(v[++i]);
+    else if (v[i] === '--weapons') a.weapons = v[++i];
     else { console.error('unknown arg', v[i]); process.exit(2); }
+  }
+  // ----------------------------------------------------------------------
+  // R11b -- A PILOT ARM MUST DECLARE WHAT IT ACTUALLY DID, AND AN UNKNOWN
+  // NAME MUST NOT SILENTLY BECOME A DIFFERENT PILOT.
+  //
+  // The first version dispatched on `if track / else if sweep / else {x:0,y:0}`,
+  // so **`--pilot reach` on a copy of this file without the `reach` branch ran
+  // `still` and said `pilot: "reach"` in its own output.** That is exactly the
+  // shape this repo has paid for before -- it does not error, it does not warn,
+  // it returns plausible numbers, and it attributes them to an arm that never
+  // ran. (tools/capture.mjs grew an unknown-flag guard in R10 for the same
+  // reason, and this file did not inherit it.)
+  //
+  // WHAT HAPPENED, recorded so the fix is not mistaken for a numbers change:
+  // the arm DID run in the lane's own measurements -- the recorded traces carry
+  // 5 293 of 5 400 ticks with a non-zero stick against `still`'s 0 -- but the
+  // copy published under judging/R11/ was taken BEFORE the branch was written,
+  // so the published artefact could not reproduce the published numbers. Both
+  // defects are fixed: the guard below, and the copy is re-synced.
+  if (!PILOTS.includes(a.pilot)) {
+    console.error(`unknown --pilot "${a.pilot}". Known: ${PILOTS.join(', ')}.`);
+    console.error('Refusing to run rather than silently flying a different pilot.');
+    process.exit(2);
+  }
+  if (!WEAPONS.includes(a.weapons)) {
+    console.error(`unknown --weapons "${a.weapons}". Known: ${WEAPONS.join(', ')}.`);
+    process.exit(2);
   }
   if (!a.out && a.mode !== 'selftest') { console.error('--out is REQUIRED (unique per caller)'); process.exit(2); }
   return a;
@@ -91,6 +136,17 @@ function selftest() {
   // 4. t90 planted exactly
   const ramp = [0]; for (let i = 1; i <= 10; i++) ramp.push(i / 10);
   chk('t90 of a 10-tick linear ramp is tick 9 (got ' + stats(ramp).t90 + ')', stats(ramp).t90 === 9);
+  // 5-7. THE GUARD ITSELF, because the defect it prevents is invisible by
+  // construction: a silently-substituted pilot returns plausible numbers.
+  // Re-invokes this file as a child process and checks the exit code.
+  const { spawnSync } = require2('node:child_process');
+  const self = fileURLToPath(import.meta.url);
+  const run = (...argv) => spawnSync(process.execPath, [self, ...argv], { encoding: 'utf8' });
+  const bad = run('--mode', 'combat', '--pilot', 'reaech', '--out', '/tmp/_pr11');
+  chk('unknown --pilot exits non-zero (got ' + bad.status + ')', bad.status === 2);
+  chk('unknown --pilot names the known set', /Known: still, track, reach, sweep/.test(bad.stderr));
+  const badw = run('--mode', 'combat', '--pilot', 'reach', '--weapons', 'lasers', '--out', '/tmp/_pr11');
+  chk('unknown --weapons exits non-zero (got ' + badw.status + ')', badw.status === 2);
   console.log(`probe_r11 selftest ${ok}/${tot}`);
   return ok === tot;
 }
@@ -159,7 +215,11 @@ async function main() {
       }
     } else if (a.mode === 'combat') {
       const TOTAL = Math.round(a.secs * 60);
+      const useGun = a.weapons === 'both' || a.weapons === 'gun';
+      const useMissile = a.weapons === 'both' || a.weapons === 'missile';
       let stick = { x: 0, y: 0 };
+      out.weapons = a.weapons;
+      out.pilotBranchRan = a.pilot;   // audit field: what ACTUALLY flew
       for (let i = 0; i < TOTAL; i++) {
         const held = (i % 45) < 40;           // identical cadence in EVERY arm
         if (a.pilot === 'track') {
@@ -176,12 +236,44 @@ async function main() {
             const cl = (v) => Math.max(-1, Math.min(1, v));
             return { x: cl((best.ndcX - sg.ndcX) * 3.0), y: cl((best.ndcY - sg.ndcY) * 3.0) };
           });
+        } else if (a.pilot === 'reach') {
+          // R11b. `track` is PURE PURSUIT: it always chases the nearest enemy,
+          // even one the lateral envelope cannot reach. That policy is fine at
+          // a +-34.93 %W envelope and wrong at the arcade's +-9.85, where it
+          // saturates the stick against a rail and spends the engagement
+          // chasing something it can never put the sight on -- so a drop in its
+          // kills measures the POLICY as much as the build. This arm is the
+          // control: track the nearest enemy that is actually REACHABLE
+          // (inside the sight's own rail plus the lock cone), otherwise hold
+          // centre and let the traffic come to you, which is what the arcade's
+          // narrow envelope forces a human to do.
+          stick = await page.evaluate(() => {
+            const cs = window.__combatStats ? window.__combatStats() : null;
+            const sg = window.__sight ? window.__sight() : null;
+            if (!cs || !sg) return { x: 0, y: 0 };
+            const REACH = (window.__reachNdcX ?? 0.197) + 0.166; // rail + cone
+            let best = null;
+            for (const e of cs.enemies) {
+              if (e.depth < 26 || e.depth > 88) continue;
+              if (Math.abs(e.ndcX) > REACH) continue;
+              if (!best || e.depth < best.depth) best = e;
+            }
+            const cl = (v) => Math.max(-1, Math.min(1, v));
+            if (!best) return { x: cl(-sg.ndcX * 3.0), y: 0 };
+            return { x: cl((best.ndcX - sg.ndcX) * 3.0), y: cl((best.ndcY - sg.ndcY) * 3.0) };
+          });
         } else if (a.pilot === 'sweep') {
           stick = { x: Math.sin(i / 70) * 0.8, y: 0.15 };
         } else {
           stick = { x: 0, y: 0 };            // `still`: the stick is NEVER touched
         }
-        await page.evaluate((s) => window.__setStick(s), { ...stick, missile: held });
+        // The gun is HELD whenever this arm is allowed it (the vulcan is a
+        // held trigger; the missile fires on RELEASE, hence the duty cycle).
+        await page.evaluate((s) => window.__setStick(s), {
+          ...stick,
+          missile: useMissile && held,
+          fire: useGun,
+        });
         await page.evaluate(() => window.__step(1));
         const r = await read();
         const drained = await page.evaluate(() => ({
@@ -202,7 +294,11 @@ async function main() {
     await server.close();
   }
   await writeFile(path.join(a.out, `${a.mode}-${a.pilot}.json`), JSON.stringify(out));
-  console.log(`${a.mode}/${a.pilot}: ${out.rows.length} ticks, ${out.events.length} events, ${errors.length} page errors (root ${a.root})`);
+  // Print the declaration on every run, so a result can never be read without
+  // knowing which pilot flew and which weapons it was allowed.
+  console.log(`${a.mode}  PILOT=${a.pilot}  WEAPONS=${a.weapons}  seed=${a.seed}  ` +
+    `${out.rows.length} ticks, ${out.events.length} events, ${errors.length} page errors`);
+  console.log(`  root ${a.root}`);
   if (errors.length) console.log(errors.slice(0, 5));
 }
 main();

@@ -106,24 +106,55 @@ Measured back, consecutive 60 Hz, `probe_r11.mjs --mode resp`, three named trees
 > them. R10 §3.4's four-arm A/B predicted 0.583 s for its "RATE + ENVELOPE := arcade" arm on
 > independent evidence; we come in better because the ramp is gone as well.
 
-### 1.4 THE COST, MEASURED AND NOT HIDDEN — go at this one first
+### 1.4 THE COST — measured, then CORRECTED TWICE, and the second correction changes the verdict
 
-**At the arcade envelope a tracking pilot's kills fall from 18 to 11 in 90 s** at a fixed trigger
-cadence (§2.2). **It is not my probe's pursuit policy**: I added a `reach` control arm that
-chases only targets inside the rail-plus-cone and otherwise holds centre, which is what a narrow
-envelope forces a human to do — it recovers **one** kill (12).
+**First version of this section said "18 → 11, −39 %". That was seed 3 alone**, and the combat
+lane was right to re-run it. Replicated on my own pristine trees, same probe, three seeds:
 
-The cause is that **`spawner.js` places enemies for a ±34.93 %W envelope**, so a large share of
-the traffic is now unengageable. That file is not this lane's, the arcade has **no measured
-column for enemy lateral spread**, and R10's critique said of this very constant *"move it as a
-system or not at all"*.
+| seed | wide ±34.93 %W | **cut ±9.85 %W** | |
+|---|---|---|---|
+| 3 | 18 | 11 | −39 % |
+| 5 | 27 | 19 | −30 % |
+| 11 | 20 | 13 | −35 % |
+| **mean** | **21.7** | **14.3** | **−34 %** |
 
-**Landed anyway, reversible in one line** (`0.733 → 2.6`, `RATE_X 2.82 → 3.0 * ENVELOPE_X`), and
-the reasoning is on the record: three independently measured arcade quantities land
-simultaneously and exactly; R10 §3.4 recommended this pair on separate evidence; and the
-statistic it costs has no arcade column at all. **Backing a measured 3.55× error out to protect
-an unmeasured statistic is the error this project has already paid for four times.** Ask filed:
-`judging/R11/ask-spawner.md`. **If a judge disagrees, this is the single revert.**
+**3 of 3 seeds down, −30 to −39 %** — so on my trees the drop is *consistent*, not an
+extreme-pair artefact; the headline figure was overstated by 5 points, not manufactured. The
+combat lane's independent implementation from a different baseline commit gives **−30 %** with
+one of its three seeds inverting. Both lanes agree on the sign and the rough size; the pairing
+differs because the baselines do. **Quote −34 % ± 5, n = 3, not −39 %.**
+
+It is **not** my probe's pursuit policy: a `reach` control arm that chases only targets inside
+the rail-plus-cone and otherwise holds centre recovers **one** kill.
+
+#### AND THEN THE VARIABLE THAT MATTERS, which is not mine and which inverts the conclusion
+
+The combat lane swept **pilot reaction latency** — the same pursuit law with the stick delayed N
+ticks (`judging/R11/human_arm.mjs`), 3 seeds, mean kills:
+
+| rail | 0 ms | 150 ms | 300 ms |
+|---|---|---|---|
+| wide ±34.93 %W | **20.3** | 16.3 | **5.3** |
+| **this build ±9.85 %W** | **14.3** | 14.7 | **14.3** |
+
+> **The cost is specific to a pilot with zero reaction time. A human has 150–300 ms. At 150 ms
+> the cut costs 10 %; by 300 ms the wide rail has lost 74 % of its kills and this build scores
+> nearly three times as much.** The mechanism is `feel-critique.md` §3.4's own prediction —
+> limit-cycle amplitude is `rate × lag`, which is 31 %W on the old rail and saturates harmlessly
+> against a ±9.85 one. **My own `reach` arm was asking the right question of the wrong variable:
+> policy bought one kill, latency moves the answer 3× and moves it toward the cut.**
+
+**Two caveats, mine rather than theirs, because the result favours my change and that is exactly
+when to push hardest on it.** (a) A pure delay line is a *pessimistic* human — real pilots lead
+a target, they do not thrash — so the 300 ms row overstates the wide rail's handicap; direction
+trustworthy, magnitude not. (b) **There is no arcade column for pilot latency.** This can refute
+"the cut costs a realistic pilot a third of its kills" — and it does — but it **cannot rank two
+builds** and must not become a gate.
+
+**Verdict: landed, and the residual risk is smaller than this section first claimed.** Reversible
+in one line (`0.733 → 2.6`, `RATE_X 2.82 → 3.0 * ENVELOPE_X`). The real remaining issue is that
+the engageable band is now rail + cone ≈ **±18 %W** against a `spawner.js` lateral spread still
+tuned for ±34.93 — `judging/R11/ask-spawner.md`, now a **should-check rather than a blocker**.
 
 ### 1.5 A REFERENCE-LEVEL CONSEQUENCE
 
@@ -179,16 +210,47 @@ trigger is never pulled, so **every kill is a missile kill**.
 
 *(launches / kills)*
 
-> **Blind share — the motionless stick as a fraction of the best aiming pilot's kills:
-> 83 % → 22 % → 33 %.** The lock change did the work: it took the blind pilot from 15 kills to 4
-> and left the tracking pilot at 18. **The envelope cut then cost the aiming pilot 18 → 11**, so
-> the share rebounded to a third. Both halves are real and they are reported separately for
-> exactly that reason.
+> **Blind share, MISSILE ONLY — the motionless stick as a fraction of the best aiming pilot's
+> kills: 83 % → 22 % → 33 %** at seed 3. **With the gun enabled it is 90 % → 85 % and the win
+> does not survive — see §2.2b, which is the more important table.** The lock change did the work: it took the blind pilot from 15
+> kills to 4 and left the tracking pilot at 18. The envelope cut then cost the aiming pilot
+> **−34 % at n = 3 seeds (§1.4)**, so the share rebounded. Both halves are real and are reported
+> separately for exactly that reason.
 
-**The honest reading**: the lock change is a clean win on its own tree. The envelope cut is right
-on the arcade and currently costs engagement, and §1.4 localises why. **If `spawner.js`'s lateral
-spread is brought in, this table should recover; if a judge re-runs it before that happens, it
-will see the 33 %.**
+**The honest reading**: the lock change is a clean win on its own tree. **Every number in this
+table is seed 3, and §1.4 is the only row replicated across seeds.**
+
+### 2.2b EVERY NUMBER ABOVE IS MISSILE-ONLY BY CONSTRUCTION, AND WITH THE GUN ON THE HEADLINE DOES NOT HOLD
+
+`probe_r11.mjs` set `{...stick, missile: held}` and **never set `fire`**, which `__setStick`
+defaults to false — so the only kill it could count was a missile kill. I did write *"the gun
+trigger is never pulled"* beside the table, **but stating a property is not drawing its
+consequence**, and the consequence is large. Found by `effects-r11`; the probe now takes
+`--weapons missile|gun|both`, defaults to `both`, refuses an unknown value, and prints the
+declaration on every run. Re-run, same trees, 5 400 ticks, kills split by `combat.js`'s own
+`killCounts`:
+
+| pilot | wide ±34.93 %W | **cut ±9.85 %W** |
+|---|---|---|
+| **still** | 28 [missile 14, gun 14] | 23 [**missile 5**, gun 18] |
+| **track** | 31 [missile 24, gun 7] | 25 [missile 14, gun 11] |
+| **reach** | 26 [missile 15, gun 11] | **27** [missile 17, gun 10] |
+
+> **Two things change, and one of them is my own headline.**
+>
+> 1. **The envelope "regression" largely dissolves.** `reach` — the arm that does not chase —
+>    goes **26 → 27, flat**. `track` goes −19 %, not −39 %, and its kills *shift weapon*
+>    (missile 24 → 14, gun 7 → 11) rather than disappearing. `effects-r11` localised why: the
+>    `crosser` pattern was only ever missile-lockable by sliding out to ±36 %W, which is
+>    chasing, and **an arcade player on a ±9.85 %W rail with an 8.3 %W cone could not have
+>    locked it either.** It was always a gun target.
+> 2. **"Aiming now matters" is true of the MISSILE and not yet of the GAME.** The lock change
+>    does what it claims — the blind pilot's *missile* kills fall 14 → 5. But with a full
+>    loadout the motionless stick still takes **85 %** of the best aiming pilot's kills on the
+>    cut tree and **90 %** on the wide one. **The vulcan gives them away instead**, and
+>    `combat.js`'s `ASSIST_RADIUS_FRAC = 0.13` is now **1.32× the sight's entire reach** (0.37×
+>    before the cut; it did not move with it). **The next move on R10 gap 3 is the gun's assist
+>    cone, not anything in this lane's files.**
 
 `kills / launch` is omitted as a headline — it conditions on the thing under test.
 
@@ -247,32 +309,50 @@ steps measured by two other operators, with no dependence on the envelope.
 
 ---
 
-## 4. CROSS-AREA EFFECTS I CAUSED
+## 4. CROSS-AREA EFFECTS I CAUSED — one real, one WITHDRAWN
 
-`demo_check.mjs`, `?fixed=1&demo=1&seed=3`, 9 600 consecutive ticks, 0 page errors, three
-pristine trees:
+> ### WITHDRAWN: "the attract loop lost barrel rolls". It did not, and my instrument was run
+> below its own validity floor for the second time this round.
+>
+> I reported 10 → 9 → 8 authored rolls across my two changes. The combat/flow lane's
+> `roll_check.mjs` (selftest 9/9), which attributes each roll to the scheduled slam it belongs
+> to, shows **both trees firing all TEN with deaths suppressed, landing on the same tick to the
+> millisecond.** The missing rolls were slams that fell inside a death sequence, where the
+> attract pilot is not driving. **My `demo_check.mjs` ran without `invincible=1`, so the
+> statistic I published was "where does the player happen to die" — and the lock change in the
+> same diff moves exactly that.** `demoTimeline.js`'s AMPLITUDES block already requires deaths
+> suppressed for its roam statistics; I did not carry that precondition over to the roll count.
+> `judging/R11/lane-combat.md` §2.1.
 
-| | **barrel rolls / 160 s cycle** | jet cx sd (whole cycle) |
-|---|---|---|
-| `5e3d57e` | **10** (= the authored count) | 9.30 %W |
-| + lock + ramp | **9** | 9.53 %W |
-| **+ envelope cut (shipped)** | **8** | **2.88 %W** |
+**What does survive**: the `ENVELOPE_X` cut scales the attract wander, because `demoTimeline.js`
+normalises its targets by that constant — correct behaviour, large visible change. My own
+`cx sd` figure for it was taken without the precondition as well, so **the combat/flow lane's
+cruise/canyon numbers are the ones to quote, not mine.**
 
-Two separate effects. The ramp removal costs one roll (the plant became a pure integrator, so the
-stick slam resolves sooner and one authored flick falls below `ROLL_SLAM_MIN_X` or inside the
-deadband). The envelope cut costs another and **scales the attract wander by 1/3.55**, because
-`demoTimeline.js` normalises its targets by `ENVELOPE_X` — correct behaviour, large visible
-change. `judging/R11/ask-flow.md`.
+Two header corrections in `demoTimeline.js` still stand and are in `ask-flow.md`: **`ACCEL_RATE`
+no longer exists**, and **`RATE_X` is no longer a multiple of `ENVELOPE_X`** (so its
+`KP = 3*GAIN only because player.js writes RATE_* = 3.0 * ENVELOPE_*` note is now false for the
+lateral axis).
 
 ---
 
 ## 5. OPEN
 
-1. **`spawner.js`'s lateral spread** — §1.4. The highest-value item on this lane's board, and it
-   is what decides whether the envelope cut is kept. `judging/R11/ask-spawner.md`.
+1. **`spawner.js`'s lateral spread** — §1.4. Downgraded from "decides whether the cut is kept"
+   to "should check": the latency sweep shows the cut's engagement cost is specific to a
+   zero-reaction-time pilot. `judging/R11/ask-spawner.md`.
+1b. **`ASSIST_RADIUS_FRAC = 0.13` is now 1.32× the sight's entire reach** (was 0.37×) — and
+   §2.2b promotes this from a note to **the top remaining item on R10 gap 3**: with the gun on,
+   a motionless stick takes 85 % of an aiming pilot's kills, so the vulcan is now the free-kill
+   source the missile used to be. Also:
+   `LOCK_RADIUS_FRAC` 0.84× (was 0.24×) — both are screen-space radii about the sight and neither
+   moved with the envelope. Raised by the combat lane; confirmed by arithmetic here. The gun
+   assist cone being *wider than everything the player can aim at* means the vulcan's aiming
+   content is now near zero. `combat.js` is not this lane's file. Note that 8.3 %W is
+   prototype-ADOPTED, not arcade-measured, so the cone:reach ratio has no arcade check either.
 2. **REFERENCE #122 should be re-derived or demoted** — §1.5.
-3. **The attract loop is two rolls short of its authored ten** and its wander scaled by 1/3.55 —
-   §4, flow lane's file.
+3. ~~The attract loop is two rolls short of its authored ten~~ — **WITHDRAWN, §4.** Its wander
+   does scale by 1/3.55, which is correct behaviour and the flow lane has measured it properly.
 4. **The `sweep`-to-`track` middle is still unmeasured.** A human pilot lives there.
 5. **`MAX_TURN_FRAC_PER_S = 0.77` is still solved, not measured**, and the **2.45 s flight-time
    tail** on receding `overtake` targets is unfixed. Both in `missiles.js`, which this lane owns
@@ -295,8 +375,12 @@ change. `judging/R11/ask-flow.md`.
 | `ask-combat.md` | withdrawn by both lanes |
 | `jet_envelope.py`, `jet_nozzles.py`, and the closed-mask variant | three automatic trackers, all passing their synthetic suites (11/11, 13/13), all unable to tell the player from an enemy, a cloud or the HUD |
 | the first `demo_check` run reporting 0 ticks | `page.evaluate` returning undefined on a non-serialisable field — a clean, stable, wrong zero |
+| "the envelope cut costs a tracking pilot 39 % of its kills" | single seed; −34 % ± 5 at n = 3, and ~0 % for a pilot with human reaction latency (§1.4) |
+| "the attract loop lost 2 of its 10 authored barrel rolls" | measured without `invincible=1`; with deaths suppressed both trees fire all ten on the same tick (§4) |
+| "blind share 83 % → 22 %" as a statement about the GAME | missile-only by construction; with the gun on it is 90 % → 85 % (§2.2b). True of the missile subsystem, which is what the change touched |
+| the per-kill `weapon` field my first analyser read | `k.weapon`/`k.by` do not exist; it printed `x=` for every kill. The real split is `combat.js`'s cumulative `killCounts` |
 
-**Seven withdrawals, one of them the lane's own headline.** The round's actual lesson is in §1.1.
+**Eleven withdrawals, two of them this lane's own headlines — and THREE (§1.1, §4, §2.2b) are the same failure: an instrument run, or read, below its own stated validity floor.** The round's actual lesson is in §1.1.
 
 ---
 

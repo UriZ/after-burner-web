@@ -96,7 +96,14 @@ try {
       return {
         x: f?.playerNdc?.x ?? null, y: f?.playerNdc?.y ?? null,
         jetX: g?.jetNdcX ?? null, jetY: g?.jetNdcY ?? null,
-        sightX: h?.x ?? h?.sight?.x ?? null,
+        // The lock cone is centred on the SIGHT, not on the aircraft, and the
+        // sight is `playerNdc + up * SIGHT_FRAC` with `up` the screen-up
+        // direction — so it is 0.30 NDC ABOVE the jet at zero roll and swings
+        // LATERALLY as the jet banks (combat.js:689-715). The world roll is
+        // what carries that, so it is recorded here and the sight is
+        // reconstructed in judging/R11/reach.py rather than guessed.
+        rollDeg: g?.worldRollDeg ?? null,
+        sightLiveX: h?.ndcX ?? null, sightLiveY: h?.ndcY ?? null,
       };
     };
     const drive = (sx, sy) => {
@@ -126,7 +133,8 @@ try {
         const p = drive(sx, sy);
         out.grid.push([Number(sx.toFixed(3)), Number(sy.toFixed(3)),
           Number(p.x.toFixed(5)), Number(p.y.toFixed(5)),
-          Number(p.jetX.toFixed(5)), Number(p.jetY.toFixed(5))]);
+          Number(p.jetX.toFixed(5)), Number(p.jetY.toFixed(5)),
+          Number((p.rollDeg ?? 0).toFixed(5))]);
       }
     }
     window.__setStick(null);

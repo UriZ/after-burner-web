@@ -1,5 +1,13 @@
 # R11 feel lane → whoever owns `src/game/spawner.js`: the lateral spread is tuned to an envelope that no longer exists
 
+> **PRIORITY DOWNGRADED after this file was written.** It originally said the engagement cost of
+> the envelope cut was the thing that decides whether the cut is kept. The combat lane then swept
+> **pilot reaction latency** and the cost turns out to be specific to a pilot with ZERO reaction
+> time: at 150 ms it is −10 %, and by 300 ms the OLD wide rail loses 74 % of its kills while the
+> cut rail loses nothing (`judging/R11/lane-feel.md` §1.4). **This is now a should-check, not a
+> blocker.** The figures below are also corrected: −34 % ± 5 at n = 3 seeds, not the −39 % from
+> the single seed this file first quoted.
+
 **One ask.** `src/game/spawner.js` is not this lane's file and I have not touched it.
 `src/entities/player.js` is mine and I changed it; this is the consequence.
 
@@ -22,9 +30,12 @@ pristine `git archive 5e3d57e` extractions differing only by this lane's two fil
 | **reach** (chases only what the rail can reach, else holds centre) | 35 / **17** | — | 29 / **12** |
 | still (stick never touched) | 35 / 15 | 11 / 4 | 11 / 4 |
 
-**A tracking pilot loses 39 % of its kills.** It is **not** a probe artefact: the `reach` arm
-exists specifically to rule that out — it declines to chase anything outside the rail plus the
-lock cone, which is what a narrow envelope forces a human to do — and it recovers **one** kill.
+*(seed 3. Replicated across seeds 3/5/11 for the `track` arm: 18→11, 27→19, 20→13 — **−34 % mean,
+3 of 3 down**. The combat lane's independent implementation gives −30 %.)*
+
+**A zero-latency tracking pilot loses about a third of its kills.** It is **not** a probe
+artefact of the pursuit policy: the `reach` arm exists to rule that out and recovers **one**
+kill. **But it IS specific to zero latency** — see the downgrade note at the top.
 
 ## The diagnosis
 
@@ -39,7 +50,8 @@ chase.**
 
 ## What I am asking for
 
-1. **A look at the lateral spawn/approach spread against the new ±18 %W engageable band.** I am
+1. **A look at the lateral spawn/approach spread against the new ±18 %W engageable band**, when
+   you have budget — not ahead of anything with an arcade column. I am
    deliberately not proposing a number: **there is no measured arcade column for enemy lateral
    spread at all**, and inventing one is how this project has lost four rounds. If you acquire
    one, that is worth more than the retune.

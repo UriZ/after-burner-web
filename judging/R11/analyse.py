@@ -50,6 +50,18 @@ def series(path, a, b):
 
 def combat(path):
     j = json.load(open(path))
+    # R11b: kills BY WEAPON. Every kill table this lane published before this
+    # was missile-only by construction (the probe never set `fire`), so the
+    # split is now mandatory output, not an extra.
+    # `counts` is combat.js's own cumulative killCounts {vulcan, missile, other}
+    # (combat.js:317/1302). The per-kill rows do NOT carry a weapon field -- the
+    # first version of this reader guessed `k.weapon ?? k.by` and printed 'x='
+    # for every kill, which is a silent zero of exactly the kind this project
+    # keeps paying for. Take the LAST event's counts: it is cumulative.
+    byw = {}
+    for e in j['events']:
+        if 'counts' in e:
+            byw = {k: v for k, v in e['counts'].items() if v}
     launches = kills = 0
     outcomes = {}
     for e in j['events']:
@@ -65,12 +77,15 @@ def combat(path):
     # launches: every tick where inflight rises
     inf = np.array([r['inflight'] or 0 for r in rows])
     launches = int(np.clip(np.diff(inf), 0, None).sum())
-    print('%-10s pilot=%-6s launches %3d  kills %3d  k/launch %5.1f%%   brackets>=1 %5.1f%% >=2 %5.1f%% max %d   locks>=1 %5.1f%% >=2 %5.1f%% max %d  errs %d'
-          % (os.path.basename(os.path.dirname(path)), j['pilot'], launches, kills,
-             100 * kills / launches if launches else 0,
+    wsplit = ' '.join('%s=%d' % (k, v) for k, v in sorted(byw.items())) or '-'
+    print('%-18s pilot=%-6s weapons=%-7s kills %3d [%s]  launches %3d  brackets>=1 %5.1f%% >=2 %5.1f%% max %d   locks>=1 %5.1f%% >=2 %5.1f%% max %d  errs %d'
+          % (os.path.basename(os.path.dirname(path)), j['pilot'], j.get('weapons', 'MISSILE-ONLY(legacy)'),
+             kills, wsplit, launches,
              100 * (nbrk >= 1).mean(), 100 * (nbrk >= 2).mean(), nbrk.max(),
              100 * (nlk >= 1).mean(), 100 * (nlk >= 2).mean(), nlk.max(), len(j['errors'])))
-    return dict(launches=launches, kills=kills)
+    if j.get('pilotBranchRan') and j['pilotBranchRan'] != j['pilot']:
+        print('  !! pilot branch that RAN was %r, not %r' % (j['pilotBranchRan'], j['pilot']))
+    return dict(launches=launches, kills=kills, byWeapon=byw)
 
 
 if __name__ == '__main__':

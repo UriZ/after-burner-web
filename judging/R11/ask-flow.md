@@ -1,3 +1,28 @@
+# WITHDRAWN IN PART — R11 feel lane → flow lane
+
+> ## THE ROLL-COUNT CLAIM IN THIS FILE IS WITHDRAWN. I MEASURED IT WITHOUT ITS PRECONDITION.
+>
+> I reported that removing `ACCEL_RATE` cost one authored barrel roll (10 → 9) and that the
+> `ENVELOPE_X` cut cost another (→ 8). **Both are wrong.** The combat/flow lane's
+> `roll_check.mjs` (selftest 9/9), which attributes each roll to the scheduled slam it belongs
+> to, shows that **with deaths suppressed (`invincible=1`) both trees fire all TEN authored
+> rolls, landing on the same tick to the millisecond.** The missing rolls were scheduled slams
+> that fell inside a death sequence, where the attract pilot is not driving.
+>
+> **My `demo_check.mjs` ran `?fixed=1&demo=1&seed=3` with no `invincible=1`, so what I measured
+> was where the player happens to die** — and the lock change in the same diff moves exactly
+> that. `demoTimeline.js`'s own AMPLITUDES block already says "measure it with deaths
+> suppressed" for its roam statistics; I did not apply that precondition to the roll count.
+> **This is the second time in this round I published a number from an instrument run below its
+> own validity floor.** See `judging/R11/lane-combat.md` §2.1.
+>
+> **What survives:** the `ENVELOPE_X` cut really does scale the attract wander, because
+> `demoTimeline.js` normalises its targets by that constant. My whole-cycle `cx sd` of
+> 9.30 → 2.88 %W was measured without the precondition too, so **use the combat/flow lane's
+> cruise/canyon figures, not mine.** The two header corrections below also still stand.
+
+---
+
 # R11 feel lane → flow lane: I removed `ACCEL_RATE`, and your attract loop lost one barrel roll
 
 **Reported because `demoTimeline.js`'s own header asked to be told**, in capitals:
@@ -29,11 +54,14 @@ is now moot for the same reason.
 **pristine `git archive 5e3d57e`** extractions differing only by this lane's four files.
 0 page errors in both.
 
-| | **barrel rolls / 160 s cycle** | jet cx mean | jet cx sd (whole cycle) |
+| | barrel rolls / 160 s cycle | jet cx mean | jet cx sd (whole cycle) |
 |---|---|---|---|
-| `5e3d57e` | **10** | 2.38 %W | 9.30 %W |
-| + ramp removal only | **9** | 2.80 %W | 9.53 %W |
-| **+ ENVELOPE_X cut (shipped)** | **8** | 0.43 %W | **2.88 %W** |
+| `5e3d57e` | ~~10~~ | 2.38 %W | ~~9.30 %W~~ |
+| + ramp removal only | ~~9~~ | 2.80 %W | ~~9.53 %W~~ |
+| **+ ENVELOPE_X cut (shipped)** | ~~8~~ | 0.43 %W | ~~**2.88 %W**~~ |
+
+***WITHDRAWN — every figure in this table was measured without `invincible=1`. See the banner
+at the top of this file.***
 
 **Ten is the authored count** (your deadband note: *"the difference between ELEVEN barrel rolls
 per 160 s and the TEN that are actually authored"*). **We now fire eight, and there are TWO

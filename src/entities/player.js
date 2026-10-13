@@ -79,24 +79,40 @@ import { CAMERA_HEIGHT, CAMERA_PITCH } from '../core/cameraGeom.js';
 // linear in world x at a fixed depth. **MEASURED BACK on a pristine extraction
 // plus this diff: sight rail +-9.85 %W, against the arcade's +-9.85.**
 //
-// THE COST, MEASURED AND NOT HIDDEN -- this is the one change in this lane a
-// judge should go at first. At the arcade envelope a tracking pilot's kills fall
-// **18 -> 11 in 90 s** at a fixed trigger cadence. It is NOT my probe's pursuit
-// policy: a `reach` control arm that only chases targets inside the rail, and
-// otherwise holds centre, recovers just one kill (12). The cause is that
-// `spawner.js` places enemies for a +-34.93 %W envelope, so a large share of the
-// traffic is now unengageable. **`spawner.js` is not this lane's file**, the
-// arcade has no measured column for enemy lateral spread, and R10's critique
-// said of this very constant "move it as a system or not at all".
+// THE COST, MEASURED AND NOT HIDDEN -- and then measured again on a second
+// variable by the combat lane, which changed the conclusion.
 //
-// It is landed anyway, and the reasoning is on the record so it can be reversed
-// in one line (`0.733 -> 2.6`, `RATE_X 2.82 -> 3.0 * ENVELOPE_X`): three
-// INDEPENDENTLY measured arcade quantities land simultaneously and exactly
-// (rail, rate and rail-to-rail traverse -- see RATE_X), R10 §3.4's own four-arm
-// A/B recommended this pair on separate evidence, and the statistic it costs has
-// no arcade column at all. Backing a measured 3.55x error out to protect an
-// unmeasured statistic is the error this project has already paid for four
-// times. Ask filed: judging/R11/ask-spawner.md.
+// A tracking pilot's missile kills in 90 s at a fixed trigger cadence fall
+// **21.7 -> 14.3, -34 %**, mean of seeds 3/5/11 on pristine extractions
+// (per-seed 18->11, 27->19, 20->13; 3 of 3 down, -30 to -39 %). The combat
+// lane reproduces -30 % on an independent implementation from a different
+// baseline commit. **The first version of this comment said -39 % from seed 3
+// alone; that was the extreme pair of two distributions with a +-4-kill
+// spread.** It is NOT my probe's pursuit policy: a `reach` control arm that
+// chases only what the rail can reach, and otherwise holds centre, recovers
+// one kill.
+//
+// **THE COST IS SPECIFIC TO A PILOT WITH ZERO REACTION TIME, AND REVERSES BY
+// 300 ms.** The combat lane's `human_arm.mjs` is the same pursuit law with the
+// stick delayed N ticks, swept, 3 seeds (mean kills):
+//
+//                      0 ms    150 ms   300 ms
+//   wide +-34.93 %W    20.3     16.3      5.3
+//   THIS BUILD +-9.85  14.3     14.7     14.3
+//
+// A human has 150-300 ms. At 150 the cut costs 10 %; by 300 the WIDE rail has
+// lost 74 % of its kills and this build scores nearly 3x as much. The
+// mechanism is feel-critique.md §3.4's own prediction -- limit-cycle amplitude
+// is `rate x lag`, which is 31 %W on the old rail and saturates harmlessly
+// against a +-9.85 one. **Caveat, mine not theirs: a pure delay line is a
+// pessimistic human -- real pilots lead, they do not thrash -- so the 300 ms
+// row overstates the wide rail's handicap. Direction trustworthy, magnitude
+// not. And there is NO ARCADE COLUMN for pilot latency, so this can refute a
+// claim about our builds and must never rank them.**
+//
+// Residual real concern, logged rather than fixed: the engageable band is now
+// the rail plus the lock cone, ~+-18 %W, against a spawner.js lateral spread
+// still tuned for +-34.93. judging/R11/ask-spawner.md.
 //
 // COUPLINGS, CHECKED RATHER THAN ASSUMED. `spawner.js` derives only
 // REACH_CEILING_NDC_Y, from ENVELOPE_**Y** -- the lateral axis is clear (grep).

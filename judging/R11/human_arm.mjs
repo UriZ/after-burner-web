@@ -59,6 +59,24 @@ export function delayed(history, i, n) {
   return k >= 0 ? history[k] : { x: 0, y: 0 };
 }
 
+/** LEAD COMPENSATION, and it exists because the feel lane's caveat on this
+ * probe was right: a pure delay line is a PESSIMISTIC human -- a real pilot
+ * aims where the target is going, it does not chase where the target was. This
+ * is the OPTIMISTIC bound on the same latency: the pilot still sees the world
+ * N ticks late, but linearly extrapolates the target forward by N ticks from
+ * the velocity visible in that stale view. Truth is between the two arms and
+ * neither is a human.
+ *
+ * `obs` is the per-tick observation history; `k` is the baseline over which
+ * the velocity is estimated. Returns null when the target's identity changed
+ * inside the baseline, because a velocity across two different aircraft is
+ * the fireball-tracking defect R10 withdrew an operator for. */
+export function lead(obs, i, n, k = 6) {
+  const now = obs[i - n], was = obs[i - n - k];
+  if (!now || !was || now.id == null || now.id !== was.id) return null;
+  return { x: now.x + ((now.x - was.x) / k) * n, y: now.y + ((now.y - was.y) / k) * n };
+}
+
 /** The shared trigger cadence. The missile fires on RELEASE, so an arm that
  * holds the button forever never launches -- R10's critique lost three arms to
  * exactly that. */
@@ -74,6 +92,15 @@ function selftest() {
   chk('delay 2 reaches back two ticks', delayed(h, 3, 2).x === 2);
   chk('before the line fills, the stick is neutral', delayed(h, 1, 9).x === 0);
   chk('delay 9 at tick 9 is tick 0', delayed([...h, ...h, ...h], 9, 9).x === 1);
+  // lead: a target moving +1 unit per tick, observed 6 ticks late, extrapolated
+  // 6 ticks forward, must land on its live position.
+  const o = [];
+  for (let t = 0; t < 30; t++) o.push({ id: 7, x: t, y: 0 });
+  chk('lead recovers a constant-velocity target exactly', lead(o, 20, 6, 6).x === 20);
+  chk('lead with n=0 is the stale observation itself', lead(o, 20, 0, 6).x === 20);
+  const o2 = o.map((e, t) => ({ ...e, id: t < 15 ? 1 : 2 }));
+  chk('lead REFUSES across a target identity change', lead(o2, 17, 2, 6) === null);
+  chk('lead refuses before the baseline fills', lead(o, 3, 2, 6) === null);
   chk('trigger held on tick 0', held(0) === true);
   chk('trigger held through tick 39', held(39) === true);
   chk('trigger RELEASED on tick 40', held(40) === false);
@@ -92,6 +119,7 @@ async function main() {
   const ROOT = repoRoot(path.dirname(fileURLToPath(import.meta.url)));
   const root = path.resolve(arg('--root', ROOT));
   const delay = Number(arg('--delay', 9));
+  const useLead = v.includes('--lead');
   const secs = Number(arg('--secs', 90));
   const seed = Number(arg('--seed', 3));
   const out = arg('--out', null);
@@ -113,23 +141,38 @@ async function main() {
 
   const TOTAL = Math.round(secs * 60);
   const history = [];
-  let launches = 0;
+  const obs = [];
+  let launches = 0, leadUsed = 0;
   for (let i = 0; i < TOTAL; i++) {
-    const want = await page.evaluate(() => {
+    const seen = await page.evaluate(() => {
       const cs = window.__combatStats ? window.__combatStats() : null;
       const sg = window.__sight ? window.__sight() : null;
-      if (!cs || !sg) return { x: 0, y: 0 };
+      if (!cs || !sg) return null;
       let best = null;
       for (const e of cs.enemies) {
         if (e.depth < 26 || e.depth > 88) continue;
         if (!best || e.depth < best.depth) best = e;
       }
-      if (!best) return { x: 0, y: 0 };
-      const cl = (q) => Math.max(-1, Math.min(1, q));
-      return { x: cl((best.ndcX - sg.ndcX) * 3.0), y: cl((best.ndcY - sg.ndcY) * 3.0) };
+      return best
+        ? { id: best.id, x: best.ndcX, y: best.ndcY, sx: sg.ndcX, sy: sg.ndcY }
+        : { id: null, x: 0, y: 0, sx: sg.ndcX, sy: sg.ndcY };
     });
-    history.push(want);
-    const act = delayed(history, i, delay);
+    obs.push(seen ?? { id: null, x: 0, y: 0, sx: 0, sy: 0 });
+    const cl = (q) => Math.max(-1, Math.min(1, q));
+    const stick = (o, tx, ty) =>
+      o && o.id != null ? { x: cl((tx - o.sx) * 3.0), y: cl((ty - o.sy) * 3.0) } : { x: 0, y: 0 };
+    const stale = obs[i - delay];
+    history.push(stick(obs[i], obs[i].x, obs[i].y));
+    let act;
+    if (!useLead) {
+      act = delayed(history, i, delay);
+    } else {
+      const pred = lead(obs, i, delay);
+      // No lead available (target changed, or the baseline has not filled):
+      // fall back to the pure-delay command rather than inventing one.
+      act = pred ? stick(stale, pred.x, pred.y) : delayed(history, i, delay);
+      if (pred) leadUsed++;
+    }
     await page.evaluate((s) => window.__setStick(s), { ...act, missile: held(i) });
     await page.evaluate(() => window.__step(1));
     const d = await page.evaluate(() => ({
@@ -140,9 +183,16 @@ async function main() {
   const counts = await page.evaluate(() => (window.__killDrain ? window.__killDrain().counts : null));
   await browser.close(); await server.close();
   const res = { root, seed, secs, delayTicks: delay, delayMs: +(delay * 1000 / 60).toFixed(1),
+    lead: useLead, leadTicksUsed: leadUsed,
     launchesRetired: launches, counts, pageErrors: errors.length };
   console.log(JSON.stringify(res, null, 1));
-  await writeFile(path.join(out, `human-d${delay}.json`), JSON.stringify(res, null, 1));
+  // THE SEED IS IN THE FILENAME, and it is in it because leaving it out
+  // destroyed three runs of this probe's own data: four arms launched in
+  // parallel into one --out directory all wrote `human-d0.json` and the last
+  // one won, silently. CLAUDE.md's rule about fixed output paths applies to a
+  // probe's own concurrent invocations, not only to two agents.
+  await writeFile(path.join(out, `human-d${delay}${useLead ? 'L' : ''}-s${seed}.json`),
+    JSON.stringify(res, null, 1));
 }
 
 main();

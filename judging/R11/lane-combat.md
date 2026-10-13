@@ -19,7 +19,7 @@ consecutive 60 Hz. Ours: one `window.__step(1)` per sample, state read in the sa
 
 **Scripts, all committed, all with selftests**: `judging/R11/sight.py` (16/16),
 `judging/R11/sight_probe.mjs` (6/6), `judging/R11/roll_check.mjs` (9/9),
-`judging/R11/gun_check.mjs` (4/4), `judging/R11/human_arm.mjs` (9/9),
+`judging/R11/gun_check.mjs` (4/4), `judging/R11/human_arm.mjs` (13/13),
 `judging/R11/death_hole.mjs` (8/8), plus `judging/R11/pairsheet.py` (the hand-reading panels).
 **Evidence images, with the generator that made each and its crop stated on the panel
 itself** (gitignored, large): `tools/out/combat-r11/evidence/` — `w1/w2/w3-marks.png` are
@@ -330,12 +330,11 @@ cadence, `?fixed=1&invincible=1&seed=3`, 5 400 consecutive 60 Hz ticks per arm, 
 > weaker than a tracking one on both weapons, and the blind pilot's score does not move at all
 > across the cut (4 → 4 missiles, 21 → 21 gun). Everything that moved, moved on the tracking arm.
 >
-> ### CORRECTION, §5: THE "18 → 11" IS ONE SEED AND DOES NOT SURVIVE THREE.
-> The same arm on the same tree reads **11 / 19 / 13** across seeds 3 / 5 / 11, against the
-> pre-cut tree's **18 / 18 / 25**. The means are 14.3 against 20.3 — a real **−30 %** — but
-> 18 → 11 is the extreme pair of two distributions whose spread is ±4 kills, and both the feel
-> lane and I published it from seed 3 alone. **The −39 % figure is withdrawn; −30 % at n = 3 is
-> what the data supports, and §5 shows the sign depends on the pilot's latency.**
+> ### CORRECTION, §5.1: THE "18 → 11" IS ONE SEED. The pair is real at n = 3 and smaller than
+> either of us published: **−34 % ± 5** over seeds 3 / 5 / 11 (18→11, 27→19, 20→13), paired by
+> seed, 3 of 3 down. **The −39 % is withdrawn.** And §5 shows it is a zero-latency figure: at
+> 150 ms the gap is −10 %, and **at 300 ms the sign reverses and the cut tree scores nearly
+> three times as much**, because the collapse belongs to the lock cone and not to the rail.
 
 **The mechanism is a coupling nobody has priced, and it is in my file.** `ASSIST_RADIUS_FRAC =
 0.13` and `LOCK_RADIUS_FRAC = 0.083` are **screen-space radii about the sight** and did not
@@ -390,43 +389,79 @@ by §6–7. The list is kept as filed and the supersessions are named.)*
 
 ---
 
-## 5. THE HUMAN MIDDLE — a swept reaction DELAY, and it inverts
+## 5. THE HUMAN MIDDLE — and it is the LOCK that cannot take latency, not the rail
 
-The feel lane named this gap itself: *"a real human is between these two arms and this probe has
-no arm for that."* `judging/R11/human_arm.mjs` (selftest 9/9) is `track` — identical pure pursuit,
-gain 3.0, same depth band, same trigger cadence, same seed, same `invincible=1`, same 5 400
-consecutive 60 Hz ticks — with **the stick applied on tick i computed from the world as it was on
-tick i − N**. N is the swept parameter, because latency is the thing a person actually has, and
-**N = 0 reproduces `track` exactly** (18 and 11 kills on the two trees at seed 3, matching both my
-`probe_r11.mjs` run and the feel lane's to the kill) **and is run as the control rather than
-assumed**. 9 ticks = 150 ms is in the sweep because `feel-critique.md` §3.4 already used that
-loop delay for its aim-precision diagnostic.
+`judging/R11/human_arm.mjs` (selftest 13/13) is `track` — identical pure pursuit, gain 3.0, same
+depth band, same trigger cadence, same seed, same `invincible=1`, 5 400 consecutive 60 Hz ticks —
+with **the stick applied on tick i computed from the world as it was on tick i − N**. N is the
+swept parameter, because latency is the thing a person actually has. **N = 0 reproduces `track`
+exactly and is run as a control rather than assumed** (pristine `5e3d57e`, seed 3: 18 kills,
+matching `probe_r11.mjs` and the feel lane to the kill, and re-run unchanged after the lead
+refactor). 150 ms is in the sweep because `feel-critique.md` §3.4 already used that loop delay.
 
-**Missile kills, 3 seeds (3 / 5 / 11) at every delay marked n = 3, gun trigger never pulled:**
+**Missile kills, seeds 3 / 5 / 11, gun trigger never pulled, 0 page errors in all 22 arms:**
 
-| rail | 0 ms | 100 ms | **150 ms** | 200 ms | **300 ms** | 500 ms |
+| tree | lock cone | rail | 0 ms | 150 ms | **300 ms** | 300 ms **+ lead** |
 |---|---|---|---|---|---|---|
-| `82daaa4` ±34.93 %W | **20.3** (18/18/25) | — | **16.3** (15/12/22) | — | **5.3** (5/5/6) | — |
-| `final` ±9.85 %W | **14.3** (11/19/13) | 14.0 | **14.7** (17/15/12) | 14.0 | **14.3** (16/13/14) | 13.0 |
+| `5e3d57e` | 0.22, ungated | ±34.93 %W | **21.7** (18/27/20) | 20 *(s3)* | **16.3** (16/19/14) | — |
+| `82daaa4` | **0.083, gated** | ±34.93 %W | **20.3** (18/18/25) | 16.3 (15/12/22) | **5.3** (5/5/6) | **3.0** (4/3/2) |
+| `final` | 0.083, gated | **±9.85 %W** | **14.3** (11/19/13) | 14.7 (17/15/12) | **14.3** (16/13/14) | 13 *(s3)* |
 
-> ### **THE ENVELOPE CUT MADE THE LOCK LATENCY-TOLERANT, AND THAT IS THE OPPOSITE OF THE WORRY.**
-> On the wide rail a 300 ms pilot loses **74 %** of its kills (20.3 → 5.3, and the per-seed values
-> are **5 / 5 / 6** — that is not noise). On the cut rail it loses **nothing measurable**
-> (14.3 → 14.3, per-seed 16 / 13 / 14). **The cut tree is worse than the wide tree only for a
-> pilot with zero reaction time; at 150 ms the gap is −10 %, and by 300 ms the sign has
-> reversed and the cut tree scores nearly three times as much.**
+> ### **THE 300 ms COLLAPSE IS THE LOCK CHANGE, NOT THE WIDE RAIL — AND THE ENVELOPE CUT UNDOES IT.**
+> On the **old** cone a 300 ms pilot keeps **16.3** kills. Narrowing the cone to 0.083 and gating
+> the bracket on aim, **at the same rail**, takes that to **5.3** — per-seed **5 / 5 / 6**, which
+> is not noise. Cutting the envelope takes it back to **14.3**.
 >
-> Offered as a mechanism and **not** as a measurement: on a wide rail the sight must travel far
-> to reach a target, so a laggy pilot overshoots and hunts; on a rail whose whole span is about
-> one lock cone wide, roughly pointing is enough and latency stops costing anything.
+> **The two changes shipped together and the pair is sound. Either one alone would have been a
+> regression**: the lock cut alone costs a human-latency pilot 67 % of its kills, and that is
+> invisible to every arm anybody ran, because every arm anybody ran had zero reaction time.
+>
+> Offered as a mechanism and **not** as a measurement: a 0.083 cone on a ±34.93 %W rail is a
+> small target a laggy pilot hunts across and overshoots; once the whole reachable span is about
+> one cone wide, roughly pointing is enough and latency stops costing anything.
 
-**BINDING, and it is why this is in §5 and not in the gap list: this arm has NO ARCADE COLUMN.**
-Nobody has measured the arcade pilot's reaction latency and nothing here pretends to. It is a
-**DIAGNOSTIC** in the feel lane's own classification — it can **refute** a claim about our build,
-and the claim it refutes is "the envelope cut costs a realistic pilot a third of its kills",
-which rests entirely on the one arm whose latency is known to be unlike a human's. It **must not
-become a gate**: with no anchor, "more kills" is a direction, and only a direction can have a
-sign.
+**THE FEEL LANE'S CAVEAT ON THIS PROBE WAS RIGHT TO RAISE AND IS REFUTED BY TEST, NOT ARGUED
+AWAY.** Its objection: *a pure delay line is a pessimistic human — real pilots lead a target, they
+do not thrash — so the 300 ms row overstates the wide rail's handicap.* So I built the
+**optimistic** bound on the same latency: the pilot still sees the world 300 ms late but linearly
+extrapolates the target forward by 300 ms from the velocity visible in that stale view, and
+**refuses to extrapolate across a change of target identity** (a velocity taken across two
+different aircraft is the defect R10 withdrew a plume tracker for; the refusal is a selftest).
+**Lead compensation makes it WORSE: 3.0 against 5.3 on `82daaa4`, and launches collapse 13 → 7.**
+Over 300 ms of a closing, manoeuvring target, linear extrapolation overshoots further than lag
+undershoots.
+
+> **Two crude and opposite models of a human, and they agree**: both collapse on `82daaa4`
+> (5.3 and 3.0) and both are fine on `final` (14.3 and 13). The truth is bracketed, and the
+> bracket does not contain "the lock cut is survivable at human latency on the wide rail".
+> My own arm's limitation stands with it — nobody extrapolates blindly for 300 ms either.
+
+**BINDING: this arm has NO ARCADE COLUMN and must not become a gate.** Nobody has measured the
+arcade pilot's reaction latency. It is a **DIAGNOSTIC** in the feel lane's own classification: it
+can **refute** a claim about our build — and it has refuted two, one of them the feel lane's and
+one of them mine — and it cannot rank two builds, because with no anchor "more kills" is a
+direction and only a direction can have a sign.
+
+### 5.1 THREE PUBLISHED FIGURES CORRECTED, INCLUDING TWO OF MINE
+
+1. **"The envelope cut cost the tracker 18 → 11 (−39 %)" — withdrawn, mine and the feel lane's.**
+   Seed 3 only. The feel lane's paired replication gives 18→11 / 27→19 / 20→13, **3 of 3 down in
+   a −30…−39 % band, mean −34 %**, and that framing is better than my "the extreme pair of two
+   distributions": paired by seed the direction is consistent. **Published as −34 % ± 5, n = 3.**
+2. **My "one seed inverts (18 → 19)" is withdrawn as a cross-tree artefact, and the instruments
+   agree.** My wide arm was `82daaa4`; theirs was pristine `5e3d57e`. Run on *their* tree my probe
+   returns **18 / 27 / 20 — their three numbers exactly**. The disagreement was never the
+   instrument, it was that we each called a different tree "wide". *The project's dominant failure
+   mode, caught between two lanes in one exchange, on the lane that had just caught it in the
+   other direction.*
+3. **"The lock change left the tracking pilot untouched (18 → 18)" survives, but only in the
+   mean.** At n = 3 it is 21.7 → 20.3 (−6 %). Seed 5 alone moves **27 → 18**. The headline is
+   sound; the single-seed form of it is not, which is the same lesson as (1).
+
+**And the attribution that only exists because two lanes paired differently**: the feel lane's
+pair (`5e3d57e` → shipped) answers *what did the round cost*; mine (`82daaa4` → shipped) answers
+*what did the envelope cut cost*. Neither is wrong and **neither alone finds the interaction in
+the box above** — it needs the third tree and the delay axis together.
 
 ---
 
