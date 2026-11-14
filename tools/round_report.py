@@ -21,77 +21,78 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 # ---------------------------------------------------------------- ROUND DATA
 ROUND = {
-    "number": 12,
-    "date": "2026-11-14",
+    "number": 13,
+    "date": "2026-11-15",
     "status": "CLOSED",                      # or "BUILD IN PROGRESS"
-    "score": "8.0 / 10",                     # judge score once the round closes
-    "last_score": "8 / 10 (R11)",
+    "score": "8.2 / 10",                     # judge score once the round closes
+    "last_score": "8.0 / 10 (R12)",
     "tldr": (
-        "The method changed: the round opens by <em>looking</em> at ours beside the arcade "
-        "and by an agent <em>playing</em> it, not by measuring constants to four decimals. "
-        "R12 shipped two whole missing systems — <em>land</em> under stage 1 and real "
-        "<em>stakes</em> (a game-over) — plus roll-drama, a visible tracer, and gun fire that "
-        "now lands at the sight. It holds at 8.0: more After Burner than before, but the "
-        "missile is reachable and still not <em>usable</em>, and the sky still goes quiet."
+        "R13 chased combat <em>feel</em>: the systems existed, they just didn’t behave like the "
+        "arcade in play. The jet now <em>breathes fire</em> — twin afterburner cones that answer "
+        "the throttle — the sky stays <em>alive</em> (shorter lulls, a big enemy flyby, no empty "
+        "respawn), and the <em>missile is finally usable</em> from a normal posture, if only on a "
+        "coin-flip of wave timing. It rises to 8.2. The oldest crack is still open: the gun still "
+        "kills <em>without</em> you — readable enemies swarm below the caged sight."
     ),
     "verdict": (
-        "“More After Burner than R11 — carrier launch, a swinging horizon, islands, a "
-        "visible tracer, gun kills at the sight, a real game-over — but I still can’t use "
-        "my missiles, planes still die on my wingtip, and the sky still goes dead.”"
+        "“Two clean wins — the afterburner and a live sky — and the missile crossing from "
+        "<em>unusable</em> to <em>usable-but-intermittent</em>, while the oldest illusion-breaker, "
+        "the blind gun, stays untouched. Honest progress, not a leap.”"
     ),
-    "verdict_attr": "R12 fresh-context judge · composite 8.0 (motion 7.5 · stills 8.5)",
+    "verdict_attr": "R13 fresh-context judge · composite 8.2 (motion 8.0 · stills 8.5)",
     # Side-by-side hero pairs (already composited OURS | ARCADE).
     "pairs": [
-        ("judging/R12/world/islands-ours-vs-arcade.png",
-         "Stage 1 now has land",
-         "Shipped this round: islands with vegetation, rock crags and a surf band scroll past, where before it was open sea the whole stage."),
-        ("judging/R12/gestalt/pair4-climax.png",
-         "Climaxes are still small",
-         "An arcade kill fills half the screen over a burning island; ours is a cotton puff over the water. Open for R13."),
+        ("judging/R13/afterburner-ours-vs-arcade.png",
+         "The jet breathes fire",
+         "Shipped this round: twin afterburner cones that answer the throttle and bank with the airframe — the game’s namesake, finally on the plane."),
+        ("judging/R13/flyby-ours-vs-arcade.png",
+         "The sky is alive now",
+         "A big enemy flyby crosses the full screen, 5–6 enemies persist through the death cycle, and the longest dead stretch dropped from ~6 s to ~3.5 s."),
         ("judging/R12/gestalt/pair5-title.png",
          "The title is close, the letterforms aren’t",
-         "Structure, plate and accent colours match; the brush-angular wordmark and tall plate don’t. Open for R13."),
+         "Structure, plate and accent colours match; the brush-angular wordmark and tall plate don’t. Still open."),
     ],
     # What shipped and held up under the judge's re-measure.
     "shipped": [
-        "Missile LOCK is reachable — the geometry bug is fixed (band was above the sight’s cone)",
-        "Gun kills resolve at the sight (p90 14.6 → ~10 %W), not at the wingtip",
-        "Tracer is a visible bright column, not a few faint dots",
-        "Stage 1 has islands, crags and surf; cloud banks grew",
-        "Real stakes — a proper GAME OVER instead of a silent life refill",
-        "Attract mode banks hard (horizon swings ±60°) instead of cruising level",
+        "The jet breathes fire — twin afterburner cones, throttle-responsive, banking with the airframe",
+        "Missile usable from a normal posture — a real salvo fires without camping the horizon (intermittent)",
+        "A big enemy flyby crosses the full screen; dead-sky lulls cut ~6 s → ~3.5 s",
+        "Enemies persist through the death cycle — no more empty respawn",
+        "A mid-range gun-dwell window (26 % → 34 % of enemies at a trackable depth)",
     ],
     # Ranked gaps for NEXT round. kind drives the colour chip.
-    "gaps_label": "Next — R13",
+    "gaps_label": "Next — R14",
     "gaps": [
-        (1, "feel", "Missiles are reachable but not usable",
-         "The lock can form now, but only by climbing to the horizon band and sitting there — which gets you "
-         "shot. The judge got one lock in 45 turns and never fired a salvo in real play. Route enemies through "
-         "the lock band (or widen the strip) so a lock happens from normal posture — not a wider sight."),
-        (2, "feel", "Kills still happen to you — no gunnery window",
-         "The gun now kills at the sight, but enemies pop from horizon-dot to wingtip with no stretch at a "
-         "shootable mid-range depth. Give enemies time at a depth the player can actually aim at."),
-        (3, "missing", "The sky still goes dead",
-         "Confirmed multi-second stretches with zero enemies, and no large-scale flyby — an enemy crossing the "
-         "screen at size, the way the arcade’s do every second or two. Population and choreography, not size."),
-        (4, "feel", "The jet doesn’t breathe fire",
-         "The arcade trails big orange afterburner cones — the game’s name. Ours has black nozzle rings with "
-         "small dots. Carried from the gestalt pass."),
-        (5, "polish", "Climaxes and the title",
-         "Kill fireballs read small next to the arcade’s half-screen blasts; the title wordmark is hand-rounded "
-         "where the arcade’s is brush-angular. Lower priority than the combat feel."),
+        (1, "feel", "The gun still kills without you",
+         "The oldest complaint, still open: a blind centered stick with the trigger held collects ~20 gun "
+         "kills in 90 s — aiming doesn’t clearly beat it, because the readable enemies swarm the low waterline "
+         "row the caged sight can’t reach. Make aiming the gun actually cause the kill."),
+        (2, "feel", "Missiles are a coin-flip on wave timing",
+         "Usable now, but a lock only comes around on the every-fourth-wave bait — land on a bad phase (or die "
+         "first) and you fire nothing. Make a lock reachable every wave from a survivable posture."),
+        (3, "tension", "Re-measure the death cycle before touching it",
+         "Flagged as too long (~7.7 s) three rounds running, always against a single frame-pinned reading that "
+         "was never re-measured. Settle it: decode several arcade deaths at 60 Hz. If it really is ~7.7 s, the "
+         "pace problem is the tumble filling it, not the length."),
+        (4, "missing", "Breadth — 3 of 23 stages, no resupply or bonus",
+         "The biggest structural absence. Every round should keep chipping at the stage count and the missing "
+         "resupply/bonus passes."),
+        (5, "polish", "Small climaxes and the title",
+         "Kill fireballs still read sub-screen next to the arcade’s half-screen blasts; the flame is a touch "
+         "long and liquid; the title wordmark is hand-rounded where the arcade’s is brush-angular."),
     ],
     # What not to break.
     "keep": [
-        "Missile lock + salvo mechanism works (don’t regress the geometry fix)",
-        "Gun kills at the sight; blind-pilot gain is protected",
-        "Islands, the game-over path, and the ±60° attract drama",
-        "Death starburst → tumble → READY; stage 2 sunset composition",
+        "The afterburner flame (throttle-responsive, banks with the jet, death-safe)",
+        "The flyby, the live sky, and enemies persisting through respawn",
+        "Missile usable from normal posture; islands, game-over, ±60° attract drama",
+        "Gun kills at the sight; death starburst → tumble → READY; stage 2 sunset",
     ],
     "method_note": (
-        "R12 was the method’s first full turn: look first, play it (an agent, no human waited on), ship "
-        "missing systems before tuning constants, and let the judge re-measure every claim — which caught "
-        "the missile being reachable-not-usable and an over-stated TL commit. Full history in judging/R12/."
+        "R13 ran the loop end to end with no human in it: an agent played the open, three lanes built, the "
+        "TL verified every claim by playing, and a fresh judge re-measured — catching that the ‘22–28 "
+        "salvos/min’ probe over-reads human play ~10×, and confirming an assist-cone tweak was inert. "
+        "Honest numbers over headline ones. History in judging/R13/."
     ),
 }
 

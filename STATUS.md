@@ -1,63 +1,65 @@
 # STATUS — where the rebuild stands
 
-**Last updated**: 2026-11-15. **R12 CLOSED at 8.0; R13 is open.** The loop is
+**Last updated**: 2026-11-15. **R13 CLOSED at 8.2; R14 is open.** The loop is
 **"look first, measure second"** (CLAUDE.md, "How work happens here"; rationale in
 `judging/R12/method-retrospective.md`). Every round ships an HTML report
-(`judging/R<n>/report.html`, `python3 tools/round_report.py`) published as an Artifact.
-Pre-R12 STATUS is archived verbatim at `judging/archive/STATUS-through-R11.md` — reference
-material, not required reading. Repo: github.com/UriZ/after-burner-web.
+(`judging/R<n>/report.html`, `python3 tools/round_report.py`) published to the standing
+dashboard artifact. Pre-R12 STATUS is archived at `judging/archive/STATUS-through-R11.md`.
+Repo: github.com/UriZ/after-burner-web.
 
 ## Current state
 
-- **R12 verdict**: **8.0** (motion 7.5, stills 8.5) — `judging/R12/judge-report.md`. Flat on
-  R11's number but a *different* 8: two missing systems shipped, rank-1 only partially closed.
-- **Score trend**: R1 3 → R5 7.5 → R8 8.5 → R9 7 → R10 7.5 → R11 8 → **R12 8.0**.
-- **R12 shipped (judge-confirmed)**: stage-1 **land** (islands/crags/surf), real **stakes**
-  (GAME OVER, no silent refill), attract **roll-drama** (±60°), a visible **tracer**, gun
-  kills **at the sight** (p90 14.6→~10 %W), and the missile **lock geometry bug fixed** —
-  a lock is now *reachable*.
-- **R12's honest miss**: the missile is reachable but **not usable in normal play** — the
-  judge got 1 lock in 45 turns and never fired a salvo (reaching the band means climbing to
-  the horizon and getting shot). The TL's "works for a player" commit overstated it.
+- **R13 verdict**: **8.2** (motion 8.0, stills 8.5) — `judging/R13/judge-report.md`. Two clean
+  wins (afterburner, live sky), the missile now usable-but-intermittent; the blind gun stays open.
+- **Score trend**: … R10 7.5 → R11 8 → R12 8.0 → **R13 8.2**.
+- **R13 shipped (judge-confirmed)**: the jet **breathes fire** (twin throttle-responsive
+  afterburner cones, bank + death safe); a **live sky** (big flyby crossing full screen, lulls
+  ~6→~3.5 s, enemies persist through the death cycle — no empty respawn); the **missile usable
+  from normal posture** (a real salvo without horizon-camping); a **mid-range gun window** (26→34 %).
+- **R13's honest limits (judge)**: missile is **coin-flip on wave timing** (lock only on the
+  every-4th-wave bait; the lane's "22–28 salvos/min" probe over-reads human play ~10×); the
+  **gun still kills without you** (blind ≈ aimed, ~20 kills/90 s — readable enemies swarm below
+  the caged sight); the ASSIST_RADIUS_FRAC 0.13→0.09 tweak is **INERT** (confirms R11 §2.1).
 - **What works end to end**: title → flight → combat → death/respawn → tally → stage 1/2/3
-  → GAME OVER / continue → restart. Throttle, barrel roll, formations, lock/missiles/vulcan,
-  synthesized audio + FM music all run.
+  → GAME OVER / continue → restart. Throttle (now drives the flame), barrel roll, formations,
+  lock/missiles/vulcan, afterburner, synthesized audio + FM music all run.
 - **Still absent**: 3 of 23 stages, no resupply/bonus pass, limited enemy variety. Absence
   outranks constant tuning.
 
-## R13 gap list — from the R12 judge's close-look (`judging/R12/judge-report.md`)
+## R14 gap list — from the R13 judge's close-look (`judging/R13/judge-report.md`)
 
-The R12 judge looked and re-measured; its forward list seeds R13. An R13 playtest on the
-new build confirms/refines before lanes lock. The theme is **combat FEEL and population** —
-the systems now exist; they don't yet behave like the arcade in play. Ranked:
+Theme: **close the combat-feel cracks R13 left open, and start on breadth.** Ranked:
 
-1. **MISSILES ARE REACHABLE BUT NOT USABLE.** The lock geometry bug is fixed, but a lock
-   only forms by climbing to the horizon band and sitting there — which gets you shot (judge:
-   1 lock in 45 turns, 0 salvos in real play). **Fix: route enemies through the lock band, or
-   widen the lock strip, so a lock happens from NORMAL posture.** NOT `ENVELOPE_X` (arcade-
-   closed at ±9.85 %W). This is spawner/lock work. (Combat/spawner lane.)
-2. **KILLS STILL HAPPEN TO YOU — no mid-range gunnery window.** The gun now kills at the
-   sight, but enemies pop horizon-dot → wingtip with no stretch at a shootable depth. **Give
-   enemies dwell time at a mid-range depth the player can aim at.** (Combat/spawner lane.)
-3. **THE SKY STILL GOES DEAD.** Confirmed multi-second zero-enemy stretches, and no
-   large-scale flyby — an enemy crossing the screen at size the way the arcade's do every
-   second or two. Population + choreography, not the (correct) size distribution. (Spawner.)
-4. **THE JET DOESN'T BREATHE FIRE.** Arcade trails big orange afterburner cones (the game's
-   name); ours has black nozzle rings with small dots. Carried from the gestalt pass.
-   (Player-art lane.)
-5. **CLIMAXES AND TITLE (polish).** Kill fireballs read small vs the arcade's half-screen
-   blasts; the title wordmark is hand-rounded where the arcade's is brush-angular. Lower
-   priority than combat feel.
+1. **THE GUN STILL KILLS WITHOUT YOU — the oldest open complaint.** A blind centered stick
+   with the trigger held gets ~20 gun kills/90 s; aiming doesn't clearly beat it, because
+   readable enemies swarm the low waterline row the caged sight can't reach, and a wide gun-
+   assist auto-converts them. **The real lever is NOT `ASSIST_RADIUS_FRAC` (R11 §2.1 + R13
+   judge both measured it INERT over 0.05–0.13).** Candidates: tighten the assist differently
+   (reachdepth/minspan), or raise the readable-enemy row toward the sight line, or gate gun
+   hits on aim like the missile. Make aiming the gun *cause* the kill. (Combat lane.)
+2. **MISSILES ARE A COIN-FLIP ON WAVE TIMING.** Usable now, but a lock only comes on the
+   every-4th-wave bait — a bad phase (or an early death) fires nothing. **Make a lock
+   reachable every wave from a survivable posture** (more frequent/parallel bait, or a second
+   routing). Keep the blind-pilot gain (blind missile kills must stay low). (Combat lane.)
+3. **RE-MEASURE THE DEATH CYCLE BEFORE TOUCHING IT.** Flagged too-long (~7.7 s) three rounds
+   running, always against ONE frame-pinned reading never re-measured. **Decode several arcade
+   deaths at 60 Hz and settle it.** If it really is ~7.7 s, the pace problem is the tumble
+   filling the time, not the length — and R7 already reversed a short cycle. Do not cut it on
+   an eyeball. (Flow lane + a measurement pass.)
+4. **BREADTH — 3 of 23 stages, no resupply/bonus pass.** The biggest structural absence;
+   every round should chip at the stage count or a missing pass. (World + flow.)
+5. **POLISH: small climaxes, the flame, the title.** Kill fireballs read sub-screen vs the
+   arcade's half-screen blasts; the afterburner is a touch long/liquid; the title wordmark is
+   hand-rounded where the arcade's is brush-angular. (Effects / player-art / ui.)
 
-**Kept as positives (do not regress):** the missile lock+salvo mechanism and its geometry
-fix; gun kills at the sight with the blind-pilot gain protected; islands/game-over/±60°
-attract drama; death starburst→tumble→READY; stage 2 sunset composition.
+**Kept as positives (do not regress):** the afterburner flame (throttle-responsive, banks,
+death-safe); the flyby + live sky + enemies persisting through respawn; the missile usable
+from normal posture; gun-at-the-sight; islands/game-over/±60° attract; stage 2 sunset.
 
-**Carried interfaces from R12** (`judging/R12/flow-asks.md`): a `gameOver` SFX (audio lane),
-and a stage-transition cross-fade on sky/ground `setStage` (world lane) to soften the 1→2
-hard cut. **Judge caveat**: the combat p-gate means `demo=2` yields fewer gun explosions by
-design — use `?combatexpl=1` for explosion captures and an *aiming* pilot (or play) for
-combat gestalt, or combat activity under-reads.
+**Carried interfaces** (`judging/R12/flow-asks.md`): a `gameOver` SFX (audio), a stage-
+transition cross-fade on sky/ground `setStage` (world) for the 1→2 hard cut. Record R13's
+lock-bait + flyby as **ADOPTED R13** in GAME_SPEC §4. **Capture caveat**: the combat p-gate
+makes `demo=2` under-read gun explosions — use `?combatexpl=1` and an aiming pilot (or play).
 
 ## Hard warnings that stay load-bearing
 
