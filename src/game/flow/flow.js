@@ -3,7 +3,7 @@ import { DeathSequence } from './deathSequence.js';
 import { LaunchSequence } from './launchSequence.js';
 import { createCarrierSprite } from './carrier.js';
 import { drawTitleScreen } from './titleScreen.js';
-import { drawReadyCard, drawTallyCard, drawContinueCard } from './cards.js';
+import { drawReadyCard, drawTallyCard, drawContinueCard, drawGameOverCard } from './cards.js';
 import { Overlay } from './overlay.js';
 import { STAGES } from '../stage.js';
 import { demoTimeline } from './demoTimeline.js';
@@ -111,6 +111,13 @@ const TITLE_TIMEOUT_S = 8; // unattended fallback: title -> attract demo
 const ATTRACT_DEMO_S = 24;
 const TALLY_HITS_PER_S = 7; // REFERENCE.md: tally counts "~7 hits/s"
 const CONTINUE_COUNTDOWN_S = 10; // gp t261: "CONTINUE PLAY / 10 / INSERT COIN"
+// GAME OVER dwell before the cabinet falls back to the attract loop. The
+// arcade reaches GAME OVER when a credit's continue countdown expires with no
+// coin (feel critic's measured credit ends on a GAME OVER card at gp t841.2,
+// GAME_SPEC.md §2 "Lethality"), but the card's on-screen DURATION is not
+// measured in this repo, so 4 s is ASSUMED — long enough to read, short enough
+// not to strand an unattended cabinet. Logged in judging/R12/flow-asks.md.
+const GAME_OVER_S = 4;
 
 // Post-respawn grace window (R4 blocker fix, combat-dev report: an
 // un-grace'd demo lost all 3 lives in 24s, making 30s density captures
@@ -202,6 +209,7 @@ export class GameFlow {
     this.stageTimer = 0;
     this.tally = null; // { t, duration, hits, pointsStart }
     this.continueCountdown = 0;
+    this.gameOverTimer = 0;
     this.titleTimer = 0;
     this.attractTimer = 0;
     // Which content stage the NEXT attract demo shows. feel-critique.md §7.6:
@@ -258,6 +266,18 @@ export class GameFlow {
     this._forceDeathAt = params.has('forcedeath') ? Number(params.get('forcedeath')) : null;
     this._forcedDeathDone = false;
     this._debugInvincible = params.has('invincible') || params.get('demo') === '2';
+
+    // `?lives=N` — measurement-only, same family as ?forcedeath/?invincible:
+    // sets the STARTING life count so the life-exhaustion -> continue ->
+    // game-over -> attract path is reachable in one deterministic `?fixed=1`
+    // run (`?fixed=1&lives=1&forcedeath=S` exhausts the credit at S and a
+    // capture can then watch the whole credit end) instead of needing a live
+    // player to die three times. Clamped to >=1. Never read in normal play;
+    // only applied here, before any state is entered.
+    if (params.has('lives')) {
+      const n = Number.parseInt(params.get('lives'), 10);
+      if (Number.isFinite(n) && n >= 1) this.lives = n;
+    }
 
     // Carrier launch (R5, feel-critique.md §9/§10 rank 14): a fresh game
     // now opens with src/game/flow/launchSequence.js instead of dropping
@@ -481,6 +501,9 @@ export class GameFlow {
         break;
       case 'continue':
         result = this._updateContinue(dt, rawInput);
+        break;
+      case 'gameover':
+        result = this._updateGameOver(dt);
         break;
       case 'attract':
         result = this._updateAttract(dt, rawInput, simTime);
@@ -707,44 +730,86 @@ export class GameFlow {
   _updateContinue(dt, rawInput) {
     this.score.accrue(dt, true); // frozen (same family as death/resupply pauses)
     AudioBus.setEngine(DEATH_ENGINE_IDLE_FRAC); // world still scrolling (gp t261); keep the bed alive
-    this.continueCountdown -= dt;
-    // R5 feel fix (feel-critique.md §6 / §10 rank 6): the countdown took
-    // 10.2% of a measured 120s session with no button that did anything.
-    // A press skips straight to the floor instead of exiting a frame early
-    // (count-down still reaches 0 this same tick, so the card's final
-    // digit/overlay-clear logic below runs unchanged).
-    if (rawInput && (rawInput.fire || rawInput.missile)) this.continueCountdown = 0;
-    this.cardOverlay.visible = true;
-    this.cardOverlay.redraw((ctx, w, h) => drawContinueCard(ctx, w, h, this.continueCountdown));
-    if (this.continueCountdown <= 0) {
-      // "Continuing resumes IN PLACE — same stage" (GAME_SPEC.md §2). Lives
-      // restore so play can continue; unattended captures/judges never
-      // dead-end on a game-over screen.
+
+    // R12 (playtest gap 5 / STATUS rank 5): the two exits of the countdown are
+    // DIFFERENT outcomes, and the old code conflated them — a press set the
+    // countdown to 0, and reaching 0 refilled the lives either way, so letting
+    // it run out silently handed the player a fresh credit and there was no
+    // game over at all. Now a press is the ONLY thing that continues; the
+    // countdown running out is GAME OVER. This is the arcade's own logic: the
+    // "CONTINUE PLAY / INSERT COIN" prompt means insert a coin to keep the
+    // credit, and letting it expire ends the game (the feel critic's measured
+    // credit ends on a GAME OVER card, GAME_SPEC.md §2 "Lethality").
+    if (rawInput && (rawInput.fire || rawInput.missile)) {
+      // A coin: "Continuing resumes IN PLACE — same stage" (GAME_SPEC.md §2).
       //
-      // The SCORE IS NOT RESET, and the `score.reset()` that used to stand
-      // here is deleted. GAME_SPEC.md §2 claimed "with the score reset to ~0
-      // (gp t265-269 climb from ~600)" and that citation is a misread frame.
-      // Re-read off the digits at 4x on ab2-gameplay.mp4 (R6 flow lane,
-      // independently of feel-critique.md §3.5 which found it first):
-      //   t256 485440 -> t262 489540 (frozen through the death) ->
-      //   t265 490000 -> t268 491000 -> t277 497600.
-      // Monotonic straight through; "~600" is not on screen anywhere in that
-      // window. reference/continue-card-gp-t261.png is the CONTINUE PLAY card
-      // itself and carries SCORE 489540 / HIT 4 / STAGE 4 — the score, the
-      // hit count and the stage all survive the credit. We were erasing the
-      // player's whole score the moment they paid to keep playing.
-      // HIT survives for free: combat.clear() below does not touch
+      // The SCORE IS NOT RESET (the `score.reset()` that used to live on this
+      // path is deleted — GAME_SPEC.md §2's "reset to ~0 (gp t265-269 climb
+      // from ~600)" is a misread frame; re-read digit by digit the score runs
+      // t256 485440 -> t262 489540 frozen -> t265 490000 -> t277 497600,
+      // monotonic, and reference/continue-card-gp-t261.png carries SCORE
+      // 489540 / HIT 4 / STAGE 4 — score, hit and stage all survive the
+      // credit). HIT survives for free: combat.clear() does not touch
       // `combat.hits` (only _enterStage resets it), matching t261.
       this.cardOverlay.visible = false;
       this.lives = START_LIVES;
       if (this.combat) this.combat.clear();
       this.state = 'flight';
-      // Extension beyond GAME_SPEC (not arcade-measured, same reasoning as
-      // the respawn grace window): a continue drops the player back into a
-      // stage that may already be mid-wave, so the same fairness grace
-      // applies.
+      // Extension beyond GAME_SPEC (not arcade-measured, same reasoning as the
+      // respawn grace window): a continue drops the player back into a stage
+      // that may already be mid-wave, so the same fairness grace applies.
       this.invincibleTimer = RESPAWN_INVINCIBLE_S;
       AudioBus.music('flight');
+      return { input: ZERO_INPUT, combatActive: false, playerControlled: false };
+    }
+
+    this.continueCountdown -= dt;
+    this.cardOverlay.visible = true;
+    this.cardOverlay.redraw((ctx, w, h) => drawContinueCard(ctx, w, h, this.continueCountdown));
+    if (this.continueCountdown <= 0) {
+      this.cardOverlay.visible = false;
+      this._enterGameOver();
+    }
+    return { input: ZERO_INPUT, combatActive: false, playerControlled: false };
+  }
+
+  // The credit is spent. GAME OVER holds over the still-scrolling world (the
+  // same overlay-not-blocking convention as the continue card), then the
+  // cabinet falls back into its attract loop — title, which times out into the
+  // demo, exactly as a real cabinet idles between credits.
+  _enterGameOver() {
+    this.state = 'gameover';
+    this.gameOverTimer = GAME_OVER_S;
+    // No dedicated game-over sting exists in the audio bank yet (sfx.js has
+    // playerDeath/respawnReady/menuStart/tallyTick only). play() no-ops on an
+    // unknown name, so this is harmless today and becomes audible the moment
+    // the audio lane adds the event — asked in judging/R12/flow-asks.md.
+    AudioBus.play('gameOver');
+    AudioBus.music('off'); // flight track stops; the idle engine bed carries the moment
+  }
+
+  _updateGameOver(dt) {
+    this.score.accrue(dt, true); // frozen, as during death/continue
+    AudioBus.setEngine(DEATH_ENGINE_IDLE_FRAC);
+    this.gameOverTimer -= dt;
+    this.cardOverlay.visible = true;
+    this.cardOverlay.redraw((ctx, w, h) => drawGameOverCard(ctx, w, h));
+    if (this.gameOverTimer <= 0) {
+      this.cardOverlay.visible = false;
+      // Back to the attract loop. Lives/score/stage are left as they are — the
+      // final score lingers under the title until the title->attract
+      // transition resets them (its own `score.reset()` / `lives` / stage
+      // reset), which is also what a pressed Start resets via _startRealGame.
+      // Clearing combat here so the title/attract does not open over a frozen
+      // battlefield; a roll in progress is cancelled for the same reason
+      // _startRealGame and the attract exit do (an un-updated sprite would
+      // strand on a roll cell behind the title card).
+      if (this.player) this.player.cancelRoll();
+      if (this.combat) this.combat.clear();
+      this.state = 'title';
+      this.titleTimer = 0;
+      this._redrawTitle();
+      AudioBus.music('title');
     }
     return { input: ZERO_INPUT, combatActive: false, playerControlled: false };
   }

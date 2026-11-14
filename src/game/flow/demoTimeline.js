@@ -238,6 +238,78 @@ const ROLL_SLAM_AT_S = 8.0; // phase within the cycle
 const ROLL_SLAM_DWELL_S = 0.1; // each segment of the slam
 const ROLL_SLAM_SEGMENTS = [1, -1, 1];
 
+// --- R12: ATTRACT AEROBATICS (STATUS rank 6 / playtest gap 6) -------------
+//
+// THE DEFECT, in the playtest's words: "the baseline reads near-level where the
+// arcade's horizon swings wildly inside one 30s span." The roam curve above is
+// a POSITION target and the controller below TRACKS it closely, so it only ever
+// emits SMALL stick — and game.js drives the camera bank straight off that
+// stick (`worldRoll = input.x * ROLL_MAX_RAD`, ROLL_MAX 66.5°). Small stick ->
+// small roll -> near-level horizon, the whole attract.
+//
+// SCALING THE SINE AMPLITUDES CANNOT FIX THIS, and that is the R10 REPAIR note
+// made concrete: under a position controller a wider target just makes the
+// tracker chase a wider curve with the SAME small tracking error, so the SAME
+// small stick — the jet roams further but the horizon stays as flat as ever.
+// The horizon only swings when the STICK itself swings hard, so the drama has
+// to be injected as raw stick GESTURES, exactly the way the barrel roll already
+// is (slamX bypasses the controller). Held long enough for worldRoll to
+// rate-limit up to saturation (0.95*66.5 = 63° at 74.5°/s ≈ 0.85s) and SIT
+// there, a held gesture is the "hard bank held" the playtest called genuinely
+// dramatic — and by rate it is not a barrel roll: a roll needs two opposite
+// sign flicks inside player.js's 0.35s ROLL_SLAM_WINDOW, and these beats ramp
+// over RAMP_S and sit on one sign for seconds.
+//
+// Two banked beats per 16s cycle, both inside the CRUISE regime (the canyon
+// regime is defined by being tight and straight, so it stays gentle and the
+// 11s/5s contrast survives):
+//   beat 1  a hard CLIMBING RIGHT bank   (stick up-right, horizon rolls right)
+//   beat 2  a hard DIVING LEFT bank      (stick down-left, horizon rolls left)
+// then the existing barrel roll at 8.0s. Each beat is a raised-cosine trapezoid
+// (ramp in / hold / ramp out) so it reads as flying the stick over, not a step.
+// Spacing is deliberate: beat1 clears by ~4.5s, beat2 runs 5.0–7.8s, the roll
+// is at 8.0s — no two beats and no beat-and-roll overlap, and the opposite-sign
+// banks are >1s apart and ramped, so the roll trigger never sees two in-window
+// flicks it did not author.
+//
+// THIS WIDENS the cruise cx/cy spread that ADOPTED #122 is stated against, on
+// purpose. #122's 12.88%W roam figure is itself ADOPTED from the old prototype
+// and REFUTED against the arcade's own measured ±9.85%W player rail
+// (judging/R11/lane-combat.md §1), and the R12 look pass ranks "the attract is
+// a careful cruise, not a rollercoaster" as the defect to close. What swings is
+// the HORIZON (raw stick -> worldRoll); the jet's own lateral travel is still
+// clamped at ±ENVELOPE_X and never leaves the arcade's rail. A judge splitting
+// the roam statistic by regime (phase % 16 < 11 is cruise) will now read the
+// cruise window as bimodal — gentle wander between hard beats — which is the
+// shape being authored, not a regression in the wander itself.
+const BANK_RAMP_S = 0.4; // raised-cosine ramp in and out of each held bank
+const BANK1_AT_S = 1.3; // climbing right bank, phase within the cruise regime
+const BANK1_HOLD_S = 2.4;
+const BANK1_X = 0.95;
+const BANK1_Y = 0.6; // + = climb (stickY up)
+const BANK2_AT_S = 5.0; // diving left bank
+const BANK2_HOLD_S = 2.0;
+const BANK2_X = -0.92;
+const BANK2_Y = -0.62; // - = dive (stickY down)
+
+// A held bank beat as a raised-cosine trapezoid in [0,1], scaled to (ampX,ampY)
+// raw stick. Returns null outside its window so the controller has the stick.
+// `ct` is phase within the regime; `start` is measured from the regime origin.
+function bankBeat(ct, start, hold, ampX, ampY) {
+  const tLocal = ct - start;
+  const total = BANK_RAMP_S + hold + BANK_RAMP_S;
+  if (tLocal < 0 || tLocal >= total) return null;
+  let s;
+  if (tLocal < BANK_RAMP_S) {
+    s = 0.5 - 0.5 * Math.cos((tLocal / BANK_RAMP_S) * Math.PI); // 0 -> 1
+  } else if (tLocal < BANK_RAMP_S + hold) {
+    s = 1;
+  } else {
+    s = 0.5 - 0.5 * Math.cos(((total - tLocal) / BANK_RAMP_S) * Math.PI); // 1 -> 0
+  }
+  return { x: ampX * s, y: ampY * s };
+}
+
 // --- R10 REPAIR: THIS FILE AUTHORS POSITIONS, THE AIRCRAFT NOW TAKES RATES --
 //
 // Every number above was solved against a POSITION controller. Read the two
@@ -458,6 +530,17 @@ export function demoTarget(simTime) {
   const slamming = slamDt >= 0 && slamDt < ROLL_SLAM_SEGMENTS.length * ROLL_SLAM_DWELL_S;
   const slamX = slamming ? ROLL_SLAM_SEGMENTS[Math.floor(slamDt / ROLL_SLAM_DWELL_S)] : null;
 
+  // Aerobatic beats (see ATTRACT AEROBATICS above): raw held stick that swings
+  // the horizon, cruise only. Null outside the two beat windows, so the
+  // controller flies the authored wander between them. `bankX`/`bankY` reach
+  // player.js as literal stick (like slamX), NOT as a position target.
+  const beat = inCruise
+    ? bankBeat(phase, BANK1_AT_S, BANK1_HOLD_S, BANK1_X, BANK1_Y) ||
+      bankBeat(phase, BANK2_AT_S, BANK2_HOLD_S, BANK2_X, BANK2_Y)
+    : null;
+  const bankX = beat ? beat.x : null;
+  const bankY = beat ? beat.y : null;
+
   // Occasional fire/lock, concentrated in the cruise regime's banked
   // segments (GAME_SPEC.md §7: "cruise weave + ... occasional fire/lock").
   const fireWindow = inCruise && Math.sin(t * 1.65) > 0.55;
@@ -465,7 +548,7 @@ export function demoTarget(simTime) {
 
   const throttleIndex = THROTTLE_PATTERN[Math.floor(t / THROTTLE_DWELL_S) % THROTTLE_PATTERN.length];
 
-  return { x, y, slamX, fire: fireWindow, missile: missileWindow, throttleIndex };
+  return { x, y, slamX, bankX, bankY, fire: fireWindow, missile: missileWindow, throttleIndex };
 }
 
 // The attract pilot. `player` is the live aircraft (src/entities/player.js) —
@@ -489,20 +572,29 @@ export function demoTimeline(simTime, player) {
   }
   const target = demoTarget(simTime);
 
-  // Lateral. error -> commanded rate; the slam gesture bypasses the loop
-  // entirely -- it is the one thing here that must reach player.js as literal
-  // stick, because the roll trigger reads the stick and not the position.
+  // Lateral. error -> commanded rate; the slam gesture and the aerobatic bank
+  // gestures bypass the loop entirely -- they are raw STICK, not positions,
+  // because the horizon bank (and the roll trigger) read the stick and not the
+  // position. slamX wins over bankX by construction they never overlap, but the
+  // roll takes precedence if that ever changed.
   const errX = target.x * ENVELOPE_X - player.x;
   let x = target.slamX;
+  if (x === null) x = target.bankX;
   if (x === null) x = clampStick((CONTROLLER_GAIN * errX) / ENVELOPE_X);
 
-  // Vertical. The target is in the SAME asymmetric stick units the authored
+  // Vertical. The aerobatic beat commands raw vertical stick (held climb/dive);
+  // otherwise the target is in the SAME asymmetric stick units the authored
   // constants were re-solved in (R7 bisection note above), so it converts to
-  // world through the envelope of ITS OWN sign; the error then converts back
-  // to stick through the envelope of the direction it is asking to travel.
-  const targetYWorld = target.y * (target.y >= 0 ? ENVELOPE_Y_UP : ENVELOPE_Y_DOWN);
-  const errY = targetYWorld - player.y;
-  const y = clampStick((CONTROLLER_GAIN * errY) / (errY >= 0 ? ENVELOPE_Y_UP : ENVELOPE_Y_DOWN));
+  // world through the envelope of ITS OWN sign; the error then converts back to
+  // stick through the envelope of the direction it is asking to travel.
+  let y;
+  if (target.bankY !== null) {
+    y = clampStick(target.bankY);
+  } else {
+    const targetYWorld = target.y * (target.y >= 0 ? ENVELOPE_Y_UP : ENVELOPE_Y_DOWN);
+    const errY = targetYWorld - player.y;
+    y = clampStick((CONTROLLER_GAIN * errY) / (errY >= 0 ? ENVELOPE_Y_UP : ENVELOPE_Y_DOWN));
+  }
 
   return {
     x,

@@ -235,6 +235,21 @@ function drawStageNumber(ctx, value, unitsCx, y, color, px, py) {
 //   countdown        y[159,187] -> top 0.442H, 8.1%H tall
 //   "INSERT COIN"  x[227,398] (26.9%W), y[194,219] -> top 0.539H
 // All three lines are centred on x ~0.486W, not on w/2 exactly.
+// GAME OVER card, shown when a credit's countdown runs out with no coin
+// inserted (flow.js `_updateGameOver`). The arcade shows a GAME OVER card in
+// this flow (feel critic timestamped one at gp t841.2, the end of the measured
+// credit — GAME_SPEC.md §2 "Lethality" table), but no frame of it is cropped
+// in this repo, so the LAYOUT here is ASSUMED, not measured: one centred red
+// line on the still-scrolling world, in the same big card face and the same
+// board red (#f70000) as the other cards' labels, at the continue card's own
+// countdown row so it lands where the player was already looking. When a GAME
+// OVER frame is pulled (asked in judging/R12/flow-asks.md) this geometry gets
+// the same measurement treatment the continue/tally cards already carry.
+export function drawGameOverCard(ctx, w, h) {
+  drawTextCenteredInk(ctx, 'GAME OVER', w * 0.486, h * 0.442,
+    COIN_RED, CARD_PX, CARD_PY, OUTLINED);
+}
+
 export function drawContinueCard(ctx, w, h, countdown) {
   drawTextCenteredInk(ctx, 'CONTINUE PLAY', w * 0.486, h * 0.333,
     CONTINUE_GREEN, CARD_PX, CARD_PY, OUTLINED);
