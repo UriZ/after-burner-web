@@ -55,7 +55,7 @@ youtube-reference skill's 4 Hz burst default will hide any transient.
 > replaces the old one.
 
 ```
-SIDE-BY-SIDE LOOK (ours vs arcade, fixed scenarios) + owner playtest
+SIDE-BY-SIDE LOOK (ours vs arcade, fixed scenarios) + AGENT PLAYTEST
         → gap list IN PLAYER LANGUAGE, ranked by what breaks the illusion
         → background agents build in parallel (disjoint file ownership)
         → FRESH-CONTEXT judge: looks first, then re-measures shipped claims
@@ -65,8 +65,14 @@ SIDE-BY-SIDE LOOK (ours vs arcade, fixed scenarios) + owner playtest
 - **Every round opens with eyes, not instruments.** Capture the fixed scenario set
   (attract/title, stage-1 combat ≥20 s, death+respawn, stage transition) at deterministic
   60 Hz, pair it with the matching STAGE_MAP arcade footage, composite side-by-side, and
-  LOOK. A gap exists only if it is on that list or in the owner's playtest notes.
+  LOOK. A gap exists only if it is on that list or in the playtest verdict.
   Measurement serves a chosen gap (it locates the constant); it never generates gaps.
+- **The standing playtest is an AGENT with hands on the stick** — the `agent-playtest`
+  skill drives `tools/playtest.mjs` (closed loop: see frames → move stick → see the
+  consequence; selftest 8/8 before trusting a session). A FRESH-CONTEXT agent plays every
+  round and files `judging/R<n>/playtest-verdict.md`; its five-sentence verdict seeds the
+  gap list. The loop does not wait on a human — but if the owner does play, their
+  sentences outrank the agent's.
 - **Absence outranks error; error outranks imprecision.** Missing system > wrong-looking
   system > constant outside its band > constant inside its band (forbidden work). Every
   round ships at least one missing-system item (stage variety, resupply, enemy patterns…).

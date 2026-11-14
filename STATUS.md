@@ -76,6 +76,7 @@ column; two frames show the arcade sight BELOW the airframe).
 
 ## Standing asks of the owner
 
-- **Playtest: 2 minutes, five sentences**, once per round or two. Those sentences outrank
-  any scalar in gap ranking.
+- None required per round: **the playtest is now an agent's job** (`agent-playtest`
+  skill + `tools/playtest.mjs`; verdicts land in `judging/R<n>/playtest-verdict.md`).
+  If you do play, your five sentences outrank the agent's.
 - `git push` only with your explicit approval (unchanged).
