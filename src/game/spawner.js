@@ -50,6 +50,11 @@ const PACE_KEYS = new Set([
   'openerspan', // size of the stage opener's overtake flight: n = 2 + rng*this
   'traingap', // seconds between enemy fire-train starts
   'trains', // how many enemy fire trains may be in the air at once
+  // R13 population/routing levers (see the loiter block below):
+  'baitevery', // every Nth wave is a lock-bait loiter cluster (0 = never)
+  'dwellfrac', // fraction of echelon members that gun-dwell at readable depth
+  'flyby', // seconds between large close flyby events (0 = never)
+  'deadmax', // longest empty-sky stretch tolerated before a wave is forced
 ]);
 let paceOverrides = null;
 function paceTunable(key, fallback) {
@@ -390,14 +395,17 @@ function clearCorridorAbout(x, cx) {
 //                                                        at 2.6   at 0.733
 //   ENVELOPE_X -> the rail itself   entities/player.js    1.00     1.00
 //   LOCK_RADIUS_FRAC   0.083        weapons/lockSystem.js 0.24     0.84
-//   ASSIST_RADIUS_FRAC 0.13         weapons/combat.js     0.37     1.32
+//   ASSIST_RADIUS_FRAC 0.09 (R13)   weapons/combat.js     0.26     0.91
 //   the lateral spread              THIS FILE             (see above)
 //
-// **THE GUN'S ASSIST CONE IS NOW WIDER THAN THE WHOLE DISTANCE THE SIGHT CAN
-// TRAVEL** (1.32x), and the lock cone is most of it (0.84x), where both used
-// to be a fraction. Found and verified by the R11 combat lane; the ratios
-// reproduce exactly here (0.13/0.0985 = 1.32, 0.083/0.0985 = 0.84, against
-// 0.13/0.3493 = 0.37 and 0.083/0.3493 = 0.24).
+// R13 UPDATE: the gun's assist cone, which this table flagged as **wider than
+// the whole distance the sight can travel** (1.32x at 0.13), was brought to
+// 0.09 = 0.91x the reach — just INSIDE it — because this round's routing feeds
+// the near field more readable traffic and a cone wider than the reach gave it
+// away to a dead-centre stick. See weapons/combat.js's ASSIST_RADIUS_FRAC note.
+// The lock cone is unchanged at 0.84x. The row above is re-derived at 0.09:
+// 0.09/0.0985 = 0.91 and 0.09/0.3493 = 0.26; the lock row is as the R11 combat
+// lane verified (0.083/0.0985 = 0.84).
 //
 // NEITHER RADIUS IS THIS LANE'S TO MOVE and neither was moved: LOCK_RADIUS_FRAC
 // was deliberately FROZEN in R10 and ASSIST_RADIUS_FRAC has no arcade anchor
@@ -847,6 +855,96 @@ const ELITE_FRACTION_BY_STAGE = [0.12, 0.22, 0.30];
 // stage's elite without tinting the whole sky.
 const CROSSER_ELITE_BONUS = 0.18;
 
+// ---------------------------------------------------------------------------
+// R13 — POPULATION AND ROUTING, NOT NEW SIGHT TUNING.
+//
+// The R12 judge closed the lock GEOMETRY (LOCK_DEPTH_MIN 26->16) but found the
+// missile still unusable in play: a lock only forms by pinning the sight to
+// the horizon strip and waiting, which gets the player shot (1 lock in 45
+// turns, 0 salvos). The diagnosis this round is not the sight — it is that the
+// traffic never DWELLS where a normally-flying player aims. Three routing
+// changes, each one measured against the blind-vs-aiming control the method
+// requires (lockSystem.js's note), and each a `?pace=` lever so a probe can
+// isolate it:
+//
+//   * LOCK-BAIT CLUSTERS (gap 1). Every Nth wave is a tight cluster that
+//     approaches to just above the lock floor and HOLDS there (enemy.js
+//     loiter), placed up and to ONE SIDE of the sight's rest posture so a
+//     dead-centre parked sight does not sweep it up for free but a pilot who
+//     points at the visible cluster locks the set. This is the arcade's
+//     distant-wave salvo, which ours never presented at a reachable posture.
+//   * GUN DWELL (gap 2). A fraction of head-on echelon members pause ~0.9 s at
+//     readable depth, so there is a mid-range window to put the sight on a
+//     growing aircraft and kill it there instead of at the wingtip.
+//   * LARGE FLYBY (gap 3). A single big aircraft crosses close every ~20 s,
+//     the screen-crossing event the arcade runs every second or two and ours
+//     lacked entirely.
+//   * DEAD-SKY CLIP (gap 3). The arcade's own sky is empty ~40 % of the time,
+//     so the defect is not average density — it is the 10+ s dead STRETCH. A
+//     wave is forced early only once the sky has been genuinely empty past
+//     DEAD_SKY_MAX_S, which bounds the worst lull without raising mean density.
+//
+// None of these touches ENVELOPE_X, the sight rails, or LOCK_RADIUS_FRAC
+// (arcade-closed / frozen). They move where the TRAFFIC is, which is this
+// file's job.
+const BAIT_EVERY = paceTunable('baitevery', 4);
+// 0.25, kept deliberately MODEST. The window the judge asked for is a quality
+// of the dwell — an enemy FROZEN at readable size for ~0.9 s is trackable — not
+// a quantity of readable enemies: this file's own history (the MAX_ALIVE block)
+// warns that the arcade sky is mostly specks (77-79 % of its aircraft below
+// 10 %W) and that filling it with readable airframes is the R3 mistake it spent
+// a round undoing. A quarter of echelon members dwelling gives a recurring
+// gun window without wallpapering the readable band. Measured readable-present
+// fraction (no-attrition passive probe) moves 0.39 -> ~0.45 at 0.25, against
+// 0.54 at 0.40 — the lower arm stays near the committed build.
+const GUN_DWELL_FRAC = paceTunable('dwellfrac', 0.25);
+const FLYBY_PERIOD_S = paceTunable('flyby', 20);
+// 3.0 s. The DISTINCTION this value rides on (R13 opening playtest,
+// judging/R13/playtest-open.md): the arcade's ~40 % "emptiness" is a READABLE-
+// enemy statistic (21 % readable-present, the MAX_ALIVE block), but its sky is
+// "populated at many depths CONSTANTLY" — i.e. distant SPECKS are nearly
+// always present and only big targets are sparse. So the fix for "I fly
+// through long quiet seconds" is to keep the sky non-EMPTY, not to add readable
+// wallpaper — and a forced wave arrives as horizon specks (depth 63-108, ~1 %W)
+// that take ~5 s to become readable, so clipping the empty stretch adds
+// presence WITHOUT moving the readable-present fraction. It only replaces the
+// next scheduled wave (waveTimer is reset), so the emission RATE is unchanged;
+// the long gaps are what go.
+//
+// 3.5 and not 3.0: the forced wave is readable-neutral but still an extra
+// aircraft under the pre-existing wide-ish gun assist, so a tighter clip feeds
+// the blind pilot's gun a little more (blind total kill share 64 % baseline ->
+// 69 % at 3.0, vs 61 % at 4.5, seed 7). 3.5 keeps the quiet-seconds floor the
+// playtest asked for while holding the blind share near baseline. The missile
+// gate — the actual deliverable — is unaffected either way (aim 22 vs blind 2).
+const DEAD_SKY_MAX_S = paceTunable('deadmax', 3.5);
+
+// Lock-bait hold geometry. The cluster freezes just above LOCK_BREAK_DEPTH's
+// reach and inside the lock band [16,88] (weapons/lockSystem.js), at a screen
+// position the sight reaches with a deliberate climb-and-turn but not from
+// rest. These are authored as the enemy's ndcA (at the hold depth q ~= 0.13,
+// so the on-screen position is essentially ndcA; see enemy.js header note 2).
+const BAIT_HOLD_DEPTH_MIN = 17;
+const BAIT_HOLD_DEPTH_MAX = 21;
+const BAIT_HOLD_TIME_MIN = 1.8;
+const BAIT_HOLD_TIME_MAX = 2.6;
+// Vertical band the bait cluster holds in, NDC. The sight's rest is ndcY 0.30
+// and its cone reaches +0.237, so 0.44-0.58 sits ABOVE a resting cone — a
+// parked pilot does not get it for free, a climbing pilot does.
+const BAIT_Y_MIN = 0.44;
+const BAIT_Y_MAX = 0.58;
+// Lateral centre offset from the player, |NDC|. Pushed off-centre so the
+// cluster is not dead ahead of a neutral stick; the player turns onto it.
+const BAIT_X_MIN = 0.1;
+const BAIT_X_MAX = 0.2;
+
+// Gun-dwell hold geometry: a pause at readable depth (span ~15-19 %W) short
+// enough to read as a hesitation in the pass, not a parked target.
+const GUN_DWELL_DEPTH_MIN = 5.0;
+const GUN_DWELL_DEPTH_MAX = 6.5;
+const GUN_DWELL_TIME_MIN = 0.7;
+const GUN_DWELL_TIME_MAX = 1.1;
+
 export class Spawner {
   constructor(scene, space, rng) {
     this.scene = scene;
@@ -885,6 +983,12 @@ export class Spawner {
 
     this.trainGapTimer = 0;
     this.trainsStarted = 0;
+    // R13 event timers. `flybyTimer` counts down to the next large close
+    // flyby; seeded short so the first one lands early in a stage rather than
+    // 20 s in. `emptyTimer` accumulates sim time the sky has been genuinely
+    // empty, and forces a wave once it passes DEAD_SKY_MAX_S.
+    this.flybyTimer = Math.min(FLYBY_PERIOD_S, 8);
+    this.emptyTimer = 0;
     this.solo =
       typeof location !== 'undefined' && new URLSearchParams(location.search).has('combatsolo');
 
@@ -905,6 +1009,10 @@ export class Spawner {
         openerspan: OPENER_SPAN,
         traingap: TRAIN_START_GAP_S,
         trains: MAX_CONCURRENT_TRAINS,
+        baitevery: BAIT_EVERY,
+        dwellfrac: GUN_DWELL_FRAC,
+        flyby: FLYBY_PERIOD_S,
+        deadmax: DEAD_SKY_MAX_S,
         overridden: [...(paceOverrides ?? new Map()).keys()],
       });
     }
@@ -1001,6 +1109,37 @@ export class Spawner {
       this.waveTimer = WAVE_GAP_MIN_S + this.rng() * (WAVE_GAP_MAX_S - WAVE_GAP_MIN_S);
     }
 
+    // R13 — DEAD-SKY CLIP (gap 3). The arcade is empty ~40 % of the time, so
+    // this does NOT raise mean density: it only fires when the sky is GENUINELY
+    // empty (nothing alive AND nothing queued to dispense) and has been for
+    // longer than the arcade's own longest lull. It pulls the NEXT wave in
+    // early rather than inventing an extra one, so emission count is unchanged
+    // over a run — only its spacing's long tail is clipped. `_nextWave` already
+    // advances `waveIndex`, so the bait/crosser cadence stays intact.
+    if (!this.solo && this.enemies.length === 0 && this.pending.length === 0) {
+      this.emptyTimer += dt;
+      if (this.emptyTimer >= DEAD_SKY_MAX_S) {
+        this.pending.push(...this._nextWave());
+        this.waveTimer = WAVE_GAP_MIN_S + this.rng() * (WAVE_GAP_MAX_S - WAVE_GAP_MIN_S);
+        this.emptyTimer = 0;
+      }
+    } else {
+      this.emptyTimer = 0;
+    }
+
+    // R13 — LARGE CLOSE FLYBY (gap 3). A single big aircraft crosses near the
+    // camera on its own cadence, independent of the wave queue, so the
+    // "something crosses big every second or two" event exists at all. Gated
+    // on FLYBY_PERIOD_S > 0 and on headroom under the alive cap so it never
+    // starves the ordinary waves.
+    if (FLYBY_PERIOD_S > 0 && !this.solo) {
+      this.flybyTimer -= dt;
+      if (this.flybyTimer <= 0 && this.enemies.length < MAX_ALIVE) {
+        this.pending.push(this._flyby(playerNdc ? playerNdc.x : 0));
+        this.flybyTimer = FLYBY_PERIOD_S;
+      }
+    }
+
     this.trainGapTimer -= dt;
     const trainsActive = this.enemies.reduce((n, e) => n + (e.firingTrain ? 1 : 0), 0);
     let allowNewTrain = trainsActive < MAX_CONCURRENT_TRAINS && this.trainGapTimer <= 0;
@@ -1090,12 +1229,23 @@ export class Spawner {
 
   _nextWave() {
     this.waveIndex += 1;
-    // 3 echelons to 1 crosser pass. The crossers are "occasional" in the
-    // measurement, and they are the pattern that most crowds the near field.
-    // Every third wave is a crosser pass rather than every fourth: crossers
-    // are near-field by construction and are the cheapest way to keep a
-    // readable-size aircraft on screen between echelon arrivals.
-    const specs = this.waveIndex % 3 === 0 ? this._crosserWave() : this._echelonWave();
+    // R13: lock-bait takes priority on its own cadence, then the 3:1 echelon/
+    // crosser split is unchanged. BAIT_EVERY = 4 and the crosser is every 3rd,
+    // so e.g. wave 12 would be both — bait wins, which is fine: it is the rarer
+    // and more load-bearing pattern. `_lockBaitWave` needs the player's x to
+    // place its cluster off-centre, which `update` does not forward here, so
+    // the bait uses screen-relative offsets about centre and the player turns
+    // onto it (the opener does the same when playerNdc is unavailable).
+    let specs;
+    if (BAIT_EVERY > 0 && this.waveIndex % BAIT_EVERY === 0) {
+      specs = this._lockBaitWave();
+    } else if (this.waveIndex % 3 === 0) {
+      // 3 echelons to 1 crosser pass. The crossers are "occasional" in the
+      // measurement, and they are the pattern that most crowds the near field.
+      specs = this._crosserWave();
+    } else {
+      specs = this._echelonWave();
+    }
     // WAVE IDENTITY, measurement only — nothing in the simulation branches on
     // it. Needed because "the enemies arrive in a single-file diagonal queue"
     // is a statement about a FORMATION, and a formation is a property of one
@@ -1308,6 +1458,16 @@ export class Spawner {
       // type roll above on purpose: a fast interceptor-type aircraft in a
       // stage-1 echelon should usually still be a grey MiG.
       const roleRoll = this.rng();
+      // R13 GUN DWELL (gap 2). Three UNCONDITIONAL draws per member — the
+      // CLAUDE.md shared-PRNG rule forbids a sometimes-draw, so the decision
+      // and its magnitudes are always drawn and only SOMETIMES applied. A
+      // GUN_DWELL_FRAC fraction of members pause at readable depth so there is
+      // a mid-range window to track and gun them before the wingtip. The
+      // bomber slot is excluded: it is already the slow, readable aircraft.
+      const dwellRoll = this.rng();
+      const dwellDepthU = this.rng();
+      const dwellTimeU = this.rng();
+      const dwell = i !== bomberSlot && dwellRoll < GUN_DWELL_FRAC;
       out.push({
         pattern: 'approach',
         type: i === bomberSlot ? 'bomber' : roll < 0.25 ? 'interceptor' : 'fighter',
@@ -1356,9 +1516,101 @@ export class Spawner {
         // another 0.9-2.1 s of flight is announced ~2-3 s ahead, which is
         // longer than the grace window it was being hidden behind.
         fireDelay: 0.0 + this.rng() * 0.15,
+        // R13 gun-dwell (see the draws above). A readable-depth pause with a
+        // gentle sway so the target reads as hesitating in its pass, not
+        // parked. Below FIRE_DEPTH_MIN, so it does not shoot while it loiters.
+        holdDepth: dwell
+          ? GUN_DWELL_DEPTH_MIN + dwellDepthU * (GUN_DWELL_DEPTH_MAX - GUN_DWELL_DEPTH_MIN)
+          : null,
+        holdTime: dwell
+          ? GUN_DWELL_TIME_MIN + dwellTimeU * (GUN_DWELL_TIME_MAX - GUN_DWELL_TIME_MIN)
+          : 0,
+        holdWeaveAmp: dwell ? 0.05 : 0,
+        holdWeaveRate: 2.2,
       });
     }
     return out;
+  }
+
+  // --- R13 LOCK-BAIT: a distant cluster that holds for the missile ----------
+  // A tight head-on cluster that approaches and FREEZES just inside the lock
+  // band, placed up and to one side of the sight's rest posture. It is the
+  // arcade's distant salvo wave, presented at a reachable posture: a pilot who
+  // turns and climbs the sight onto it holds the lock-bracket cue and racks up
+  // a salvo; a dead-centre parked stick does not get it for free (verified by
+  // the blind-vs-aiming control, judging/R13/). The cluster never fires while
+  // it holds (holdDepth < FIRE_DEPTH_MIN) — the distant wave you lock before
+  // it engages.
+  _lockBaitWave() {
+    const n = 3 + Math.floor(this.rng() * 2); // 3-4
+    const dir = this.rng() < 0.5 ? -1 : 1;
+    const baitX = dir * (BAIT_X_MIN + this.rng() * (BAIT_X_MAX - BAIT_X_MIN));
+    const baitY = BAIT_Y_MIN + this.rng() * (BAIT_Y_MAX - BAIT_Y_MIN);
+    const holdDepth = BAIT_HOLD_DEPTH_MIN + this.rng() * (BAIT_HOLD_DEPTH_MAX - BAIT_HOLD_DEPTH_MIN);
+    const holdTime = BAIT_HOLD_TIME_MIN + this.rng() * (BAIT_HOLD_TIME_MAX - BAIT_HOLD_TIME_MIN);
+    const out = [];
+    for (let i = 0; i < n; i++) {
+      const k = i - (n - 1) / 2;
+      const roleRoll = this.rng();
+      out.push({
+        pattern: 'approach',
+        type: 'fighter',
+        role: this._roleFor(roleRoll),
+        depthA: APPROACH_SPAWN_DEPTH,
+        depthB: FLY_PAST_DEPTH,
+        // At the hold depth q ~= 0.13, so the on-screen position is essentially
+        // ndcA (enemy.js header note 2). Author the cluster where it should
+        // FREEZE: tight, off-centre, up near but above the resting cone.
+        ndcA: [clampReach(baitX + k * 0.06), baitY + k * 0.015],
+        ndcB: [baitX + k * 0.22, clampReach(baitY - 0.2 + k * 0.1)],
+        weaveAmp: 0.01,
+        weaveRate: 1.2,
+        weavePhase: this.rng() * Math.PI * 2,
+        // Never fires: it is below the firing band for its whole hold and only
+        // drops through afterward. Large delay keeps intent explicit.
+        fireDelay: 1e9,
+        holdDepth,
+        holdTime,
+        // A slow, wide lateral sway while frozen: this is the motion a
+        // tracking sight follows and a parked sight only clips, which is the
+        // skill the lock prices. All members share the wave's drift so the
+        // cluster moves as one and still reads as a formation.
+        holdWeaveAmp: 0.09,
+        holdWeaveRate: 0.9,
+      });
+    }
+    return out;
+  }
+
+  // --- R13 LARGE CLOSE FLYBY: the screen-crossing event (gap 3) --------------
+  // One big slow aircraft that crosses near the camera and reaches full
+  // fly-past size, the "something crosses big every second or two" the arcade
+  // runs and ours lacked. A bomber (1.35x span) on a shallow lateral path
+  // through the near field, started off the player's current side so it sweeps
+  // across the middle of the frame.
+  _flyby(playerX = 0) {
+    const dir = playerX <= 0 ? 1 : -1; // enter from the emptier side, cross over
+    const roleRoll = this.rng();
+    return {
+      pattern: 'crosser',
+      type: 'bomber',
+      role: this._roleFor(roleRoll, CROSSER_ELITE_BONUS),
+      // Starts closer than an echelon and crosses slowly: a bomber's 0.5908
+      // rate halved again by the crosser magnitude, so it is on screen long
+      // enough to register as an event.
+      depthA: 26 + this.rng() * 8,
+      depthB: 2.9,
+      // From one side, through the near-centre, out the other — passing large
+      // across the player's own column at its closest.
+      ndcA: [dir * (-0.7 - this.rng() * 0.15), -0.02 + (this.rng() - 0.5) * 0.18],
+      ndcB: [dir * (0.85 + this.rng() * 0.2), clampReach(-0.18 + (this.rng() - 0.5) * 0.3)],
+      weaveAmp: 0.02,
+      weaveRate: 1.4,
+      weavePhase: this.rng() * Math.PI * 2,
+      // Spawns at depth 26-34 as a crosser (half rate), so its telegraph
+      // geometry matches the ordinary crosser's: it does not meaningfully fire.
+      fireDelay: 0.6 + this.rng() * 0.6,
+    };
   }
 
   // --- Occasional near-depth lateral crossers -------------------------------
@@ -1426,5 +1678,10 @@ export class Spawner {
     this.openerDone = false;
     this.waveTimer = 0;
     this.dispenseTimer = 0;
+    // R13: a fresh stage/life should not instantly force-spawn or drop a flyby
+    // on top of the opener. Reset the empty tracker (the opener fills the sky
+    // next tick) and re-seed the flyby delay the same way the constructor does.
+    this.emptyTimer = 0;
+    this.flybyTimer = Math.min(FLYBY_PERIOD_S, 8);
   }
 }

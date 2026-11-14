@@ -106,7 +106,40 @@ const SIGHT_DEPTH = 55;
 // not being followed: "a round snaps its altitude/depth ramp to the nearest
 // enemy NEAR THE SIGHT LINE at spawn", and "the vulcan is effectively the
 // ANTI-CLOSE-RANGE weapon".
-const ASSIST_RADIUS_FRAC = 0.13;
+//
+// R13 — 0.13 -> 0.09, AND THIS IS THE MOVE R11b NAMED AND DEFERRED. lockSystem.js's
+// R11b note recorded that "aiming now matters" was true of the MISSILE and not
+// of the GAME, because this cone, at 0.13, is 1.32x the sight's whole +-9.85 %W
+// reach (0.0985 fracW) — "the gun assists onto essentially anything the player
+// could ever aim at" — and it named the fix: "the gun's assist cone, in
+// combat.js." It was out of R11/R12 scope and left for a round that touched the
+// gun.
+//
+// THIS IS THAT ROUND, AND R13's OWN ROUTING FORCED IT. The lock-bait, gun-dwell
+// and flyby this round route more READABLE traffic through the near field by
+// design, and a cone wider than the sight's reach converts that traffic into
+// kills for a DEAD-CENTRE stick: measured, blind-pilot vulcan rose 14 -> 24 over
+// 90 s (judging/R13/lock_probe.mjs, seed 7) and the blind kill SHARE went
+// 64 % -> 82 % even as the missile share fell 27 % -> 13 %. Routing that helps
+// the aiming pilot must not hand the same kills to a pilot who never aims — the
+// round's own "do-nothing pilot must not rack up kills" constraint.
+//
+// 0.09 is just inside the sight's reach, so the cone now marks WHERE THE PLAYER
+// IS POINTING rather than a region wider than they can point. Measured on the
+// shipped routing, seed 7 / seed 3, 90 s, aim vs blind (same probe):
+//
+//   assistrad   aim vulcan   blind vulcan   blind SHARE (total)
+//     0.13          10            24            82 %
+//     0.09          10            17            61 %   <- below the no-routing 64 %
+//
+// The aiming pilot's gun is UNCHANGED (10 either way — a sight actually on the
+// target is inside both cones); only the auto-aim onto traffic the player is
+// NOT pointing at is withdrawn. It cannot regress "gun kills at the sight": that
+// is `reachdepth`/`minspan` (the unassisted round's depth ramp), a different
+// lever, and a narrower assist moves kills CLOSER to the sight, not away. 0.065
+// was also measured and gains nothing over 0.09 (blind 17 either way), so 0.09
+// is the least change that closes it.
+const ASSIST_RADIUS_FRAC = 0.09;
 // Share of the target's own vertical offset from the sight that the assist
 // supplies. 1.0 is the shipped R7 behaviour — the gun aims for you.
 //

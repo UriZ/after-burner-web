@@ -615,6 +615,29 @@ export class Enemy {
     // measured without it. -1 = the stage opener and primed echelon, which are
     // pushed outside the numbered wave sequence.
     waveId = -1,
+    // --- LOITER (R13) --------------------------------------------------------
+    // An optional pause in the depth advance. When `holdDepth` is set, the
+    // aircraft approaches as usual until it reaches that depth, HOLDS there
+    // (depth frozen, so its on-screen size and base position are frozen too)
+    // for `holdTime` seconds while drifting laterally by `holdWeaveAmp`, then
+    // resumes its approach to `depthB`. The screen path is driven by 1/d
+    // (header note 2), so freezing d freezes the path and the loiter is a
+    // genuine dwell at one range rather than a slowdown. Default null = no
+    // hold, byte-identical to the pre-R13 single-segment model.
+    //
+    // WHY IT EXISTS: R13 rank-1/2. There is no depth at which an enemy is both
+    // LOCKABLE (depth 16-88, weapons/lockSystem.js) and large enough to track
+    // and aim at (readable is depth < 7), so a player flying a normal posture
+    // can neither lock the distant specks nor get a gunnery window before the
+    // target reaches the wingtip. A hold at a chosen depth manufactures the
+    // missing dwell: spawner.js holds lock-bait clusters just above the lock
+    // floor (gap 1) and a fraction of echelon members at readable depth
+    // (gap 2). A holdDepth below FIRE_DEPTH_MIN never fires during the hold,
+    // so a loitering target is a fair one.
+    holdDepth = null,
+    holdTime = 0,
+    holdWeaveAmp = 0,
+    holdWeaveRate = 1.0,
   }) {
     const spec = ENEMY_TYPES[type] ?? ENEMY_TYPES.fighter;
     this.id = nextEnemyId++;
@@ -665,6 +688,17 @@ export class Enemy {
     this.telegraphFrac = 0;
     this.aimX = 0;
     this.aimY = 0;
+
+    // Loiter runtime. `holdPhase` is 'in' (approaching the hold), 'hold'
+    // (frozen at holdDepth) or 'out' (resumed, or never-holds when holdDepth
+    // is null). A null holdDepth starts in 'out' so update() takes the plain
+    // single-segment path with no per-tick branch cost.
+    this.holdDepth = holdDepth;
+    this.holdTime = holdTime;
+    this.holdWeaveAmp = holdWeaveAmp;
+    this.holdWeaveRate = holdWeaveRate;
+    this.holdTimer = holdTime;
+    this.holdPhase = holdDepth != null ? 'in' : 'out';
 
     const rear = pattern === 'overtake';
     const aspect = rear ? 'rear' : 'headOn';
@@ -751,7 +785,34 @@ export class Enemy {
     // footage with the throttle at M throughout, including this file's own
     // 4-6 s approach. A multiplier whose middle value is not exactly 1
     // re-bases all of them at once and no test would notice.
-    this.d *= Math.exp(this.depthRate * closureScale * dt);
+    // Depth advance, with the optional LOITER (R13, see constructor). In 'in'
+    // and 'out' the depth decays geometrically exactly as before; 'hold'
+    // freezes it at holdDepth. The hold clock runs on the SAME closureScale as
+    // the depth, so the throttle shortens the dwell by the same factor it
+    // shortens the approach — the loiter is a fixed amount of DEPTH-TRAVEL
+    // worth of time, not an absolute wall-clock pause that the throttle could
+    // desync from the rest of the flight.
+    if (this.holdPhase === 'hold') {
+      this.holdTimer -= dt * closureScale;
+      if (this.holdTimer <= 0) this.holdPhase = 'out';
+    } else {
+      const dNext = this.d * Math.exp(this.depthRate * closureScale * dt);
+      if (this.holdPhase === 'in') {
+        // depthRate < 0 for approaches (descending in depth); >= holdDepth
+        // means "not yet reached it". Snap exactly to holdDepth on the tick we
+        // would cross it so the frozen size is deterministic.
+        const reached = this.depthRate < 0 ? dNext <= this.holdDepth : dNext >= this.holdDepth;
+        if (reached) {
+          this.d = this.holdDepth;
+          this.holdPhase = 'hold';
+          this.holdTimer = this.holdTime;
+        } else {
+          this.d = dNext;
+        }
+      } else {
+        this.d = dNext;
+      }
+    }
 
     // Screen path, advanced by SIZE (1/d), not by time — see the header.
     const q = THREE.MathUtils.clamp((1 / this.d - this.invA) / this.invSpan, 0, 1);
@@ -763,6 +824,15 @@ export class Enemy {
       const w = Math.sin(this.age * this.weaveRate + this.weavePhase) * this.weaveAmp * q;
       nx += w;
       ny += w * 0.25;
+    }
+    // Loiter drift. While HOLDING, q is frozen, so the q-scaled weave above is
+    // frozen too; this adds a full-amplitude lateral sway that is visible at
+    // distance and makes the dwelling target TRACKABLE — a sweeping sight that
+    // follows it keeps it in the lock cone, a parked sight only clips it. That
+    // relative motion is the skill the lock is meant to price (lockSystem.js's
+    // blind-vs-aiming note).
+    if (this.holdPhase === 'hold' && this.holdWeaveAmp > 0) {
+      nx += Math.sin(this.age * this.holdWeaveRate + this.weavePhase) * this.holdWeaveAmp;
     }
     this.ndc.x = nx;
     this.ndc.y = ny;
