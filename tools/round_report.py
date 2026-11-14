@@ -23,70 +23,75 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 ROUND = {
     "number": 12,
     "date": "2026-11-14",
-    "status": "BUILD IN PROGRESS",          # or "CLOSED"
-    "score": "—",                            # judge score once the round closes
+    "status": "CLOSED",                      # or "BUILD IN PROGRESS"
+    "score": "8.0 / 10",                     # judge score once the round closes
     "last_score": "8 / 10 (R11)",
     "tldr": (
-        "Eleven rounds measured this game to four decimal places while it quietly "
-        "played itself. R12 throws that out: the round now opens by <em>looking</em> at "
-        "ours beside the arcade and by an agent actually <em>playing</em> it. The first "
-        "playthrough found the headline in one sitting — the missile never fires, the "
-        "gun kills without you, and nothing you do has any stakes. Three lanes are "
-        "fixing it now."
+        "The method changed: the round opens by <em>looking</em> at ours beside the arcade "
+        "and by an agent <em>playing</em> it, not by measuring constants to four decimals. "
+        "R12 shipped two whole missing systems — <em>land</em> under stage 1 and real "
+        "<em>stakes</em> (a game-over) — plus roll-drama, a visible tracer, and gun fire that "
+        "now lands at the sight. It holds at 8.0: more After Burner than before, but the "
+        "missile is reachable and still not <em>usable</em>, and the sky still goes quiet."
     ),
     "verdict": (
-        "“When I slam the stick the world rolls hard and the desert sunset looks the "
-        "business — for stretches this really is After Burner. But my missiles might as "
-        "well not be on the plane, most of my gun kills happened <em>to</em> me, and when I "
-        "lost my last life the game quietly handed me a fresh set — so nothing I do "
-        "feels like it matters.”"
+        "“More After Burner than R11 — carrier launch, a swinging horizon, islands, a "
+        "visible tracer, gun kills at the sight, a real game-over — but I still can’t use "
+        "my missiles, planes still die on my wingtip, and the sky still goes dead.”"
     ),
-    "verdict_attr": "R12 agent playtest · 90 turns · 3 sim-minutes · no human in the loop",
+    "verdict_attr": "R12 fresh-context judge · composite 8.0 (motion 7.5 · stills 8.5)",
     # Side-by-side hero pairs (already composited OURS | ARCADE).
     "pairs": [
-        ("judging/R12/gestalt/pair2-island.png",
-         "Stage 1 has no land",
-         "The arcade flies you past island coastlines — vegetation, rock, surf. Ours is open sea the whole stage."),
+        ("judging/R12/world/islands-ours-vs-arcade.png",
+         "Stage 1 now has land",
+         "Shipped this round: islands with vegetation, rock crags and a surf band scroll past, where before it was open sea the whole stage."),
         ("judging/R12/gestalt/pair4-climax.png",
-         "Climaxes are small",
-         "An arcade kill fills half the screen over a burning island; ours is a cotton puff over flat water."),
+         "Climaxes are still small",
+         "An arcade kill fills half the screen over a burning island; ours is a cotton puff over the water. Open for R13."),
         ("judging/R12/gestalt/pair5-title.png",
          "The title is close, the letterforms aren’t",
-         "Structure, plate and accent colours match; the brush-angular wordmark and tall plate don’t."),
+         "Structure, plate and accent colours match; the brush-angular wordmark and tall plate don’t. Open for R13."),
     ],
-    # Ranked gaps. kind drives the colour chip.
+    # What shipped and held up under the judge's re-measure.
+    "shipped": [
+        "Missile LOCK is reachable — the geometry bug is fixed (band was above the sight’s cone)",
+        "Gun kills resolve at the sight (p90 14.6 → ~10 %W), not at the wingtip",
+        "Tracer is a visible bright column, not a few faint dots",
+        "Stage 1 has islands, crags and surf; cloud banks grew",
+        "Real stakes — a proper GAME OVER instead of a silent life refill",
+        "Attract mode banks hard (horizon swings ±60°) instead of cruising level",
+    ],
+    # Ranked gaps for NEXT round. kind drives the colour chip.
+    "gaps_label": "Next — R13",
     "gaps": [
-        (1, "bug", "The missile is unreachable by a player",
-         "Zero locks in 3 minutes of play — and zero when the TL tried deliberately, sight on a "
-         "6-enemy cluster, button held 250 ticks. The scripted demo fires salvos, so it’s a live-input "
-         "bug, not tuning. Half of AB2’s verbs are missing as played."),
-        (2, "feel", "Kills happen to you, not by you",
-         "Aiming your best gets 11 kills; doing nothing gets 8. The gun resolves its hits at the muzzle, "
-         "not at the sight, and the tracer is too thin to see — so the trigger feels disconnected from the kill."),
-        (3, "tension", "The sight is caged near the nose",
-         "Mid-screen targets can’t be aimed at without banking the whole plane. But R11 verified this "
-         "envelope matches the arcade — so the fix is gunnery (gap 2), not a wider sight. Do not uncage it."),
-        (4, "missing", "Stage 1 has no land",
-         "Island coastlines, crags and surf scroll past in the arcade; ours is uniform sea. Ranked last for "
-         "six rounds because no scalar complained — the loudest thing a returning player notices."),
-        (5, "missing", "The game has no stakes",
-         "Score climbs from the first tick with zero hits, and running out of lives silently refills to three. "
-         "No game-over, no sting — nothing you do, good or bad, lands."),
-        (6, "feel", "Nothing drives the camera",
-         "The renderer rolls hard on a stick-slam — genuinely dramatic — but cruising and the attract "
-         "pilot never use it, so the baseline reads level where the arcade’s horizon swings wildly."),
+        (1, "feel", "Missiles are reachable but not usable",
+         "The lock can form now, but only by climbing to the horizon band and sitting there — which gets you "
+         "shot. The judge got one lock in 45 turns and never fired a salvo in real play. Route enemies through "
+         "the lock band (or widen the strip) so a lock happens from normal posture — not a wider sight."),
+        (2, "feel", "Kills still happen to you — no gunnery window",
+         "The gun now kills at the sight, but enemies pop from horizon-dot to wingtip with no stretch at a "
+         "shootable mid-range depth. Give enemies time at a depth the player can actually aim at."),
+        (3, "missing", "The sky still goes dead",
+         "Confirmed multi-second stretches with zero enemies, and no large-scale flyby — an enemy crossing the "
+         "screen at size, the way the arcade’s do every second or two. Population and choreography, not size."),
+        (4, "feel", "The jet doesn’t breathe fire",
+         "The arcade trails big orange afterburner cones — the game’s name. Ours has black nozzle rings with "
+         "small dots. Carried from the gestalt pass."),
+        (5, "polish", "Climaxes and the title",
+         "Kill fireballs read small next to the arcade’s half-screen blasts; the title wordmark is hand-rounded "
+         "where the arcade’s is brush-angular. Lower priority than the combat feel."),
     ],
     # What not to break.
     "keep": [
-        "Stick-slam barrel roll and held bank are genuinely dramatic",
-        "Death starburst → tumble → READY reads arcade-true",
-        "Stage 2 sunset desert composition is excellent",
-        "Deaths felt fair — the hit was always on screen",
+        "Missile lock + salvo mechanism works (don’t regress the geometry fix)",
+        "Gun kills at the sight; blind-pilot gain is protected",
+        "Islands, the game-over path, and the ±60° attract drama",
+        "Death starburst → tumble → READY; stage 2 sunset composition",
     ],
     "method_note": (
-        "Method change this round: absence outranks error outranks imprecision; perceptual "
-        "tolerance bands close questions for good; the standing playtest is an agent with hands "
-        "on the stick, not a human we wait on. Full write-up in judging/R12/method-retrospective.md."
+        "R12 was the method’s first full turn: look first, play it (an agent, no human waited on), ship "
+        "missing systems before tuning constants, and let the judge re-measure every claim — which caught "
+        "the missile being reachable-not-usable and an over-stated TL commit. Full history in judging/R12/."
     ),
 }
 
@@ -132,6 +137,16 @@ def build():
     )
 
     keep_html = "".join(f"<li>{esc(k)}</li>" for k in r["keep"])
+
+    shipped = r.get("shipped")
+    shipped_html = ""
+    if shipped:
+        items = "".join(f"<li>{esc(s)}</li>" for s in shipped)
+        shipped_html = f'''  <section>
+    <div class="sec-head"><h2>Shipped this round</h2><span class="count">held up under the judge’s re-measure</span></div>
+    <ul class="shipped">{items}</ul>
+  </section>'''
+    gaps_label = r.get("gaps_label", "The gaps")
 
     return f"""<title>After Burner Round {r['number']}</title>
 <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -246,6 +261,14 @@ def build():
   .gap-body strong {{ font-size: 16px; }}
   .gap-body p {{ margin: 5px 0 0; color: var(--muted); font-size: 14.5px; }}
 
+  .shipped {{ list-style: none; margin: 0; padding: 0; display: grid; gap: 8px;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); }}
+  .shipped li {{ padding: 13px 15px 13px 38px; position: relative; background: var(--surface);
+    border: 1px solid var(--line); border-left: 3px solid var(--cyan); border-radius: 8px;
+    font-size: 14.5px; box-shadow: var(--shadow); }}
+  .shipped li::before {{ content: "✓"; position: absolute; left: 14px; top: 12px; color: var(--cyan);
+    font-weight: 700; }}
+
   .keep {{ list-style: none; margin: 0; padding: 0; display: grid; gap: 8px;
     grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); }}
   .keep li {{ padding: 12px 14px 12px 32px; position: relative; background: var(--surface-2);
@@ -286,8 +309,10 @@ def build():
     </div>
   </section>
 
+{shipped_html}
+
   <section>
-    <div class="sec-head"><h2>The gaps</h2><span class="count">ranked by what breaks the illusion</span></div>
+    <div class="sec-head"><h2>{esc(gaps_label)}</h2><span class="count">ranked by what breaks the illusion</span></div>
     <ol class="gaps">
 {gaps_html}
     </ol>

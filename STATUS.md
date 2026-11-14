@@ -1,75 +1,63 @@
 # STATUS — where the rebuild stands
 
-**Last updated**: 2026-11-14. **R12 is open, and it opens with a method change.**
-Read `judging/R12/method-retrospective.md` — eleven rounds plateaued at ~8/10 while the
-owner's play verdict was "it's very bad". The loop is now **"look first, measure second"**
-(CLAUDE.md, "How work happens here"). The full historical STATUS — every ledger box,
-withdrawal and binding rule through R11 — is archived verbatim at
-`judging/archive/STATUS-through-R11.md`. It is reference material, not required reading.
+**Last updated**: 2026-11-15. **R12 CLOSED at 8.0; R13 is open.** The loop is
+**"look first, measure second"** (CLAUDE.md, "How work happens here"; rationale in
+`judging/R12/method-retrospective.md`). Every round ships an HTML report
+(`judging/R<n>/report.html`, `python3 tools/round_report.py`) published as an Artifact.
+Pre-R12 STATUS is archived verbatim at `judging/archive/STATUS-through-R11.md` — reference
+material, not required reading. Repo: github.com/UriZ/after-burner-web.
 
 ## Current state
 
-- **Last completed verdict**: R11, **8/10** (motion 7.5, stills 8.5) — `judging/R11/judge-report.md`.
-  Tree judged `fd833f6`; everything since is committed, `src/` is clean.
-- **Score trend**: R1 3 → R5 7.5 → R8 8.5 → R9 7 (trend line retired) → R10 7.5 → R11 8.
-  Net +0.5 in six rounds — the plateau that triggered the method change.
+- **R12 verdict**: **8.0** (motion 7.5, stills 8.5) — `judging/R12/judge-report.md`. Flat on
+  R11's number but a *different* 8: two missing systems shipped, rank-1 only partially closed.
+- **Score trend**: R1 3 → R5 7.5 → R8 8.5 → R9 7 → R10 7.5 → R11 8 → **R12 8.0**.
+- **R12 shipped (judge-confirmed)**: stage-1 **land** (islands/crags/surf), real **stakes**
+  (GAME OVER, no silent refill), attract **roll-drama** (±60°), a visible **tracer**, gun
+  kills **at the sight** (p90 14.6→~10 %W), and the missile **lock geometry bug fixed** —
+  a lock is now *reachable*.
+- **R12's honest miss**: the missile is reachable but **not usable in normal play** — the
+  judge got 1 lock in 45 turns and never fired a salvo (reaching the band means climbing to
+  the horizon and getting shot). The TL's "works for a player" commit overstated it.
 - **What works end to end**: title → flight → combat → death/respawn → tally → stage 1/2/3
-  progression → continue → restart. Throttle, barrel roll, formations, lock/missiles/vulcan,
-  synthesized audio + FM music all exist and run.
-- **The build has 3 of the arcade's 23 stages, no resupply/bonus pass, limited enemy
-  variety.** Under the new method, absent systems outrank constant tuning.
+  → GAME OVER / continue → restart. Throttle, barrel roll, formations, lock/missiles/vulcan,
+  synthesized audio + FM music all run.
+- **Still absent**: 3 of 23 stages, no resupply/bonus pass, limited enemy variety. Absence
+  outranks constant tuning.
 
-## R12 gap list — gestalt pass + agent playtest, merged
+## R13 gap list — from the R12 judge's close-look (`judging/R12/judge-report.md`)
 
-Two instruments ran: the side-by-side look (`judging/R12/gestalt-review.md`, sheets in
-`gestalt/`) and the **agent playtest** (`judging/R12/playtest-verdict.md`, 90 turns /
-3.03 sim-min / seeds 7+11, evidence in `playtest-evidence/`). The playtest reordered the
-list: **playing surfaced two things stills and six rounds of probes missed** — the missile
-is unreachable by a player, and the game has no stakes. Ranked by what most breaks the
-"is this After Burner II?" experience:
+The R12 judge looked and re-measured; its forward list seeds R13. An R13 playtest on the
+new build confirms/refines before lanes lock. The theme is **combat FEEL and population** —
+the systems now exist; they don't yet behave like the arcade in play. Ranked:
 
-1. **THE MISSILE IS UNREACHABLE BY A PLAYER — likely a real bug, not un-tuning.** The
-   playtest agent got **zero locks in 3 minutes**; the TL then tried deliberately (dive the
-   sight onto a 6-enemy cluster at 26 %W span, missile held ~250 ticks) and still got
-   **locks 0, stock frozen at 50, zero missiles fired.** The scripted `demo=2` fires salvos,
-   so the mechanism exists — but the live lockable window (within `LOCK_RADIUS_FRAC` 0.083 of
-   the aim point AND in depth band [26,88] for `LOCK_ACQUIRE_S` 0.22 s) is essentially never
-   hit under a caged sight. Half of AB2's verbs (lock, salvo, smoke trails) are absent as
-   played. **Combat lane: diagnose why acquisition never fires in live play before any
-   tuning.** (`playtest-evidence/seed11ctrl-t20-missile-dead-final.png`)
-2. **KILLS HAPPEN TO THE PLAYER, NOT BY THE PLAYER** (R11 rank 1, confirmed from the
-   cockpit). Enemies jump horizon-dot → wingtip with no mid-range gunnery window; the vulcan
-   tracer is a few faint dots so trigger→fireball causality is invisible. Aiming control
-   (seed 11, 60 s each): **best-effort 11 kills / stick-centered-fire-held 8 kills** — aiming
-   roughly halved deaths but no-input still collects ~73 % of the kills. Two fixes, both
-   measured as owed: (a) `vulcan.js` ramps unassisted rounds to depth 55 so they resolve at
-   the muzzle — fix *where along the path* a kill resolves (R11 §2.1); (b) fatten the tracer
-   so the player can see they are shooting.
-3. **THE SIGHT IS CAGED TO ±0.2 SCREEN around the nose** — mid-screen targets cannot be
-   aimed at without banking the whole plane. **TENSION, resolve carefully:** R11 verified the
-   ±9.85 %W envelope MATCHES the arcade, so "uncage it" moves AWAY from the arcade. The felt
-   problem is really gap 2 — if mid-range gunnery worked, the caged sight would read as
-   arcade-authentic, not as a limitation. Do NOT widen `ENVELOPE_X` without re-checking the
-   arcade. (gestalt gap had this as the roll-nobody-drives; playtest sharpened it.)
-4. **STAGE 1 HAS NO LAND.** Arcade flies past island coastlines (vegetation, rock crags,
-   surf, a floating rock); ours is uniform open sea. Missing system, rank 11-of-11 in R5,
-   unbuilt six rounds. (`gestalt/pair2-island.png`)
-5. **NO STAKES.** Score climbs from tick 0 with zero hits, and running out of lives silently
-   refills to 3 — no game-over. The death cycle (~7 s) runs long vs arcade (~4 s), and
-   stage 1→2 is a single-frame full-palette hard cut. Nothing the player does feels like it
-   matters. (Flow lane.)
-6. **NOTHING DRAMATIC DRIVES THE CAMERA in ordinary play.** The renderer rolls hard on a
-   stick-slam (playtest confirms it's genuinely dramatic) — but cruising and the scripted
-   pilots never use it, so the baseline reads near-level where the arcade's horizon swings
-   wildly. Drive the roll/vertical envelope in demo + pacing.
-7. **DEAD-SKY LULLS** of 10+ s with no enemies, vs the arcade's something-crossing-every-
-   second. Enemies also never fly past at large scale (the flyby EVENT is missing —
-   choreography, not the already-correct size distribution). Title letterforms + plate
-   aspect are a small, separate item (`gestalt/pair5-title.png`).
+1. **MISSILES ARE REACHABLE BUT NOT USABLE.** The lock geometry bug is fixed, but a lock
+   only forms by climbing to the horizon band and sitting there — which gets you shot (judge:
+   1 lock in 45 turns, 0 salvos in real play). **Fix: route enemies through the lock band, or
+   widen the lock strip, so a lock happens from NORMAL posture.** NOT `ENVELOPE_X` (arcade-
+   closed at ±9.85 %W). This is spawner/lock work. (Combat/spawner lane.)
+2. **KILLS STILL HAPPEN TO YOU — no mid-range gunnery window.** The gun now kills at the
+   sight, but enemies pop horizon-dot → wingtip with no stretch at a shootable depth. **Give
+   enemies dwell time at a mid-range depth the player can aim at.** (Combat/spawner lane.)
+3. **THE SKY STILL GOES DEAD.** Confirmed multi-second zero-enemy stretches, and no
+   large-scale flyby — an enemy crossing the screen at size the way the arcade's do every
+   second or two. Population + choreography, not the (correct) size distribution. (Spawner.)
+4. **THE JET DOESN'T BREATHE FIRE.** Arcade trails big orange afterburner cones (the game's
+   name); ours has black nozzle rings with small dots. Carried from the gestalt pass.
+   (Player-art lane.)
+5. **CLIMAXES AND TITLE (polish).** Kill fireballs read small vs the arcade's half-screen
+   blasts; the title wordmark is hand-rounded where the arcade's is brush-angular. Lower
+   priority than combat feel.
 
-**Kept as positives (do not regress):** stick-slam barrel roll and sustained bank are
-dramatic; death starburst→tumble→READY reads arcade-true; stage 2 sunset desert composition
-is excellent; deaths felt fair.
+**Kept as positives (do not regress):** the missile lock+salvo mechanism and its geometry
+fix; gun kills at the sight with the blind-pilot gain protected; islands/game-over/±60°
+attract drama; death starburst→tumble→READY; stage 2 sunset composition.
+
+**Carried interfaces from R12** (`judging/R12/flow-asks.md`): a `gameOver` SFX (audio lane),
+and a stage-transition cross-fade on sky/ground `setStage` (world lane) to soften the 1→2
+hard cut. **Judge caveat**: the combat p-gate means `demo=2` yields fewer gun explosions by
+design — use `?combatexpl=1` for explosion captures and an *aiming* pilot (or play) for
+combat gestalt, or combat activity under-reads.
 
 ## Hard warnings that stay load-bearing
 
