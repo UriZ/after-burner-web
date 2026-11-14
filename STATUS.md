@@ -19,34 +19,57 @@ withdrawal and binding rule through R11 — is archived verbatim at
 - **The build has 3 of the arcade's 23 stages, no resupply/bonus pass, limited enemy
   variety.** Under the new method, absent systems outrank constant tuning.
 
-## R12 gap list — from the first gestalt pass (`judging/R12/gestalt-review.md`)
+## R12 gap list — gestalt pass + agent playtest, merged
 
-The side-by-side look is done; evidence sheets in `judging/R12/gestalt/`. **Owner playtest
-still owed and outranks this list.** Ranked by what breaks the illusion at one glance:
+Two instruments ran: the side-by-side look (`judging/R12/gestalt-review.md`, sheets in
+`gestalt/`) and the **agent playtest** (`judging/R12/playtest-verdict.md`, 90 turns /
+3.03 sim-min / seeds 7+11, evidence in `playtest-evidence/`). The playtest reordered the
+list: **playing surfaced two things stills and six rounds of probes missed** — the missile
+is unreachable by a player, and the game has no stakes. Ranked by what most breaks the
+"is this After Burner II?" experience:
 
-1. **Stage 1 has no land.** The arcade flies past island coastlines (vegetation, rock
-   crags, surf, a floating rock); ours is uniform open sea. Missing system, unbuilt since
-   it was rank 11 of 11 in R5. (`pair2-island.png`)
-2. **Nothing dramatic ever happens to the camera.** All 24 of our flight frames across two
-   modes: near-level horizon at the same height. The arcade rolls past 60° and the horizon
-   height swings wildly inside one 30 s span. The renderer has the roll; nothing drives it.
-3. **The gun does not need the player** (R11 rank 1, owner's complaint; invisible in
-   stills). Blind share 91 %. NOT a cone problem — fix `vulcan.js`'s round depth path so
-   kills resolve inside the sight's ±9.85 %W reach (today p90 14.6 %W).
-4. **The sky has no furniture, climaxes are small.** Arcade clouds are screen-filling
-   banks; its kill fireballs fill half the frame. Ours: cotton puffs, local events.
-5. **The jet doesn't breathe fire.** Arcade nozzles trail big orange flame cones (the
-   game's name); ours are black rings with dots. Plus the heavy red outline reads toy-like.
-6. **Enemies never fly past your face.** Even quiet arcade frames hold a ~25 %W enemy
-   banking away with streaks; ours stay bracket-dot sized. The flyby EVENT is missing —
-   choreography, not the (already-correct) size distribution.
-7. **Title letterforms** are hand-wobbly vs the brush-angular arcade wordmark; plate
-   aspect square vs tall. First screen anyone sees. (`pair5-title.png`)
+1. **THE MISSILE IS UNREACHABLE BY A PLAYER — likely a real bug, not un-tuning.** The
+   playtest agent got **zero locks in 3 minutes**; the TL then tried deliberately (dive the
+   sight onto a 6-enemy cluster at 26 %W span, missile held ~250 ticks) and still got
+   **locks 0, stock frozen at 50, zero missiles fired.** The scripted `demo=2` fires salvos,
+   so the mechanism exists — but the live lockable window (within `LOCK_RADIUS_FRAC` 0.083 of
+   the aim point AND in depth band [26,88] for `LOCK_ACQUIRE_S` 0.22 s) is essentially never
+   hit under a caged sight. Half of AB2's verbs (lock, salvo, smoke trails) are absent as
+   played. **Combat lane: diagnose why acquisition never fires in live play before any
+   tuning.** (`playtest-evidence/seed11ctrl-t20-missile-dead-final.png`)
+2. **KILLS HAPPEN TO THE PLAYER, NOT BY THE PLAYER** (R11 rank 1, confirmed from the
+   cockpit). Enemies jump horizon-dot → wingtip with no mid-range gunnery window; the vulcan
+   tracer is a few faint dots so trigger→fireball causality is invisible. Aiming control
+   (seed 11, 60 s each): **best-effort 11 kills / stick-centered-fire-held 8 kills** — aiming
+   roughly halved deaths but no-input still collects ~73 % of the kills. Two fixes, both
+   measured as owed: (a) `vulcan.js` ramps unassisted rounds to depth 55 so they resolve at
+   the muzzle — fix *where along the path* a kill resolves (R11 §2.1); (b) fatten the tracer
+   so the player can see they are shooting.
+3. **THE SIGHT IS CAGED TO ±0.2 SCREEN around the nose** — mid-screen targets cannot be
+   aimed at without banking the whole plane. **TENSION, resolve carefully:** R11 verified the
+   ±9.85 %W envelope MATCHES the arcade, so "uncage it" moves AWAY from the arcade. The felt
+   problem is really gap 2 — if mid-range gunnery worked, the caged sight would read as
+   arcade-authentic, not as a limitation. Do NOT widen `ENVELOPE_X` without re-checking the
+   arcade. (gestalt gap had this as the roll-nobody-drives; playtest sharpened it.)
+4. **STAGE 1 HAS NO LAND.** Arcade flies past island coastlines (vegetation, rock crags,
+   surf, a floating rock); ours is uniform open sea. Missing system, rank 11-of-11 in R5,
+   unbuilt six rounds. (`gestalt/pair2-island.png`)
+5. **NO STAKES.** Score climbs from tick 0 with zero hits, and running out of lives silently
+   refills to 3 — no game-over. The death cycle (~7 s) runs long vs arcade (~4 s), and
+   stage 1→2 is a single-frame full-palette hard cut. Nothing the player does feels like it
+   matters. (Flow lane.)
+6. **NOTHING DRAMATIC DRIVES THE CAMERA in ordinary play.** The renderer rolls hard on a
+   stick-slam (playtest confirms it's genuinely dramatic) — but cruising and the scripted
+   pilots never use it, so the baseline reads near-level where the arcade's horizon swings
+   wildly. Drive the roll/vertical envelope in demo + pacing.
+7. **DEAD-SKY LULLS** of 10+ s with no enemies, vs the arcade's something-crossing-every-
+   second. Enemies also never fly past at large scale (the flyby EVENT is missing —
+   choreography, not the already-correct size distribution). Title letterforms + plate
+   aspect are a small, separate item (`gestalt/pair5-title.png`).
 
-Carried, serving the above: the missile (untouched since R10; launch→impact needs the
-no-gun-fire longplay window), the lock radius (PROTOTYPE-ADOPTED, boundable from R10's
-blind detector), attract stationary runs (6.7 s vs ~0.08 s), the vertical axis (no arcade
-column; two frames show the arcade sight BELOW the airframe).
+**Kept as positives (do not regress):** stick-slam barrel roll and sustained bank are
+dramatic; death starburst→tumble→READY reads arcade-true; stage 2 sunset desert composition
+is excellent; deaths felt fair.
 
 ## Hard warnings that stay load-bearing
 

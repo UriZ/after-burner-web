@@ -88,6 +88,20 @@ Write `judging/R<n>/playtest-verdict.md`:
 - State the instrument's limits in one line: no audio, ~1 s decision cadence, strips
   not video. A feel claim finer than your turn length is not yours to make.
 
+**Reading the telemetry correctly (known gotchas, not bugs):**
+- The `sight` line is the sight's SETTLED position at the END of the turn, not a linear
+  echo of your stick. A 60-tick turn lets the sight travel to its rail, so `--x 1` and
+  `--x 0.4` can both report ≈ the same rail value (±0.197 NDC lateral; the vertical rail
+  is wider). To see the sight MID-travel, use short turns (`--ticks 8`). Do not report a
+  rail reading as a "stick clamp bug".
+- The sight is CAGED near the nose by design (the R11-verified arcade envelope). Enemies
+  cluster at/below the horizon, away from the aim point — that geometry is the finding
+  (gaps 2–3), not an instrument fault. Use the `final` PNG to see where the orange aim
+  cross sits relative to the enemies; the number alone will mislead you.
+- Missile reality check: if `locks` stays 0 and `stock` never moves while you hold
+  `--missile 1` with enemies on screen, that is a REAL gameplay finding (R12 rank 1 bug),
+  not a harness failure — the strip/telemetry are faithfully reporting that no lock formed.
+
 ## Hard rules
 
 - **Session dirs are caller-unique** (capture.mjs's rule — shared paths are silent
