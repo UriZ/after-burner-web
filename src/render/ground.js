@@ -136,6 +136,20 @@ export function createGround(stage, horizonFrac) {
     uniform float uCrestFarDist;
     uniform float uDashRefDist;
     uniform float uDashLodMax;
+    // Stage-1 islands (R12 rank 4). Land masses that approach from the
+    // horizon and scroll past, built as a world-space field in the sea
+    // branch so they share the sea's scroll, perspective and haze. Inert
+    // on every other mode (uIslandEnable 0 by default).
+    uniform float uIslandEnable;
+    uniform float uIslandFreqX;
+    uniform float uIslandFreqZ;
+    uniform float uLandCut;
+    uniform float uSurfWidth;
+    uniform float uShoreWidth;
+    uniform float uRockPatchCut;
+    uniform float uLandDetailFreqX;
+    uniform float uLandDetailFreqZ;
+    uniform float uLandDetailAmp;
     uniform float uHazeSteps;
     uniform float uHazeFalloff;
     uniform float uHazeEnd;
@@ -518,6 +532,55 @@ export function createGround(stage, horizonFrac) {
       int idx = int(clamp(floor(t * 5.0), 0.0, 4.0));
       vec3 c = pal[0];
       for (int i = 0; i < 5; i++) { if (i == idx) c = pal[i]; }
+      return c;
+    }
+
+    // ---- Stage-1 island palettes (R12 rank 4) -----------------------
+    // MEASURED (approximate — see below) on the stage-1 island frames
+    // reference/stage1-lockon-island-t104.png and stage1-flight-bank-t112.png,
+    // each region's modal colours snapped to the arcade's enumerated 4-bit
+    // ladder. THESE ARE A BOUND, NOT A CERTIFIED READ: those frames are the
+    // 686x480 video upscale (the repo holds no true-native stage-1 island
+    // frame — ab2-arcade-desert.png is stage 2), so STATUS.md forbids a
+    // frac-below-threshold statistic off them. What survives the upscale is
+    // the hue/structure, and that is all these palettes commit to: the
+    // vegetation is pure saturated green (R and B pinned ~0, G stepping),
+    // the rock/crag is the brown/tan scrub ladder, and the per-pixel colour
+    // is settled by the shader's ladder snap downstream, not by these entries.
+    //
+    //   vegetation (t104 centre y[180,340] x[120,260]): #004200 / #005200 /
+    //     #006300 modal, #003100 / #002100 shadow, #006310 / #008410 /
+    //     #107321 highlight — H ~120deg, S ~1.0, V 0.26-0.4.
+    //   rock/crag  (t104 left  y[180,360] x[20,90]): #846331 / #947342 /
+    //     #a58452 / #b59463 bright, #735221 / #634210 / #523100 / #422100
+    //     dark — the same brown ladder stage 2's scrub uses.
+    //
+    // Dark-to-light; the land detail noise addresses them so the modal body
+    // sits mid-ramp with darker/lighter speckle, same construction as seaRamp.
+    vec3 vegRamp(float t) {
+      vec3 pal[6];
+      pal[0] = vec3(0.000, 0.129, 0.000); // #002100  deepest shadow
+      pal[1] = vec3(0.000, 0.192, 0.000); // #003100
+      pal[2] = vec3(0.000, 0.259, 0.000); // #004200  modal
+      pal[3] = vec3(0.000, 0.322, 0.000); // #005200  modal
+      pal[4] = vec3(0.000, 0.388, 0.063); // #006310
+      pal[5] = vec3(0.000, 0.518, 0.063); // #008410  sunlit canopy
+      int idx = int(clamp(floor(t * 6.0), 0.0, 5.0));
+      vec3 c = pal[0];
+      for (int i = 0; i < 6; i++) { if (i == idx) c = pal[i]; }
+      return c;
+    }
+    vec3 rockRamp(float t) {
+      vec3 pal[6];
+      pal[0] = vec3(0.259, 0.129, 0.000); // #422100  shadowed crag
+      pal[1] = vec3(0.322, 0.192, 0.000); // #523100
+      pal[2] = vec3(0.388, 0.259, 0.063); // #634210
+      pal[3] = vec3(0.451, 0.322, 0.129); // #735221
+      pal[4] = vec3(0.518, 0.388, 0.192); // #846331  lit rock
+      pal[5] = vec3(0.645, 0.518, 0.322); // #a58452  sunlit crag
+      int idx = int(clamp(floor(t * 6.0), 0.0, 5.0));
+      vec3 c = pal[0];
+      for (int i = 0; i < 6; i++) { if (i == idx) c = pal[i]; }
       return c;
     }
 
@@ -1107,6 +1170,58 @@ export function createGround(stage, horizonFrac) {
         if (capLift > 0.0) {
           groundColor = seaCap(capLift);
         }
+
+        // ---- ISLANDS (R12 rank 4) ---------------------------------------
+        // The arcade's stage 1 is not open sea: it flies past island
+        // coastlines — brown rock crags at the waterline, green vegetation
+        // inland, a bright surf band between them. Ours was uniform sea, the
+        // single loudest world gap (R5 rank 11, unbuilt six rounds).
+        //
+        // An island is a region of THIS SAME ground plane painted as land
+        // instead of water, so it scrolls with uScroll, takes the camera's
+        // perspective, fades into the horizon haze and snaps to the hardware
+        // ladder for free — exactly like the sea. A LOW-frequency blob field
+        // in world (x, z+scroll) decides where land is; because it is low
+        // frequency it stays far above Nyquist out to the haze and needs no
+        // special filtering (fbmLod's fade is a no-op at these cell sizes).
+        //
+        // Three concentric regions keyed to one field value "island":
+        //   island <  landCut - surfWidth : open sea (untouched)
+        //   in the surfWidth band below landCut : bright cyan-white surf
+        //   island >= landCut : land — brown rock at the shore and where the
+        //     detail noise is dark (crags), green vegetation inland.
+        // The surf band is the coastline the arcade reads as a white line.
+        if (uIslandEnable > 0.5) {
+          vec2 islandP = vec2(vWorldPos.x / uIslandFreqX,
+                              (vWorldPos.z + uScroll) / uIslandFreqZ);
+          float islandCpp = max(worldPerCol / uIslandFreqX, worldPerRow / uIslandFreqZ);
+          float island = fbmLod(islandP + vec2(307.0, 141.0), islandCpp);
+          float surfOuter = uLandCut - uSurfWidth;
+          if (island > surfOuter) {
+            // Land texture: a filtered mottle, same LOD discipline as the
+            // canopy stipple so it does not alias into radial smear at range.
+            vec2 ldP = vec2(vWorldPos.x / uLandDetailFreqX,
+                            (vWorldPos.z + uScroll) / uLandDetailFreqZ);
+            float ldCpp = max(worldPerCol / uLandDetailFreqX, worldPerRow / uLandDetailFreqZ);
+            float det = fbmLod(ldP + vec2(61.0, 9.0), ldCpp);
+            float dt = clamp(0.5 + (det - 0.47) * uLandDetailAmp, 0.0, 1.0);
+            if (island < uLandCut) {
+              // Surf — the bright cyan-white caps the sea already uses, so the
+              // waterline reads continuous with the foam offshore.
+              groundColor = mix(vec3(0.839, 0.969, 0.969),  // #d6f7f7
+                                vec3(0.969, 0.969, 0.969),  // #f7f7f7
+                                step(0.55, dt));
+            } else {
+              float inland = (island - uLandCut) / max(1.0 - uLandCut, 1e-3);
+              // Rock hugs the shore (inland < shoreWidth) AND erupts as crags
+              // wherever the detail noise is dark; green fills the rest.
+              float rockShore = 1.0 - smoothstep(0.0, uShoreWidth, inland);
+              float rockPatch = 1.0 - smoothstep(uRockPatchCut, uRockPatchCut + 0.08, det);
+              float rockMix = max(rockShore, rockPatch);
+              groundColor = mix(vegRamp(dt), rockRamp(dt), rockMix);
+            }
+          }
+        }
       }
 
       // R3 gap-4 fix. R2 used the ROLLED screen fraction (from the live
@@ -1357,6 +1472,18 @@ export function createGround(stage, horizonFrac) {
     // step. 0 = never grow the cell (the R6 behaviour beyond the reference
     // distance); 3 = hold the dash's screen size out to 8x the reference.
     dashLodMax: 0.0,
+    // Islands (R12 rank 4). All inert by default — only stage 1 (sea) turns
+    // uIslandEnable on, and only the sea branch reads any of these.
+    islandEnable: 0.0,
+    islandFreqX: 26.0,
+    islandFreqZ: 30.0,
+    landCut: 0.60,
+    surfWidth: 0.05,
+    shoreWidth: 0.12,
+    rockPatchCut: 0.30,
+    landDetailFreqX: 1.0,
+    landDetailFreqZ: 0.9,
+    landDetailAmp: 1.7,
     // 0 => the smooth haze ramp (stages 2 and 3 keep it; their haze is a
     // genuine gradient and their Criterion B figures already pass).
     hazeSteps: 0.0,
@@ -1466,6 +1593,16 @@ export function createGround(stage, horizonFrac) {
       uCrestFarDist: { value: p.crestFarDist },
       uDashRefDist: { value: p.dashRefDist },
       uDashLodMax: { value: p.dashLodMax },
+      uIslandEnable: { value: p.islandEnable },
+      uIslandFreqX: { value: p.islandFreqX },
+      uIslandFreqZ: { value: p.islandFreqZ },
+      uLandCut: { value: p.landCut },
+      uSurfWidth: { value: p.surfWidth },
+      uShoreWidth: { value: p.shoreWidth },
+      uRockPatchCut: { value: p.rockPatchCut },
+      uLandDetailFreqX: { value: p.landDetailFreqX },
+      uLandDetailFreqZ: { value: p.landDetailFreqZ },
+      uLandDetailAmp: { value: p.landDetailAmp },
       uHazeSteps: { value: p.hazeSteps },
       uHazeFalloff: { value: p.hazeFalloff },
       uHazeEnd: { value: p.hazeEnd },
@@ -1575,6 +1712,16 @@ export function createGround(stage, horizonFrac) {
       u.uCrestFarDist.value = q.crestFarDist;
       u.uDashRefDist.value = q.dashRefDist;
       u.uDashLodMax.value = q.dashLodMax;
+      u.uIslandEnable.value = q.islandEnable;
+      u.uIslandFreqX.value = q.islandFreqX;
+      u.uIslandFreqZ.value = q.islandFreqZ;
+      u.uLandCut.value = q.landCut;
+      u.uSurfWidth.value = q.surfWidth;
+      u.uShoreWidth.value = q.shoreWidth;
+      u.uRockPatchCut.value = q.rockPatchCut;
+      u.uLandDetailFreqX.value = q.landDetailFreqX;
+      u.uLandDetailFreqZ.value = q.landDetailFreqZ;
+      u.uLandDetailAmp.value = q.landDetailAmp;
       u.uHazeSteps.value = q.hazeSteps;
       u.uHazeFalloff.value = q.hazeFalloff;
       u.uHazeEnd.value = q.hazeEnd;

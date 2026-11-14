@@ -77,7 +77,16 @@ const FOV_DEG = 55;
 // (src/render/screen.js), so a cloud behind it cannot touch its legibility —
 // verified by capture, see the dev report's contrast check.
 const BANK_FRAC_LO = 0.09;
-const BANK_FRAC_HI = 0.42;
+// R12 rank 7. HI raised 0.42 -> 0.50 so a bank can sit LOW in the sky, just
+// above the horizon, and pass near/under the jet — the "fly past and under"
+// the gestalt pass asks for. This moves TOWARD the arcade, not away: R5's
+// own hand-classified banks have centres running to 33.8%H with five of the
+// eleven CUT by the classifier's 45%H window (so their true centres sit
+// lower still), and the climbout banks on stage1-climbout-t92.png are
+// bottom-anchored masses rising from below the frame. updateBankPositions
+// still clamps the centre to 0.56H so a big bank's base stays above the
+// 0.625H horizon and never dips into the sea.
+const BANK_FRAC_HI = 0.50;
 
 // World Y that projects to a target screenFrac at a given z (same closed
 // form as game.js's worldYForScreenFrac).
@@ -458,9 +467,20 @@ const BANK_ASPECT_HI = 1.29;
 // Low-probability large-bank tail: the measured spread is 7.6%W to 42.3%W
 // around a median of 18.7, so the distribution needs a tail that does NOT
 // move the typical bank.
-const BIG_BANK_CHANCE = 0.26;
-const BIG_BANK_MULT_LO = 1.40;
-const BIG_BANK_MULT_HI = 1.85;
+//
+// R12 rank 7 — the tail was too timid to ever reach the arcade's big banks.
+// The MEASURED max is 42.27%W / 42.08%H with five of eleven heights being
+// lower bounds, and the climbout banks on stage1-climbout-t92.png are the
+// screen-filling masses the gestalt pass names ("you fly past and under;
+// ours carries 1-3 small puffs"). BASE*2.3 = 30 world units reaches that
+// measured max on screen; BASE stays 13 so the TYPICAL bank and the median
+// are untouched. Chance 0.26 -> 0.30 is still a minority, so the median is
+// the base bank; only the p90/max of the distribution grow, and both stay
+// inside the arcade's own spread. A big bank is also biased LOW (see
+// placeBank) so it reads as a mass the jet passes under, as the climbout does.
+const BIG_BANK_CHANCE = 0.30;
+const BIG_BANK_MULT_LO = 1.6;
+const BIG_BANK_MULT_HI = 2.3;
 
 // Bursty-bank timing (R3 gap 8). A first attempt gave each slot its own
 // independent per-tick spawn roll with activity tied to the full ~7s world
@@ -536,6 +556,11 @@ export function createClouds(stage, camera, seed = 1) {
     let w = BANK_BASE + (rng() - 0.5) * 2 * BANK_JITTER;
     if (rng() < BIG_BANK_CHANCE) {
       w *= BIG_BANK_MULT_LO + rng() * (BIG_BANK_MULT_HI - BIG_BANK_MULT_LO);
+      // A big bank sits LOW (lower half of the band), so it reads as a mass
+      // the jet passes under — the climbout composition — rather than a
+      // giant puff floating in the top of the sky. The 0.56H clamp in
+      // updateBankPositions keeps its base above the horizon.
+      bank.baseFrac = Math.max(bank.baseFrac, (BANK_FRAC_LO + BANK_FRAC_HI) / 2 + rng() * (BANK_FRAC_HI - BANK_FRAC_LO) / 2);
     }
     const aspect = BANK_ASPECT_LO + rng() * (BANK_ASPECT_HI - BANK_ASPECT_LO);
     bank.sprite.scale.set(w, w / aspect, 1);

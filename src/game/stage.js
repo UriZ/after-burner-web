@@ -178,6 +178,44 @@ export const STAGE_1 = {
     hazeDither: 1.0,
     hazeFalloff: 0.0,
     hazeEnd: 0.63,
+
+    // ISLANDS (R12 rank 4). The arcade's stage 1 flies past island
+    // coastlines (reference/stage1-lockon-island-t104.png,
+    // stage1-flight-bank-t112.png, and the gestalt pair2/pair4 crops): brown
+    // rock crags at the waterline, green vegetation inland, a bright surf
+    // band between. Ours was uniform open sea. These paint land into the sea
+    // plane where a low-frequency world-space blob field says land is — see
+    // the ISLANDS block in render/ground.js.
+    //
+    // islandFreqX/Z set the blob scale: ~26-30 world units gives a lobe
+    // ~55-65 units across, which spans most of the near frame (visible
+    // half-width ~7.3 units at d=9.8, wider with depth) and reads as a
+    // coastal mass the jet flies past, not a speck. landCut 0.60 sits inside
+    // the fbm's ACTUAL range (~[0.25,0.72]; CLAUDE.md "percentile
+    // calibration on fbm noise") so land is the top ~18% of the field — open
+    // sea still dominates the stage, islands arrive in clusters. surfWidth is
+    // the island-value band below landCut painted as surf; shoreWidth the
+    // inland depth of the rock shore; rockPatchCut puts brown crags through
+    // the green wherever the land mottle is dark.
+    islandEnable: 1.0,
+    islandFreqX: 26.0,
+    islandFreqZ: 30.0,
+    // landCut 0.62 sits near the top of the fbm's actual range so open sea
+    // stays the dominant surface and islands arrive in clusters (the arcade
+    // opens on open water at the carrier launch, then runs an island belt).
+    landCut: 0.62,
+    // surfWidth 0.04 keeps the bright waterline a band, not a shoal: where a
+    // coast's field gradient is shallow a wider value-band would fill the
+    // near field with white.
+    surfWidth: 0.04,
+    // shoreWidth 0.15 + rockPatchCut 0.34 give the brown rocky crags the
+    // arcade's shores carry — rock hugs the waterline and erupts through the
+    // green where the land mottle is dark.
+    shoreWidth: 0.15,
+    rockPatchCut: 0.34,
+    landDetailFreqX: 1.0,
+    landDetailFreqZ: 0.9,
+    landDetailAmp: 1.7,
   },
 
   // Horizon haze band (R1 gap 8). MEASURED REFERENCE.md "Horizon", t116
