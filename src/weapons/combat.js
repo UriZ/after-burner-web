@@ -39,6 +39,10 @@ import { AudioBus } from '../audio/index.js';
 
 export const MISSILE_START_STOCK = 50;
 const SALVO_COOLDOWN_S = 0.4; // ADOPTED
+// R12: fraction of its muzzle->aim-point path a vulcan round must fly before
+// it can score. Pulls gun kills off the muzzle and up to the sight (R11 §2.1);
+// value set by the kill-vs-sight A/B in judging/R12/combat-lane.md.
+const VULCAN_MIN_HIT_P = 0.8;
 const LAUNCH_STAGGER_S = 0.05; // 6 missiles leave over ~0.3 s
 
 // The sight: GAME_SPEC.md §3's lock-display element 1, "the small dashed
@@ -249,6 +253,16 @@ export class Combat {
     // and the reach cap are not two independent fixes, they are two halves
     // of one.
     this.minKillSpan = gunTunable('minspan', READABLE_SPAN_FRAC);
+    // R12: the depth an UNASSISTED vulcan round ramps to. Shipped at the
+    // readable depth so unassisted kills resolve up at the sight (R11 §2.1);
+    // `?gun=reachdepth=55` recovers the pre-R12 muzzle-killing behaviour for
+    // the A/B that certifies the change.
+    this.vulcanReachDepth = gunTunable('reachdepth', this.readableDepth);
+    // R12: a vulcan round is inert until it has flown this fraction of its
+    // muzzle->aim-point path, so its kill resolves up at the sight the player
+    // aimed at rather than at the muzzle (R11 §2.1). Shipped on; set
+    // `?gun=hitminp=0` to recover the pre-R12 whole-stream behaviour.
+    this.vulcanMinHitP = gunTunable('hitminp', VULCAN_MIN_HIT_P);
     // Retained ONLY as isolation levers, so the R7-equivalent control can be
     // exact. Shipped wide open: the span gate above is the live mechanism and
     // two mechanisms for one concept is how `lockSystem.js` came to hold
@@ -816,12 +830,19 @@ export class Combat {
         aimAssist: this._on('enemies') ? this._aimAssist : null,
         sight: this.sight,
         onFire: (side) => AudioBus.play('vulcan', { side }),
+        // R12 (lockSystem/vulcan lane): an UNASSISTED round ramps its depth to
+        // the gun's readable reach instead of DEFAULT_TARGET_DEPTH = 55, so its
+        // kill resolves up at the sight the player aimed at rather than at the
+        // muzzle (R11 §2.1). `readableDepth` is derived from the live camera in
+        // the constructor; it is the same gate `minKillSpan` already enforces.
+        reachDepth: this.vulcanReachDepth,
       });
       this.vulcan.resolveHits(
         this.spawner.enemies,
         (e, dmg) => this._damage(e, dmg, 'vulcan'),
         this.vulcanReach,
-        this.minKillSpan
+        this.minKillSpan,
+        this.vulcanMinHitP
       );
     }
 
@@ -1294,6 +1315,13 @@ export class Combat {
         span: Number(enemy.spanFrac(this.space).toFixed(5)),
         ndcX: Number(enemy.ndc.x.toFixed(4)),
         ndcY: Number(enemy.ndc.y.toFixed(4)),
+        // R12: the sight's own position on the tick of the kill, so a probe
+        // can measure HOW FAR FROM THE SIGHT a kill resolved (R11 §2.1's
+        // median 5.8 %W / p90 14.6 %W, which the unassisted-depth change is
+        // meant to pull inside the sight's +-9.85 %W reach) without having to
+        // reconstruct the sight from playerNdc.
+        sightX: Number(this.sight.x.toFixed(4)),
+        sightY: Number(this.sight.y.toFixed(4)),
         pattern: enemy.pattern,
       });
     } else {

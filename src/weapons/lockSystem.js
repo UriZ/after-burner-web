@@ -188,18 +188,60 @@ const ARM_FRAC_TRACK = 2.5 / 16.5;
 // Measured from the sight, not from the jet: the sight IS the crosshair the
 // measurement refers to.
 const LOCK_RADIUS_FRAC = 0.083;
-// Lockable depth window. The NEAR end is a timing constraint, not a range
-// limit: a target closer than ~28 units is reached in under half a second,
-// below GAME_SPEC.md §3's measured 0.5-1.5 s launch->impact (the first
-// version gated at 20 and the probe measured a 0.28 s impact). The far end
-// is where an enemy is still a ~3 px dot, which is where the arcade's locks
-// visibly happen.
-const LOCK_DEPTH_MIN = 26;
+// Lockable depth window.
+//
+// R12 -- THE NEAR EDGE WAS UNREACHABLE BY A PLAYER AND IS BROUGHT DOWN TO
+// WHERE THE PLAYER ACTUALLY AIMS. This is the round's rank-1 bug, diagnosed
+// before it was tuned (judging/R12/combat-lane.md). The symptom three
+// reviewers hit -- the agent playtest's zero locks in 3 min, and the TL's
+// deliberate dive onto a 6-ship cluster -- is a geometry mismatch, not a
+// dead input: the live missile button reaches this accumulator fine (demo=2
+// locks and fires through exactly this path), but the window it has to hit
+// was empty at the posture a player flies.
+//
+// MEASURED (tools/_lock_diag probe, ?fixed=1 seed 7, 60 Hz): an enemy in the
+// OLD band [26,88] projects into a narrow horizon strip around ndcY 0.60-0.67
+// -- a 1-3 px dot near the vanishing point. The caged sight at its rest
+// posture sits at ndcY 0.30 (nose + SIGHT_NDC_Y_OFFSET), and the lock cone's
+// vertical reach is LOCK_RADIUS_FRAC / (0.5 * 224/320) = 0.237 NDC, i.e. it
+// tops out at ndcY 0.537 -- BELOW the near edge of the old band. So at the
+// posture a player holds while aiming at the big, close, dead-ahead threat
+// they instinctively point the missile at (depth < 15, which is itself below
+// 26 and never lockable), NOTHING in the band is inside the cone. Locks were
+// only reachable by pitching the nose to near-full climb to drag the sight up
+// into the horizon strip -- which the scripted demo weave happens to do and
+// no live playtester discovered. The player also got NO tracking bracket on
+// any target they aimed at, so nothing on screen told them a lock was even
+// possible.
+//
+// LOWERING THE NEAR EDGE TO 16 brings the lockable band down to enemies at
+// ndcY ~0.49-0.59 (depth 16-26), which a MILD climb reaches -- the sight at
+// ndcY 0.36 already covers ndcY 0.597 -- and which are visible growing dots a
+// player tracks rather than invisible horizon specks. The tracking bracket
+// now appears on those targets, giving the missing "hold the button here"
+// cue.
+//
+// THE FAR END is unchanged: it is where an enemy is still a small dot, which
+// is where the arcade's locks visibly happen, and demo=2's far locks still
+// resolve.
+//
+// THE NEAR EDGE IS STILL A TIMING CONSTRAINT, not only a reachability one,
+// and the floor it defends is GAME_SPEC.md §3's measured 0.5-1.5 s launch->
+// impact. It is held above LOCK_BREAK_DEPTH, and the break depth is set from
+// the missile speed profile: missiles.js launches at depth ~5 with
+// depth(t) = 5 + 7t + 14t^2, so a target at depth 13 is reached in 0.546 s
+// (>= the 0.5 s floor) and the approaching target is met even higher, sooner
+// never below it. Re-measured after the change: the min impact flight time
+// over the aim-pilot runs is reported in the lane report and stays >= 0.5 s.
+const LOCK_DEPTH_MIN = 16;
 const LOCK_DEPTH_MAX = 88;
 // A held lock breaks once its target has closed this far — see the drop
 // loop in update() for why this is a timing constraint as well as a
-// behavioural one.
-const LOCK_BREAK_DEPTH = 18;
+// behavioural one. R12: 18 -> 13, tracking LOCK_DEPTH_MIN down so a lock
+// acquired near the new near edge is not dropped on the next tick, while
+// keeping the solved impact time at the break depth (0.546 s) above the
+// measured 0.5 s floor.
+const LOCK_BREAK_DEPTH = 13;
 // Hysteresis: a challenger must be 0.85x the incumbent's range to steal the
 // tracking bracket (ADOPTED).
 const TRACK_HYSTERESIS = 0.85;

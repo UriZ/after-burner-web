@@ -70,8 +70,18 @@ const MUZZLE_NDC_Y = -0.035; // guns sit just under the fuselage line
 // NOT perspective scaling — the arcade draws its tracers at a near-constant
 // size all the way up the stream, and perspective would make the far end
 // sub-pixel.
-const PUFF_FRAC_NEAR = 0.0125; // 4.0 px of 320
-const PUFF_FRAC_FAR = 0.0095; // 3.0 px of 320
+// R12 -- FATTENED so the stream reads as a CONTINUOUS bright column rather
+// than "a few faint dots" (the playtest's words). The per-muzzle puff spacing
+// is ~8.9 native px (see TRAVEL_S), and at the shipped 3-4 px a puff spanned
+// less than half that gap, so the two interleaved muzzle columns rendered as
+// separated specks. The arcade stream is a dense overlapping column whose
+// convergence piles into one bright mass (reference/stage4-vulcan-stream-
+// t214.png); 5.1 px near the nose closes the gap between successive puffs so
+// the column is continuous, which is the gestalt the measurement of a single
+// puff (2.5-3.4 px native at t214) misses. The far end is kept smaller so the
+// stream still tapers toward its convergence rather than reading as a slab.
+const PUFF_FRAC_NEAR = 0.016; // 5.1 px of 320
+const PUFF_FRAC_FAR = 0.011; // 3.5 px of 320
 
 // Depth the stream reaches when nothing is aim-assisted. 55 units over
 // TRAVEL_S is 111 world units/s, which is the depth rate that matches the
@@ -215,7 +225,7 @@ export class Vulcan {
   // `onFire(side)` is called on the tick a round actually leaves a muzzle.
   // The cooldown gate is internal to this class, so a caller cannot otherwise
   // tell a held trigger from an actual shot (audio-dev's R4 request).
-  update(dt, { firing, playerNdc, aimAssist, sight, onFire }) {
+  update(dt, { firing, playerNdc, aimAssist, sight, onFire, reachDepth }) {
     // Clamped at zero, not allowed to run negative. The first version used
     // `cooldown += FIRE_INTERVAL_S` on an unclamped accumulator, so every
     // second of NOT firing banked a second of negative cooldown and the next
@@ -228,7 +238,7 @@ export class Vulcan {
     this.cooldown = Math.max(0, this.cooldown - dt);
     if (firing && this.cooldown <= 0) {
       this.cooldown = FIRE_INTERVAL_S;
-      this._fire(playerNdc, aimAssist, sight, onFire);
+      this._fire(playerNdc, aimAssist, sight, onFire, reachDepth);
     }
 
     for (let i = this.rounds.length - 1; i >= 0; i--) {
@@ -262,7 +272,10 @@ export class Vulcan {
 
   // `sight` is the screen aim point the stream converges on when nothing is
   // aim-assisted: { x, y } in NDC, supplied by the weapon manager.
-  _fire(playerNdc, aimAssist, sight, onFire) {
+  // `reachDepth` is the depth an UNASSISTED round ramps to — the gun's
+  // anti-close-range reach, see the targetDepth note below. Defaults to
+  // DEFAULT_TARGET_DEPTH so the solo harnesses behave as before.
+  _fire(playerNdc, aimAssist, sight, onFire, reachDepth = DEFAULT_TARGET_DEPTH) {
     const startNdcX = playerNdc.x + this.side * MUZZLE_NDC_X;
     const startNdcY = playerNdc.y + MUZZLE_NDC_Y;
     const side = this.side;
@@ -291,7 +304,33 @@ export class Vulcan {
     }
     const targetNdcX = (target ? target.ndcX : sight.x) + jx;
     const targetNdcY = (target ? target.ndcY : sight.y) + jy;
-    const targetDepth = target ? target.depth : DEFAULT_TARGET_DEPTH;
+    // R12 -- WHERE AN UNASSISTED ROUND RESOLVES ITS KILL, which R11 §2.1
+    // measured as "at the muzzle". The screen path and the depth were both
+    // ramped linearly in `p` to DEFAULT_TARGET_DEPTH = 55, so an unassisted
+    // round crossed the measured median gun-kill depth 6.17 at
+    // p = (6.17-5)/50 = 0.023 -- 2.3 % of the way from the nose to the sight,
+    // still at the muzzle -- and a motionless pilot's gun kills landed a
+    // median 5.8 %W and a p90 14.6 %W from the drawn sight, a p90 wider than
+    // the sight's whole +-9.85 %W reach.
+    //
+    // The cause is the depth endpoint, not the screen path: because the round
+    // swept all the way to depth 55, it passed through the shallow depths
+    // where close readable enemies actually sit while it was still a few
+    // pixels off the muzzle, and the depth-tolerance test let it kill them
+    // there. Ramping the UNASSISTED round's depth to `reachDepth` (the
+    // readable depth the gun is licensed to, ~7 on the shipped camera)
+    // instead keeps the round in the shallow band throughout its climb, so
+    // the only place it is near a readable enemy AND near that enemy on
+    // screen is up where the stream converges on the sight -- which is where
+    // the player aimed. The ASSISTED round is unchanged: it already ramps to
+    // the target's own depth and resolves at the sight.
+    //
+    // This does not change the puff RENDERING. sizeSprite draws each puff at
+    // a fixed SCREEN fraction (PUFF_FRAC_NEAR->FAR) via worldWidthFor, which
+    // divides out the depth, so the stream's on-screen size and path are
+    // governed by the NDC ramp and TRAVEL_S, not by this depth. What moves is
+    // the depth the round SORTS at and the depth its kill resolves at.
+    const targetDepth = target ? target.depth : reachDepth;
 
     const sprite = this._acquire(this.pool, vulcanTexture(), 12);
     this.scene.add(sprite);
@@ -332,10 +371,29 @@ export class Vulcan {
   // wingspan and the camera (combat.js `readableDepth`), neither of which is
   // this file's business. Defaulting to Infinity keeps the solo harnesses
   // that call this with two arguments behaving as before.
-  resolveHits(enemies, onHit, reachMax = Infinity, minSpanFrac = 0) {
+  resolveHits(enemies, onHit, reachMax = Infinity, minSpanFrac = 0, minHitP = 0) {
     const aspectY = 224 / 320; // NDC y -> width-fraction conversion
     for (let i = this.rounds.length - 1; i >= 0; i--) {
       const r = this.rounds[i];
+      // R12 -- THE KILL RESOLVES NEAR THE AIM POINT, NOT ALONG THE WHOLE
+      // STREAM. A round interpolates muzzle -> aim point over `p = age /
+      // TRAVEL_S`, so the first half of its life it is a few pixels off the
+      // nose, climbing. R11 §2.1 measured that a motionless pilot's gun kills
+      // land a median 5.8 %W / p90 14.6 %W from the drawn sight -- a p90
+      // wider than the sight's whole +-9.85 %W reach -- because the round was
+      // allowed to score anywhere on that climb, and the readable close
+      // enemies sit low on screen where the climb passes near the muzzle.
+      //
+      // `minHitP` makes a round inert until it has converged most of the way
+      // onto its aim point (the sight when unassisted, the assisted enemy
+      // otherwise), so the only place it kills is up where the stream meets
+      // the point the player aimed at. This is the judge's second candidate
+      // repair, and it only works together with the shallow unassisted
+      // `reachDepth` above: with the old ramp to 55 the round was at depth ~35
+      // by the time `p` cleared this gate and there is nothing readable that
+      // deep, so the gun would score nothing. Shallow depth + late `p` is one
+      // fix in two halves. Defaults to 0 so the solo harnesses are unchanged.
+      if (minHitP > 0 && r.age < minHitP * TRAVEL_S) continue;
       // THE REACH CAP. Before R8 this loop had no bound on the round's own
       // depth, and the R8 kill ledger shows what that cost directly rather
       // than by inference: at baseline the deepest vulcan kill in all nine

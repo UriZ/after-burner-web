@@ -36,6 +36,8 @@ const KNOWN = new Set([
   'assistpick', // 1 = pick the target nearest the SIGHT, 0 = nearest in DEPTH (pre-R8)
   'assistfromsight', // 1 = cone's dx from the sight, 0 = from the nose (pre-R8)
   'reach', // max depth at which a vulcan round may resolve a hit (pre-R8 form)
+  'reachdepth', // R12: depth an UNASSISTED round ramps to (shipped: readable depth; 55 = pre-R12)
+  'hitminp', // R12: fraction of its path a round must fly before it can score (0 = pre-R12)
   'minspan', // SHIPPED form: smallest projected span the gun may engage, frac of frame width
   'scatter', // per-round aim scatter, frame-width fractions (sigma-ish)
   'hitmult', // vulcan hit radius as a multiple of the target's own span

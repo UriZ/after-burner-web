@@ -46,15 +46,25 @@ const VULCAN_BODY = '#ffad19'; // sampled #ffad15
 const VULCAN_RIM = '#ff9c10'; // sampled #ff9f0c
 export const VULCAN_PALETTE = [VULCAN_RIM, VULCAN_BODY, VULCAN_CORE];
 
+// R12: the bright CORE is enlarged (12 -> 40 core texels) and the dim rim
+// pulled back to the corners. The playtest read the shipped puff as "a few
+// faint dots": at the 3-5 px it renders, the old 4x4-diamond core was ~1-2 px
+// of brightness buried in a two-ring orange surround, so each puff read as a
+// dim smudge rather than a hot tracer. The arcade's own puffs
+// (reference/stage4-vulcan-stream-t214.png) read as solid bright orange
+// blobs, not rings. Colours and the 3-value structure are unchanged; only how
+// much of the sprite each one covers moved, so the measured palette still
+// holds and the puff is simply hotter: a solid core, a one-texel body ring
+// and rim only at the four corners.
 const PUFF_ROWS = [
-  '..rrrr..',
-  '.rbbbbr.',
-  'rbbccbbr',
+  '.rbccbr.',
   'rbccccbr',
+  'bccccccb',
+  'cccccccc',
+  'cccccccc',
+  'bccccccb',
   'rbccccbr',
-  'rbbccbbr',
-  '.rbbbbr.',
-  '..rrrr..',
+  '.rbccbr.',
 ];
 
 function drawVulcanPuff(ctx, w, h) {
