@@ -87,6 +87,10 @@ SIDE-BY-SIDE LOOK (ours vs arcade, fixed scenarios) + AGENT PLAYTEST
   side-by-side look ("would a player mistake this for AB2?"), not on the audit.
 - **Before tuning to a criterion, check the criterion against the arcade itself** —
   acceptance criteria have been retired as wrong in every round that audited them.
+- **Every round ships an HTML report** — `python3 tools/round_report.py` (edit the `ROUND`
+  dict, re-run, publish the `judging/R<n>/report.html` as an Artifact). It is the tight,
+  one-glance artifact for the owner: TLDR, the ours-vs-arcade side-by-sides, the ranked
+  gaps. Keep it tighter than the markdown; the markdown files hold the evidence.
 - **Developers do not commit.** Work stays in the tree; the TL commits after verification.
   Never `git push` without explicit user approval.
 - **Never run `git stash` / `checkout .` / `reset` on this tree** while agents are active —
