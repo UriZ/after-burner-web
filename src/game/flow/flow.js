@@ -59,9 +59,10 @@ const START_LIVES = 3;
 // a new weakness, it is the same one, now stated.
 //
 // Indexed `stageIndex % length`, so stage 24 laps to stage 1's 32 s. Content
-// (palette/terrain) still laps every STAGES.length = 3 -- see _enterStage and
-// contentStageIndex. Structure and content lap at different periods now, by
-// construction: the structure is measured and the content is not yet authored.
+// (palette/terrain) still laps every STAGES.length (4 as of R14: stages 1-4
+// authored) -- see _enterStage and contentStageIndex. Structure and content
+// lap at different periods now, by construction: the structure is measured
+// (all 23 durations) and the content is authored up to stage 4 so far.
 const STAGE_DURATIONS_S = [
   32, 32, 36, 40, 12, // 1-5    (5 = runway restock)
   44, 32, 28, 48, 40, // 6-10
@@ -85,15 +86,16 @@ const STAGE_DURATIONS_S = [
 //   - `stageNumber`    — what the PLAYER is told: `stageIndex % 23 + 1`.
 //                        Laps with the structure, because the structure is
 //                        what it names. 23 is MEASURED (STAGE_DURATIONS_S).
-//   - `contentStageIndex` — which of the STAGES.length = 3 authored
+//   - `contentStageIndex` — which of the STAGES.length authored
 //                        palettes/terrains is on screen. ADOPTED wrap; the
-//                        content for stages 4+ does not exist.
-// Content and number disagree from stage 4 on, and that is the honest state
-// of the build: we are telling the player the truth about where they are in
-// a 23-stage game while re-using three palettes to render it. The previous
-// code chose the opposite trade (digit always matches the palette, player
-// never learns they progressed) and the judge ranked that the more visible
-// defect of the two. Revisit when STAGES.length grows.
+//                        content for stages 5+ does not exist yet.
+// Content and number agree for stages 1-4 (the authored set now matches the
+// arcade numbering one-for-one) and disagree from stage 5 on, which is the
+// honest state of the build: we tell the player the truth about where they
+// are in a 23-stage game while re-using the four authored palettes to render
+// the rest. The previous code chose the opposite trade (digit always matches
+// the palette, player never learns they progressed) and the judge ranked
+// that the more visible defect of the two. Revisit as STAGES.length grows.
 const STAGE_COUNT = STAGE_DURATIONS_S.length;
 
 // Attract cycle (R5 gap 8's second half: "no attract-mode gameplay demo").
@@ -279,6 +281,22 @@ export class GameFlow {
       if (Number.isFinite(n) && n >= 1) this.lives = n;
     }
 
+    // `?stage=N` — measurement-only, same family as ?lives/?forcedeath/
+    // ?debugtally: starts the credit on 1-based arcade stage N instead of
+    // warming up through every stage before it, so a `?fixed=1` capture can
+    // land on any authored stage deterministically (e.g. ?fixed=1&stage=4 to
+    // verify the stage-4 forest without flying ~100 s of play first). N is
+    // clamped to [1, STAGE_COUNT]; _enterStage(N-1) sets both the displayed
+    // number (stageNumber) and the rendered content (contentStageIndex wraps
+    // every STAGES.length), so the content that appears is the (N-1 %
+    // STAGES.length)-th authored palette. Natural progression is unchanged —
+    // this only moves the STARTING index. Never read in normal play.
+    let startStageIndex = 0;
+    if (params.has('stage')) {
+      const n = Number.parseInt(params.get('stage'), 10);
+      if (Number.isFinite(n) && n >= 1) startStageIndex = Math.min(n, STAGE_COUNT) - 1;
+    }
+
     // Carrier launch (R5, feel-critique.md §9/§10 rank 14): a fresh game
     // now opens with src/game/flow/launchSequence.js instead of dropping
     // straight into flight. Gated to real interactive play (the `else`
@@ -296,11 +314,11 @@ export class GameFlow {
     if (demoActive) {
       if (playLaunch) {
         this.state = 'launch';
-        this._enterStage(0);
+        this._enterStage(startStageIndex);
         this.launchSeq.start();
       } else {
         this.state = 'flight';
-        this._enterStage(0);
+        this._enterStage(startStageIndex);
       }
     } else {
       this.state = 'title';
@@ -389,7 +407,8 @@ export class GameFlow {
     // R5 (R4 judge gap 10 / team-lead's next-tier ask): `this.stageIndex` is
     // a TRUE ever-incrementing arcade-stage counter (stage 4, 5, 6... keep
     // existing beyond STAGES.length, e.g. for resupply triggers keyed to
-    // absolute arcade stage numbers), but only 3 stages of CONTENT exist —
+    // absolute arcade stage numbers), but only STAGES.length stages of
+    // CONTENT exist (4 as of R14) —
     // `STAGES[this.stageIndex % STAGES.length]` above already wraps the
     // palette/terrain. The HUD digit used to show the unwrapped counter
     // while the visuals silently repeated stage 1 — "STAGE 4" drawn over

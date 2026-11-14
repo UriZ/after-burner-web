@@ -598,4 +598,89 @@ export const STAGE_3 = {
   scrollSpeed: 68.93,
 };
 
-export const STAGES = [STAGE_1, STAGE_2, STAGE_3];
+// VERIFIED arcade stage 4 (green forest under a flat teal sky).
+//
+// R14 BREADTH. The 4th authored content stage, and it is a genuine arcade
+// stage, not a filler: STAGE_MAP.md's HUD-verified span t=200-240 reads
+// "STAGE 4", and adding it at content index 3 keeps content-index ==
+// arcade-stage-number alignment for the first four stages (flow.js laps
+// content every STAGES.length, so stageIndex 3 -> this stage AND
+// stageNumber 4). It is maximally distinct from the three shipped biomes —
+// blue coast (1), orange sunset desert (2), near-black night (3) — which is
+// why it was chosen over a second desert/scrub stage that would read as a
+// re-skin.
+//
+// Sky: MEASURED. STAGE_MAP.md stage 4 sky = Color(0.000, 0.624, 0.576) =
+// #009f93, a FLAT fill (sky_top == sky_horizon): STAGE_MAP records a
+// measurable horizon glow on only stages 2, 14, 17, 20, 22, and stage 4 is
+// not among them — it holds ONE colour top-to-horizon. So skyGlowElevDeg 0
+// (the glow ramp is inert) and no ladder snap, exactly as stage 1 treats its
+// off-ladder measured #009fff: #009f93 is likewise a measured modal value
+// that does not sit on the hardware ladder (G 0x9f and B 0x93 both land
+// between rungs), and snapping would move a defended measurement.
+export const STAGE_4 = {
+  name: 'stage-4-forest',
+  groundMode: 'forest',
+  skyTop: srgbHex('#009f93'),
+  skyHorizon: srgbHex('#009f93'),
+  skyGlowElevDeg: 0, // flat fill: no glow (STAGE_MAP: stage 4 is not a glow stage)
+  // Daytime stage -> white 'day' clouds (faint lavender cast), same live-sky
+  // treatment every stage gets. STAGE_MAP gives stage 4 cloud_density 0.0,
+  // but the three.js build has no per-stage cloud gate — clouds render on
+  // every stage and only their palette is switched (see render/clouds.js
+  // setStage), a global divergence that predates this stage and applies to
+  // stages 2/3 as well. Matching that behaviour is the non-regressive choice.
+  cloudPalette: 'day',
+
+  // Green forest canopy. PALETTE IS MEASURED, GEOMETRY IS ADOPTED — see the
+  // 'forest' branch in render/ground.js for the full reasoning.
+  //
+  // MEASURED (STAGE_MAP.md #124, stage 4): H=125deg S=1.000 V75=0.416+/-0.019
+  // V25=0.282+/-0.018, YIELD 40/64 frames at 0.5s sampling over the proven
+  // span t=200-240s, circular hue spread 0deg, selection window +/-20deg;
+  // corroboration exact-colour mode 120deg (delta 5deg) and chroma-mean
+  // 133deg (delta 8deg). The ground.js 'forest' branch reproduces that green
+  // by addressing vegRamp() (this project's measured arcade-green ladder,
+  // #002100 V0.129 -> #008410 V0.518) near its middle, where vegRamp(0.5) =
+  // #005200 V0.322 sits between the measured V25 and V75 — no new colour
+  // constant is introduced, and every emitted colour is on the hardware
+  // ladder by construction.
+  //
+  // ADOPTED (no stage-4 autocorrelation exists in the repo): the stipple and
+  // clearing FREQUENCIES below are taken from the canopy family and tuned to
+  // read as a forest canopy rather than measured against a stage-4 ACF. They
+  // are the texture's geometry, not its colour; the colour is what has a
+  // reference behind it. grainFreq* a touch coarser than stage 2's fine
+  // desert scrub so the stipple reads as tree crowns; macroFreq* give the
+  // broad forest masses / clearings; macroAmp/detailAmp keep the index near
+  // its middle so the modal green stays in the measured V band. stipLodBoost
+  // 0.4 under-filters the stipple to keep mid-field canopy detail, the same
+  // trade the canopy branch documents.
+  terrain: {
+    hueDeg: 125, // documentation only — the forest branch addresses vegRamp, not HSV
+    grainFreqX: 0.09,
+    grainFreqZ: 0.26,
+    macroFreqX: 10.0,
+    macroFreqZ: 20.0,
+    macroAmp: 1.2,
+    detailAmp: 1.3,
+    stipLodBoost: 0.4,
+  },
+
+  // Horizon haze band. ADOPTED (sky-derived), NOT measured — the repo holds
+  // no stage-4 haze measurement, so rather than invent a measured number
+  // (the #123 failure this project has paid for repeatedly) the band is built
+  // from the one stage-4 value that IS measured: the sky teal. Distant forest
+  // hazes UP toward #009f93 at the vanishing point (atHorizon) and resolves
+  // to a darker teal-green on the near side of the band (atBandEdge). Band
+  // height and the monotone (no-peak) profile mirror stage 2's cruise haze.
+  haze: {
+    atHorizon: srgbHex('#009f93'), // the measured sky teal; distant forest hazes to it
+    atBandEdge: srgbHex('#007a5e'), // darker teal-green toward the resolved forest
+    bandHeightFrac: 0.070,
+    peakFrac: 0,
+  },
+  scrollSpeed: 68.93, // cruise stage (STAGE_MAP scroll_speed 2.8); same camera geometry as stages 1-3
+};
+
+export const STAGES = [STAGE_1, STAGE_2, STAGE_3, STAGE_4];
