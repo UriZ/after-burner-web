@@ -19,28 +19,34 @@ withdrawal and binding rule through R11 — is archived verbatim at
 - **The build has 3 of the arcade's 23 stages, no resupply/bonus pass, limited enemy
   variety.** Under the new method, absent systems outrank constant tuning.
 
-## R12 gap list
+## R12 gap list — from the first gestalt pass (`judging/R12/gestalt-review.md`)
 
-Seeded from R11's judge report §5 pending the first side-by-side gestalt pass and an owner
-playtest, which may reorder or replace it:
+The side-by-side look is done; evidence sheets in `judging/R12/gestalt/`. **Owner playtest
+still owed and outranks this list.** Ranked by what breaks the illusion at one glance:
 
-1. **The gun does not need the player** — blind-stick share 91 % of a tracking pilot's
-   kills. NOT a cone-width problem (measured null lever): `vulcan.js` ramps unassisted
-   rounds to depth 55 so kills resolve at the muzzle; fix *where along the path a kill may
-   resolve*. Target: gun kills resolve inside the sight's ±9.85 %W reach (today p90 14.6 %W).
-2. **Missing-system backlog opens** (new method, rank raised): more stages / stage variety,
-   resupply pass, enemy attack patterns beyond the current set. The full 23-stage structure
-   is the single most player-visible absence.
-3. **The missile** — untouched since R10. `HOMING_GAIN` ASSUMED, launch→impact a CANDIDATE
-   0.43–0.90 s band. The unblocking acquisition: a longplay window with no gun fire
-   (targeted search, not a fourth operator).
-4. **The lock radius is anchored on nothing** — `LOCK_RADIUS_FRAC = 0.083` is
-   PROTOTYPE-ADOPTED. R10's blind detector (bracket 5.246 %W, n = 75) over an acquisition
-   window would bound it from the arcade.
-5. **Attract mode** — median stationary run 6.7 s vs the arcade's ~0.08 s; 6–8 of 10
-   authored barrel rolls are lost to deaths with deaths on. It is what a passer-by sees.
-6. **Vertical axis has no arcade column** — and two frames show the arcade sight BELOW the
-   airframe where ours is +0.30 NDC above. The lateral-axis detector would settle it.
+1. **Stage 1 has no land.** The arcade flies past island coastlines (vegetation, rock
+   crags, surf, a floating rock); ours is uniform open sea. Missing system, unbuilt since
+   it was rank 11 of 11 in R5. (`pair2-island.png`)
+2. **Nothing dramatic ever happens to the camera.** All 24 of our flight frames across two
+   modes: near-level horizon at the same height. The arcade rolls past 60° and the horizon
+   height swings wildly inside one 30 s span. The renderer has the roll; nothing drives it.
+3. **The gun does not need the player** (R11 rank 1, owner's complaint; invisible in
+   stills). Blind share 91 %. NOT a cone problem — fix `vulcan.js`'s round depth path so
+   kills resolve inside the sight's ±9.85 %W reach (today p90 14.6 %W).
+4. **The sky has no furniture, climaxes are small.** Arcade clouds are screen-filling
+   banks; its kill fireballs fill half the frame. Ours: cotton puffs, local events.
+5. **The jet doesn't breathe fire.** Arcade nozzles trail big orange flame cones (the
+   game's name); ours are black rings with dots. Plus the heavy red outline reads toy-like.
+6. **Enemies never fly past your face.** Even quiet arcade frames hold a ~25 %W enemy
+   banking away with streaks; ours stay bracket-dot sized. The flyby EVENT is missing —
+   choreography, not the (already-correct) size distribution.
+7. **Title letterforms** are hand-wobbly vs the brush-angular arcade wordmark; plate
+   aspect square vs tall. First screen anyone sees. (`pair5-title.png`)
+
+Carried, serving the above: the missile (untouched since R10; launch→impact needs the
+no-gun-fire longplay window), the lock radius (PROTOTYPE-ADOPTED, boundable from R10's
+blind detector), attract stationary runs (6.7 s vs ~0.08 s), the vertical axis (no arcade
+column; two frames show the arcade sight BELOW the airframe).
 
 ## Hard warnings that stay load-bearing
 
