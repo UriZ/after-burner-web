@@ -40,24 +40,47 @@ map). Judge reports and evidence live in `judging/R*/`.
   to see cached sources, `--url "<youtube url>" --name <name>` to add one. It resolves paths
   relative to its own location, so it works from this repo with no outside dependency.
 
-Extract single frames with `-frames:v 1` at an exact timestamp; `-ss` *sequence* extraction
-on the AV1 60fps file starts ~4s early, so verify alignment before quoting timestamps.
+Extract single frames with `-frames:v 1` at an exact timestamp. Input-seek sequence
+extraction is exact — `t = T_ss + (i−1)/60` holds to the pixel (the old "~4 s early" caveat
+was refuted four times, once pixel-exact; R10 lane-criteria §5). For anything that MOVES,
+decode consecutively at 60 Hz: `ffmpeg -ss T -t D -i .reference-cache/video/ab2-longplay-60fps.mp4
+-vsync 0 <dir>/f%04d.png` — `-vf fps=N` resamples and is a different operation, and the
+youtube-reference skill's 4 Hz burst default will hide any transient.
 
-## How work happens here — the round loop
+## How work happens here — the round loop (REVISED R12: "look first, measure second")
+
+> **Method retrospective, binding from R12** (`judging/R12/method-retrospective.md`):
+> eleven rounds plateaued at ~8/10 while the owner's play verdict was "it's very bad",
+> because gaps were generated from measurement residuals, not from looking. The loop below
+> replaces the old one.
 
 ```
-gap list → background agents build in parallel (disjoint file ownership)
-        → FRESH-CONTEXT judge independently re-measures everything
-        → verdict + ranked gaps → next round
+SIDE-BY-SIDE LOOK (ours vs arcade, fixed scenarios) + owner playtest
+        → gap list IN PLAYER LANGUAGE, ranked by what breaks the illusion
+        → background agents build in parallel (disjoint file ownership)
+        → FRESH-CONTEXT judge: looks first, then re-measures shipped claims
+        → verdict + next gap list
 ```
 
+- **Every round opens with eyes, not instruments.** Capture the fixed scenario set
+  (attract/title, stage-1 combat ≥20 s, death+respawn, stage transition) at deterministic
+  60 Hz, pair it with the matching STAGE_MAP arcade footage, composite side-by-side, and
+  LOOK. A gap exists only if it is on that list or in the owner's playtest notes.
+  Measurement serves a chosen gap (it locates the constant); it never generates gaps.
+- **Absence outranks error; error outranks imprecision.** Missing system > wrong-looking
+  system > constant outside its band > constant inside its band (forbidden work). Every
+  round ships at least one missing-system item (stage variety, resupply, enemy patterns…).
+- **Perceptual tolerance bands close questions permanently.** Every numeric target carries
+  a stop-threshold: 1 native pixel, 1 frame at 60 Hz, or the band the arcade itself varies
+  across — never tighter than ~10 %. Inside the band → CLOSED, re-litigation forbidden.
+- **Meta is capped.** No standing criteria lane. New binding rules only when a top-3 gap
+  demands one. Instrument work ≤ ~20 % of a round; no new instrument where crop-and-look
+  answers it. The defect ledger (REFERENCE.md) is reference material, not required reading.
 - The judge is a **separate agent with a fresh context every round**. It never trusts
-  developer self-reports; it re-measures. Four rounds so far: 3/10 → 4/10 → 6/10 → 7/10.
-- **Judges audit criteria, not just code.** Acceptance criteria have been retired as
-  non-discriminating or plain wrong in three consecutive rounds (a fin-height bound that
-  contradicted the frames; a missile-trail brightness target taken from a *night* frame that
-  turned the daylight trail black; an explosion palette taken from a frame of fading smoke).
-  **Before tuning to a criterion, check the criterion against the arcade itself.**
+  developer self-reports; it re-measures what shipped. Its SCORE is anchored on the
+  side-by-side look ("would a player mistake this for AB2?"), not on the audit.
+- **Before tuning to a criterion, check the criterion against the arcade itself** —
+  acceptance criteria have been retired as wrong in every round that audited them.
 - **Developers do not commit.** Work stays in the tree; the TL commits after verification.
   Never `git push` without explicit user approval.
 - **Never run `git stash` / `checkout .` / `reset` on this tree** while agents are active —
