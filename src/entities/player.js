@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import {
   createJetSprite,
+  createAfterburnerFlame,
   setJetNightPalette,
   loadPoseSheetTexture,
   selectPoseCell,
@@ -432,11 +433,50 @@ const ROLL_SLAM_MIN_X = 0.5; // min |stick x| that counts as a flick at all (see
 const ROLL_DURATION_S = 1.1;
 const ROLL_COOLDOWN_S = 0.3; // guards against re-triggering off the same stick motion
 
+// ---------------------------------------------------------------------------
+// AFTERBURNER FLAME (R13 gap 4). The flame sprite is built in spriteFactory.js
+// (createAfterburnerFlame -- see its header for the arcade reference and why
+// this is a separate layer rather than a repaint of the baked airframe) and
+// childed to the jet sprite here, so it banks/rolls/launches/hides WITH the
+// jet. These constants place and drive it; they are tuned by eye against the
+// astern arcade crops, not solved, so adjust them against a capture.
+//
+// Positions are in the jet sprite's LOCAL quad space (x,y in [-0.5, 0.5],
+// multiplied by the parent's world scale 2.72 x ~1.957). The flame's two
+// texture cones are scaled to land on the airframe's nozzle centres (local x
+// +-0.15) and its hot cores pinned to the nozzle line, with the cones growing
+// DOWNWARD (aft, in the astern view) as throttle opens.
+const FLAME_SCALE_X = 0.46; // local scale.x -> world width ~1.25, cones at ~+-0.15
+const FLAME_BASE_SCALE_Y = 0.5; // local scale.y at mid throttle before flicker/throttle
+const FLAME_TOP_LOCAL_Y = -0.02; // the flame's TOP edge is pinned here (over the nozzle discs)
+const FLAME_LOCAL_Z = 0.06; // in FRONT of the airframe so the cores glow over the dark nozzle rings
+// Throttle L/M/H -> plume length and intensity. The arcade afterburner visibly
+// lengthens and brightens with speed; this is what makes the throttle verb
+// (near-decorative until now) read on the aircraft itself.
+const FLAME_LEN_BY_THROTTLE = [0.62, 1.0, 1.42];
+const FLAME_OPACITY_BY_THROTTLE = [0.8, 0.92, 1.0];
+const FLAME_FLICKER_FPS = 13; // frame-swap rate between the two authored cone shapes
+const FLAME_JITTER_HZ = 38; // scale-jitter rate layered on top of the frame swap
+const FLAME_JITTER_AMP = 0.08;
+
 export class Player {
   constructor({ baseY = 0, baseZ = -5 } = {}) {
     this.sprite = createJetSprite(JET_WORLD_WIDTH);
     this.baseY = baseY;
     this.baseZ = baseZ;
+
+    // Afterburner flame (R13 gap 4). A child of the jet sprite, so it inherits
+    // the jet's transform and visibility for free: it banks with the pose
+    // sheet, rides the barrel roll and carrier launch, and vanishes with the
+    // jet on a death/grace-flash hide without any call-site change in game.js
+    // (which already adds this.sprite to the scene). Driven each tick by
+    // _updateFlame; seeded here to a mid-throttle pose so the carrier-deck
+    // frames (where playerControlled is false and update() is not called)
+    // still show lit engines.
+    this._flame = createAfterburnerFlame();
+    this._flameClock = 0;
+    this.sprite.add(this._flame);
+    this._updateFlame(0, 1);
     // R10: THE AIRCRAFT HAS A VELOCITY NOW (see the FLIGHT MODEL note above
     // ENVELOPE_X), and that makes a plain `x` field unsafe. `x`/`y` are
     // ACCESSORS over `_x`/`_y` whose setters zero the matching velocity,
@@ -583,6 +623,17 @@ export class Player {
   // to a sprite deathSequence.js had taken over; and when the roll did
   // expire it reset scale over whatever the respawn had set.
   cancelRoll() {
+    // Cut the afterburner whenever control is handed away. flow.js calls
+    // cancelRoll() on death, stage-end tally and continue -- every transition
+    // out of controlled flight -- and game.js then stops calling update(), so
+    // _updateFlame() stops running and the flame would otherwise FREEZE on the
+    // sprite: deathSequence.js tumbles this same sprite as a burnt hulk, and a
+    // crisp orange plume riding a shot-down hulk is exactly the frozen-state
+    // bug Player already learned the hard way with _rollT (see below). Hiding
+    // here (not after the _rollActive guard, which early-returns) and showing
+    // again in _updateFlame -- which only runs under control -- ties the flame
+    // to the same lifecycle without any call-site change outside this file.
+    this._flame.visible = false;
     if (!this._rollActive) return;
     this._rollActive = false;
     this._rollT = 0;
@@ -682,6 +733,68 @@ export class Player {
   get y() { return this._y; }
   set y(v) { this._y = v; this.vy = 0; }
 
+  // Drive the afterburner flame (R13 gap 4) from throttle plus a deterministic
+  // flicker. Deterministic -- the flicker is clocked off accumulated dt, never
+  // Math.random -- so a ?fixed=1 judge capture is reproducible frame for frame.
+  //
+  // throttleIndex is 0/1/2 (L/M/H). Length and intensity both open with it,
+  // which is the arcade's behaviour and the point of the gap: the throttle verb
+  // now shows on the aircraft. The flame grows DOWNWARD (aft) only -- its TOP
+  // edge is pinned to the nozzle line (FLAME_TOP_LOCAL_Y) so the hot cores stay
+  // on the discs however long the plume gets, rather than a centre-anchored
+  // scale that would pull the core up off the nozzles as it lengthens.
+  _updateFlame(dt, throttleIndex) {
+    // Runs only while the player is under control (game.js gates update() on
+    // flow.playerControlled), so this is the right place to re-light a flame
+    // that cancelRoll() cut on the last control-loss transition.
+    this._flame.visible = true;
+    this._flameClock += dt;
+    const ti = throttleIndex >= 0 && throttleIndex <= 2 ? throttleIndex : 1;
+
+    const frames = this._flame.userData.frames;
+    const frameIdx = Math.floor(this._flameClock * FLAME_FLICKER_FPS) % frames.length;
+    if (this._flame.material.map !== frames[frameIdx]) {
+      this._flame.material.map = frames[frameIdx];
+      this._flame.material.needsUpdate = true;
+    }
+
+    const jitter = 1 + FLAME_JITTER_AMP * Math.sin(this._flameClock * FLAME_JITTER_HZ);
+    const scaleY = FLAME_BASE_SCALE_Y * FLAME_LEN_BY_THROTTLE[ti] * jitter;
+    this._flame.scale.set(FLAME_SCALE_X, scaleY, 1);
+    this._flame.material.opacity = FLAME_OPACITY_BY_THROTTLE[ti];
+
+    // THE FLAME BANKS WITH THE AIRFRAME. The drawn pose/roll rotates the whole
+    // aircraft about the sprite centre; a flame fixed vertical detaches from
+    // the nozzles the instant the jet banks (the exhaust kept pointing at the
+    // ground while the airframe rolled away from it). So apply the SAME rigid
+    // rotation about the sprite centre: rotate the flame's centre offset by the
+    // airframe's visible angle AND spin the flame about its own centre by it.
+    // The visible angle matches update()'s own drawing lines -- -poseDeg for a
+    // bank (selectPoseCell/material.rotation use -poseDeg), and the roll phase
+    // while a barrel roll owns the airframe.
+    let rotRad;
+    if (this._rollActive) {
+      const q = Math.min(1, this._rollT / ROLL_DURATION_S);
+      rotRad = q * Math.PI * 2 * this._rollDir;
+    } else {
+      // +poseDeg, NOT the -poseDeg update()'s procedural fallback spins the
+      // single bitmap by: the loaded pose SHEET (what actually renders) draws
+      // its bank in the opposite image-plane sense, so the flame matches the
+      // sheet's drawn airframe, verified by capture (a right-stick bank drops
+      // the right wing and the plume trails down-right with it).
+      rotRad = THREE.MathUtils.degToRad(this.poseDeg);
+    }
+    // Pin the flame's TOP edge to the nozzle line at zero bank: a sprite scales
+    // about its centre, so the centre sits half the (growing) height below the
+    // nozzles. Rotating that centre offset about the sprite centre carries the
+    // plume with the bank.
+    const cy = FLAME_TOP_LOCAL_Y - scaleY / 2;
+    const sin = Math.sin(rotRad);
+    const cos = Math.cos(rotRad);
+    this._flame.position.set(-cy * sin, cy * cos, FLAME_LOCAL_Z);
+    this._flame.material.rotation = rotRad;
+  }
+
   update(dt, input, worldRoll = 0) {
     // Commanded RATE, not commanded position. Piecewise and continuous at
     // input.y = 0 (both branches give 0), so the asymmetry costs only a gain
@@ -715,6 +828,11 @@ export class Player {
     const offset = new THREE.Vector3(this.x, this.baseY + this.y - CAMERA_HEIGHT, this.baseZ);
     offset.applyAxisAngle(_rollAxisWorld, worldRoll);
     this.sprite.position.copy(offset).add(_cameraPos);
+
+    // Afterburner burns on every controlled tick, a roll included -- driven
+    // before the roll's early return below so the exhaust keeps guttering
+    // through the manoeuvre.
+    this._updateFlame(dt, input.throttleIndex ?? 1);
 
     // --- Barrel-roll slam detection -----------------------------------
     this._clock += dt;
