@@ -21,65 +21,68 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 # ---------------------------------------------------------------- ROUND DATA
 ROUND = {
-    "number": 25,
+    "number": 27,
     "date": "2026-11-15",
     "status": "CLOSED",
-    "score": "6.5 / 10",
-    "last_score": "~5 (recalibrated) / 9.3 was backdrop-only",
+    "score": "7 / 10",  # provisional — updated from the R28 re-judge verdict
+    "last_score": "6.5 (R25) → both weapons usable, owner-driven fixes this round",
     "tldr": (
-        "R25 fixed the owner's two complaints and the <em>recalibrated</em> judge — which plays NAIVELY "
-        "and scores the game in the hands, not the backdrop — put it at an honest <strong>6.5</strong>, up "
-        "from the ~5 the owner gave the 9.3 build. <em>Missiles work now</em>: point at enemies, press the "
-        "button, heat-seekers chase them down (~70% hit in naive play). The jet is a real <em>F-14</em>, not "
-        "an insect face, and the enemies are crisp. But playing it surfaced the next one: the <em>gun is "
-        "dead</em> — mash the fire button and nothing dies. Same disease the missile had, now on the cannon."
+        "R27 was driven entirely by the owner PLAYING the fixed-weapons build and naming what broke the "
+        "illusion — and every call was real. The <em>afterburner</em> had detached from the jet; the "
+        "<em>missile</em> I'd just made 'earned' had over-tightened into 'won't fire' on a hand-flown stick; "
+        "the jet read <em>maroon</em> where the arcade is grey-white; the enemies were <em>pixelated blobs</em>; "
+        "and the <em>barrel roll</em> only triggered on the wrong input. All five are fixed, plus a gun "
+        "<em>hit-flash</em> so rounds visibly land. One judge claim — 'enemies too small' — was overturned by "
+        "measurement (ours already match the arcade). The owner is steering; the game is climbing."
     ),
     "verdict": (
-        "“The missile fix genuinely lifted it off the floor and the sprites are good enough now — it's no "
-        "longer ‘pretty bad.’ But the vulcan cannon is as broken as the missile used to be: a naive player "
-        "mashing the obvious fire button kills nothing. That caps it at 6.5.”"
+        "“Both weapons are usable, the jet and enemies now read as real aircraft, the afterburner sits on the "
+        "tail and the barrel roll answers the arcade double-tap. This is a genuinely playable After Burner "
+        "now — the frontier has moved from ‘does the core work’ to how the combat FEELS.”"
     ),
-    "verdict_attr": "R25 recalibrated judge · naive playtest, 2 seeds, ~20 min · composite 6.5",
+    "verdict_attr": "R27 — owner playtest (ground truth) + fresh-context naive judge · composite 7/10",
     "pairs": [
-        ("judging/R25/sprites-before-after.png",
-         "The jet was an insect face — now a real F-14",
-         "Shipped this round: the old player jet read as a face (nozzles=eyes, fins=ears); redrawn with a fuselage, canted tails, engine deck. Enemies got swept-wing definition. The owner's #2, fixed."),
-        ("judging/R25/tl-verify-missiles-naive.png",
-         "Missiles work now — point and press",
-         "The camp-to-lock barrier is gone and the seeker strengthened: a naive player flying at enemies and holding the button fires heat-seekers that reliably hit (~70%). The owner's #1, fixed."),
-        ("judging/R25/tl-verify-sprites-ingame.png",
-         "In the hands at last",
-         "The recalibrated judge scores PLAY: missiles usable + sprites good = 6.5, not the old backdrop-only 9.3. Next: the gun has the same point-and-press problem the missile had."),
+        ("judging/R27/report-assets/jet-before-after.png",
+         "The jet reads grey-white now, not maroon",
+         "The owner's exact complaint. #840000 red was on every surface (wings, deck, strakes, fins); the MEASURED red is the OUTLINE only. All interior red moved to the measured grey shadow tone — the jet now matches the arcade's grey stage-1 F-14, red kept as a thin rim."),
+        ("judging/R27/report-assets/afterburner-before-after.png",
+         "The afterburner is back on the airframe",
+         "A regression from the F-14 redraw: the flame was tuned to the old sprite's nozzles and flung off on banks/rolls. Now it follows 0.4× the bank and is a shortened stub that can't visibly separate in any pose."),
+        ("judging/R27/report-assets/enemy-before-after.png",
+         "Enemies are twin-engine jets, not blobs",
+         "The owner's 'too pixelated': ours was a grey dart + one dot. The arcade enemy is two black nacelles cored by an orange afterburner — a high-contrast mass that survives downscaling. Redrawn to match; reads as a jet at game size now."),
     ],
     "shipped": [
-        "MISSILES USABLE — point at enemies, press, heat-seekers chase them down (~70% naive hit, up from 0 fired)",
-        "The player jet redrawn from an INSECT FACE to a real F-14; the enemy MiGs crisper (owner's #2 addressed)",
-        "The judging is RECALIBRATED and working — an honest 6.5 by naive play, not an inflated 9.3 by frame-match",
-        "Off the floor: the owner's ~5 'pretty bad' build is now 'solid and playable with rough edges'",
+        "AFTERBURNER re-attached to the airframe in every pose (bank, hard bank, barrel roll)",
+        "MISSILE lock made usable on a hand-flown stick — 0.25s acquire + a cone that decays on a waver, not a hard reset (still earned, not free)",
+        "PLAYER JET recoloured grey-white (was maroon); red kept only on the outline rim, matching the arcade",
+        "ENEMY JETS redrawn twin-engine (black nacelles + orange afterburner) so they read at small size",
+        "BARREL ROLL now triggers on the arcade double-tap (tap right-right / left-left); holding stays a bank",
+        "GUN HIT-FLASH — a connecting round flashes the struck enemy white + a spark, so hits visibly land",
     ],
-    "gaps_label": "Next — R26",
+    "gaps_label": "Next — R28",
     "gaps": [
-        (1, "bug", "The gun is dead — fix it like the missile",
-         "A naive player mashing the fire button (the obvious first weapon) kills NOTHING — 0 hits in ~11 turns vs 2-10 enemies, both seeds. The R11-R15 gun gated kills behind precise aim/depth a normal player never meets. Same fix as the missile: point-and-hold must kill — a generous on-screen hit at the reticle. THE ROUND'S #1."),
-        (2, "feel", "Re-tune the missile once the gun works",
-         "The missile may be slightly too strong/easy now (point-roughly clears a wave). Once the gun kills, re-balance so both weapons have a role — the gun for the stream, missiles for the lock-and-salvo."),
-        (3, "polish", "Sprite colour balance",
-         "Shapes are good; the palette leans too red — pull the player off heavy red toward the arcade's grey-white F-14, and calm the enemy's hot-red cockpit. A colour pass, not a redraw."),
-        (4, "polish", "Minor: passive score",
-         "Score accrues regardless of kills; HIT is the honest feedback. Arcade-faithful (checked R12) but worth revisiting if it reads as hollow."),
+        (1, "bug", "Explosions look wrong — red-square confetti + a giant white smoke ball",
+         "The R28 judge's #1 and the single most jarring un-AB2 element on screen: every kill scatters ~30 red pixel-squares across the sky and parks a ~35%W opaque white smoke ball centre-screen. The arcade fireball is a compact, rounded orange burst. Replace the debris confetti + oversized smoke with an arcade-style orange fireball. (effects/explosions.js, effects/smoke.js.)"),
+        (2, "feel", "The gun fires with no visible round-stream from the nose",
+         "The arcade shoots a bold orange round-column out of the nose (reference/stage4-vulcan-stream-t214.png); ours shows nothing leave the jet — only the new target hit-flash — despite ~8 vulcan rounds/tick in telemetry. Make the rounds a visible orange stream (NOT white tracers — the arcade is orange). (weapons/projectileSprites.js, weapons/combat.js.)"),
+        (3, "feel", "Combat reads thin in the demo — the player makes the fight",
+         "The demo pilot kills sparingly (HIT ~2 in 40s; attract stays HIT 0), so combat looks distant. Measured: enemy size/density already match the arcade — the arcade's density is the PLAYER killing close enemies. Candidate: a demo pilot that aims + fires. (game/flow/demoTimeline.js.)"),
+        (4, "tension", "Enemies are NOT too small — a measurement correction, not a gap",
+         "The first R27 judge ranked 'enemies 3× too small' #1. The presence lane MEASURED it and withdrew: our close enemies hit 18–35%W vs the arcade's ~19.5%W peak. Do NOT bump enemy size — that would overshoot the arcade. Logged so it isn't re-litigated."),
     ],
     "keep": [
-        "Usable missiles (point-and-press heat-seekers that hit); the real-F-14 player sprite + crisp enemies",
+        "Both weapons usable in the hands (point-and-press gun + point-hold-a-beat missile lock)",
+        "The jet + enemies reading as real aircraft; the afterburner on the tail; the arcade double-tap roll",
         "The RECALIBRATED judging — score naive PLAY, owner outranks the judge, don't inflate on backdrop",
-        "Everything that works: the world banking hard, the fireball death cycle, enemies shooting back, 7 biomes, both refuel beats",
-        "Do NOT let the backdrop fidelity lift the score above how the game plays",
+        "The measurement discipline that overturned 'enemies too small' instead of shipping a wrong size bump",
     ],
     "method_note": (
-        "R25 is the recalibration proving out: the owner's naive play (missiles unusable, sprites weak) was "
-        "the ground truth; the fixes landed and a judge playing the SAME naive way scored an honest 6.5 — not "
-        "the 9.3 the old frame-match judge gave the same backdrop. And naive play immediately found the NEXT "
-        "unusable weapon (the gun), the exact failure the old judges missed for 15 rounds by testing deliberate "
-        "play. Play like the owner; the owner outranks the judge. History in judging/R25/."
+        "R27 is the owner-driven loop working as intended: the owner PLAYED and named five illusion-breakers, "
+        "every one was real, and each became a fix or a measured correction. The one judge gap that wasn't real "
+        "('enemies too small') was caught by re-measurement before any code moved — absence outranks error, but "
+        "a wrong measurement outranks neither. Play like the owner; the owner outranks the judge. Evidence in "
+        "judging/R27/."
     ),
 }
 
