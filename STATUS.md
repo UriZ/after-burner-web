@@ -1,6 +1,6 @@
 # STATUS — where the rebuild stands
 
-**Last updated**: 2026-11-15. **R25 CLOSED at 6.5 (recalibrated/honest). Missiles + sprites FIXED; the GUN is dead — R26 #1.** The loop is
+**Last updated**: 2026-11-15. **R26: the GUN is FIXED too — both weapons now usable in naive play. Missiles + gun + sprites all addressed.** The loop is
 **"look first, measure second"** (CLAUDE.md, "How work happens here"; rationale in
 `judging/R12/method-retrospective.md`). Every round ships an HTML report
 (`judging/R<n>/report.html`, `python3 tools/round_report.py`) published to the standing
@@ -23,6 +23,11 @@ Repo: github.com/UriZ/after-burner-web.
   seeker strengthened: HIT_RADIUS 0.026→0.052, MAX_TURN 0.77→1.7, HOMING_DELAY 0.3→0.12, GAIN 1.7→2.8).
   **SPRITES GOOD ENOUGH** — the player jet was an INSECT FACE (nozzles=eyes, fins=ears), redrawn to a
   real F-14 (fuselage, canted tails, engine deck); enemy MiGs crisped to swept-wing jets. Palettes kept.
+- **R26 gun FIX (done, TL)**: the dead gun now KILLS in naive play (HITS 0->5 in ~3s holding fire;
+  combined with missiles, a fresh seed gave 8 kills in ~4s). Loosened the R11-R15 gates the same way as
+  the R25 missile: GUN_KILL_SPAN_FRAC 0.14->0.03, VULCAN_MIN_HIT_P 0.8->0.15, HIT_RADIUS_SPAN_MULT 0.5->1.2
+  + floor 0.05, depthTol widened. It kills what's in your line (5 of 8), not the whole screen. BOTH core
+  weapons work now -- the owner's "pretty bad" core is materially fixed.
 - **R25's new #1 finding (naive play)**: **THE GUN IS DEAD** — mashing the fire button kills NOTHING
   (0 hits/~11 turns vs 2-10 enemies, both seeds). The R11-R15 gun gated kills behind precise aim/depth
   (the p-gate VULCAN_MIN_HIT_P, readable-span) that a naive player never meets — the SAME disease the
