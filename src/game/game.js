@@ -93,6 +93,20 @@ const RESUPPLY_PITCH = -0.30274470913997156; // rad (-17.35deg); horizonFracFor 
 const RESUPPLY_PLAYER_SCREEN_FRAC = 0.42;
 const RESUPPLY_PLAYER_BASE_Y = worldYForScreenFrac(RESUPPLY_PLAYER_SCREEN_FRAC, PLAYER_BASE_Z, RESUPPLY_PITCH, FOV_DEG);
 
+// R20 tanker DOCK (gap 2). During the `airrefuel` flow state ONLY, raise the
+// jet so its nose meets the tanker's hanging refuel boom — the arcade docks the
+// F-14 up under the boom (reference/stage3-reload-tanker-t165.png: jet-nose
+// receptacle ~0.44H, boom bridging from the tanker belly ~0.37H), where R19 left
+// it hanging in a black gap at the cruise screen frac (0.556H). The camera pitch
+// is UNCHANGED here (the refuel sky is clear, no low-swoop) — only baseY moves.
+// Anchoring the sprite CENTRE at 0.39H lands the jet's nose at ~0.40H (measured:
+// at this depth the topmost jet pixel sits ~0.014H below the sprite centre),
+// meeting the tanker's boom tip at 0.402H so the two read as CONNECTED rather
+// than a jet hanging in a black gap below. Stateless gate: every non-airrefuel
+// state keeps CRUISE_PLAYER_BASE_Y, byte-identical to HEAD.
+const AIRREFUEL_PLAYER_SCREEN_FRAC = 0.39;
+const AIRREFUEL_PLAYER_BASE_Y = worldYForScreenFrac(AIRREFUEL_PLAYER_SCREEN_FRAC, PLAYER_BASE_Z, CAMERA_PITCH, FOV_DEG);
+
 // Zeroed input fed to combat.update() during 'death' (R5 feel fix, see
 // update() below) so a dead jet never fires/launches while the world
 // around the tumbling hulk keeps ticking.
@@ -443,8 +457,17 @@ export class Game {
     // to HEAD. The gate sits BEFORE _applyCameraOrientation() and player.update()
     // so the attitude and baseY are live for this tick's camera + sprite.
     const resupply = this.flow.state === 'resupply';
+    // R20: dock the jet up to the tanker's boom during the airborne refuel
+    // (gap 2). A separate stateless gate on flow.state so it never perturbs the
+    // resupply swoop or combat; the pitch stays cruise for airrefuel (only baseY
+    // moves), while resupply alone swaps pitch + ground framing below.
+    const airrefuel = this.flow.state === 'airrefuel';
     this._pitchQuat = resupply ? this._pitchQuatResupply : this._pitchQuatCruise;
-    this.player.baseY = resupply ? RESUPPLY_PLAYER_BASE_Y : CRUISE_PLAYER_BASE_Y;
+    this.player.baseY = resupply
+      ? RESUPPLY_PLAYER_BASE_Y
+      : airrefuel
+        ? AIRREFUEL_PLAYER_BASE_Y
+        : CRUISE_PLAYER_BASE_Y;
     if (this.ground.setFraming) {
       this.ground.setFraming(
         resupply ? RESUPPLY_PITCH : CAMERA_PITCH,
