@@ -1,69 +1,74 @@
 # R14 combat lane — cross-lane asks
 
-The R14 combat lane (gun + missile, ranks 1 & 2) shipped two measured changes
-(see the lane report / the diffs in `src/weapons/combat.js` and
-`src/game/spawner.js`). Two residual gaps surfaced that are OUTSIDE combat's
-files and OUTSIDE its safe levers. Both reduce to ONE cross-lane fact.
+> **CORRECTION (R15 player lane, reconciled & confirmed by combat).** The
+> original version of this doc made the vertical SIGHT-REACH the keystone and was
+> **WRONG** — it computed the climbing sight's ceiling from a STALE player rail
+> (+0.106, the ENVELOPE_Y=1.1 value the spawner's own `REACH_CEILING` table marks
+> as superseded) and assumed a neutral `playerNdc.y = 0`. The SHIPPED values,
+> read live three ways by the R15 player lane and re-confirmed independently by
+> combat (`__sight().ndcY` / `__combatDebug().playerNdc.y`, settled):
+>
+> | posture | playerNdc.y | sight.y |
+> |---|---|---|
+> | full down | −0.546 | **−0.246** |
+> | neutral   | −0.112 | **+0.188** |
+> | full up   | +0.460 | **+0.760** |
+>
+> The climbing sight reaches **+0.76**, which OVERSHOOTS the lock-bait (ndcY
+> 0.44–0.58) with reach to spare — not the +0.40 the old doc claimed. So **reach
+> / ENVELOPE_Y is NOT the keystone** and the asks below are rewritten. The player
+> lane confirmed empirically: a climb → hold-missile → 6 locks → release → salvo
+> fires in normal play, and zero- and 180 ms-latency autopilots both land 31–34
+> salvos/180 s onto the bait. Credit: R15 player lane, `tools/out/player-r15/`.
 
-## THE ONE FACT: the sight cannot reach low enough, and the lock cone is too tall for the climb range.
+The R14 combat lane shipped two measured changes (gun `GUN_KILL_SPAN_FRAC` 0.14,
+missile `BAIT_EVERY` 2 + lateral bait exit; diffs in `src/weapons/combat.js` and
+`src/game/spawner.js`). Two residual FEEL gaps surfaced in the R14 playtest. The
+corrected diagnosis of each, with the reach premise removed:
 
-The sight sits `SIGHT_NDC_Y_OFFSET` = +0.30 NDC above the player's nose
-(combat.js, MEASURED from the arcade vulcan-stream convergence — do not move it
-here). The player's own vertical envelope (`player.js ENVELOPE_Y`, NOT combat's
-file) tops the sight CENTRE out at roughly +0.40 NDC and floors it around the
-airframe. Two separate R14 playtest findings are the same consequence of this:
+## Missile — reachable, but the lock costs you exposure, and the salvo is undiscoverable.
+The R14 playtest got 1 lock in ~4 min and 0 salvos. With reach refuted, the real
+blockers are:
+  1. **The lock maneuver draws fire (combat/spawner + flow).** The bait holds up
+     (ndcY 0.44–0.58, above the +0.425 resting cone so a parked stick can't farm
+     it — that part of the old doc survives with the corrected numbers). Reaching
+     it is a climb-and-hold, and the R15 player lane "ate 16 enemy shots holding
+     the climb and died." This is the same climb-exposes-you tension R12/R13 hit
+     with horizon-camping, now attached to the lock. It is a combat/spawner
+     question (enemy fire geometry during the lock window; whether a lockable
+     target can be presented without forcing a sustained exposed climb), NOT a
+     player-envelope one. **This is the real rank-2 residual and it is in
+     combat's own lane — carry it into R15 combat.**
+  2. **Hold-to-lock / release-to-salvo is undiscoverable (UI lane).** The R14
+     playtester held the missile button continuously through the one lock they
+     got, so the release-edge never fired — correct AB2 design, invisible to a
+     new player. Ask the UI lane for a lock/"FIRE" affordance that teaches the
+     release. Cheap, and it alone may convert "1 lock, 0 salvos" into salvos.
 
-### Ask 1 (gun) — the close, big enemies dwell BELOW the caged sight.
-R14 playtest, verbatim: *"the closest, biggest jets cruise at or below the
-player's altitude — out of the sight's reach entirely. I held the reticle as
-low as it goes on a 29 %-span jet and still fired over its head."* The gun's
-rank-1 fix (combat.js `GUN_KILL_SPAN_FRAC` 0.10->0.14) correctly stopped the gun
-farming distant specks — a dead-centre stick's gun kills HALVED (20->10, gun-
-only probe, playtest-confirmed "the HIT counter just stopped"). But it cannot
-make AIMING clearly win while the only gun-killable targets (the close, big
-ones) sit where the sight physically cannot point. The judge's R13 rank-1 named
-this exact alternative: *"the readable traffic has to fly where the sight can
-actually point, OR the sight has to reach the low row."* Combat cannot do
-either from its own files without breaking a MEASURED fact:
-  - raising the enemy fly-past band (spawner `NEAR_BAND` / `REACH_FLOOR_NDC_Y`)
-    breaks the vertical distribution the world/criteria lanes have MATCHED to the
-    arcade (all-enemy top-third 34.9 % vs arcade 32.5 %; the arcade genuinely
-    puts enemies low);
-  - lowering `SIGHT_NDC_Y_OFFSET` breaks the measured stream geometry.
-  **Ask the PLAYER lane:** can `ENVELOPE_Y` give the sight more DOWN-reach (a
-  sight that dips toward the waterline when the player pushes), so the gun can be
-  brought onto the low close traffic? This is the half of the R6 vertical gap
-  that was explicitly deferred to player.js (`judging/R6/ask-combat.md`) and is
-  still open.
+## Gun — fixed; the residual is NOT reach.
+The rank-1 defect is closed (blind gun 20→10, gun-only probe; playtest-confirmed
+"the HIT counter just stopped"). The thin HUMAN aim margin has three causes, in
+order, and reach is the smallest:
+  1. **Span-scaled hit radius (structural, combat).** `HIT_RADIUS_SPAN_MULT`=0.5
+     makes a centred sight a wide net for the CLOSE/BIG targets the 0.14 gate
+     leaves the gun with, so ~10 blind kills is a floor; the multiplier is
+     floored by "visible centred hits must register." This is the dominant cap
+     and it is combat's, not the player lane's.
+  2. **Sight RESPONSE dynamics (player lane, but not ENVELOPE_Y).** The playtest
+     and the R15 lane both note the sight "settles slowly to its rails," so a
+     human tracks worse than the probe's perfect pursuit. This is slew/settle
+     tuning, a different lever from vertical RANGE.
+  3. **A ~5 % low tail is genuinely below sight reach.** The sight floors at
+     −0.246; NEAR_BAND puts ~4.5 % of fly-past endpoints below that, so the
+     lowest close jets (the "fired over its head" case the playtest hit) can't be
+     brought under the gun. This is the ONLY place a small ENVELOPE_Y DOWN-reach
+     increase would help, and it is a minority tail, not a keystone — do not
+     build R15 around it.
 
-### Ask 2 (missile) — the lock-bait is reachable by a perfect tracker but not by a human.
-R14 made a lock reachable on EVERY-OTHER wave on all seeds incl. the adverse
-seed 19 that fired nothing before (probe salvos 32/43/40; blind missile stays
-low at 2/3). That fixed AVAILABILITY. But the R14 playtest got **one lock in
-~4 minutes and never a salvo** — the bottleneck is now lock EXECUTION, and it is
-the same vertical fact. The bait must hold ABOVE the resting lock cone or a
-dead-centre stick locks it for free (the blind-protection constraint); the
-resting cone already reaches +0.537 NDC in y, while the climbing sight CENTRE
-only reaches ~+0.40. So the band that is "above a resting cone but centre-
-reachable by a climb" is nearly empty: the bait is parked where only the lock
-cone's upper EDGE grazes it at full climb, which a human at a human cadence
-cannot hold. Lowering the bait (spawner `BAIT_Y`) into true climb-reach was
-analysed and rejected: anything the climbing sight can centre on (<= +0.40) is
-also inside the RESTING cone (<= +0.537) and leaks to the blind pilot.
-  **Ask the PLAYER lane (same lever as Ask 1):** more sight climb-range would
-  let the bait sit where a human can centre the cone on it. Separately, if R10's
-  FROZEN `LOCK_RADIUS_FRAC` is ever revisited (NOT this round — it is frozen), a
-  wider or shorter-in-Y cone would relax the same squeeze; combat is not asking
-  to move it, only recording that the bait placement is boxed by it.
-
-## Not asks, just notes for the next combat lane
-- The gun's residual ~10 blind kills are STRUCTURAL: the hit radius is span-
-  scaled (`HIT_RADIUS_SPAN_MULT` = 0.5, floored by "visible centred hits must
-  register"), so a centred sight is a wide net for CLOSE/BIG targets specifically
-  — exactly the targets `GUN_KILL_SPAN_FRAC` leaves the gun with. Shrinking the
-  multiplier is the one lever that would cut it and it is forbidden for a good
-  reason. Treat ~10 as the floor achievable without the vertical fix above.
-- A RELOCATED gun-dwell (hold off-centre up near the sight) was built and
-  measured INERT (aim 21/19/18, blind 9/12/13 — unchanged) and reverted; the
-  aimer's gun total is bounded by target SUPPLY, not placement. Do not re-run it.
-  See the `GUN_DWELL` note in spawner.js.
+## Notes for the next combat lane
+- A RELOCATED gun-dwell (hold off-centre up near the sight) was built, measured
+  INERT (aim 21/19/18, blind 9/12/13 — unchanged) and reverted; the aimer's gun
+  total is bounded by target SUPPLY, not placement. See the `GUN_DWELL` note in
+  spawner.js. Do not re-run it.
+- `ENVELOPE_X`, the sight rails, `LOCK_RADIUS_FRAC` and the death cycle were left
+  untouched this round and none is implicated by the corrected diagnosis.
