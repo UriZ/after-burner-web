@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { ScreenSpace } from '../effects/screenSpace.js';
 import { SmokeField } from '../effects/smoke.js';
 import { ExplosionField } from '../effects/explosions.js';
+import { HitFlashField } from '../effects/hitFlash.js';
 import { Spawner } from '../game/spawner.js';
 import { Vulcan, TRAVEL_S as VULCAN_TRAVEL_S } from './vulcan.js';
 import { gunTunable, gunTunableReport } from './tunables.js';
@@ -273,6 +274,9 @@ export class Combat {
 
     this.smoke = new SmokeField(scene, this.space);
     this.explosions = new ExplosionField(scene, this.space);
+    // R27 (combat-feel): a hit flash + spark on EVERY connecting round, so a
+    // non-fatal hit is no longer silent. Driven from _damage() below.
+    this.hitFlash = new HitFlashField(scene);
     this.spawner = new Spawner(scene, this.space, rng);
     // The gun's scatter stream. Seeded from the URL seed so `?seed=N` is
     // still frame-exact, XORed with a constant so it is not the same
@@ -959,6 +963,7 @@ export class Combat {
     this.missiles.update(dt);
     this.smoke.update(dt);
     this.explosions.update(dt);
+    this.hitFlash.update(dt);
   }
 
   _updateMissiles(dt, holding) {
@@ -1407,12 +1412,20 @@ export class Combat {
     this.locks.clear();
     this.smoke.clear();
     this.explosions.clear();
+    this.hitFlash.clear();
     this.launchQueue.length = 0;
     this.salvoCooldown = 0;
   }
 
   _damage(enemy, amount, source = 'other') {
     if (!enemy.alive) return;
+    // R27 (combat-feel): the hit cue fires on EVERY connecting round, BEFORE
+    // the early return below. A non-fatal hit (bombers have hp:2) used to
+    // return here with zero visuals, so rounds vanished into the target until
+    // it finally exploded -- the arcade flashes/sparks the target on every
+    // connecting round, and for a non-fatal hit this flash is the ONLY cue the
+    // round landed. The spark/flash follows the enemy's live sprite.
+    this.hitFlash.spawn(enemy);
     if (!enemy.damage(amount)) return;
     // Kill ledger (see the constructor). Written BEFORE spawner.remove(), so
     // `enemy.d` and the projected span are the values the player's screen
