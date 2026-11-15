@@ -807,6 +807,97 @@ function chunks() {
   return chunkTextures;
 }
 
+// ---------------------------------------------------------------------------
+// R20 — WHITE-HOT CORES FOR THE FLANK SPRAY BALLS. Read the R19 note above
+// FLANK_OFFSET first; this closes the one tell it left open.
+//
+// THE GAP (judging/R19/judge-report.md, R20 gap 4): R19 widened the kill to a
+// ~34 %W horizontal spray with flanking smoke — the right SHAPE — but the
+// flanking puffs it throws are ORANGE SMOKE ONLY. The arcade's spray balls each
+// carry a WHITE-HOT CORE: a bright value-maxed centre the orange wraps, the
+// same hot centre the central fireball has (CORE_MASK) only smaller and
+// scattered to the flanks. Without it the wide spread reads as orange cloud
+// where the arcade reads as a cluster of little detonations.
+//
+// WHY A SEPARATE SPRITE AND NOT A RECOLOURED SMOKE PUFF. The flank puff is a
+// SmokeField 'kill' puff, and its palette is the R10-settled kill-smoke orange
+// the RESIDUE also uses — recolouring it would move the settled residue too,
+// and the smoke itself is measured orange on daylight (ledger row 12's defect:
+// do not author white daylight smoke out of a night frame). So the core is its
+// OWN brief sprite dropped at the puff centre: a small white-hot blob
+// (E_HOT -> E_YELLOW -> E_GOLD -> E_ORANGE) that flashes with the fire and is
+// gone inside ~0.15 s, leaving the orange smoke to stand — which is the arcade's
+// own order (the white-hot fraction is a flash; the orange is the residue). It
+// is NOT taller and NOT wider than the puff it sits in (gap 4 is explicit —
+// this is interior COLOUR, not size) and it never touches the central fireball,
+// the chunks, or the smoke palette.
+//
+// OPAQUE FOR ITS WHOLE LIFE, LIKE THE FIREBALL AND THE CHUNKS, AND IT COOLS BY A
+// TEXTURE SWAP, NOT AN ALPHA FADE. Measured on the ?combatexpl ROI, an
+// alpha-faded core lifts the frame's off-ladder channel values the same way the
+// fireball's old alpha fade did (the note at the fireball's `opacity = 1`): a
+// hot blob at an arbitrary alpha over sky and over the orange puff paints a
+// fresh continuum. So the core has TWO textures — a HOT one (white-cored) and a
+// COOLED one (gold/amber/orange, no white) — and swaps hot -> cooled partway,
+// exactly as the debris chunks cool chunkTex[0] -> chunkTex[1]. The cooled core
+// is the smoke's own orange family, so when it is removed at life end it is
+// indistinguishable from the puff it sat in and there is no bright pop.
+//
+// NO PRNG DRAW: spawned from the same _spawnFlankSmoke the flank puff is, whose
+// per-side values are a pure function of the burst rotation — the shared
+// combat.js stream must not move (CLAUDE.md, "Shared PRNG stream sequencing").
+const HOT_CORE_PX = 16;
+// `cool` swaps the hot interior (white/yellow) for the orange family so the
+// blob reads as a cooling ball that melts into the smoke; the ragged outline is
+// identical so the swap does not jump.
+function drawHotCore(variant, cool) {
+  return (ctx, w, h) => {
+    const cx = (w - 1) / 2;
+    const cy = (h - 1) / 2;
+    const R = w / 2;
+    for (let y = 0; y < h; y++) {
+      for (let x = 0; x < w; x++) {
+        const dx = x - cx;
+        const dy = y - cy;
+        const ang = Math.atan2(dy, dx);
+        // A two-lobe deterministic perturbation so the blob is a RAGGED hot
+        // patch, not a clean disc (REFERENCE.md: the arcade's near-white is
+        // "one ragged mass", never a circle), and so the two flank cores — fed
+        // variant 0 and 1 — are not mirror-identical.
+        const wobble = 1 + 0.16 * Math.sin(ang * 3 + variant * 2.2)
+                         + 0.09 * Math.cos(ang * 2 - variant * 1.3);
+        const r = (Math.hypot(dx, dy) / R) * wobble;
+        let fill = null;
+        if (!cool) {
+          if (r < 0.34) fill = E_HOT;          // white-hot centre
+          else if (r < 0.54) fill = E_YELLOW;
+          else if (r < 0.74) fill = E_GOLD;
+          else if (r < 0.92) fill = E_AMBER;
+          else if (r < 1.0) fill = E_ORANGE;   // blends into the orange smoke
+        } else {
+          if (r < 0.40) fill = E_GOLD;         // no white: cooled
+          else if (r < 0.70) fill = E_AMBER;
+          else if (r < 1.0) fill = E_ORANGE;
+        }
+        if (!fill) continue;
+        ctx.fillStyle = fill;
+        ctx.fillRect(x, y, 1, 1);
+      }
+    }
+  };
+}
+// { hot: [v0, v1], cool: [v0, v1] }.
+let hotCoreTextures = null;
+function hotCores() {
+  hotCoreTextures ??= {
+    hot: [0, 1].map((v) =>
+      makePixelTexture(drawHotCore(v, false), HOT_CORE_PX, HOT_CORE_PX, { palette: EXPLOSION_PALETTE })),
+    cool: [0, 1].map((v) =>
+      makePixelTexture(drawHotCore(v, true), HOT_CORE_PX, HOT_CORE_PX, { palette: EXPLOSION_PALETTE })),
+  };
+  return hotCoreTextures;
+}
+
 // Peak on-screen diameter of a kill explosion, as a fraction of frame width.
 // REFERENCE.md measures the t357 fireball at ~23%W; GAME_SPEC.md §8 requires
 // explosions to "occupy the frame generously".
@@ -962,6 +1053,15 @@ const FLANK_LIFE_S = 0.42;        // spans the fire (LIFE_S 0.267) and a little 
 // texels; still a handful of pixels, so the set-cardinality gate is unmoved.
 const CHUNK_FRAC = 0.017;
 
+// R20: the white-hot core dropped at each flank puff centre. START->PEAK is a
+// quick flash out to roughly half the puff's width (FLANK_FRAC_END 0.130), so
+// the core is a hot CENTRE the orange wraps, never a ball as wide as the puff.
+// HOT_CORE_LIFE_S is well inside FLANK_LIFE_S (0.42) so the orange outlives the
+// core — the arcade's order, a white flash leaving orange residue.
+const HOT_CORE_FRAC_START = 0.040; // screen-width fraction at birth
+const HOT_CORE_FRAC_PEAK = 0.058;
+const HOT_CORE_LIFE_S = 0.15;
+
 export class ExplosionField {
   constructor(scene, space) {
     this.scene = scene;
@@ -969,6 +1069,11 @@ export class ExplosionField {
     this.live = [];
     this.pool = [];
     this.chunkPool = [];
+    // R20: the flank spray balls' white-hot cores (see drawHotCore). Their own
+    // pool and own live list because they outlive the burst sprite but die well
+    // before the flank smoke, so neither existing clock fits them.
+    this.cores = [];
+    this.corePool = [];
     // Its OWN SmokeField, not combat.js's. Taking the caller's would change
     // `new ExplosionField(scene, space)`'s signature, and combat.js belongs
     // to another lane and is live this round. This one holds nothing but
@@ -987,6 +1092,15 @@ export class ExplosionField {
     if (this.chunkPool.length) return this.chunkPool.pop();
     const sprite = makeBillboard(chunks()[0], 1);
     sprite.renderOrder = 21;
+    return sprite;
+  }
+
+  _acquireCore() {
+    if (this.corePool.length) return this.corePool.pop();
+    // renderOrder 22: above the burst (20), chunks (21) and the kill smoke
+    // (SmokeField uses 6) so the hot centre sits on top of its orange puff.
+    const sprite = makeBillboard(hotCores().hot[0], 1);
+    sprite.renderOrder = 22;
     return sprite;
   }
 
@@ -1070,7 +1184,23 @@ export class ExplosionField {
         fracStart: FLANK_FRAC_START * sScale,
         fracEnd: FLANK_FRAC_END * sScale,
       });
+      // R20: a white-hot core at the SAME centre as the puff. variant 0/1 by
+      // side so the two cores are not identical; no PRNG draw.
+      this._spawnHotCore(p, depth, sScale, side === 1 ? 1 : 0);
     }
+  }
+
+  // One white-hot core sprite dropped at a flank puff's centre. See the R20
+  // note above drawHotCore for why this is a separate, brief sprite rather than
+  // a recolour of the settled kill smoke.
+  _spawnHotCore(position, depth, sScale, variant) {
+    const sprite = this._acquireCore();
+    sprite.position.copy(position);
+    sprite.material.map = hotCores().hot[variant];
+    sprite.material.opacity = 1;
+    sizeSprite(sprite, this.space.worldWidthFor(HOT_CORE_FRAC_START * sScale, depth));
+    this.scene.add(sprite);
+    this.cores.push({ sprite, age: 0, depth, sScale, variant });
   }
 
   // The residue, spawned on the tick the fire goes out rather than at the
@@ -1116,6 +1246,29 @@ export class ExplosionField {
     const texs = bursts();
     const chunkTex = chunks();
     this.smoke.update(dt);
+
+    // R20: the flank white-hot cores. A quick flash — grow START->PEAK in the
+    // first third, hold, then COOL by a texture swap (hot -> cooled orange) so
+    // the hot centre blooms and melts into the orange puff. Opacity stays 1 (see
+    // the drawHotCore note): the cool texture is the smoke's own orange family,
+    // so removal at life end is invisible.
+    const coreTex = hotCores();
+    for (let i = this.cores.length - 1; i >= 0; i--) {
+      const c = this.cores[i];
+      c.age += dt;
+      const t = c.age / HOT_CORE_LIFE_S;
+      if (t >= 1) {
+        this.scene.remove(c.sprite);
+        this.corePool.push(c.sprite);
+        this.cores.splice(i, 1);
+        continue;
+      }
+      const grow = Math.min(1, t / 0.33);
+      const frac = HOT_CORE_FRAC_START + (HOT_CORE_FRAC_PEAK - HOT_CORE_FRAC_START) * grow;
+      sizeSprite(c.sprite, this.space.worldWidthFor(frac * c.sScale, c.depth));
+      c.sprite.material.map = t < 0.55 ? coreTex.hot[c.variant] : coreTex.cool[c.variant];
+      c.sprite.material.opacity = 1;
+    }
     for (let i = this.live.length - 1; i >= 0; i--) {
       const e = this.live[i];
       e.age += dt;
@@ -1290,7 +1443,7 @@ export class ExplosionField {
   // the fire ends at 0.267 s; the worst case over 24 rotations is 1.333 s at
   // both scales; and `clear()` resolves it immediately.
   busy() {
-    return this.live.length > 0 || this.smoke.live.length > 0;
+    return this.live.length > 0 || this.smoke.live.length > 0 || this.cores.length > 0;
   }
 
   clear() {
@@ -1308,7 +1461,12 @@ export class ExplosionField {
         this.chunkPool.push(c.sprite);
       }
     }
+    for (const c of this.cores) {
+      this.scene.remove(c.sprite);
+      this.corePool.push(c.sprite);
+    }
     this.smoke.clear();
     this.live.length = 0;
+    this.cores.length = 0;
   }
 }

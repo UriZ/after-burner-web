@@ -158,6 +158,15 @@ const G = {
   // (13,-3)->(19,-5) into a 7 px flat peak x[19,27]. Faithful to the arcade's
   // arch (NOT narrowed to an angular point, which this letter does not have —
   // judging/R18 A-cmp). Right leg, 5 px rise and counter unchanged (measured).
+  //
+  // R20: an asymmetric-arch rewrite was TRIED (peak shifted to x[23,29], left
+  // sweep) to chase gap 5's "italic lean", and WITHDRAWN: measured against the
+  // arcade blue A (bbox-normalised IoU, judging/R20/polish), it went 0.755 ->
+  // 0.746 — a lateral move, not an improvement, with no visible gain. The real
+  // distance is that the arcade A is a BOLDER left-stroke letterform, a full
+  // re-author this round could not verify as better; the gap-5 "overall italic
+  // lean" is otherwise refuted by measurement (body stems vertical ±1.3°;
+  // advances/gaps match to 1-2px — judging/R20/polish/title-audit-*.png).
   A: {
     w: 34,
     shapes: [[
