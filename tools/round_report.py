@@ -21,67 +21,64 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 # ---------------------------------------------------------------- ROUND DATA
 ROUND = {
-    "number": 22,
+    "number": 25,
     "date": "2026-11-15",
-    "status": "CLOSED",
-    "score": "9.2 / 10",
-    "last_score": "9.1 / 10 (R21)",
+    "status": "CORE FIX IN PROGRESS",
+    "score": "~5 / 10",
+    "last_score": "9.3 was backdrop-only (superseded)",
     "tldr": (
-        "R22 put the <em>battlefield</em> on the canyon floor — tanks, tents and scrub where it was "
-        "bare ochre — and made the tanker's fin bolder, with zero regression. It rises to 9.2. But "
-        "filling the floor let the judge play the canyon closely, and that surfaced the canyon's real "
-        "next problem: it's a <em>dark tunnel</em> where the arcade is bright and open (near walls "
-        "balloon over the centre), and <em>aiming is degraded</em> there (locks barely form). Honest "
-        "progress, and a sharper target for R23."
+        "<strong>The owner played the 9.3 build and called it “pretty bad.”</strong> The judges had "
+        "drifted into scoring element-by-element arcade <em>fidelity</em> — the biomes, the canyon, the "
+        "tanker all genuinely match the arcade frames — while the game is <em>bad to play</em>: pressing "
+        "the missile button at enemies fires <em>nothing</em> (the signature AB2 weapon needs an obscure "
+        "camp-to-lock move no player would find), and the jet + enemy sprites aren’t good enough. Fidelity "
+        "of parts is not a good game. The judging is recalibrated to score <em>naive play</em>, the build "
+        "is honestly <strong>~5</strong>, and this round fixes the core instead of adding more backdrop."
     ),
     "verdict": (
-        "“The canyon floor is a battlefield now — tanks and tents scrolling past. But flying it close, "
-        "the walls loom in and swallow the middle, and I can barely get a lock in there. It reads as a "
-        "dark tunnel where the arcade is a bright open canyon.”"
+        "“No missiles, no heat-seeking missiles; the UI/sprites — both my jet and the enemies — are not "
+        "good enough; overall pretty bad.”"
     ),
-    "verdict_attr": "R22 fresh-context judge · composite 9.2 (motion 9.1 · stills 9.2)",
+    "verdict_attr": "The owner, after playing the build — the ground truth that outranks every judge",
     "pairs": [
-        ("judging/R22/canyonfloor-ours-vs-arcade.png",
-         "The canyon floor is a battlefield now",
-         "Shipped this round: tanks, tents and scrub on what was bare ochre, combat still legible. Sparser than the arcade's wall-to-wall packing — and the walls loom too dark/close, the R23 fix."),
         ("judging/R21/cmp-canyon.png",
-         "The canyon still reads dark vs the arcade's open bright",
-         "Close play surfaced it: near-field wall masses balloon over the centre and the sky is blotted out, where the arcade is bright and open with the cream sky showing. R23 opens and lightens it."),
-        ("judging/R22/tl-verify-tanker-fin2.png",
-         "The tanker fin is bolder",
-         "A bolder swept tail; wings still near-flat vs the arcade's downsweep. Docking kept byte-identical."),
+         "The backdrop fidelity is real — but it isn’t the game",
+         "The canyon, biomes, and airframes genuinely match the arcade (this is why the judges said 9.3). The problem is what the player’s hands and eyes actually touch: the weapons and the sprites."),
+        ("judging/R19/tanker-ours-vs-arcade.png",
+         "Beautiful parts, weak core",
+         "Both refuel beats, seven biomes, matched airframes — all shipped. None of it helps if the signature missile is unusable and the jet reads flat. The score now reflects PLAY, not frame-match."),
+        ("judging/R12/gestalt/pair1-combat-salvo.png",
+         "The sprites need a real redraw",
+         "The owner flagged the player jet AND the enemies. This round is an art-quality pass on the aircraft — not a palette tweak — plus making the missile an arcade-simple point-and-shoot heat-seeker."),
     ],
     "shipped": [
-        "The canyon floor is a BATTLEFIELD now — tanks, tents, boulders/scrub on what was bare ochre (reusing the depot props)",
-        "Floor props keep combat readable — they sit low/off-axis; the jet, sight and enemies read over them",
-        "The tanker fin is bolder/swept + wings dropped toward the pods (docking byte-identical)",
-        "ZERO regression — combat byte-identical outside the canyon (stage-1 A/B maxdiff 0); all biomes + both refuel beats render",
+        "RECALIBRATED the judging — the score now anchors on a full NAIVE playtest (play like a first-timer, no insider moves)",
+        "Weapons-usability + controls-feel + sprite quality are scored ABOVE backdrop fidelity; re-baselined (5-6 = this build)",
+        "Confirmed the owner’s verdict: a naive player pressing the missile button at enemies fires 0 missiles",
+        "STOPPED adding content (biomes/stages) until the core plays well",
     ],
-    "gaps_label": "Next — R23",
+    "gaps_label": "Fixing now — R25",
     "gaps": [
-        (1, "feel", "Open and lighten the canyon — it reads as a dark tunnel",
-         "The dominant canyon tell (surfaced by close play, pre-existing since R21): near wall masses balloon over the CENTRE and blot out the sky, swallowing the jet + enemies in a brown blur, where the arcade is bright and open. Pull the walls back to the flanks, CAP how large/close a near wall can get (never swallow the centre), and let the measured cream sky #faecb0 show."),
-        (2, "bug", "Fix canyon aiming — you can barely lock in there",
-         "Identical stick play gives 6 locks on stage 1 vs 0-1 in the canyon, and the sight rails ~0.2 NDC off-centre from the enemy cluster. The low-camera sight retracking degraded the canyon's aim/lock geometry. Trace it — the headline biome needs its missile loop working."),
-        (3, "polish", "Densify the canyon floor toward the arcade's packing",
-         "Ours is ~1-2 vehicles/frame vs the arcade's ~3 tanks + tents + 15-20 scrub wall-to-wall. Raise the prop/scrub counts (combat readability held, so there's room)."),
-        (4, "missing", "Give the flat field biomes (14/16) real structure",
-         "The gold-dusk forest + blue city are still flat open fields. Now that walls + a low camera + props are proven on the canyon, give 14/16 the same treatment — once the canyon's own issues are fixed so the pattern is sound."),
-        (5, "polish", "Tanker wings + loose ends",
-         "The tanker wings are still near-flat vs the arcade's downsweep; STAGE_8 scrollSpeed is ADOPTED; the tree tunnel is still sparse; blind gun floor ~8-12."),
+        (1, "bug", "Missiles don’t work for a player — make them arcade-simple",
+         "AB2’s signature: point the reticle at enemies, press the button, it locks what’s near your aim and fires HOMING heat-seekers that chase them down. Ours needs camping a lock band — a naive player fires none. Rip out the barrier; a first-timer pressing X at enemies gets locks and kills within seconds."),
+        (2, "feel", "The sprites aren’t good enough — the jet AND the enemies",
+         "The owner singled out both. A real art-quality redraw of the player F-14 (on screen 100% of the time) and the enemy aircraft against the arcade — crisper, more characterful, not flat/toylike. Not a palette tweak."),
+        (3, "feel", "Then re-judge the whole feel at naive play",
+         "Once missiles work and the sprites improve, does it feel like AB2 in the hands? The recalibrated judge plays naively and scores the PLAY, not the frames."),
+        (4, "missing", "Deferred: the backdrop work",
+         "The flat field biomes, more stages, canyon density — all genuinely ahead of the gameplay already. Not this round; the core comes first."),
     ],
     "keep": [
-        "The canyon floor battlefield + the structured canyon; both refuel beats; the bolder tanker fin + docking",
-        "COMBAT byte-identical outside the refuel/canyon camera states (proven maxdiff 0); every combat win",
-        "Seven combat biomes; the upright title block; the wider fireball + hot cores; the ~8 s death cycle",
-        "Keep new camera work STATELESS (prove byte-identical outside); do NOT grow ENVELOPE_Y",
+        "The backdrop fidelity that IS right: 7 biomes, both refuel beats, the structured canyon, matched airframes",
+        "The things that work: the gun, the afterburner, the refuel beats, the death cycle, the stage variety",
+        "The recalibrated calibration — score naive PLAY, owner outranks the judge, don’t inflate on frame-match",
     ],
     "method_note": (
-        "R22 is the method correcting a prior round: R21's judge measured canyon combat telemetry (locks "
-        "form) and passed it; R22's judge PLAYED the canyon closely and found locks are actually suppressed "
-        "there and the walls occlude the fight — refuting R21's 'indistinguishable from an open stage.' "
-        "Telemetry said yes; the eyes and hands said not quite. The deeper look only became possible once the "
-        "floor was filled enough to fly it for real. That correction is R23's #1 and #2. History in judging/R22/."
+        "This is the R12 failure re-emerging and being caught again — by the owner. The judges re-measure "
+        "ELEMENT FIDELITY (which climbs) and under-weight whether the game is good to PLAY (which is the "
+        "point). The signature missile was unusable for 13 rounds while every judge passed it by testing "
+        "DELIBERATE play, never naive play. The fix is a harder anchor: the judge plays like the owner, and "
+        "the owner outranks the judge. History in judging/; recalibration in CLAUDE.md."
     ),
 }
 
