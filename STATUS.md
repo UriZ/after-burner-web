@@ -1,6 +1,6 @@
 # STATUS — where the rebuild stands
 
-**Last updated**: 2026-11-15. **R15 CLOSED at 8.5; R16 is open.** The loop is
+**Last updated**: 2026-11-15. **R16 CLOSED at 8.6; R17 is open.** The loop is
 **"look first, measure second"** (CLAUDE.md, "How work happens here"; rationale in
 `judging/R12/method-retrospective.md`). Every round ships an HTML report
 (`judging/R<n>/report.html`, `python3 tools/round_report.py`) published to the standing
@@ -9,61 +9,68 @@ Repo: github.com/UriZ/after-burner-web.
 
 ## Current state
 
-- **R15 verdict**: **8.5** (motion 8.5, stills 8.5) — `judging/R15/judge-report.md`. The two oldest
-  combat illusion-breakers BOTH closed; the vertical-reach keystone was refuted by measurement.
-- **Score trend**: … R12 8.0 → R13 8.2 → R14 8.3 → **R15 8.5**.
-- **R15 shipped (judge-confirmed)**: **aiming the gun BEATS the blind stick** (aim 24 vs blind 12,
-  both seeds — the complaint open since R10, closed) via the **burst wall** (a wall of jets at gun
-  range then a lull, presence NOT inflated); the **missile is human-usable** — climb → lock → dodge
-  → fire, held by a **1.2 s lock grace window** + a **UI lock-pip cue**; the **afterburner crisped**
-  into separated cones. **ENVELOPE_Y REFUTED** — we over-reach the arcade (climb +0.76 > +0.62);
-  do NOT grow it.
-- **R15's honest limits (judge)**: the **first** missile lock is hard to find (sight doesn't
-  auto-recentre, full climb overshoots the band — the judge flew ~15 empty passes before finding
-  "ease up gently, park mid-height"); a FIXED aim posture still loses the gun (needs active
-  tracking); blind gun floor still ~8–12 (structural span-scaled net). The grace "18→32" figure was
-  **withdrawn** (wrong probe key; correct 34→42, mechanism real).
-- **What works end to end**: title → flight → combat → death/respawn → tally → stage 1/2/3/4
-  → GAME OVER / continue → restart. Throttle (drives the flame), barrel roll, formations,
-  lock/missiles/vulcan (now usable), afterburner, lock cue, synthesized audio + FM music all run.
-- **Still absent**: 4 of 23 stages, no resupply/bonus pass, limited enemy variety — **now the
-  biggest gap, since combat feel is closed.**
+- **R16 verdict**: **8.6** (motion 8.6, stills 8.5) — `judging/R16/judge-report.md`. A fifth beat
+  (the refuel runway) and the first missile lock made discoverable; the refuel LOOK is PARTIAL.
+- **Score trend**: … R13 8.2 → R14 8.3 → R15 8.5 → **R16 8.6**.
+- **R16 shipped (judge-confirmed)**: the **refuel interstitial** — a no-combat low pass over a
+  runway (new `resupply` flow state + `runway` ground + STAGE_5) that restocks missiles between
+  combat stages, reachable in normal progression (combat 4 → refuel 5 → combat 6) and via
+  `?stage=5`/`?stage=13`; the **first missile lock is discoverable** — raising the bait band
+  (0.44–0.58 → 0.55–0.65) to where the saturated full climb pins (+0.76) means the **naive climb
+  now lands a lock** (3 on the first wave vs R15's ~15 empty passes); **blind protection STRONGER**.
+- **R16's honest limits (judge)**: the refuel beat reads as a **road, not the arcade's refuel
+  BASE** — no tankers/crew/props, cruise-horizon framing not the terrain-rushing swoop, clouds fill
+  the frame, stage 13 shows the wrong biome. The restock is **not caused by the runway** (`_enterStage`
+  refills at every boundary — disclosed). "The LOOK is the game's weakest stage match."
+- **What works end to end**: title → flight → combat → death/respawn → tally → stages 1/2/3/4 +
+  **refuel 5/13** → GAME OVER / continue → restart. Throttle (drives the flame), barrel roll,
+  formations, lock/missiles/vulcan (usable, first lock discoverable), afterburner, lock cue,
+  synthesized audio + FM music all run.
+- **Still absent**: **5 of 23 beats** (4 combat + the runway refuel); the **airborne tanker** refuel
+  and the rest of the stages remain — breadth is the standing theme.
 
-## R16 gap list — from the R15 judge's close-look (`judging/R15/judge-report.md`)
+## R17 gap list — from the R16 judge's close-look (`judging/R16/judge-report.md`)
 
-Theme: **BREADTH.** The combat feel is closed (both oldest cracks shut in R15), so the biggest
-remaining distance from the arcade is structural — 4 of 23 stages and no resupply/bonus. Ranked:
+Theme: **finish the refuel beat, and keep widening.** The combat feel is closed; the refuel
+stage exists but reads as a road. Ranked:
 
-1. **BREADTH — 4 of 23 stages, no resupply/bonus pass.** Now the single biggest gap. Add stages
-   (palettes measured from STAGE_MAP), and/or build the iconic **resupply/refuel interstitial**
-   (arcade stages 5 & 13 — fly low over a runway; a whole missing beat of the arcade). Quality over
-   quantity — one stage or the resupply, done well and reachable in play. (World + flow lanes.)
-2. **THE FIRST MISSILE LOCK IS HARD TO FIND.** The climb→lock→dodge→fire loop works once you know
-   the move, but the sight doesn't auto-recentre and a full climb OVERSHOOTS the lockable band
-   (+0.76 vs the bait at 0.44–0.58), so the R15 judge flew ~15 empty passes before discovering
-   "ease up gently and park mid-height on the approaching wave." Make that first lock discoverable —
-   a telegraph/cue when a lockable target is in range, or tune the bait so a natural climb lands on
-   it. Do NOT grow ENVELOPE_Y (refuted). (Combat + player/ui.)
-3. **POLISH — the stage-4 forest ground.** Reads darker and flatter than the arcade's bright
-   mottled canopy with its cyan river. A palette/texture pass (measured off STAGE_MAP stage 4).
-   (World lane.)
-4. **POLISH — small climaxes, the title.** Kill fireballs read sub-screen vs the arcade's
-   half-screen blasts; the title wordmark is hand-rounded where the arcade's is brush-angular.
-   (Effects / ui.)
-5. **LOOSE ENDS (low priority).** Blind gun floor still ~8–12 (structural span-scaled net — a known
-   floor, not a quick fix); locked-vs-tracked bracket COLOUR distinction (deferred R15 — brackets
-   are near-white by R10 design, needs a measured pass); the `SIGHT_NDC_Y_OFFSET` +0.30 (vulcan
-   convergence) vs ~+0.16 (nose-sight glyph) reconciliation — likely two different elements, measure
-   before touching.
+1. **THE REFUEL STAGE IS A ROAD, NOT A BASE.** R16's headline beat is its weakest frame. It needs
+   the two signifiers it lacks: the **autumn trees that fill the frame to the top** (the deferred
+   low-altitude framing — a cross-lane **camera-pitch** change during `resupply`, coordinated with
+   the player-sprite screen placement so the jet doesn't ride into the top HUD or point at the
+   ground) and the **ground props** — fuel tankers, tents, crew — beside the runway. Also: **stage
+   13** should render its measured palm/sage biome, not the autumn stage-5 runway; and the global
+   cloud bank should **lift on the refuel stages** (STAGE_MAP gives them cloud_density 0 — a
+   per-stage cloud gate). Until then a player reads "a road." (World + flow; camera pitch is
+   cross-lane with player.)
+2. **STILL ONLY 5 OF 23 BEATS — THE AIRBORNE TANKER IS UNBUILT.** Breadth is the standing theme and
+   the biggest structural distance from the arcade. The runway refuel is one of **two** arcade
+   refuel mechanisms; the **airborne tanker** refuel is still absent, and more combat stages widen
+   the game. Quality over quantity — the next beat as well-wired as the runway, but WITH the scenery
+   the runway lacks. (World + flow.)
+3. **THE STAGE-4 FOREST GROUND IS DARK AND FLAT.** Carried from R15, deferred twice. The arcade's
+   canopy is brighter and mottled with a cyan river; ours is a near-flat dark green field. Needs the
+   **measured V-distribution re-centre** the breadth lane scoped (vegRamp centre 0.45 → modal toward
+   `#005200` V0.322, mid the measured V25 0.282 / V75 0.416 band), NOT a by-eye nudge, plus the cyan
+   river as a real terrain feature. (World.)
+4. **CLIMAXES READ SMALL; THE TITLE IS HAND-ROUNDED.** Kill fireballs are sub-screen vs the arcade's
+   half-screen blasts; the title wordmark is hand-rounded where the arcade's is brush-angular. A
+   grouped polish pass. (Effects / ui.)
+5. **LOOSE ENDS (low priority).** Blind gun floor still ~8–12 kills/90 s (a known structural floor —
+   the span-scaled hit net); the resupply restock isn't tied to the runway (fires at every boundary —
+   harmless, make the runway the in-fiction cause if a tanker animation lands); the
+   `SIGHT_NDC_Y_OFFSET` +0.30 (vulcan) vs ~+0.16 (glyph) reconciliation stays a measure-first item.
 
-**Kept as positives (do not regress):** aiming beats the blind gun; the missile climb-lock-dodge-
-fire loop + 1.2 s grace window + pip cue; the burst-wall rhythm (presence not inflated); the crisp
-afterburner; blind-pilot protection; four stages; islands; game-over; ±60° attract; the death cycle
-at ~8 s (arcade-confirmed). **Do NOT grow `ENVELOPE_Y`** — we already over-reach the arcade.
+**Kept as positives (do not regress):** the first missile lock found by the naive climb (0→3 on the
+first wave); blind protection intact/stronger (centred + held = 0 locks); aim-beats-blind gun (24 vs
+12); the burst wall; the human-usable missile loop (grace window + legible pips); the crisp
+afterburner; the ~8 s death cycle; stages 1–4; the refuel beat's wiring (no-combat, reachable, hands
+back automatically). **Do NOT grow `ENVELOPE_Y`** (R15-refuted; the raised bait is the right lever).
 
-**Carried interfaces** (`judging/R12/flow-asks.md`): a `gameOver` SFX (audio), a stage-transition
-cross-fade on sky/ground `setStage` (world). Record R13 lock-bait/flyby, R14 stage 4, R15 burst
-wall + lock grace + lock cue as **ADOPTED** in GAME_SPEC §4. **Capture caveat**: the combat p-gate
+**Carried interfaces** (`judging/R12/flow-asks.md`): a `gameOver` SFX + a `resupply` landing cue
+(audio); a stage-transition cross-fade on sky/ground `setStage` (world); a **per-stage cloud gate**
+(clouds) so the refuel stages run clear sky. Record as **ADOPTED** in GAME_SPEC: R16 runway resupply
+(§5), the raised first-lock bait + "aim here" hint (§3/§4). **Capture caveat**: the combat p-gate
 makes `demo=2` under-read gun explosions — use `?combatexpl=1` and an aiming pilot (or play).
 
 ## Hard warnings that stay load-bearing
