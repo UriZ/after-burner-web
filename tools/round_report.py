@@ -21,77 +21,75 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 # ---------------------------------------------------------------- ROUND DATA
 ROUND = {
-    "number": 17,
+    "number": 18,
     "date": "2026-11-15",
     "status": "CLOSED",                      # or "BUILD IN PROGRESS"
-    "score": "8.7 / 10",                     # judge score once the round closes
-    "last_score": "8.6 / 10 (R16)",
+    "score": "8.8 / 10",                     # judge score once the round closes
+    "last_score": "8.7 / 10 (R17)",
     "tldr": (
-        "R17 turned R16’s refuel <em>road</em> into a refuel <em>base.</em> Fuel tankers, tents and "
-        "crew now line the runway; the sky clears; and the camera <em>swoops low</em> so terrain "
-        "fills the frame like the arcade — all three signifiers, landed. The combat framing is "
-        "proven byte-identical, so the fight is untouched. Stage 13 got its own green biome and the "
-        "forest was brightened to its measured target. It rises to 8.7. The one tell left is the "
-        "arcade’s dense <em>tree tunnel</em> walling the runway to the top."
+        "R18 built the arcade’s <em>tree tunnel</em> — dense autumn trees walling the stage-5 refuel "
+        "runway and palms walling stage 13 (closing the ‘no palms’ gap in the same stroke) — the single "
+        "biggest tell the judge named. Both refuel stages now pass the glance test as the arcade’s "
+        "tree-lined bases. The title letterforms got sharper, and a ‘fireballs too small’ gap was "
+        "<em>refuted by measurement</em> (ours isn’t short — the arcade’s is just wider). It rises to "
+        "8.8, nothing regressed."
     ),
     "verdict": (
-        "“A clean breadth/polish round — the refuel stage reads as a depot now, not a road: low "
-        "framing, fuel tankers and tents scrolling past, clear sky. The fight is untouched. The one "
-        "thing still missing is the arcade’s wall of trees down both sides of the strip.”"
+        "“The refuel runway is walled with trees now — autumn on one stage, palms on the other — so it "
+        "reads as the arcade’s base at a glance. The title’s letters are sharper. Nothing in the fight "
+        "moved. What’s left on the refuel is a denser, cleaner canopy.”"
     ),
-    "verdict_attr": "R17 fresh-context judge · composite 8.7 (motion 8.7 · stills 8.7)",
-    # Side-by-side hero pairs (already composited OURS | ARCADE).
+    "verdict_attr": "R18 fresh-context judge · composite 8.8 (motion 8.8 · stills 8.9)",
     "pairs": [
+        ("judging/R18/tree-tunnel-ours-vs-arcade.png",
+         "The refuel runway has its tree tunnel",
+         "Shipped this round: dense autumn trees walling stage 5 (palms on stage 13), rising up the low-swoop frame. The biggest remaining tell is closed — what’s left is a denser, cleaner canopy."),
         ("judging/R17/refuel-base-ours-vs-arcade.png",
-         "The refuel stage is a base now",
-         "Shipped this round: the low-swoop camera (measured horizon 0.20), fuel tankers/tents/crew beside the runway, and clear sky. R16’s ‘it’s a road’ is gone — the remaining tell is the arcade’s dense tree tunnel."),
-        ("judging/R17/world-s4-ours-vs-arcade.png",
-         "The forest is brighter, with a river",
-         "A measured V-recenter lands the forest green on the arcade’s own value, plus a cyan river — closer to the arcade’s mottled canopy."),
+         "Built on R17’s refuel base",
+         "The low-swoop framing + props + clear sky from R17, now with the tree walls — the refuel stage is substantially the arcade’s base."),
         ("judging/R15/combat-ours-vs-arcade.png",
-         "Combat untouched — and proven so",
-         "The R15/R16 combat wins all hold; the refuel low-swoop is byte-identical-gated to the resupply state and does not leak into the fight (combat horizon 0.62, resupply 0.20)."),
+         "Combat still untouched",
+         "Every combat win holds; the refuel changes are gated to the resupply state and proven not to leak into the fight."),
     ],
-    # What shipped and held up under the judge's re-measure.
     "shipped": [
-        "The refuel stage reads as a BASE — low-swoop framing (measured horizon 0.20), props (tanker/tents/crew), clear sky",
-        "Combat framing proven byte-identical — the low-swoop is gated to resupply and never leaks into the fight",
-        "Stage 13 has its own distinct green sage biome (no longer the autumn stage-5 runway)",
-        "The stage-4 forest brightened to its measured value (mode on #005200) + a cyan river",
-        "Clouds lift on the refuel stages (per-stage cloud gate); stages 1–4 clouds intact",
+        "The refuel TREE TUNNEL — dense autumn trees walling stage 5, palms walling stage 13 (fixing ‘no palms’)",
+        "Both refuel stages now pass the glance test as the arcade’s tree-lined bases",
+        "Sharper title letterforms — a chamfered A and knife-point terminals toward the arcade’s brush style",
+        "Clouds handled per-stage — stage 4 cleared (arcade is clear), stages 2/3 kept (they carry banks)",
+        "A ‘fireballs too small’ gap REFUTED by scale-matched measurement — ours isn’t short, the arcade’s is wider",
     ],
-    # Ranked gaps for NEXT round. kind drives the colour chip.
-    "gaps_label": "Next — R18",
+    "gaps_label": "Next — R19",
     "gaps": [
-        (1, "missing", "The refuel runway needs its tree tunnel",
-         "The single biggest tell left: the arcade walls the strip with dense flanking vegetation (autumn on "
-         "5, palm on 13) to the top of the frame; ours is flat scrub with props parked at the horizon. Build "
-         "the tree tunnel — and it fixes stage 13’s missing palms in the same stroke."),
-        (2, "missing", "Still ~6 of 23 beats — the airborne tanker is unbuilt",
-         "Breadth stays the standing theme. The runway is one of two arcade refuel mechanisms; the mid-air "
-         "TANKER refuel is still absent, and more combat stages widen the game toward 23."),
-        (3, "polish", "Climaxes read small; the title is hand-rounded",
-         "Rising now that the refuel headline is largely closed: kill fireballs are sub-screen vs the arcade’s "
-         "half-screen blasts; the title wordmark is hand-rounded where the arcade’s is brush-angular."),
-        (4, "polish", "A cheap win: clouds on combat stages 2–4",
-         "STAGE_MAP gives stages 2–4 cloud_density 0 too, but the R17 gate lifted only the refuel stages. "
-         "Extend the gate (carefully — STATUS warned not to regress 1–4’s look)."),
+        (1, "missing", "The airborne tanker refuel is unbuilt",
+         "The standing breadth item: the runway is only ONE of the arcade’s two refuel mechanisms — the "
+         "mid-air TANKER refuel (fly up behind a tanker plane) is still absent. Plus more combat stages toward "
+         "23. Still ~6 of 23 beats; breadth is the biggest structural distance left."),
+        (2, "feel", "Kill blasts are too narrow",
+         "The fireball isn’t short (measurement refuted that) — but the arcade’s blast is ~2× WIDER, a flat "
+         "horizontal debris spray with flanking smoke, where ours is a compact vertical puff. Widen the blast "
+         "and add the horizontal debris so climaxes read big."),
+        (3, "polish", "Densify and clean the tree tunnel",
+         "Substantially closed, but ours is a sparser, blobbier canopy row vs the arcade’s dense continuous "
+         "wall. More trees, cleaner smaller canopy silhouettes carried further up the frame. (Secondary: the "
+         "stage-5 refuel sky reads pale-cream vs arcade orange — measure the thin band first.)"),
+        (4, "polish", "The title still trails the arcade",
+         "Sharper now, but still short of the arcade’s italic lean and letter packing. A second pass if the "
+         "bigger gaps are handled."),
         (5, "polish", "Loose ends",
          "Blind gun floor still ~8–12 (structural); the refuel restock isn’t caused by the runway (boundary); "
          "the SIGHT_NDC_Y_OFFSET reconciliation stays a measure-first item."),
     ],
-    # What not to break.
     "keep": [
-        "The refuel base (low-swoop framing + props + clear sky); COMBAT framing byte-identical outside resupply",
-        "Stage 13’s green biome; the brighter forest + cyan river; the cloud gate",
-        "Every combat win: aim-beats-blind gun, the missile loop + grace window + pips, the first-lock naive climb, the burst wall",
-        "Do NOT grow ENVELOPE_Y; do NOT let the resupply pitch leak into combat (it’s proven gated)",
+        "The refuel tree tunnel (both biomes) + the R17 base (low-swoop + props + clear sky)",
+        "COMBAT framing byte-identical outside resupply; stage 13’s palms; the forest + river; the cloud gate",
+        "Every combat win: aim-beats-blind gun, the missile loop + grace window + pips, the first-lock climb, the burst wall",
+        "Do NOT grow ENVELOPE_Y; do NOT inflate the fireball vertically (measured fine) — widen it instead",
     ],
     "method_note": (
-        "R17’s standout was rigor on a risky change: the framing lane MEASURED the arcade refuel horizon "
-        "(0.20) instead of eyeballing, used a separate pitch quaternion so combat’s camera is never mutated, "
-        "and PROVED combat byte-identical with an isolated-worktree pixel diff. A prior framing lane also "
-        "withdrew cleanly when assigned the wrong files, locating the real lever for wave 2. History in judging/R17/."
+        "R18 refuted a gap by measuring: ‘fireballs too small’ came off a non-scale-matched impression, and "
+        "the polish lane measured scale-matched before inflating — which would have overshot. The judge then "
+        "refined it further (ours isn’t short, but the arcade is ~2× wider), turning a vague ‘bigger’ into a "
+        "precise width+debris target. Measure, don’t inflate. History in judging/R18/."
     ),
 }
 
