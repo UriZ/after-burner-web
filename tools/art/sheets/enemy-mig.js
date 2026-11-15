@@ -267,6 +267,14 @@ function wing(c, T, p, { span = HALF_SPAN, root = 4, chord = 6, tipChord = 2,
     // Shaded underside and the dark trailing edge, INBOARD only: the outer
     // third of the arcade's bar is one pixel of edge and nothing else.
     strip(0.5, chord - 2, chord - 1, p.dominant);
+    // R25: a 1px dark trailing edge the WHOLE span, not just the inner third.
+    // The old wing had a bright top edge and no dark bottom edge outboard, so
+    // the wing faded into the sky and read as a flat grey triangle. A crisp
+    // dark line tip-to-tip is what makes it read as a wing against the sky --
+    // lit above, dark below, the same lit/dark structure that lifted the
+    // player jet out of "flat". Drawn from the straight top edge down, so it
+    // tracks the real trailing edge as the chord tapers.
+    band(c, T, xr, xt, tr + chord - 1, tr + chord, tt + tipChord - 1, tt + tipChord, p.shadow);
     strip(0.22, chord - 1, chord, p.shadow);
   }
 }
@@ -309,8 +317,12 @@ function nozzle(c, T, p) {
  *  in the aircraft's frame and the whole frame rotates with the roll. */
 function fin(c, T, p, { base = -5, tip = -16, lean = 1, wRoot = 4, wTip = 2 }) {
   blade(c, T, [0, base], [lean, tip], wRoot, wTip, p.mid);
-  // The shaded side must track the blade's own edge at BOTH ends, or it
-  // diverges from it at the root and the fin renders forked.
+  // R25: the fin reads as a proper swept stabiliser now, not a pale spike.
+  // A lit leading (forward) edge and a dark trailing edge give it a top and
+  // an edge -- the same one-rung-each-side modelling the wing and the player
+  // tails carry. Both tracked at BOTH ends so the fin never renders forked.
+  blade(c, T, [wRoot * 0.5 - 0.5, base], [lean + wTip * 0.5 - 0.5, tip],
+    1, 1, p.highlight);
   blade(c, T, [-wRoot * 0.5 + 0.5, base], [lean - wTip * 0.5 + 0.5, tip],
     1, 1, p.dominant);
 }
