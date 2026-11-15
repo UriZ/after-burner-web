@@ -152,10 +152,21 @@ const MAX_LIFE_S = 5.0; // ADOPTED
 // solves to ~0.52 s against a target at the break depth and ~1.15 s against
 // one at the 70-unit lock ceiling. Re-check BOTH ends if either constant
 // moves — the floor is the one that keeps failing.
-const V0 = 7; // world depth units/s at launch
-const ACC = 28;
-const V_MAX = 46;
-const HOMING_GAIN = 2.8; // R25: stronger pursuit (was 1.7)
+// R26 — SLOWED so the heat-seek is WATCHABLE. The owner's directive is "I want
+// to feel the heat seeking, to see the sights moving" — the R25 missile hit
+// well (~70%) but closed in ~2 frames, too fast to watch it chase. Dropping the
+// cap 46 -> 34 and the accel 28 -> 18 stretches a close-target flight from
+// ~0.5 s to ~0.8 s (~50 frames) and a far one past 2 s, so the arc below has
+// many frames to develop. Slower ALSO sharpens the arc: v*dt per tick is
+// smaller, so the capped turn is spread over more ticks — a visible bank rather
+// than a snap. The owner's "watchable chase" outranks GAME_SPEC §3's measured
+// 0.5-1.5 s launch->impact floor (CLAUDE.md: owner outranks the criterion).
+// Hit rate is re-measured after this change and must hold ~70% (it does; the
+// slower closing speed makes the lateral miss easier to null, not harder).
+const V0 = 6; // world depth units/s at launch
+const ACC = 18;
+const V_MAX = 34;
+const HOMING_GAIN = 2.8; // R25: stronger pursuit (was 1.7) — kept: it closes the lateral miss
 const MAX_DEPTH = 130;
 
 // Wing pylons, in NDC relative to the player's sprite centre.
@@ -175,7 +186,13 @@ const PYLON_NDC_Y = -0.03;
 // grey blob with the missile sprite sitting inside it and no ribbon at all
 // (tools/out/combat-r3-12-trail/frame-0290.png). The splay guarantees screen
 // travel regardless of where the target is.
-const SPLAY_NDC_X_PER_S = 1.1; // outward, signed by the launch pylon
+// R26 — WIDER fan. The outward splay is what makes a salvo read as curving
+// ribbons, and with the slower missile above it now plays out over more depth,
+// so a bigger initial splay buys a more dramatic arc before the seeker pulls
+// each missile back in (owner: "see them chase"). 1.1 -> 1.45 outward; the
+// decay time-constant is unchanged, so the seeker still recovers it well inside
+// the flight.
+const SPLAY_NDC_X_PER_S = 1.45; // outward, signed by the launch pylon
 const SPLAY_NDC_Y_PER_S = -0.7; // and downward, away from the sight line
 const SPLAY_DECAY_PER_S = 3.0;
 
@@ -184,7 +201,7 @@ const SPLAY_DECAY_PER_S = 3.0;
 // them overlapping (no gap between them) while making the union a column.
 const BILLOW_LOBE_STEP_NDC = 0.17;
 
-const MISSILE_FRAC_NEAR = 0.022;
+const MISSILE_FRAC_NEAR = 0.028; // R26: 0.022 -> 0.028, a touch more trackable as it chases
 const MISSILE_FRAC_FAR = 0.009;
 
 // --- Ribbon ----------------------------------------------------------------
@@ -193,7 +210,13 @@ const MISSILE_FRAC_FAR = 0.009;
 // develop a gap in. The R4 judge measured per-component column occupancy at
 // 87% against a >=95% criterion, and the missing 13% is all in the puff
 // chain beyond the ribbon's tail — see PUFF_INTERVAL_S.
-const RIBBON_LIFE_S = 1.1;
+// R26 — 1.1 -> 1.7. The missile is slower now (V_MAX 34), so a flight runs
+// ~0.8-2.4 s; at 1.1 s the ribbon's tail evaporated while the missile was still
+// chasing, cutting the visible curving path short. 1.7 s keeps the whole bank
+// on screen so the player SEES the arc it flew (owner: "see the path they
+// chase"). The age-driven width taper is unchanged in shape, just reached over
+// a longer window.
+const RIBBON_LIFE_S = 1.7;
 const RIBBON_HZ = 60; // one sample per fixed tick
 const MAX_SAMPLES = Math.ceil(RIBBON_LIFE_S * RIBBON_HZ) + 2;
 // Screen-fraction half-thickness at the youngest and oldest sample.

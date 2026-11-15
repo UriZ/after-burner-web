@@ -30,6 +30,12 @@ import { gunTunable } from './tunables.js';
 // near the enemy, LOCK_RADIUS_FRAC below.
 
 export const MAX_LOCKS = 6; // t100: ~6 brackets on screen at once
+
+// R26 bracket tints as linear-working-space Colors (see TINT_* strings below).
+// Shared instances — read-only; the apply loop copies values out of them.
+const _COL_TRACK = new THREE.Color();
+const _COL_LOCKED = new THREE.Color();
+const _COL_FLASH = new THREE.Color();
 const LOCK_INTERVAL_S = 0.10; // locks accumulate while the button is held
 
 // ---------------------------------------------------------------------------
@@ -86,7 +92,38 @@ const LOCK_INTERVAL_S = 0.10; // locks accumulate while the button is held
 // Not literally 0: a 0.05 s acquire keeps the bracket's arm-growth escalation
 // readable for ~3 frames (the "it locked" feedback), while being well inside
 // "within seconds" — effectively instant to a player.
-const LOCK_ACQUIRE_S = 0.05;
+// R26 — 0.05 -> 0.12, because the OWNER wants to SEE THE SIGHTS MOVE onto the
+// target, and a 3-frame acquire is too fast to watch. 0.12 s is ~7 frames: long
+// enough that the snap-in convergence below (the bracket starts large and
+// closes onto the enemy while its arms grow and its colour ramps to cyan) reads
+// as a deliberate "targeting" motion, and still trivially short to a player who
+// presses the missile button — well inside "instant". The salvo pacing is
+// unchanged (LOCK_INTERVAL_S still spaces successive locks), so a held button
+// still fans 6 locks across the wave over ~1.3 s, one visible snap at a time.
+const LOCK_ACQUIRE_S = 0.12;
+// R26 — THE ACQUIRE SNAP. The box SIZE converges from this multiple of its
+// final size down to 1.0 over the acquire, so the player sees the sight close
+// onto the target (a "reticle locking in"), then it tracks at final size. This
+// is a DELIBERATE departure from the R10 measurement that the arcade bracket
+// appears at final size and does not animate — the owner's "see the sights
+// moving" explicitly outranks that criterion (CLAUDE.md; TL R26 brief). Only
+// the ACQUIRING state animates in size; a completed lock and a tracked enemy
+// are both fixed-size, so the arcade's static look still governs steady state.
+const ACQUIRE_BOX_SCALE_START = 1.9;
+// R26 — LOCK-CONFIRM FLASH. When a lock completes, its bracket flashes bright
+// for this long so each lock in a salvo visibly "pops" as it confirms, even
+// though the sight has already moved on to the next enemy. Brightness only (no
+// size bounce) so it reads as a clean confirm, not jitter.
+const LOCK_FLASH_S = 0.12;
+// R26 — bracket tint colours, applied per state via each bar sprite's
+// material.color (the texture is pure #ffffff). All three channels sit on the
+// SEGA hardware ladder (pixelTexture.js SEGA_LADDER) so a rendered-frame
+// measurement still lands on-ladder. White while tracking/hinting; a vivid cyan
+// once locked, so an armed target is unmistakable from one merely in the cone;
+// a near-white cyan for the confirm flash.
+const TINT_TRACK = '#ffffff';
+const TINT_LOCKED = '#31e6ff'; // 49,230,255 — all ladder rungs
+const TINT_FLASH = '#d6ffff'; // 214,255,255 — bright confirm pop
 // R15 — COMPLETED-LOCK HOLD, the missile's rank-2 conversion fix. The R15
 // opening playtest fired ONE missile in 27 s of dedicated climbing. The block
 // is NOT acquisition (a perfect-tracker autopilot fires 31-34 salvos/180 s, and
@@ -128,7 +165,11 @@ const LOCK_HOLD_S = 1.2;
 // arms grow and nothing on screen changes -- the defect being fixed, in
 // miniature. So the weak state is the smallest legible bracket and the
 // acquisition ramp is monotone over its whole length: 2.5 px -> 4.125 px.
-const ARM_FRAC_TRACK = 2.5 / 16.5;
+// R26 — raised 2.5/16.5 -> 3.5/16.5 so a tracked bracket reads as four clear Ls
+// rather than four stroke-sized blobs now that the stroke is 2.4 px (owner: the
+// brackets must be VISIBLE). Still monotone under the acquire ramp up to
+// ARM_FRAC_OF_BOX.
+const ARM_FRAC_TRACK = 3.5 / 16.5;
 // Radius around the SIGHT within which an enemy can be locked.
 //
 // THE COMMENT THAT USED TO BE HERE SAID 15 %W AND THE CONSTANT HAS BEEN 0.22
@@ -349,13 +390,17 @@ const BRACKET_BOX_ASPECT = 1.0;
 // Corner arm length as a fraction of the box side, and its bounds. The upper
 // bound keeps the four Ls from meeting into a closed rectangle (at 0.5 they
 // touch); the lower bound keeps a minimum-size bracket legible.
-const ARM_FRAC_OF_BOX = 0.25;
-const ARM_MIN_PX = 2.5;
+const ARM_FRAC_OF_BOX = 0.30; // R26: 0.25 -> 0.30, chunkier locked corners
+const ARM_MIN_PX = 3.5; // R26: 2.5 -> 3.5, a legible L against the 2.4 px stroke
 const ARM_MAX_FRAC_OF_BOX = 0.40;
 // Stroke weight, native px, INDEPENDENT of box size. This is the constraint
 // the previous two designs traded against arm length; with one sprite per
 // arm it no longer has to be traded at all.
-const STROKE_PX = 1.3;
+// R26 — 1.3 -> 2.4. The owner played it and the brackets were "arcade-thin,
+// barely visible"; the usability directive to make the lock READABLE outranks
+// the measured ~1 native px stroke (CLAUDE.md). The sight square keeps its own
+// 1 px stroke via SIGHT_STYLE, so the two elements stay distinct.
+const STROKE_PX = 2.4;
 
 // The sight square (GAME_SPEC.md §3's lock-display element 1): "the small
 // dashed SIGHT square leading the player's nose — the aim point, always
@@ -421,6 +466,17 @@ export class LockSystem {
     this.brackets = [];
     this.pool = [];
     this._wasHolding = false;
+    // R26 — per-enemy lock-confirm flash countdown (see LOCK_FLASH_S). An entry
+    // is set to LOCK_FLASH_S the tick a lock completes and counts down; while it
+    // is positive that enemy's bracket renders at the bright confirm tint.
+    this.lockFlash = new Map();
+    // Resolve the tint strings into the shared Colors now that the module-level
+    // TINT_* consts are defined (they are declared after the Colors).
+    _COL_TRACK.set(TINT_TRACK);
+    _COL_LOCKED.set(TINT_LOCKED);
+    _COL_FLASH.set(TINT_FLASH);
+    // Scratch for the acquire white->cyan lerp, so the ramp allocates nothing.
+    this._colScratch = new THREE.Color();
     // R16 — lock-bait members to draw the "aim here" hint bracket on this
     // frame (see the hint block in update()). Rebuilt each tick.
     this.hintList = [];
@@ -456,6 +512,12 @@ export class LockSystem {
   // which is a description of the frames WHILE the missiles are flying.
   update(dt, enemies, playerNdc, holding, sight, activeTargets = []) {
     this.activeTargets = activeTargets;
+    // R26 — age the lock-confirm flashes and drop expired/dead ones.
+    for (const [e, t] of this.lockFlash) {
+      const left = t - dt;
+      if (left <= 0 || !e.alive) this.lockFlash.delete(e);
+      else this.lockFlash.set(e, left);
+    }
     this._updateTracking(enemies, sight ?? playerNdc);
 
     // Drop locks whose target died, left the field, or has closed inside
@@ -525,6 +587,7 @@ export class LockSystem {
           this.acquiring.t += dt;
           if (this.acquiring.t >= LOCK_ACQUIRE_S) {
             this.locks.push(this.acquiring.enemy);
+            this.lockFlash.set(this.acquiring.enemy, LOCK_FLASH_S);
             this.acquiring = null;
             this.lockTimer = LOCK_INTERVAL_S;
           }
@@ -587,6 +650,7 @@ export class LockSystem {
     const out = this.locks.slice();
     this.locks.length = 0;
     this.lockHold.clear();
+    this.lockFlash.clear();
     return out;
   }
 
@@ -701,23 +765,35 @@ export class LockSystem {
     // Before this the three drew ONE call with no style argument, so the
     // bracket the player got for free was pixel-identical to the one a
     // committed missile earned (feel-critique.md §2.2).
-    const put = (e, armFrac) => {
+    // R26 — each entry now carries a STYLE (arm length, box scale, tint) and a
+    // RANK, and the highest rank per enemy wins. Ranks: 0 tracked/hint (white,
+    // final size, short arms), 1 acquiring (the SNAP — box converges from
+    // ACQUIRE_BOX_SCALE_START to 1.0, arms grow, colour ramps white->cyan),
+    // 2 locked/in-flight (cyan, final size, full arms; bright confirm tint for
+    // LOCK_FLASH_S after it completes). A locked bracket therefore never
+    // downgrades to a hint, and the acquiring snap is never overwritten by the
+    // weaker tracked bracket on the same enemy.
+    const put = (e, rank, armFrac, boxScale, color) => {
       if (!e || !e.alive) return;
       const prev = wanted.find((w) => w.e === e);
-      if (prev) prev.armFrac = Math.max(prev.armFrac, armFrac);
-      else wanted.push({ e, armFrac });
+      if (prev) {
+        if (rank > prev.rank) { prev.rank = rank; prev.armFrac = armFrac; prev.boxScale = boxScale; prev.color = color; }
+      } else wanted.push({ e, rank, armFrac, boxScale, color });
     };
-    put(this.tracked, ARM_FRAC_TRACK);
+    put(this.tracked, 0, ARM_FRAC_TRACK, 1, _COL_TRACK);
     // R16 first-lock hint (see the hint block in update()): the weak arm, so an
     // enemy that is also tracked/acquiring/locked keeps its stronger bracket.
-    for (const e of this.hintList) put(e, ARM_FRAC_TRACK);
+    for (const e of this.hintList) put(e, 0, ARM_FRAC_TRACK, 1, _COL_TRACK);
     if (this.acquiring) {
       const q = Math.min(1, this.acquiring.t / LOCK_ACQUIRE_S);
-      put(this.acquiring.enemy, ARM_FRAC_TRACK + (ARM_FRAC_OF_BOX - ARM_FRAC_TRACK) * q);
+      const scale = ACQUIRE_BOX_SCALE_START + (1 - ACQUIRE_BOX_SCALE_START) * q;
+      const col = this._colScratch.copy(_COL_TRACK).lerp(_COL_LOCKED, q);
+      put(this.acquiring.enemy, 1, ARM_FRAC_TRACK + (ARM_FRAC_OF_BOX - ARM_FRAC_TRACK) * q, scale, col);
     }
-    for (const e of this.locks) put(e, ARM_FRAC_OF_BOX);
+    const lockedColor = (e) => (this.lockFlash.has(e) ? _COL_FLASH : _COL_LOCKED);
+    for (const e of this.locks) put(e, 2, ARM_FRAC_OF_BOX, 1, lockedColor(e));
     for (const e of this.activeTargets ?? []) {
-      if (e && !e.retired) put(e, ARM_FRAC_OF_BOX);
+      if (e && !e.retired) put(e, 2, ARM_FRAC_OF_BOX, 1, lockedColor(e));
     }
 
     while (this.brackets.length < wanted.length) {
@@ -730,9 +806,12 @@ export class LockSystem {
     }
 
     for (let i = 0; i < wanted.length; i++) {
-      const { e, armFrac } = wanted[i];
-      this._placeCorners(this.brackets[i], e.ndc.x, e.ndc.y, e.d, BRACKET_BOX_PX, { armFrac });
-      for (const c of this.brackets[i]) c.visible = true;
+      const { e, armFrac, boxScale, color } = wanted[i];
+      this._placeCorners(this.brackets[i], e.ndc.x, e.ndc.y, e.d, BRACKET_BOX_PX * boxScale, { armFrac });
+      for (const c of this.brackets[i]) {
+        c.material.color.copy(color);
+        c.visible = true;
+      }
     }
   }
 
@@ -913,6 +992,7 @@ export class LockSystem {
     this.tracked = null;
     this.locks.length = 0;
     this.lockHold.clear();
+    this.lockFlash.clear();
     this.acquiring = null;
     this.hintList.length = 0;
     for (const set of this.brackets) {
