@@ -80,8 +80,16 @@ const MUZZLE_NDC_Y = -0.035; // guns sit just under the fuselage line
 // the column is continuous, which is the gestalt the measurement of a single
 // puff (2.5-3.4 px native at t214) misses. The far end is kept smaller so the
 // stream still tapers toward its convergence rather than reading as a slab.
-const PUFF_FRAC_NEAR = 0.016; // 5.1 px of 320
-const PUFF_FRAC_FAR = 0.011; // 3.5 px of 320
+// R28 — BOLDER so the stream READS in busy combat. The R28 judge, playing
+// naively with explosions + enemies + HUD on screen, read the gun as firing
+// "with nothing leaving the jet" — the thin 5.1px column got lost. The arcade
+// t214 column is a bold, unmistakable orange rope from the nose; the LOOK
+// outranks the single-puff measurement (recalibration). Pushed ~25% so the
+// interleaved muzzle columns overlap into one continuous bright rope near the
+// nose while still tapering up-range. Verified vs t214 — reads as the arcade
+// stream, not a slab.
+const PUFF_FRAC_NEAR = 0.020; // 6.4 px of 320 (was 0.016 / 5.1 px)
+const PUFF_FRAC_FAR = 0.014; // 4.5 px of 320 (was 0.011 / 3.5 px)
 
 // Depth the stream reaches when nothing is aim-assisted. 55 units over
 // TRAVEL_S is 111 world units/s, which is the depth rate that matches the
