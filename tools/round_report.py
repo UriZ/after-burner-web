@@ -21,77 +21,71 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 # ---------------------------------------------------------------- ROUND DATA
 ROUND = {
-    "number": 18,
+    "number": 19,
     "date": "2026-11-15",
-    "status": "CLOSED",                      # or "BUILD IN PROGRESS"
-    "score": "8.8 / 10",                     # judge score once the round closes
-    "last_score": "8.7 / 10 (R17)",
+    "status": "CLOSED",
+    "score": "8.9 / 10",
+    "last_score": "8.8 / 10 (R18)",
     "tldr": (
-        "R18 built the arcade’s <em>tree tunnel</em> — dense autumn trees walling the stage-5 refuel "
-        "runway and palms walling stage 13 (closing the ‘no palms’ gap in the same stroke) — the single "
-        "biggest tell the judge named. Both refuel stages now pass the glance test as the arcade’s "
-        "tree-lined bases. The title letterforms got sharper, and a ‘fireballs too small’ gap was "
-        "<em>refuted by measurement</em> (ours isn’t short — the arcade’s is just wider). It rises to "
-        "8.8, nothing regressed."
+        "R19 built the arcade's <em>other</em> refuel — the <em>airborne tanker.</em> Fly up behind a "
+        "big grey tanker, RELOAD WEAPONS blinks, your stock refills, and it hands you back to the fight. "
+        "Both of AB2's refuel mechanisms now exist. The kill blast also <em>widened</em> into the arcade's "
+        "horizontal debris spray. It rises to 8.9 with zero regression — two top R18 gaps closed in one "
+        "round. (Both lanes finished their code, then the account hit its session limit mid-report; the "
+        "work was in the tree, verified by look, and committed.)"
     ),
     "verdict": (
-        "“The refuel runway is walled with trees now — autumn on one stage, palms on the other — so it "
-        "reads as the arcade’s base at a glance. The title’s letters are sharper. Nothing in the fight "
-        "moved. What’s left on the refuel is a denser, cleaner canopy.”"
+        "“AB2's other refuel finally happens — I fly up behind a big grey tanker, the stock "
+        "refills, RELOAD WEAPONS blinks, and it hands me back to combat. The kill blast is a wide "
+        "horizontal spray now. The tanker reads like a stealth-manta where the arcade's is a winged "
+        "tanker with a tail fin — the right beat, not yet the right airframe.”"
     ),
-    "verdict_attr": "R18 fresh-context judge · composite 8.8 (motion 8.8 · stills 8.9)",
+    "verdict_attr": "R19 fresh-context judge · composite 8.9 (motion 8.9 · stills 8.9)",
     "pairs": [
+        ("judging/R19/tanker-ours-vs-arcade.png",
+         "AB2's other refuel — the airborne tanker",
+         "Shipped this round: fly up behind a big grey tanker to refuel (RELOAD WEAPONS, stock refills, hands back to combat). The composition and prompt match; the airframe reads as a manta vs the arcade's winged tanker — R20."),
+        ("judging/R19/tl-verify-fireball-wide.png",
+         "The kill blast is wide now",
+         "Widened to ~34%W (toward the arcade's 37.8%W) — a flat horizontal debris spray with flanking smoke, not a tall puff. Last stretch: white-hot cores in the flanking balls."),
         ("judging/R18/tree-tunnel-ours-vs-arcade.png",
-         "The refuel runway has its tree tunnel",
-         "Shipped this round: dense autumn trees walling stage 5 (palms on stage 13), rising up the low-swoop frame. The biggest remaining tell is closed — what’s left is a denser, cleaner canopy."),
-        ("judging/R17/refuel-base-ours-vs-arcade.png",
-         "Built on R17’s refuel base",
-         "The low-swoop framing + props + clear sky from R17, now with the tree walls — the refuel stage is substantially the arcade’s base."),
-        ("judging/R15/combat-ours-vs-arcade.png",
-         "Combat still untouched",
-         "Every combat win holds; the refuel changes are gated to the resupply state and proven not to leak into the fight."),
+         "The refuel runway still holds",
+         "R18's tree tunnel (autumn + palm) and the R17 low-swoop base — the runway refuel, the first of the two mechanisms."),
     ],
     "shipped": [
-        "The refuel TREE TUNNEL — dense autumn trees walling stage 5, palms walling stage 13 (fixing ‘no palms’)",
-        "Both refuel stages now pass the glance test as the arcade’s tree-lined bases",
-        "Sharper title letterforms — a chamfered A and knife-point terminals toward the arcade’s brush style",
-        "Clouds handled per-stage — stage 4 cleared (arcade is clear), stages 2/3 kept (they carry banks)",
-        "A ‘fireballs too small’ gap REFUTED by scale-matched measurement — ours isn’t short, the arcade’s is wider",
+        "The AIRBORNE TANKER refuel — AB2's second refuel mechanism, built end-to-end (enter / refill / RELOAD WEAPONS / hand back to flight), wired into stages 3 and 9",
+        "The kill fireball WIDENED to ~34%W with horizontal debris + flanking smoke (toward the arcade's 37.8%W), without being taller or recolored",
+        "Both of the arcade's refuel mechanisms now exist — the runway (R16-18) and the tanker (R19)",
+        "Zero regression — combat played unchanged (aim beats blind, locks form, missiles fire, enemies shoot back); the runway resupply + low-swoop intact",
     ],
-    "gaps_label": "Next — R19",
+    "gaps_label": "Next — R20",
     "gaps": [
-        (1, "missing", "The airborne tanker refuel is unbuilt",
-         "The standing breadth item: the runway is only ONE of the arcade’s two refuel mechanisms — the "
-         "mid-air TANKER refuel (fly up behind a tanker plane) is still absent. Plus more combat stages toward "
-         "23. Still ~6 of 23 beats; breadth is the biggest structural distance left."),
-        (2, "feel", "Kill blasts are too narrow",
-         "The fireball isn’t short (measurement refuted that) — but the arcade’s blast is ~2× WIDER, a flat "
-         "horizontal debris spray with flanking smoke, where ours is a compact vertical puff. Widen the blast "
-         "and add the horizontal debris so climaxes read big."),
-        (3, "polish", "Densify and clean the tree tunnel",
-         "Substantially closed, but ours is a sparser, blobbier canopy row vs the arcade’s dense continuous "
-         "wall. More trees, cleaner smaller canopy silhouettes carried further up the frame. (Secondary: the "
-         "stage-5 refuel sky reads pale-cream vs arcade orange — measure the thin band first.)"),
-        (4, "polish", "The title still trails the arcade",
-         "Sharper now, but still short of the arcade’s italic lean and letter packing. A second pass if the "
-         "bigger gaps are handled."),
-        (5, "polish", "Loose ends",
-         "Blind gun floor still ~8–12 (structural); the refuel restock isn’t caused by the runway (boundary); "
-         "the SIGHT_NDC_Y_OFFSET reconciliation stays a measure-first item."),
+        (1, "missing", "Breadth is the floor — ~5 of 23 beats, most stages lap 4 palettes",
+         "Both refuel mechanisms exist now, so distinct COMBAT stages are the biggest remaining distance: beyond stages 1-4 the content laps the same four authored biomes. More authored biomes/set-pieces toward 23."),
+        (2, "polish", "The tanker is the right beat with the wrong airframe",
+         "The composition and RELOAD WEAPONS prompt are right, but ours reads as a stealth manta — give it the arcade's vertical TAIL FIN and down-swept winged-tanker read, and DOCK the jet (nose up to a visible refuel boom instead of hanging in a gap below)."),
+        (3, "polish", "Densify the tree tunnel; measure the refuel sky",
+         "Carried from R18: ours is a sparser row of blobby canopies vs the arcade's dense continuous wall. Secondary: the stage-5 refuel sky reads pale-cream vs arcade orange — measure the low-confidence thin band before tuning."),
+        (4, "polish", "Fireball — last stretch: white-hot cores",
+         "Width is close now (~34 vs 37.8%W). The remaining tell is the puff interior: the arcade's spray balls carry white-hot cores; ours are orange-only. Add white cores to the flanking puffs — NOT more height."),
+        (5, "polish", "The title still trails the arcade's italic lean",
+         "Sharper after R18 but still short of the arcade's lean and letter packing. A second pass once the bigger gaps are handled."),
     ],
     "keep": [
-        "The refuel tree tunnel (both biomes) + the R17 base (low-swoop + props + clear sky)",
-        "COMBAT framing byte-identical outside resupply; stage 13’s palms; the forest + river; the cloud gate",
-        "Every combat win: aim-beats-blind gun, the missile loop + grace window + pips, the first-lock climb, the burst wall",
-        "Do NOT grow ENVELOPE_Y; do NOT inflate the fireball vertically (measured fine) — widen it instead",
+        "The airborne tanker refuel (enter/refill/handback, RELOAD WEAPONS, stages 3/9); the wider fireball (horizontal, not taller)",
+        "Both refuel mechanisms; the runway tree tunnel + low-swoop + depot props",
+        "COMBAT framing byte-identical outside the refuel states (stateless flow.state gates); every combat win",
+        "Do NOT inflate the fireball vertically (R20 fix is white cores, not height); do NOT grow ENVELOPE_Y (refuted)",
     ],
     "method_note": (
-        "R18 refuted a gap by measuring: ‘fireballs too small’ came off a non-scale-matched impression, and "
-        "the polish lane measured scale-matched before inflating — which would have overshot. The judge then "
-        "refined it further (ours isn’t short, but the arcade is ~2× wider), turning a vague ‘bigger’ into a "
-        "precise width+debris target. Measure, don’t inflate. History in judging/R18/."
+        "R19 absorbed an interruption cleanly: both build lanes finished their code, then the account hit "
+        "its session limit before they could self-report. The work was in the tree — the TL verified the "
+        "tanker against its real arcade reference (reference/stage3-reload-tanker-t165.png) and the widened "
+        "fireball by look, committed, and a fresh judge independently re-measured every surface (tanker "
+        "lifecycle, fireball width scale-matched, combat played unregressed). Nothing was lost. History in judging/R19/."
     ),
 }
+
 
 KIND = {
     "bug":      ("BUG",      "var(--red)"),
