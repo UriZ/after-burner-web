@@ -185,7 +185,16 @@ function drawMuzzleFlash(ctx, w, h) {
 // bracket on the centre enemy at (490-575, 277-329) of 1028x720: box side
 // ~53 px, strokes 3 px (= ~1 native px), horizontal arms 14-15 px = 27% of
 // the side. So: square box, ~1 native px stroke, arms a QUARTER of the side.
-const BRACKET_WHITE = '#efefef'; // was #f0f0f0
+// R26 — PURE WHITE, up from #efefef. The lock bracket is now TINTED PER STATE
+// at render time (lockSystem.js sets each bar sprite's material.color: white
+// while tracking, ramping to cyan as a lock completes). A material-colour tint
+// MULTIPLIES the texture, so the texture has to be full white for the tint to
+// reach its authored value — a #efefef base would darken every tint by 6%. The
+// tint lives on the live sprite, not in this canvas, so fx_palette_probe (which
+// reads the authored canvas) still sees a one-colour #ffffff texture. The
+// owner's "see the sights" directive outranks the arcade's plain-white bracket
+// (CLAUDE.md: owner outranks the measured criterion).
+const BRACKET_WHITE = '#ffffff';
 export const BRACKET_PALETTE = [BRACKET_WHITE];
 
 function drawLockBar(ctx, w, h) {
