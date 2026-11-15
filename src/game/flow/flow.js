@@ -5,7 +5,7 @@ import { createCarrierSprite } from './carrier.js';
 import { drawTitleScreen } from './titleScreen.js';
 import { drawReadyCard, drawTallyCard, drawContinueCard, drawGameOverCard } from './cards.js';
 import { Overlay } from './overlay.js';
-import { STAGES, STAGE_5 } from '../stage.js';
+import { STAGES, STAGE_5, STAGE_13 } from '../stage.js';
 import { demoTimeline } from './demoTimeline.js';
 import { AudioBus } from '../../audio/index.js';
 import { MISSILE_START_STOCK } from '../../weapons/combat.js';
@@ -421,6 +421,9 @@ export class GameFlow {
   // making stage 13 show the runway even though 13 % STAGES.length would land
   // on a combat biome.
   _renderStage() {
+    // Arcade stage 13 is its own green palm/sage refuel base, distinct from
+    // stage 5's autumn woodland (R17 world lane built STAGE_13).
+    if (this.stageNumber === 13) return STAGE_13;
     return isResupplyStage(this.stageNumber) ? STAGE_5 : STAGES[this.stageIndex % STAGES.length];
   }
 
