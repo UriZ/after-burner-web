@@ -573,7 +573,7 @@ function createRunwayTrees() {
 const CANYON_Z_FAR = -170; // far spawn depth: walls recede toward the vanishing point
 const CANYON_Z_NEAR = 8; // despawn just past the camera
 const CANYON_SPAN = CANYON_Z_NEAR - CANYON_Z_FAR;
-const WALLS_PER_SIDE = 13; // R23 gap 1: denser flanks so BOTH sides stay walled every frame
+const WALLS_PER_SIDE = 24; // R24 gap 1: dense flanks so each side reads as a CONTINUOUS cliff, not discrete hills
 // R22 gap 1: the arcade stage-8 floor is tuft-COVERED wall-to-wall (t=350/t=357
 // show ~15-20 gold scrub clumps per frame), so the scatter is dense, not a
 // sprinkle — 16 left the near/mid floor bare (R21 judge). 40 fills the corridor
@@ -587,7 +587,7 @@ const WALLS_PER_SIDE = 13; // R23 gap 1: denser flanks so BOTH sides stay walled
 // tufts (see CANYON_BUSH_W) stay small even in the near field, so the centre
 // column stays open to the floor, and the count is raised so the floor still
 // reads tuft-covered wall-to-wall.
-const CANYON_BUSHES = 56; // dense scatter of SMALL rock/scrub tufts across the floor
+const CANYON_BUSHES = 96; // R24 gap 2: dense scatter of SMALL rock/scrub tufts, packed wall-to-wall
 
 // Wall MASS: tall tan/brown rock. Dark rock -> olive vegetation -> lit tan,
 // monotone in V (stippleMass assigns the lightest rung to the noise peak).
@@ -599,76 +599,127 @@ const CANYON_WALL_PAL = ['#2e1700', '#4a2a00', '#5a5a38', '#633100', '#944f00', 
 // dropped (that is the WALL vegetation accent, not the gold floor scrub).
 const CANYON_BUSH_PAL = ['#3a2100', '#5a3100', '#844200', '#b56300', '#d68400'];
 
-// R23 gap 1 — OPEN AND LIGHTEN THE CANYON. R22 shipped walls 14-22 world units
-// TALL (the 1.625 aspect x the 9-14 width), and that height — not the count — is
-// what blotted the sky: a wall that tall subtends enough angle to reach the TOP
-// of frame at EVERY depth out to the far plane, so even the distant walls piled
-// a continuous brown ceiling across the top-centre where the arcade shows a
-// bright cream-sky corridor (ab2-longplay t=344-372: tall walls only at the far
-// LEFT/RIGHT, a wide open bright centre down to the vanishing point). Cut the
-// aspect so the masses are SHORTER in world (~7.5-10.5 units): the near flank
-// walls still tower to the top of frame (they are close, so large on screen),
-// but the distant walls now top out just above the 0.13 horizon, leaving the
-// measured cream sky (#faecb0) open above them down the centre. Solved from the
-// canyon camera (pitch -21.07deg, horizon 0.13): a wall of world-top H tops out
-// near screenFrac 0.08-0.10 at the far plane for H~8 (above the 0.13 horizon by
-// a sliver) and reaches the top of frame for depths nearer than ~z=-80.
-const CANYON_WALL_TEX = { w: 88, h: 62 }; // blocky rock mass, wider than tall (aspect ~0.705)
+// R24 gap 1 — TALL SHEER CLIFF WALLS boxing a NARROW CORRIDOR (not rocky hills).
+// R23 opened the canyon (walls to the flanks, cream sky across the centre) but
+// the walls read as open-desert RIDGES ALONG THE TOP EDGE, not the arcade's tall
+// cliffs rising floor-to-top (ab2-longplay t=344-372: sheer side walls fill the
+// left/right of frame from the floor to the top, boxing a bright open corridor).
+//
+// The R23 defect was NOT height — it was LATERAL PLACEMENT. R23 centred the walls
+// at x=12.5-17.5, but the canyon camera's frame half-width at the ground is only
+// ~11 world units at the near field (z=-15) and ~18 at z=-25 (measured off the
+// -21.07deg pitch / 55deg FOV / 320x224). So the near walls sat OFF-SCREEN; a wall
+// only entered frame at z<=-30, where the ground is already up near the 0.13
+// horizon — so the wall's BASE sat near the horizon and it rose from there,
+// reading as a ridge along the TOP edge rather than a cliff rising from the floor.
+//
+// The fix: pull the wall centres IN to x=7.2-9.8 so the NEAR walls (z=-10..-20)
+// land at the frame SIDES (fracX ~0.8-0.95) with their base LOW on screen
+// (ground at z=-13 sits at screenFrac 0.30) and their top above the top of frame
+// — a true cliff rising from the floor on each flank, instead of the R23 band of
+// rock riding the horizon (which came from the walls only entering frame at the
+// far z where the ground is already up near the 0.13 horizon). The inner edge
+// stays >=3.4 world units (centre 7.2 - max half-width 3.8), off the sight rail
+// (±0.19 ndc ~ fracX 0.4-0.6) and the prop zone, so the centre column stays OPEN
+// to the floor and the cream sky (the R23 win is NOT regressed — verified by
+// capture) with open foreground floor below the wall feet. Height is held at R23's
+// proven-open ceiling (~10.5 world units): a wall that short tops out just above
+// the 0.13 horizon at the far plane (a sliver, measured H~10 -> screenFrac ~0.03
+// at z=-170), so the DISTANT walls — which converge toward the centre near the
+// vanishing point — stay thin horizon slivers that FRAME the corridor instead of
+// a brown ceiling blotting it. Tall near cliffs, open bright centre.
+const CANYON_WALL_TEX = { w: 80, h: 90 }; // tall sheer cliff face, aspect ~1.125
 const CANYON_BUSH_TEX = { w: 40, h: 26 }; // low wide clump
-// World WIDTH band per kind (random per instance); world height = width*aspect
-// (~0.705 for walls). Width 11-15 -> height 7.75-10.57: short enough that distant
-// walls tuck toward the horizon, wide enough to read as a continuous flank mass.
-const CANYON_WALL_W = [11.0, 15.0];
-// R23 gap 1: SMALL floor tufts (was 1.8-3.6). At 0.7-1.5 world width a tuft
-// passing through the near field peaks at ~13%W mid-floor / ~24%W at the very
-// bottom edge instead of the ~40%W centre-swallowing blob the 3.6 produced, so
-// the centre column stays open. Many small tufts, not a few big lumps.
-const CANYON_BUSH_W = [0.7, 1.5];
-// Wall centre X band (world units from the flight axis). R23 gap 1: PUSHED OUT
-// to the flanks. The floor corridor runs to |x|~6.4 (props) / 6.0 (bushes), so a
-// centre band of [12.5, 17.5] with width <=15 keeps every wall's INNER edge at
-// x >= 12.5 - 7.5 = 5.0 world units — at/just outside the corridor — so the
-// masses NEVER cross the centre of the frame (R22 shipped [8.5,12.5] with width
-// 14, inner edge 1.5, which ballooned a brown wall over the jet + enemies). Near
-// walls read as flanking cliffs filling the frame edge; distant walls converge
-// toward the vanishing point along the horizon, framing (not blotting) the sky.
-// Pulled in from an initial [14,19] so the flank walls sit lower/fuller rather
-// than riding only the upper corners, while the inner edge stays off-centre.
-const CANYON_WALL_X = [12.5, 17.5];
-const CANYON_BUSH_X = [-6.0, 6.0];
+// World WIDTH band per instance; world HEIGHT = width*1.125. Width 6.4-8.4 ->
+// height 7.2-9.45: BELOW R23's proven-open ceiling so the DISTANT walls (which
+// converge toward the vanishing point) tuck to thin slivers at the 0.13 horizon,
+// leaving the cream sky open across the top-centre, while the NEAR walls — close,
+// so large on screen regardless of world height — still tower past the top of
+// frame as tall flank cliffs. (Decoupling width from height: width carries the
+// side coverage, the modest height keeps the centre open.)
+const CANYON_WALL_W = [6.4, 8.4];
+// SMALL floor tufts (R23: was 1.8-3.6; R24 gap 2: trimmed from 0.7-1.5 to
+// 0.6-1.25 so the DENSER scatter — 96 tufts — never reads as near-field mud
+// blobs; a tuft passing the near field stays a small clump, not the ~40%W
+// centre-swallowing blob the old 3.6 produced). Many small tufts, not a few big
+// lumps — the centre column stays open and combat stays readable over them.
+const CANYON_BUSH_W = [0.6, 1.25];
+// Wall centre X band (world units from the flight axis). R24 gap 1: PULLED IN
+// from R23's [12.5,17.5] to [7.2,9.8] so the NEAR walls land inside the
+// near-field frame (half-width ~9.6 at z=-13, ~11.7 at z=-16) and fill the flanks
+// with a LOW base, instead of sitting off-screen until z<=-30 (which rode them up
+// as top-edge ridges). With width <=8.4 (half-width 4.2) this keeps every wall's
+// INNER edge at x >= 7.2 - 4.2 = 3.0 world units (most 3.4-6.8) — off the sight
+// rail (±0.19 ndc, fracX 0.4-0.6 at the near field) so no wall crosses the combat
+// centre (R22 shipped inner edge 1.5, ballooning a brown wall over the jet +
+// enemies; that stays refuted). Near walls read as tall flank cliffs rising from
+// the floor at the frame side; distant walls converge toward the vanishing point
+// along the horizon as thin slivers (height capped), framing — not blotting — the
+// cream sky corridor down the centre.
+const CANYON_WALL_X = [7.2, 9.8];
+const CANYON_BUSH_X = [-7.0, 7.0];
 
-// A tall lumpy rock column: overlapping lobes down the canvas give a ragged
-// rocky top, the lower half is a solid base so the mass reads as a wall sitting
-// on the ground rather than a floating blob.
+// A tall SHEER CLIFF FACE (R24 gap 1): a near-full-width rock sheet running the
+// whole height of the canvas, with ragged rocky VERTICAL edges and a castellated
+// plateau RIM at the top, plus a few horizontal ledge striations so it reads as a
+// sedimentary cliff (the arcade stage-8 walls, t=350/t=358) rather than the
+// rounded lumpy HILL the R23 lobe-stack drew. Full-height and mostly full-width:
+// placed at the frame flank it fills the side from the floor to the top.
 function drawCanyonWall(ctx, W, H, rng) {
   ctx.clearRect(0, 0, W, H);
   const inside = new Uint8Array(W * H);
-  const cx = W / 2;
-  const lobes = 7 + Math.floor(rng() * 3);
-  for (let i = 0; i < lobes; i++) {
-    const t = i / (lobes - 1); // 0 top .. 1 bottom
-    const ly = H * (0.06 + 0.92 * t);
-    const lx = cx + (rng() - 0.5) * W * 0.40;
-    const rx = W * (0.30 + rng() * 0.22);
-    const ry = H * (0.10 + rng() * 0.10);
-    const x0 = Math.max(0, Math.floor(lx - rx));
-    const x1 = Math.min(W - 1, Math.ceil(lx + rx));
-    const y0 = Math.max(0, Math.floor(ly - ry));
-    const y1 = Math.min(H - 1, Math.ceil(ly + ry));
-    for (let y = y0; y <= y1; y++) {
-      for (let x = x0; x <= x1; x++) {
-        const dx = (x - lx) / rx;
-        const dy = (y - ly) / ry;
-        if (dx * dx + dy * dy <= 1) inside[y * W + x] = 1;
-      }
-    }
+  const cell = 8; // coarse so edges are CHUNKY rock notches, not per-row noise
+  const ncol = Math.ceil(W / cell) + 2;
+  const nrow = Math.ceil(H / cell) + 2;
+  // Castellated plateau rim: a per-column top height (rocky skyline, shallow —
+  // the cliff reaches near the top of the canvas across its whole width).
+  const top = [];
+  for (let i = 0; i < ncol; i++) top.push(H * (0.015 + rng() * 0.13));
+  // Ragged vertical flanks: a per-row inset on each edge so the sides break up
+  // like rock faces instead of a clean sheet. Coarse cell -> chunky notches.
+  const lft = [];
+  const rgt = [];
+  for (let j = 0; j < nrow; j++) {
+    lft.push(W * (0.015 + rng() * 0.10));
+    rgt.push(W * (0.015 + rng() * 0.10));
   }
-  // Solid base: the lower half is a continuous wall, not a stack of blobs.
-  for (let y = Math.floor(H * 0.52); y < H; y++) {
-    for (let x = 0; x < W; x++) inside[y * W + x] = 1;
+  const lerp = (arr, f) => {
+    const i = Math.floor(f);
+    const t = f - i;
+    return arr[i] + (arr[i + 1] - arr[i]) * t;
+  };
+  for (let y = 0; y < H; y++) {
+    const xl = lerp(lft, y / cell);
+    const xr = W - lerp(rgt, y / cell);
+    const x0 = Math.max(0, Math.floor(xl));
+    const x1 = Math.min(W, Math.ceil(xr));
+    for (let x = x0; x < x1; x++) {
+      const topY = lerp(top, x / cell);
+      if (y >= topY) inside[y * W + x] = 1;
+    }
   }
   const img = ctx.getImageData(0, 0, W, H);
   stippleMass(img.data, W, H, inside, rng, CANYON_WALL_PAL);
+  // Horizontal ledge striations: a few dark 1-2px rows across the face read as
+  // sedimentary rock bands (the darkest palette rung, inside the mass only).
+  const darkest = CANYON_WALL_PAL[0];
+  const dr = parseInt(darkest.slice(1, 3), 16);
+  const dg = parseInt(darkest.slice(3, 5), 16);
+  const db = parseInt(darkest.slice(5, 7), 16);
+  const ledges = 4 + Math.floor(rng() * 3);
+  for (let l = 0; l < ledges; l++) {
+    const ly = Math.floor(H * (0.18 + rng() * 0.74));
+    const th = 1 + Math.floor(rng() * 2);
+    for (let y = ly; y < Math.min(H, ly + th); y++) {
+      for (let x = 0; x < W; x++) {
+        const i = y * W + x;
+        if (img.data[i * 4 + 3] === 0) continue; // only where the rock is opaque
+        img.data[i * 4] = dr;
+        img.data[i * 4 + 1] = dg;
+        img.data[i * 4 + 2] = db;
+      }
+    }
+  }
   ctx.putImageData(img, 0, 0);
 }
 
@@ -793,11 +844,12 @@ const CANYON_PROP_DRAW = {
 // Interleaved pool — armour-heavy (the arcade floor's dominant vehicle),
 // trucks next, tents sparse (ADOPTED). Spread so a few sit in the visible
 // field at once.
-// R23 gap 3: DENSIFIED toward the arcade's wall-to-wall floor battlefield
-// (t=350: ~3 tanks + tents per frame amid dense scrub). 12 -> 18 slots spread
-// over the floor span so more armour sits in frame at once, armour-heavy with
-// trucks and sparse tents, still off the flight-axis centre (CANYON_PROP_X_MIN).
-const CANYON_PROP_POOL = ['tank', 'truck', 'tank', 'tent', 'tank', 'truck', 'tank', 'tent', 'tank', 'truck', 'tank', 'truck', 'tank', 'tent', 'tank', 'truck', 'tank', 'truck'];
+// R24 gap 2: DENSIFIED further toward the arcade's wall-to-wall floor
+// battlefield (t=350: ~3 tanks + several tents per frame amid 15-20 scrub
+// clumps). 18 -> 26 slots spread over the floor span so ~3 vehicles sit in frame
+// at once, armour-heavy with trucks and tents, still off the flight-axis centre
+// (CANYON_PROP_X_MIN) so the sight and player stay the clear figures.
+const CANYON_PROP_POOL = ['tank', 'truck', 'tank', 'tent', 'tank', 'truck', 'tank', 'tent', 'tank', 'truck', 'tank', 'truck', 'tank', 'tent', 'tank', 'truck', 'tank', 'truck', 'tank', 'tent', 'tank', 'truck', 'tank', 'tent', 'tank', 'truck'];
 
 function createCanyonProps() {
   const group = new THREE.Group();
