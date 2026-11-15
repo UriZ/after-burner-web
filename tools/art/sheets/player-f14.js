@@ -475,7 +475,11 @@ function levelOps(c) {
          c.lightTop);
     poly([[CX + s * FIN_TOP_IN, 0], [CX + s * (FIN_TOP_IN + 1.3), 0],
           [CX + s * (FIN_ROOT_IN + 1.3), ROOT_Y], [CX + s * FIN_ROOT_IN, ROOT_Y]],
-         c.rim);
+         c.coolDark); // R27: inner fin edge was dark-RED, but the arcade's red
+    // keyline sits on LOWER edges only; an inner upright edge reads as shadow,
+    // not panel-line. coolDark (the measured #a48484 shadow tone) pulls the
+    // airframe off the maroon the owner flagged without touching a lower-edge
+    // rim. (owner: "my jet is too red" — the arcade stage-1 jet reads grey.)
     poly([[CX + s * FIN_TOP_OUT, 0], [CX + s * (FIN_TOP_OUT - 1.4), 0],
           [CX + s * (FIN_TOP_OUT - 1.4), 2.4], [CX + s * FIN_TOP_OUT, 2.4]],
          c.specular);
@@ -493,9 +497,14 @@ function levelOps(c) {
     // mid shadow band above the trailing edge
     poly([[xin, WING_TE_ROOT_Y - 2.2], [xtip, WING_TE_TIP_Y - 2.0],
           [xtip, WING_TE_TIP_Y - 1.0], [xin, WING_TE_ROOT_Y - 1.0]], c.midNeutral);
-    // dark-red trailing panel line, full length
+    // trailing shadow line, full length. R27: was c.rim (#840000). This
+    // full-span line on BOTH wings was the single biggest red area and the
+    // main reason the airframe read maroon (owner's complaint). The MEASURED
+    // red (R7, palettes.js) is the OUTLINE rim, not interior wing lines; the
+    // outline stays #840000 (outlineSouth below), so the jet keeps its red rim
+    // character while the wings read grey-white like the arcade stage-1 jet.
     poly([[xin, WING_TE_ROOT_Y - 1.0], [xtip, WING_TE_TIP_Y - 1.0],
-          [xtip, WING_TE_TIP_Y], [xin, WING_TE_ROOT_Y]], c.rim);
+          [xtip, WING_TE_TIP_Y], [xin, WING_TE_ROOT_Y]], c.coolDark);
     // specular on the outer leading edge
     poly([[CX + s * 34, WING_LE_TIP_Y + 1.0], [CX + s * 47, WING_LE_TIP_Y + 0.1],
           [CX + s * 47, WING_LE_TIP_Y + 0.9], [CX + s * 34, WING_LE_TIP_Y + 1.8]],
@@ -505,7 +514,9 @@ function levelOps(c) {
   // ---- REAR DECK: seats the tails on structure and bridges to the body ----
   poly([[36, 15.5], [64, 15.5], [60, 12.5], [40, 12.5]], c.lightNeutral);
   poly([[40, 12.5], [60, 12.5], [58, 13.6], [42, 13.6]], c.lightTop);
-  poly([[36, 15.5], [64, 15.5], [63, 16.6], [37, 16.6]], c.rim);
+  // R27: rear-deck underline was c.rim (#840000); now coolDark shadow. See the
+  // wing trailing-edge note above -- red stays on the outline rim only.
+  poly([[36, 15.5], [64, 15.5], [63, 16.6], [37, 16.6]], c.coolDark);
 
   // ---- FUSELAGE BODY: a solid spindle with real volume --------------------
   poly([[50, 4], [56, 11], [57, 18], [54, 25], [51, 30],
@@ -535,9 +546,15 @@ function levelOps(c) {
     poly(podPoly(nx, NAC_Y + 0.3, 1.8, 1.5, 0.8), c.flameCore);
   }
 
-  // ---- PANEL LINES: dark-red line-work down the engine bodies -------------
-  poly([[43.5, 18], [44.6, 18], [47.2, 29], [46.1, 29]], c.rim);
-  poly([[56.5, 18], [55.4, 18], [52.8, 29], [53.9, 29]], c.rim);
+  // ---- PANEL LINES: shaded line-work down the engine bodies ---------------
+  // R27: these two vertical engine-body lines were c.rim (#840000 red). They
+  // run top-to-bottom, not along a lower edge, so as red they stacked onto the
+  // wing/deck/outline rims and tipped the whole airframe to maroon (owner's
+  // complaint; the arcade stage-1 jet reads grey-white). coolDark keeps the
+  // panel definition as shadow instead of red. The measured LOWER-edge rims
+  // (wing trailing edge, rear-deck underline, south outline) stay #840000.
+  poly([[43.5, 18], [44.6, 18], [47.2, 29], [46.1, 29]], c.coolDark);
+  poly([[56.5, 18], [55.4, 18], [52.8, 29], [53.9, 29]], c.coolDark);
 
   // ---- CANOPY: magenta fleck on the dorsal deck ---------------------------
   rect(48.5, 9.3, 3, 1.7, c.canopy);
