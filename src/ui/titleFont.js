@@ -150,23 +150,37 @@ const G = {
   // AFTER's blue A: a broad arch rising 5 px over the cap line, a splayed
   // left leg, a vertical right leg, and a counter that the plate shows
   // through. Rows 54..98 measured; 54 = cap line - 5.
+  //
+  // R18: the top-LEFT corner was a hard right angle (the diagonal (3,2)->(15,-5)
+  // met the flat cap (15,-5)->(27,-5) at a 90-ish deg notch), which is the
+  // "slab" read. The arcade A tops out in a broad ROUNDED arch, not a point and
+  // not a flat slab, so the corner is CHAMFERED — the rise now steps (3,2)->
+  // (13,-3)->(19,-5) into a 7 px flat peak x[19,27]. Faithful to the arcade's
+  // arch (NOT narrowed to an angular point, which this letter does not have —
+  // judging/R18 A-cmp). Right leg, 5 px rise and counter unchanged (measured).
   A: {
     w: 34,
     shapes: [[
-      [15, -5, 27, -5, 32, 0, 32, 4, 31, 10, 31, 38,
-        22, 38, 22, 22, 10, 22, 13, 38, 4, 38, 0, 10, 3, 2],
+      [19, -5, 27, -5, 32, 0, 32, 4, 31, 10, 31, 38,
+        22, 38, 22, 22, 10, 22, 13, 38, 4, 38, 0, 10, 3, 2, 13, -3],
       [13, 3, 22, 3, 22, 15, 11, 15],
     ]],
   },
   // F: square stem, two arms, both chisel-tipped. Rows 57..99 measured,
   // i.e. the arm starts 2 px above the cap line and the stem runs 1 px
   // past the baseline.
+  // R18: both arms re-cut as KNIFE WEDGES tapering to a single down-right
+  // point, where before each ended in a short blunt vertical riser (…25,4,
+  // 25,7… and …21,20, 21,22…). The arcade's arm terminals are a clean diagonal
+  // slash with no vertical tip (judging/R18 title-cmp, zoomed F/E), so the top
+  // edge rakes down to x26/x22 and the bottom edge runs back level — the chisel
+  // the file's own vocabulary note asks for, drawn sharper.
   F: {
     w: 26,
     shapes: [
       [[0, -2, 9, -2, 9, 38, 7, 40, 0, 40]],
-      [[9, -1, 20, 0, 25, 4, 25, 7, 15, 6, 9, 5]],
-      [[9, 15, 17, 15, 21, 20, 21, 22, 13, 21, 9, 20]],
+      [[9, -1, 21, 1, 26, 6, 15, 6, 9, 5]],
+      [[9, 15, 18, 16, 22, 21, 13, 21, 9, 20]],
     ],
   },
   // T: the head bar is a trapezoid — BOTH ends cut on a diagonal, wider at
@@ -180,12 +194,14 @@ const G = {
   },
   // E: three arms of three different lengths, each chisel-tipped, the
   // bottom one longest and raked back as it descends.
+  // R18: top and middle arms sharpened to down-right knife points (the bottom
+  // arm was already the raked signature and is kept). See the F note.
   E: {
     w: 27,
     shapes: [
       [[0, 0, 9, 0, 9, 38, 0, 38]],
-      [[9, 0, 21, 1, 23, 6, 16, 7, 9, 7]],
-      [[9, 15, 19, 16, 21, 21, 14, 22, 9, 22]],
+      [[9, 0, 22, 1, 25, 7, 14, 7, 9, 7]],
+      [[9, 15, 20, 16, 23, 22, 13, 22, 9, 22]],
       [[9, 31, 26, 32, 24, 38, 9, 38]],
     ],
   },
@@ -197,8 +213,8 @@ const G = {
     w: 28,
     shapes: [
       [[0, 0, 9, 0, 9, 40, 0, 40]],
-      [[9, 0, 22, 1, 24, 7, 17, 9, 9, 8]],
-      [[9, 16, 20, 17, 22, 23, 15, 25, 9, 24]],
+      [[9, 0, 23, 1, 26, 8, 16, 9, 9, 8]],
+      [[9, 16, 21, 17, 24, 24, 14, 25, 9, 24]],
       [[9, 32, 27, 33, 25, 40, 9, 40]],
     ],
   },
