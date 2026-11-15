@@ -42,6 +42,7 @@ const KNOWN = new Set([
   'scatter', // per-round aim scatter, frame-width fractions (sigma-ish)
   'hitmult', // vulcan hit radius as a multiple of the target's own span
   'lockrad', // missile lock cone radius around the sight, frame-width fractions
+  'lockhold', // R15: seconds a COMPLETED lock survives its target leaving the field before firing (0 = pre-R15 instant drop)
   'closure', // throttle closure excursion: 0 = inert, 1 = full [0.85,1,1.20]
 ]);
 

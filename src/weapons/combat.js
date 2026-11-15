@@ -1425,5 +1425,13 @@ export class Combat {
     state.hit = this.hits;
     state.enemiesInPlay = this.spawner.aliveCount > 0;
     state.locked = this.locks.locks.length > 0;
+    // R15 — the lock COUNT, for the UI lane's "you hold N locks, release to fire"
+    // HUD cue (ui/hud.js). `locked` stays for consumers that only need the
+    // boolean; this is the glanceable number the salvo cue reads.
+    state.lockCount = this.locks.locks.length;
+    // R15 — a lock is being WORKED ON (sight on a lockable target, not yet a
+    // completed lock), so the UI can show an "acquiring" state distinct from a
+    // held lock. Optional for the UI lane; costs one field.
+    state.acquiring = !!this.locks.acquiring;
   }
 }

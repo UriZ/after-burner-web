@@ -82,6 +82,37 @@ const LOCK_INTERVAL_S = 0.10; // locks accumulate while the button is held
 // accumulate THREE locks from a motionless stick. The salvo therefore gets
 // no slower; it gets earned.
 const LOCK_ACQUIRE_S = 0.22;
+// R15 — COMPLETED-LOCK HOLD, the missile's rank-2 conversion fix. The R15
+// opening playtest fired ONE missile in 27 s of dedicated climbing. The block
+// is NOT acquisition (a perfect-tracker autopilot fires 31-34 salvos/180 s, and
+// a probe pilot that merely points the sight up gets a lock in ~0.22 s). The
+// block is that CONVERTING it forces a human to hold the death posture: fire is
+// on RELEASE, and a COMPLETED lock is dropped (the loop in update()) the instant
+// its target closes inside LOCK_BREAK_DEPTH or peels off (`retired`). The bait
+// only HOLDS for ~2 s, so a human who climbs, grabs the lock, then drops back to
+// a safe posture to dodge finds the lock already gone when they go to fire — the
+// lock is transient on the TARGET, so the player must keep the sight on it, in
+// the open, until release.
+//
+// THE FIX (team lead's R15 ask): once a lock is ACQUIRED it survives the TARGET
+// leaving — for LOCK_HOLD_S after the target closes past the break depth or
+// peels away — so the player can climb briefly, grab the lock, drop to a safe
+// posture, and still fire the salvo on release. The bait, after its hold,
+// resumes toward the camera and is still ON SCREEN and closing when it crosses
+// the break depth (at depth 13 it is only ~18 % along its exit, ndcX ~0.30), so
+// a missile fired at a held lock still flies at a real, visible target, not a
+// ghost — the lock is held through the near pass, not re-pointed at nothing.
+//
+// A SHOT-DOWN target is still dropped at once (no point holding a lock on a
+// corpse); only a target that LEFT — retired or closed past the break — is held.
+//
+// WHY IT KEEPS THE BLIND/SWEEPER PROTECTIONS: this extends only an ALREADY
+// COMPLETED lock; it does nothing for a pilot who never completes one. The
+// acquisition path (sight on target for LOCK_ACQUIRE_S) is unchanged, so what a
+// centred or never-settling stick can LOCK is exactly what it could before —
+// the R11 result is untouched. `?gun=lockhold=0` reproduces the pre-R15 instant
+// drop exactly for the A/B.
+const LOCK_HOLD_S = 1.2;
 // Corner arm length, as a fraction of the box side, for the state that is
 // not a completed lock. ARM_FRAC_OF_BOX (0.25, below) is the completed one
 // and is unchanged.
@@ -364,6 +395,13 @@ export class LockSystem {
     // measurement-only) without a second constant appearing in the tree —
     // which is exactly how this quantity came to have three values.
     this.radius = gunTunable('lockrad', LOCK_RADIUS_FRAC);
+    // R15 completed-lock hold (see LOCK_HOLD_S). Instance field so a probe can
+    // sweep it and `?gun=lockhold=0` recovers the pre-R15 instant drop exactly.
+    this.lockHoldS = gunTunable('lockhold', LOCK_HOLD_S);
+    // Per-held-lock remaining hold time, keyed by enemy. A lock enters this map
+    // only once its target has LEFT (retired/closed past break); while the
+    // target is still a live in-field lock the map has no entry for it.
+    this.lockHold = new Map();
 
     this.sightCorners = this._makeCorners(29);
   }
@@ -382,15 +420,32 @@ export class LockSystem {
     this._updateTracking(enemies, sight ?? playerNdc);
 
     // Drop locks whose target died, left the field, or has closed inside
-    // LOCK_BREAK_DEPTH. The last case matters because locks accumulate over
-    // a hold of up to ~1.4 s and only fire on release: a target locked at
-    // the 26-unit floor can be at 10 units by launch, and the missile then
-    // reaches it in ~0.3 s, below GAME_SPEC.md §3's measured 0.5-1.5 s
-    // launch->impact. A target that has closed that far has effectively
-    // passed, so breaking the lock is the right behaviour anyway.
+    // LOCK_BREAK_DEPTH. R15 — a target that LEFT (retired or closed past the
+    // break) is not dropped at once: it is HELD for LOCK_HOLD_S so the player
+    // can climb-grab-drop-fire without staying in the death posture (see
+    // LOCK_HOLD_S). A target that was SHOT DOWN (`!alive`) is dropped
+    // immediately — a lock on a corpse is worthless. `lockhold=0` restores the
+    // pre-R15 instant drop (the hold expires on the first tick it is entered).
     for (let i = this.locks.length - 1; i >= 0; i--) {
       const e = this.locks[i];
-      if (!e.alive || e.retired || e.d < LOCK_BREAK_DEPTH) this.locks.splice(i, 1);
+      if (!e.alive) {
+        this.locks.splice(i, 1);
+        this.lockHold.delete(e);
+        continue;
+      }
+      if (e.retired || e.d < LOCK_BREAK_DEPTH) {
+        const left = (this.lockHold.has(e) ? this.lockHold.get(e) : this.lockHoldS) - dt;
+        if (left <= 0) {
+          this.locks.splice(i, 1);
+          this.lockHold.delete(e);
+        } else {
+          this.lockHold.set(e, left);
+        }
+      } else if (this.lockHold.has(e)) {
+        // A target that came back into the field before its hold expired is a
+        // live lock again; clear its countdown so it is held normally.
+        this.lockHold.delete(e);
+      }
     }
 
     // R10: ACQUISITION. The old body of this block took a lock on the first
@@ -462,6 +517,7 @@ export class LockSystem {
   takeLocks() {
     const out = this.locks.slice();
     this.locks.length = 0;
+    this.lockHold.clear();
     return out;
   }
 
@@ -784,6 +840,7 @@ export class LockSystem {
   clear() {
     this.tracked = null;
     this.locks.length = 0;
+    this.lockHold.clear();
     this.acquiring = null;
     for (const set of this.brackets) {
       for (const c of set) c.visible = false;
