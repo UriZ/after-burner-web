@@ -52,6 +52,8 @@ const PACE_KEYS = new Set([
   'trains', // how many enemy fire trains may be in the air at once
   // R13 population/routing levers (see the loiter block below):
   'baitevery', // every Nth wave is a lock-bait loiter cluster (0 = never)
+  'baitymin', // bottom of the lock-bait vertical hold band, NDC (R16)
+  'baitymax', // top of the lock-bait vertical hold band, NDC (R16)
   'dwellfrac', // fraction of echelon members that gun-dwell at readable depth
   'flyby', // seconds between large close flyby events (0 = never)
   'deadmax', // longest empty-sky stretch tolerated before a wave is forced
@@ -953,15 +955,57 @@ const BAIT_HOLD_DEPTH_MIN = 17;
 const BAIT_HOLD_DEPTH_MAX = 21;
 const BAIT_HOLD_TIME_MIN = 1.8;
 const BAIT_HOLD_TIME_MAX = 2.6;
-// Vertical band the bait cluster holds in, NDC. The sight's rest is ndcY 0.30
-// and its cone reaches +0.237, so 0.44-0.58 sits ABOVE a resting cone — a
-// parked pilot does not get it for free, a climbing pilot does.
-const BAIT_Y_MIN = 0.44;
-const BAIT_Y_MAX = 0.58;
-// Lateral centre offset from the player, |NDC|. Pushed off-centre so the
-// cluster is not dead ahead of a neutral stick; the player turns onto it.
-const BAIT_X_MIN = 0.1;
-const BAIT_X_MAX = 0.2;
+// Vertical band the bait cluster holds in, NDC.
+//
+// R16 — RAISED 0.44-0.58 -> 0.55-0.65 TO KILL THE FIRST-LOCK OVERSHOOT. The
+// R15 judge flew ~15 empty passes before finding the lock because a NAIVE
+// climb overshoots the old band. The mechanism, measured on this build
+// (tools/playtest.mjs, seed 7): the sight's vertical rail SATURATES — any
+// sustained climb pins the sight at its ceiling ndcY +0.76 and it does NOT
+// auto-recentre (it stays at +0.76 with the stick centred; auto-return is the
+// player/ui lane's gap, not this one). So a new player who climbs toward the
+// high enemies pins the sight at +0.76, whose lock cone (±0.237 NDC, from
+// LOCK_RADIUS_FRAC/(0.5·224/320)) covers ndcY [+0.523, +0.997]. The OLD band
+// 0.44-0.58 sits mostly BELOW +0.523, so a low-drawing bait (baitY < ~0.50,
+// ~43 % of waves) was ENTIRELY under the pinned cone — unlockable unless the
+// player counter-intuitively pushed the nose back DOWN to +0.31. That is the
+// trick the judge had to discover.
+//
+// 0.55-0.65 puts the WHOLE band (members span baitY ± 0.0225, so 0.5275-0.6725)
+// at or above the full-climb cone floor +0.523, so the naive "climb to them"
+// instinct now lands the pinned sight directly on the bait. It stays reachable
+// by a GENTLER climb too: catching the band needs the sight anywhere in
+// [+0.29, +0.765] (a mild climb up to full), so there is no sweet-spot to find.
+// BLIND PROTECTION IS STRENGTHENED, not weakened: the resting cone tops at
+// ndcY +0.425 (rest sight +0.188 measured, + the 0.237 reach), which is now
+// 0.105 below the band floor 0.5275 (was 0.015) — a parked do-nothing stick is
+// even further from a free lock than before. ENVELOPE_Y is UNTOUCHED (R15
+// refuted growing it; this moves the TARGET up into the existing reach, not
+// the reach up to a higher target).
+// Exposed as `?pace=baitymin=,baitymax=` so the R16 raise can be A/B'd on ONE
+// tree (`baitymin=0.44,baitymax=0.58` recovers the pre-R16 band) without a
+// checkout while sibling lanes hold the working copy.
+const BAIT_Y_MIN = paceTunable('baitymin', 0.55);
+const BAIT_Y_MAX = paceTunable('baitymax', 0.65);
+// Lateral centre offset from the player, |NDC|. Kept slightly off-centre so the
+// cluster is not dead ahead of a neutral stick, but BROUGHT IN for R16 so a
+// naive climb reaches it laterally too.
+//
+// R16 — WAS 0.1-0.2, AND THAT WAS A SECOND FIRST-LOCK BARRIER behind the
+// vertical overshoot. Traced on seed 19 (judging/R16/_trace via the naive
+// pure-up climb): a naive pilot pins the sight at (0, +0.76), but the lock
+// cone's LATERAL reach from a centred sight is only ±0.166 ndcX (LOCK_RADIUS
+// 0.083 / 0.5), so a bait whose members (centre ± the 0.06·k spread) sat out
+// at |x| 0.2-0.29 fell OUTSIDE the cone laterally even once the vertical raise
+// put it at the right height — 42 % of band observations failed the lateral
+// test. Blind protection does NOT depend on this offset (it is purely
+// VERTICAL: the bait sits above the rest cone, so a parked stick cannot reach
+// it at any x), so the offset can come in without reopening the blind hole.
+// 0.03-0.09 keeps a visible side-bias while placing the whole cluster (members
+// span centre ± ~0.09) at or inside the centred cone's lateral reach, so
+// "climb toward the cluster" lands the lock without a separate lateral hunt.
+const BAIT_X_MIN = 0.03;
+const BAIT_X_MAX = 0.09;
 
 // Gun-dwell hold geometry: a pause at readable depth (span ~15-19 %W) short
 // enough to read as a hesitation in the pass, not a parked target.
@@ -1793,6 +1837,9 @@ export class Spawner {
         pattern: 'approach',
         type: 'fighter',
         role: this._roleFor(roleRoll),
+        // R16 — the lock system draws the "aim here" hint bracket on these while
+        // the player holds the missile button (first-lock discoverability cue).
+        lockBait: true,
         depthA: APPROACH_SPAWN_DEPTH,
         depthB: FLY_PAST_DEPTH,
         // At the hold depth q ~= 0.13, so the on-screen position is essentially

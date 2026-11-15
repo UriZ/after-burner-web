@@ -615,6 +615,11 @@ export class Enemy {
     // measured without it. -1 = the stage opener and primed echelon, which are
     // pushed outside the numbered wave sequence.
     waveId = -1,
+    // R16 — marks a lock-bait cluster member so the lock system can draw the
+    // "aim here" hint bracket on it as it enters the lockable band (the
+    // first-lock discoverability cue). Like `waveId`, this is read ONLY by the
+    // HUD/lock display; no flight or fire logic branches on it.
+    lockBait = false,
     // --- LOITER (R13) --------------------------------------------------------
     // An optional pause in the depth advance. When `holdDepth` is set, the
     // aircraft approaches as usual until it reaches that depth, HOLDS there
@@ -644,6 +649,7 @@ export class Enemy {
     this.pattern = pattern;
     this.type = type;
     this.waveId = waveId;
+    this.lockBait = lockBait;
     this.hp = spec.hp;
     this.alive = true;
     this.age = 0;
