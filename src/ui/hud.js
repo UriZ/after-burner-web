@@ -599,6 +599,40 @@ function drawReticle(ctx, bb, worldRoll, enemiesInPlay, locked) {
   }
 }
 
+// R15 (gap 1, missile-execution UX): a lock-COUNT cue. The problem the R14
+// playtest hit was that the player could not tell they were holding locks
+// worth releasing -- the only cues were the per-target dashed brackets
+// (lockSystem.js, easy to miss under fire) and the 2x2 reticle status dot
+// above. The arcade's own lock presentation IS the per-target brackets
+// (GAME_SPEC.md §3: ~6 dashed bracket boxes on-screen at once for a 6-missile
+// salvo), with NO numeric HUD count and NO size animation on the bracket
+// (R10: it appears at final size). So this stays close to that: it does not
+// invent a "LOCK x6" readout or a pulsing fill -- it draws ONE small amber pip
+// per held lock in a steady row directly under the status reticle, in the same
+// amber the locked status dot uses. The count IS the arcade's "how many
+// brackets are up" made glanceable in the corner the player already watches
+// for the status dot. Pips only; capped at the ~8-missile salvo ceiling
+// (GAME_SPEC.md §3). AMBER + KEYLINE are already in HUD_PALETTE, so no new
+// colour enters the 1-bit HUD.
+const MAX_LOCK_PIPS = 8;
+const LOCK_PIP = 3; // amber square side, px
+const LOCK_PIP_PITCH = LOCK_PIP + 2; // 2 px of keyline gutter between pips
+function drawLockCount(ctx, bb, count) {
+  const n = Math.min(MAX_LOCK_PIPS, Math.max(0, count | 0));
+  if (n <= 0) return;
+  const cx = Math.round((bb.x0 + bb.x1) / 2);
+  const totalW = n * LOCK_PIP_PITCH - 2; // last pip carries no trailing gutter
+  let x = cx - Math.round(totalW / 2);
+  const y = bb.y1 + 5; // just below the reticle's lowest tick, in open sky
+  for (let i = 0; i < n; i++) {
+    ctx.fillStyle = KEYLINE; // 1-px dilation so the pips read over sea/ground too
+    ctx.fillRect(x - 1, y - 1, LOCK_PIP + 2, LOCK_PIP + 2);
+    ctx.fillStyle = AMBER;
+    ctx.fillRect(x, y, LOCK_PIP, LOCK_PIP);
+    x += LOCK_PIP_PITCH;
+  }
+}
+
 // The throttle widget as AB2 actually draws it: scale digits INLINE with the
 // bar (0 [bar] 2 . . . 3), the bar itself a blue segment up to the current
 // speed and an amber segment for the remainder, both 3-tone shaded with dark
@@ -773,7 +807,7 @@ export class Hud {
     this.state = {
       score: 0, hit: 0, stage: 1, missiles: 50, lives: 3,
       throttle: 'M', throttleFraction: 0.55,
-      enemiesInPlay: false, locked: false,
+      enemiesInPlay: false, locked: false, lockCount: 0,
     };
     this.redraw(0);
   }
@@ -803,6 +837,11 @@ export class Hud {
       PALE_YELLOW, 1, 1, BIG_OVER_WORLD);
 
     drawReticle(ctx, BB_RETICLE, worldRoll, this.state.enemiesInPlay, this.state.locked);
+    // Lock-count pips under the reticle. Null-safe on the combat->HUD interface:
+    // combat.publish() sets state.lockCount = this.locks.locks.length; until
+    // that line lands this falls back to one pip whenever state.locked is true,
+    // so the cue degrades rather than vanishing.
+    drawLockCount(ctx, BB_RETICLE, this.state.lockCount || (this.state.locked ? 1 : 0));
 
     // SPEED label + throttle letter share one white lozenge (M_SPEED_PLATE).
     const p = M_SPEED_PLATE;
