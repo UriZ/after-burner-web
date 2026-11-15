@@ -45,10 +45,14 @@ arcade column). Ranked:
      Blind-centre is dominant because traffic funnels through centre + the span-scaled hit net is
      a wide auto-converter. The fix is **close-target supply** (density bursts, gap 3) — NOT
      reach, NOT `ASSIST_RADIUS_FRAC`/`HIT_RADIUS_SPAN_MULT` (both forbidden/inert). (Combat lane.)
-   - **MISSILE = conversion, not reach.** Climbing acquires locks fine, but they're **transient
-     (~2 s)** and fire-is-on-release, so a human can't time it (1 missile in 27 s). Fix: a **lock
-     grace window** (hold an acquired lock long enough to convert) in `lockSystem.js`, keeping
-     blind protection. (Combat lane.)
+   - **MISSILE = execution UX, not reach or mechanics.** The player lane confirmed convertibility
+     works mechanically (autopilots fire 31–34 salvos/180 s; it played a 6-missile salvo by eye).
+     The human block is two things: (a) **holding the vulnerable climb to acquire gets you killed**
+     (both testers died holding the posture), and (b) the **hold-to-lock → release-to-fire mechanic
+     is invisible.** Two-part fix: a **lock grace window** so an acquired lock SURVIVES you leveling
+     out and dodging (`lockSystem.js`, combat lane), and a **UI lock cue** so the player sees they
+     have a lock worth releasing (`ui/`, player lane — check the arcade: the lock bracket does NOT
+     animate in size, R10). Keep blind protection (bait sits above the rest cone at +0.425).
    One real nuance flagged, NOT for this round: our REST sight offset is +0.30 vs arcade ~+0.16
    — but that's `SIGHT_NDC_Y_OFFSET` (combat.js), possibly a different operator (vulcan-stream
    convergence) than the nose-sight glyph. Reconcile before touching; do not blind-change.
