@@ -137,8 +137,8 @@ const DEFAULT_TARGET_DEPTH = 55;
 // test should not be exposed to that division. No kill depends on it any
 // more — a 0.02 floor would bind below a 4 %W span, and the readable gate
 // stops the gun at 10 %W.
-const HIT_RADIUS_SPAN_MULT = 0.5;
-const HIT_RADIUS_FLOOR_FRAC = 0.02;
+const HIT_RADIUS_SPAN_MULT = 1.2; // R26: was 0.5 -- a generous hit circle around the aim so the gun reliably kills what you point at (owner: "the gun is dead").
+const HIT_RADIUS_FLOOR_FRAC = 0.05; // R26: was 0.02 -- a real minimum hit radius so small/distant enemies in the stream still die.
 
 // --- R8: AIM SCATTER ------------------------------------------------------
 //
@@ -407,7 +407,7 @@ export class Vulcan {
       // stream (that is what t214 shows and what TRAVEL_S was measured for),
       // it simply cannot score outside the band the weapon is licensed for.
       if (r.depth > reachMax) continue;
-      const depthTol = Math.max(2.0, r.depth * 0.12);
+      const depthTol = Math.max(8.0, r.depth * 0.35); // R26: widened (was 2.0/0.12) -- the stream kills enemies across a depth band, not only at an exact depth match.
       for (const e of enemies) {
         if (!e.alive) continue;
         if (Math.abs(e.d - r.depth) > depthTol) continue;

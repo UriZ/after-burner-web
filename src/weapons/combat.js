@@ -50,7 +50,7 @@ const SALVO_GATHER_S = 0.35;
 // R12: fraction of its muzzle->aim-point path a vulcan round must fly before
 // it can score. Pulls gun kills off the muzzle and up to the sight (R11 §2.1);
 // value set by the kill-vs-sight A/B in judging/R12/combat-lane.md.
-const VULCAN_MIN_HIT_P = 0.8;
+const VULCAN_MIN_HIT_P = 0.15; // R26: was 0.8 -- rounds can score along most of their flight, not only the last 20%, so holding fire at enemies ahead kills them.
 const LAUNCH_STAGGER_S = 0.05; // 6 missiles leave over ~0.3 s
 
 // The sight: GAME_SPEC.md §3's lock-display element 1, "the small dashed
@@ -215,7 +215,7 @@ export const READABLE_SPAN_FRAC = 0.1;
 // to another, justified by the blind-vs-aim control the method requires, in the
 // direction GAME_SPEC.md §3's own "anti-close-range" wording points. `?gun=
 // minspan=0.10` recovers the pre-R14 gate exactly for the A/B.
-const GUN_KILL_SPAN_FRAC = 0.14;
+const GUN_KILL_SPAN_FRAC = 0.03; // R26: was 0.14 -- the gun killed nothing in naive play because enemies had to be ~14%W (very close). 0.03 lets the stream kill enemies at normal ranges (owner: "the gun is dead").
 // Lead the target's closure over the round's time of flight. An enemy closes
 // by exp(depthRate * TRAVEL_S) during the 0.7 s a round is in the air — a
 // factor of 0.609 at the shipped depth rate — so snapping the round's depth
