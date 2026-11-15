@@ -1,6 +1,6 @@
 # STATUS — where the rebuild stands
 
-**Last updated**: 2026-11-15. **R23 CLOSED at 9.3; R24 is open.** The loop is
+**Last updated**: 2026-11-15. **OWNER PLAYED IT: "pretty bad." JUDGING RECALIBRATED; real build ~5/10.** The loop is
 **"look first, measure second"** (CLAUDE.md, "How work happens here"; rationale in
 `judging/R12/method-retrospective.md`). Every round ships an HTML report
 (`judging/R<n>/report.html`, `python3 tools/round_report.py`) published to the standing
@@ -9,64 +9,54 @@ Repo: github.com/UriZ/after-burner-web.
 
 ## Current state
 
-- **R23 verdict**: **9.3** (motion 9.3, stills 9.3) — `judging/R23/judge-report.md`. Both R22 canyon
-  breaks fixed (opened/lightened + aiming at parity); tanker airframe finished; zero regression; a criterion retired.
-- **Score trend**: … R20 9.0 → R21 9.1 → R22 9.2 → **R23 9.3**.
-- **R23 shipped (judge-confirmed)**: the canyon is **OPEN + BRIGHT** (walls to flanks, cream sky across
-  the centre 4.3%→19.6%, no near wall swallows the middle); **canyon AIMING FIXED** (a camera roll-axis
-  bug had railed the sight to -0.70 off the enemies — now centered, locks at parity: canyon 5 vs stage-1 4);
-  the **tanker airframe is finished** (measured swept-wedge wings + the bold fin). **ZERO regression**
-  (stage-1 A/B maxdiff 0, roll-axis fix canyon-gated).
-- **R23's criterion retirement**: the R22 judge's "drooping/anhedral" tanker-wing wording is **RETIRED** —
-  the tanker lane measured the arcade (wingtips sit ABOVE the root by +0.065H, the OPPOSITE of droop) and
-  built the correct swept wedge; the judge independently confirmed. The 4th retired criterion of the new era.
-- **What works end to end**: title → flight → combat → death/respawn → tally → **7 combat biomes (canyon
-  now open + aimable)** + runway refuel 5/13 + airborne tanker 3/9 (finished airframe) → GAME OVER /
-  continue → restart. All combat systems (full everywhere now, incl. the canyon), both refuel beats,
-  afterburner, lock cue, wider fireball + hot cores, FM music.
-- **Still absent**: the canyon needs tall CLIFF walls (reads as open desert w/ rocky hills vs the arcade's
-  sheer corridor) + a denser floor; the flat field biomes (14/16) need structure; ~7 of ~23 biomes.
+> ## THE OWNER PLAYED THE 9.3 BUILD AND IT IS "PRETTY BAD." The judges drifted back into R12's
+> original failure — scoring element-by-element arcade fidelity (biomes, tanker, canyon match the
+> frames) up to 9.3 while the game is bad to PLAY. **Owner verdict (ground truth, outranks every
+> judge):** *"no missiles, no heat-seeking missiles; the UI/sprites — both my jet and the enemies —
+> are not good enough; overall pretty bad."*
+>
+> **Confirmed by naive play (TL):** flying at enemies and pressing the missile button like a normal
+> player fires NOTHING — 0 locks, 0 missiles, over and over. The missile code exists (it's even a
+> heat-seeker) but is only fireable with an obscure insider move (climb to a specific NDC band, camp,
+> hold, release). **From a player's seat there are no missiles.** The R12-R16 lock-band machinery made
+> AB2's signature point-and-shoot weapon HARDER than the arcade, and every judge passed it by testing
+> DELIBERATE play, never naive play.
+>
+> **JUDGING RECALIBRATED (CLAUDE.md, binding):** the score is anchored on a full NAIVE playtest (play
+> like a first-timer, no insider moves); weapons-usable + controls-feel + sprite/UI quality are scored
+> dimensions ABOVE backdrop fidelity; re-baselined so 9-10 = genuinely good to play, 5-6 = "pretty bad
+> but real content" = **where this build actually is.** Element fidelity cannot lift the score above how
+> the game plays.
 
-## R24 gap list — from the R23 judge's close-look (`judging/R23/judge-report.md`)
+- **Real build state: ~5/10** (owner's measure). The prior 8.0→9.3 trend measured backdrop/beat
+  FIDELITY, which is genuinely high (7 biomes, both refuel beats, a structured canyon, matched
+  airframes) — but the CORE PLAY is weak: the missile is unusable, the sprites (player jet + enemies)
+  are not good enough. **Fidelity of parts ≠ a good game.**
+- **R24 judge (running when the owner's verdict arrived) used the OLD calibration — its score is
+  SUPERSEDED.** Its canyon/tanker findings (element fidelity) still stand as evidence; its number does not.
 
-Theme: **finish the canyon (cliffs + density), then give the flat biomes structure.** The canyon is open
-and aimable now; the last canyon tells are the wall SHAPE and floor density. Ranked:
+## R25 gap list — RECALIBRATION ROUND, from the owner's playtest (authoritative)
 
-1. **GIVE THE CANYON TALL VERTICAL CLIFF WALLS — a corridor, not rocky hills.** It's bright/open now, but
-   ours reads as open desert with rocky HILLS along the edges; the arcade boxes a NARROW CORRIDOR with
-   SHEER walls rising floor-to-top on both flanks. Raise the flanks into real cliffs — BUT keep the centre
-   open (do NOT re-create R22's dark tunnel; the walls stay on the SIDES, tall but not leaning over the
-   centre). Reference the arcade stage-8 frames (ab2-longplay t=344-372 — sheer side walls, open bright
-   corridor). (World: ground.js canyon wall geometry.)
-2. **DENSIFY THE CANYON FLOOR TO WALL-TO-WALL.** Ours is ~1-2 vehicles + scattered scrub vs the arcade's
-   ~3 tanks + tents + 15-20 scrub packed wall-to-wall. Raise the prop/scrub counts (combat is aimable over
-   it now, so there's room). (World: ground.js canyon props.)
-3. **GIVE THE FLAT FIELD BIOMES (14/16) REAL STRUCTURE.** The gold-dusk field (14) and blue water/city (16)
-   are still flat open fields. The canyon's wall + low-camera + props pattern is SOUND now — copy it to
-   14/16 (MEASURE each biome's horizon/structure from its arcade frames; keep any low camera stateless).
-   (World + a game.js horizon gate.)
-4. **KEEP WIDENING TOWARD 23.** ~7 of ~23 biomes. More measured biomes/set-pieces after the canyon finish
-   + field-biome structure. (World + flow.)
-5. **LOOSE ENDS.** The tanker wing up-sweep (0.038H) is shallower than the arcade's measured 0.065H — deepen
-   for a full match (render/tanker.js); STAGE_8 scrollSpeed ADOPTED (certify); the tree tunnel is still
-   sparse; the blind gun floor ~8-12 (structural span-scaled net).
+Theme: **make the core game good to PLAY.** Backdrop fidelity is ahead of the gameplay; stop widening
+and fix what the player's hands and eyes touch. Ranked by the owner's own words:
 
-**Kept as positives (do not regress):** the OPEN canyon + its FIXED aiming (locks at parity) + the floor
-battlefield; **COMBAT byte-identical outside the refuel/canyon camera states (proven maxdiff 0)**; both
-refuel beats (runway tree tunnel + low-swoop, airborne tanker + docking + the FINISHED airframe); the
-upright title block; seven combat biomes; every combat win; the wider fireball + hot cores; the ~8 s death
-cycle. **Do NOT re-tunnel the canyon** (walls stay on the flanks, centre open); **keep new camera work
-STATELESS** (prove byte-identical outside); **do NOT grow `ENVELOPE_Y`**.
+1. **MISSILES DO NOT WORK FOR A PLAYER — make them arcade-simple point-and-shoot heat-seekers.** AB2's
+   missile is its signature: you point the reticle at an enemy (or several), press the missile button,
+   it LOCKS what's under/near the reticle and fires HOMING missiles that chase them down. Ours requires
+   camping a lock band — a normal player fires none. **Rip out the camp-to-lock barrier:** pressing the
+   missile button should lock the enemies the reticle is on (or near, within a generous on-screen radius)
+   and fire heat-seekers that reliably home and hit. Keep the salvo/multi-lock feel. ACCEPTANCE: a naive
+   player flying at enemies and pressing X gets locks and kills within seconds, every engagement — verify
+   by NAIVE play, not band-camping. (Combat lane — weapons/lockSystem/missiles; this is the round's #1.)
+2. **THE SPRITES AREN'T GOOD ENOUGH — the player jet AND the enemies.** The owner singled out both.
+   Re-judge the player F-14 and the enemy aircraft sprites against the arcade's with fresh, critical eyes
+   (the arcade sprites are crisp, readable, characterful; ours read flat/toylike). This is an ART-QUALITY
+   pass, not a palette-number pass — make them look good and arcade-faithful. (Player-art + enemy-art lanes.)
+3. **THEN re-judge the whole feel at naive play** — once missiles work and sprites improve, does it feel
+   like AB2 in the hands? The recalibrated judge plays naively and scores the PLAY, not the frames.
 
-**Retired criteria (do not tune to these):** the tanker-wing "drooping/anhedral downsweep" (R23 — the
-arcade's tips sit ABOVE the root; correct target is a deep-root → high-thin-tip swept wedge). Plus the
-pre-R12 ledger in REFERENCE.md.
-
-**Carried interfaces** (`judging/R12/flow-asks.md`): a `gameOver` SFX + `resupply`/`airrefuel` landing
-cues (audio). Record ADOPTED in GAME_SPEC: all R16-R23 beats. **Capture caveat**: the combat p-gate makes
-`demo=2` under-read gun explosions — use `?combatexpl=1` and an aiming pilot (or play). **Measurement
-note**: telemetry can pass a biome the eyes/hands fail (R22 caught the canyon lock-suppression by PLAYING);
-and a criterion can be wrong — check it against the arcade before tuning (R23 retired the anhedral wording).
+Deferred until the core plays well: the flat field biomes' structure, more stages toward 23, canyon floor
+density — all backdrop, all ahead of the gameplay already. Do NOT add content this round; fix the core.
 
 ## Hard warnings that stay load-bearing
 

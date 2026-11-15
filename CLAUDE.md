@@ -83,8 +83,31 @@ SIDE-BY-SIDE LOOK (ours vs arcade, fixed scenarios) + AGENT PLAYTEST
   demands one. Instrument work ≤ ~20 % of a round; no new instrument where crop-and-look
   answers it. The defect ledger (REFERENCE.md) is reference material, not required reading.
 - The judge is a **separate agent with a fresh context every round**. It never trusts
-  developer self-reports; it re-measures what shipped. Its SCORE is anchored on the
-  side-by-side look ("would a player mistake this for AB2?"), not on the audit.
+  developer self-reports; it re-measures what shipped.
+
+> ### JUDGE CALIBRATION — RECALIBRATED R24, binding. The owner played the 9.3/10 build and
+> said: *"no missiles, no heat-seeking missiles, the UI/sprites (my jet and the enemies) are
+> not good enough, overall pretty bad."* The judges had drifted back into R12's original
+> failure — scoring element-by-element arcade fidelity (does the canyon match, does the tanker
+> match) up to 9.3 while the game is **bad to PLAY**. Fix:
+>
+> - **The SCORE is anchored on a full NAIVE playtest, nothing else.** The judge PLAYS the game
+>   for several minutes like a first-time player / the owner — fly at enemies, press the
+>   buttons, use the weapons — **with NO insider knowledge** (no "climb to the lock band and
+>   camp," no deliberate-only moves). If a normal player cannot fire a missile by pointing at
+>   an enemy and pressing the button, **the missile does not work, regardless of what telemetry
+>   or a deliberate probe shows.** Element fidelity (biomes/sprites matching frames) is
+>   NECESSARY but CANNOT lift the score above how the game actually plays.
+> - **Re-baselined scale (play experience, not frame-match):** **9–10** = genuinely good,
+>   convincing AB2 you'd want to keep playing — every core weapon usable and satisfying, the
+>   jet and enemies look great, it feels like the arcade in the hands. **7–8** = solid and
+>   playable, clear rough edges. **5–6** = "pretty bad but real content there" — THIS is where
+>   the owner put the current build (core weapon unusable, weak sprites). **≤4** = broken core
+>   loop. The current build is **~5**, not 9.3; score honestly down there until play improves.
+> - **Weapons-usable, controls-feel, and sprite/UI quality are each a scored dimension**, above
+>   backdrop fidelity. A beautiful canyon with an unusable missile and weak jet art is a 5, not a 9.
+> - The owner's playtest is the ground truth and **outranks the judge**; the judge's job is to
+>   predict what the owner would say, by playing the way the owner plays.
 - **Before tuning to a criterion, check the criterion against the arcade itself** —
   acceptance criteria have been retired as wrong in every round that audited them.
 - **Every round ships an HTML report** — `python3 tools/round_report.py` (edit the `ROUND`
