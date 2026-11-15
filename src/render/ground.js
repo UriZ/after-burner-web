@@ -90,7 +90,7 @@ export function createGround(stage, horizonFrac) {
     uniform float uCoarsenMin;
     uniform float uCoarsenMax;
     uniform float uCoarsenPower;
-    uniform float uGroundMode; // 0 = sea, 1 = night (blue dither), 2 = canopy (stage 2), 3 = forest (stage 4)
+    uniform float uGroundMode; // 0 = sea, 1 = night (blue dither), 2 = canopy (stage 2), 3 = forest (stage 4), 4 = runway (stages 5/13 resupply)
     uniform float uMacroFreqX;
     uniform float uMacroFreqZ;
     uniform float uMacroAmp;
@@ -157,6 +157,21 @@ export function createGround(stage, horizonFrac) {
     uniform float uHazeDitherFreqX;
     uniform float uHazeDitherFreqZ;
     uniform float uHazeDitherFine;
+    // Runway (R16 resupply, stages 5/13). A central paved landing strip over
+    // an autumn-woodland flank. Inert on every other mode (uGroundMode != 4);
+    // the runway branch is the only reader. See the 'runway' branch for how
+    // each is used and stage.js (STAGE_5) for the authored values.
+    uniform float uRunwayHalfWidth;
+    uniform float uRunwayShoulder;
+    uniform vec3 uRunwayColor;
+    uniform vec3 uRunwayMarkColor;
+    uniform float uRunwayCtrHalfW;
+    uniform float uRunwayDashPeriod;
+    uniform float uRunwayDashDuty;
+    uniform float uRunwayEdgeInset;
+    uniform float uRunwayEdgeHalfW;
+    uniform float uRunwayMarkFade;
+    uniform float uRunwayMarkFadeSpan;
     uniform float uCameraHeight;
     uniform float uCameraPitch;
     uniform float uHalfTanFov;
@@ -693,7 +708,54 @@ export function createGround(stage, horizonFrac) {
       // per-fragment divergence cost.
       vec3 groundColor;
 
-      if (uGroundMode > 2.5) {
+      if (uGroundMode > 3.5) {
+        // ---- 'runway' (stages 5 / 13, the resupply beat) ------------
+        // R16 BREADTH. The arcade's refuel stages fly low over a landing
+        // strip set in autumn woodland (STAGE_MAP.md spans t=244-256 and
+        // t=552-568). This paints an autumn-scrub FLANK split by a central
+        // paved strip with a dashed centreline and solid edge lines.
+        //
+        // The flank is the MEASURED stage-2 autumn-scrub palette, borrowed
+        // (STAGE_MAP leaves stage 5's own ground UNMEASURABLE and warns
+        // against inventing one): compose HSV around the stage's warm hue,
+        // same stipple/macro construction as the canopy branch, then snap to
+        // the measured 18-colour stage-2 set. The strip surface/markings are
+        // ASSUMED neutral greys on the hardware ladder — a runway has no
+        // measured palette here. See stage.js (STAGE_5) for the full split.
+        float stipCpp = uStipLodBoost * max(worldPerCol / uGrainFreqX, worldPerRow / uGrainFreqZ);
+        float macroCpp = uStipLodBoost * max(worldPerCol / uMacroFreqX, worldPerRow / uMacroFreqZ);
+        float macro = fbmLod(vec2(vWorldPos.x / uMacroFreqX, (vWorldPos.z + uScroll) / uMacroFreqZ), macroCpp);
+        float stipV = fbmLod(grainP, stipCpp);
+        float stipS = fbmLod(grainP + vec2(97.1, 13.7), stipCpp);
+        float stipH = fbmLod(grainP + vec2(53.3, 71.9), stipCpp);
+        float t = clamp(0.5 + (macro - 0.47) * uMacroAmp + (stipV - 0.47) * uDetailAmp, 0.0, 1.0);
+        float v = mix(uVLo, uVHi, t);
+        float sat = mix(uSatLo, uSatHi, stipS);
+        float hue = (uHueDeg + (stipH - 0.5) * uHueJitterDeg) / 360.0;
+        vec3 trees = snapToStage2Palette(hsv2rgb(vec3(hue, sat, v)));
+
+        // The paved strip runs straight down the flight axis (world Z),
+        // centred on x = 0. uRunwayHalfWidth is its half-width in WORLD
+        // units; the tarmac/grass boundary feathers over uRunwayShoulder so
+        // it is not a hard aliased cliff.
+        float ax = abs(vWorldPos.x);
+        float onStrip = 1.0 - smoothstep(uRunwayHalfWidth, uRunwayHalfWidth + uRunwayShoulder, ax);
+        // Concrete, faintly stippled so it reads as a surface not a flat slab.
+        vec3 concrete = linearToSrgb(uRunwayColor) * (0.90 + 0.16 * stipV);
+        // Markings fade out with distance (thin lines alias in the mid field,
+        // and the far strip hazes over regardless).
+        float markVis = 1.0 - smoothstep(uRunwayMarkFade, uRunwayMarkFade + uRunwayMarkFadeSpan, groundDist);
+        // Dashed centreline: thin in X, periodic along Z (perspective
+        // compresses the dashes toward the vanishing point for free). The
+        // step is ON where fract >= duty, i.e. (1 - duty) of each period.
+        float centre = step(ax, uRunwayCtrHalfW) *
+                       step(uRunwayDashDuty, fract((vWorldPos.z + uScroll) / uRunwayDashPeriod));
+        // Two solid edge lines, just inside the tarmac edge.
+        float edge = 1.0 - step(uRunwayEdgeHalfW, abs(ax - uRunwayEdgeInset));
+        float mark = clamp((centre + edge) * markVis, 0.0, 1.0);
+        vec3 surface = mix(concrete, linearToSrgb(uRunwayMarkColor), mark);
+        groundColor = mix(trees, surface, onStrip);
+      } else if (uGroundMode > 2.5) {
         // ---- 'forest' (stage 4) -------------------------------------
         // VERIFIED arcade stage 4 is a green forest under a flat teal sky
         // (STAGE_MAP.md t=200-240, the only span whose HUD digit reads 4).
@@ -1550,6 +1612,21 @@ export function createGround(stage, horizonFrac) {
     hazeDitherFreqX: 3.5,
     hazeDitherFine: 0.9,
     hazeDitherFreqZ: 400.0,
+    // Runway (R16, stage 5/13). All inert by default — only groundMode
+    // 'runway' reads them, and only the runway branch ever runs on them.
+    // halfWidth 0 means there is no strip, so a stage that forgets to set
+    // these (there is none) would render pure flank.
+    runwayHalfWidth: 0.0,
+    runwayShoulder: 0.5,
+    runwayColor: new THREE.Color(0, 0, 0),
+    runwayMarkColor: new THREE.Color(0, 0, 0),
+    runwayCtrHalfW: 0.0,
+    runwayDashPeriod: 7.0,
+    runwayDashDuty: 0.5,
+    runwayEdgeInset: 0.0,
+    runwayEdgeHalfW: 0.0,
+    runwayMarkFade: 42.0,
+    runwayMarkFadeSpan: 28.0,
   };
 
   // stage.sea / stage.night / stage.canopy: only the one matching the
@@ -1561,7 +1638,8 @@ export function createGround(stage, horizonFrac) {
     p.groundMode =
       s.groundMode === 'night' ? 1 :
       s.groundMode === 'canopy' ? 2 :
-      s.groundMode === 'forest' ? 3 : 0;
+      s.groundMode === 'forest' ? 3 :
+      s.groundMode === 'runway' ? 4 : 0;
     return p;
   }
 
@@ -1661,6 +1739,17 @@ export function createGround(stage, horizonFrac) {
       uHazeDitherFreqX: { value: p.hazeDitherFreqX },
       uHazeDitherFine: { value: p.hazeDitherFine },
       uHazeDitherFreqZ: { value: p.hazeDitherFreqZ },
+      uRunwayHalfWidth: { value: p.runwayHalfWidth },
+      uRunwayShoulder: { value: p.runwayShoulder },
+      uRunwayColor: { value: p.runwayColor },
+      uRunwayMarkColor: { value: p.runwayMarkColor },
+      uRunwayCtrHalfW: { value: p.runwayCtrHalfW },
+      uRunwayDashPeriod: { value: p.runwayDashPeriod },
+      uRunwayDashDuty: { value: p.runwayDashDuty },
+      uRunwayEdgeInset: { value: p.runwayEdgeInset },
+      uRunwayEdgeHalfW: { value: p.runwayEdgeHalfW },
+      uRunwayMarkFade: { value: p.runwayMarkFade },
+      uRunwayMarkFadeSpan: { value: p.runwayMarkFadeSpan },
     },
     vertexShader,
     fragmentShader,
@@ -1780,6 +1869,17 @@ export function createGround(stage, horizonFrac) {
       u.uHazeDitherFreqX.value = q.hazeDitherFreqX;
       u.uHazeDitherFine.value = q.hazeDitherFine;
       u.uHazeDitherFreqZ.value = q.hazeDitherFreqZ;
+      u.uRunwayHalfWidth.value = q.runwayHalfWidth;
+      u.uRunwayShoulder.value = q.runwayShoulder;
+      u.uRunwayColor.value = q.runwayColor;
+      u.uRunwayMarkColor.value = q.runwayMarkColor;
+      u.uRunwayCtrHalfW.value = q.runwayCtrHalfW;
+      u.uRunwayDashPeriod.value = q.runwayDashPeriod;
+      u.uRunwayDashDuty.value = q.runwayDashDuty;
+      u.uRunwayEdgeInset.value = q.runwayEdgeInset;
+      u.uRunwayEdgeHalfW.value = q.runwayEdgeHalfW;
+      u.uRunwayMarkFade.value = q.runwayMarkFade;
+      u.uRunwayMarkFadeSpan.value = q.runwayMarkFadeSpan;
     },
   };
 }

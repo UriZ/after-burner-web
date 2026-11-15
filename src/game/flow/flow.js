@@ -5,7 +5,7 @@ import { createCarrierSprite } from './carrier.js';
 import { drawTitleScreen } from './titleScreen.js';
 import { drawReadyCard, drawTallyCard, drawContinueCard, drawGameOverCard } from './cards.js';
 import { Overlay } from './overlay.js';
-import { STAGES } from '../stage.js';
+import { STAGES, STAGE_5 } from '../stage.js';
 import { demoTimeline } from './demoTimeline.js';
 import { AudioBus } from '../../audio/index.js';
 import { MISSILE_START_STOCK } from '../../weapons/combat.js';
@@ -97,6 +97,30 @@ const STAGE_DURATIONS_S = [
 // the palette, player never learns they progressed) and the judge ranked
 // that the more visible defect of the two. Revisit as STAGES.length grows.
 const STAGE_COUNT = STAGE_DURATIONS_S.length;
+
+// R16 BREADTH — the RESUPPLY / REFUEL interstitial (a whole missing beat of
+// the arcade). STAGE_MAP.md's HUD-verified spans make arcade stages 5 and 13
+// the refuel runs: the jet flies low over a landing strip to restock, with no
+// combat. Those two arcade STAGE NUMBERS (not content-lap indices) are the
+// refuel beat; `isResupplyStage` keys off the number the player is shown, so
+// the beat lands on the arcade's own stages 5 and 13 and nowhere else.
+//
+// The RUNWAY CONTENT (STAGE_5 in stage.js) is deliberately NOT in the STAGES
+// combat-lap array — it is pulled in only here, so the normal combat lap never
+// renders a runway under a wave of enemies. The no-enemy / missile-restock
+// behaviour is the `resupply` flow state (_updateResupply), reachable in
+// normal progression (after combat stage 4, and again after stage 12) and
+// directly for capture via `?stage=5` / `?stage=13`.
+function isResupplyStage(stageNumber) {
+  return stageNumber === 5 || stageNumber === 13;
+}
+
+// A daytime, out-of-combat-lap content index reported for resupply stages, so
+// the combat/player palette hooks (trailPaletteFor / setStageIndex, both of
+// which have a `?? default` fallback for an index past STAGES.length) treat the
+// runway as a plain daylight stage. It points one past the combat lap, i.e. at
+// STAGE_5's conceptual slot; combat.update never runs during resupply anyway.
+const RESUPPLY_CONTENT_INDEX = STAGES.length;
 
 // Attract cycle (R5 gap 8's second half: "no attract-mode gameplay demo").
 // An unattended cabinet alternates title card and a gameplay demo forever;
@@ -317,8 +341,12 @@ export class GameFlow {
         this._enterStage(startStageIndex);
         this.launchSeq.start();
       } else {
-        this.state = 'flight';
         this._enterStage(startStageIndex);
+        // R16: `?stage=5` / `?stage=13` must land in the refuel beat, not in
+        // combat over the runway — so a capture reaches the resupply state the
+        // same way normal progression does. Every other starting stage is
+        // ordinary flight.
+        this.state = isResupplyStage(this.stageNumber) ? 'resupply' : 'flight';
       }
     } else {
       this.state = 'title';
@@ -387,10 +415,19 @@ export class GameFlow {
       drawTitleScreen(ctx, w, h, 0, Math.round(this.titleTimer * 60)));
   }
 
+  // The stage object actually RENDERED this stage — STAGE_5 (the runway) for
+  // the refuel stages (arcade 5/13), otherwise the combat-lap palette. Keeps
+  // the runway out of the combat content lap (see isResupplyStage) while still
+  // making stage 13 show the runway even though 13 % STAGES.length would land
+  // on a combat biome.
+  _renderStage() {
+    return isResupplyStage(this.stageNumber) ? STAGE_5 : STAGES[this.stageIndex % STAGES.length];
+  }
+
   _enterStage(index) {
     this.stageIndex = index;
     this.stageTimer = 0;
-    const stage = STAGES[this.stageIndex % STAGES.length];
+    const stage = this._renderStage();
     // scaffold-dev's R4 interface (src/render/sky.js / ground.js): each
     // mesh carries its own setStage(), updating every stage-dependent
     // uniform in place — no mesh/material recreation for a live transition.
@@ -431,15 +468,20 @@ export class GameFlow {
       // R5 feel fix (feel-critique.md §6/§10 rank 12): missileStock only
       // ever decremented, so a player who salvos aggressively ran dry
       // permanently. GAME_SPEC.md §5 documents the arcade's resupply as two
-      // specific mechanisms (tanker/runway) neither of which exist yet;
-      // restocking at every stage boundary is a cheap stand-in that at
-      // least removes the permanent-dry-out failure mode.
+      // specific mechanisms (tanker/runway). R16 BUILDS THE RUNWAY ONE: the
+      // refuel stages (arcade 5/13) are now a real low-pass over a landing
+      // strip (the `resupply` state + STAGE_5), where this restock is the
+      // in-fiction refuel rather than a cheap stand-in. Restocking at EVERY
+      // stage boundary is still kept beyond those two stages, because it
+      // removes the permanent-dry-out failure mode the tanker resupply (not
+      // yet built) would otherwise cover. (GAME_SPEC §5 should mark the
+      // runway resupply ADOPTED — asked in judging/R16/breadth-asks.md.)
       this.combat.missileStock = MISSILE_START_STOCK;
     }
   }
 
   get scrollSpeed() {
-    return STAGES[this.stageIndex % STAGES.length].scrollSpeed * THROTTLE_SCROLL_MULT[this.throttleIndex];
+    return this._renderStage().scrollSpeed * THROTTLE_SCROLL_MULT[this.throttleIndex];
   }
 
   // The stage index actually being RENDERED (0-based, wrapped into the
@@ -449,7 +491,7 @@ export class GameFlow {
   // night palette) so they track what's on screen rather than the lap
   // count.
   get contentStageIndex() {
-    return this.stageIndex % STAGES.length;
+    return isResupplyStage(this.stageNumber) ? RESUPPLY_CONTENT_INDEX : this.stageIndex % STAGES.length;
   }
 
   // The stage number the PLAYER is told — HUD digit and tally card. 1-based
@@ -526,6 +568,9 @@ export class GameFlow {
         break;
       case 'attract':
         result = this._updateAttract(dt, rawInput, simTime);
+        break;
+      case 'resupply':
+        result = this._updateResupply(dt, rawInput);
         break;
       default:
         result = this._updateFlight(dt, rawInput, simTime, rng);
@@ -639,7 +684,10 @@ export class GameFlow {
     const done = this.launchSeq.update(dt);
     AudioBus.setEngine(this.launchSeq.engineFrac);
     if (done) {
-      this.state = 'flight';
+      // Normally the launch rolls straight into combat flight; if the opening
+      // stage is a refuel stage (reachable only via ?stage=5/13&demo=1), it
+      // rolls into the resupply beat instead, same gate as every other entry.
+      this.state = isResupplyStage(this.stageNumber) ? 'resupply' : 'flight';
     }
     return { input: ZERO_INPUT, combatActive: false, playerControlled: false };
   }
@@ -684,6 +732,48 @@ export class GameFlow {
       return { input: ZERO_INPUT, combatActive: false, playerControlled: false };
     }
     return { input: rawInput, combatActive: true, playerControlled: true };
+  }
+
+  // R16 BREADTH — the resupply / refuel beat. A calm, no-combat low pass over
+  // the runway (STAGE_5) that restocks the missile stock and then hands back to
+  // combat. Structurally this is 'flight' with the combat system switched off:
+  // the player still holds the stick and the world still scrolls, but no
+  // enemies are spawned or updated (game.js gates combat on `combatActive`) and
+  // no hit test runs, so there is nothing to die to — matching the arcade's
+  // safe refuel interlude. The missile restock itself is not special-cased
+  // here: _enterStage already refills missileStock at every stage boundary, so
+  // entering the runway stage has topped the player up by the time this runs;
+  // the beat's job is the LOW PASS, not a second refill.
+  //
+  // The incoming STAGE 5/13 tally card plays out over the first ~1-2 s (hits is
+  // 0 on a refuel stage, so it is a brief card), exactly as a combat stage's
+  // tally overlays its opening — see _startTally and the class header.
+  _updateResupply(dt, rawInput) {
+    this.titleOverlay.visible = false;
+    this.score.accrue(dt, false); // passive, same as flight
+    this.stageTimer += dt;
+
+    // The throttle is still a live lever here (the player can speed the pass
+    // up or slow it down), same as flight; the gauge is published from
+    // update()'s tail for every state.
+    if (typeof rawInput.throttleIndex === 'number') this.throttleIndex = rawInput.throttleIndex;
+    AudioBus.setEngine(THROTTLE_ENGINE_GAIN[this.throttleIndex]);
+
+    // No deaths on a refuel stage, so no grace flash to run; make sure a
+    // flash left mid-blink by a respawn right before the stage boundary does
+    // not strand the sprite hidden for the whole pass.
+    this.invincibleTimer = 0;
+    if (this.player && this.player.sprite) this.player.sprite.visible = true;
+
+    // Let the incoming tally card finish, then advance. The resupply stage's
+    // own duration is STAGE_DURATIONS_S[5-1]=12 s (stage 5) / 16 s (stage 13),
+    // read the same way flight reads its stage duration.
+    this._updateTally(dt);
+    if (this.state === 'resupply' && this.stageTimer >= STAGE_DURATIONS_S[this.stageIndex % STAGE_COUNT]) {
+      this._startTally();
+    }
+
+    return { input: rawInput, combatActive: false, playerControlled: true };
   }
 
   _triggerDeath(rng) {
@@ -844,6 +934,19 @@ export class GameFlow {
     };
     this.score.add(hits * HIT_VALUE);
     this._enterStage(this.stageIndex + 1); // palette + HIT reset happen immediately; see class header
+    // R16: the stage we just advanced INTO decides whether the next beat is
+    // combat or a refuel pass. Entering a refuel stage switches to the
+    // 'resupply' state and clears the sky so the low pass is calm (leftover
+    // enemies/shots from the prior combat stage would otherwise hang in the
+    // air through the refuel); entering any other stage is ordinary flight.
+    // Called from both _updateFlight (combat -> next) and _updateResupply
+    // (refuel -> next combat stage), so this is where the two beats hand off.
+    if (isResupplyStage(this.stageNumber)) {
+      this.state = 'resupply';
+      if (this.combat) this.combat.clear();
+    } else {
+      this.state = 'flight';
+    }
   }
 
   _updateTally(dt) {

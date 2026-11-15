@@ -74,6 +74,7 @@ measuring a mixture of several — see each cited file for why.
 | `?invincible=1` | `checkPlayerHit` always reports a miss, so a capture can run 30s+ without the death path clearing combat state. | `weapons/combat.js` / `game/flow/flow.js` |
 | `?forcedeath=N` | Forces player death at `N` seconds, for deterministic death/respawn/continue capture. | `game/flow/flow.js` |
 | `?debugtally=1` | Forces a representative stage-end tally card (8 hits / 160,000 pts) visible and held open immediately, instead of the real hits/7s playout. | `game/flow/flow.js` |
+| `?stage=N` | Starts the credit on 1-based arcade stage `N` instead of warming up through every stage before it. `N` in `[1,23]`; content laps every 4 authored combat palettes, except the **resupply** stages: **`?stage=5` / `?stage=13` land in the R16 refuel beat** — a no-combat low pass over the runway (`groundMode: 'runway'`, `STAGE_5`) that restocks the missile stock. Reached in normal play after combat stages 4 and 12 too. | `game/flow/flow.js` |
 | `?debugstick=X` | Constant stick deflection (`X` in `[-1,1]`) for deterministic world-roll capture — puppeteer can't inject real keydown events the way a user would. | `core/input.js` |
 
 Under `?fixed=1`, `window.__combatStats()` and `window.__combatDebug()` are
