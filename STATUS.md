@@ -41,12 +41,15 @@ Theme: **close the combat-feel cracks R13 left open, and start on breadth.** Ran
    every-4th-wave bait — a bad phase (or an early death) fires nothing. **Make a lock
    reachable every wave from a survivable posture** (more frequent/parallel bait, or a second
    routing). Keep the blind-pilot gain (blind missile kills must stay low). (Combat lane.)
-3. **RE-MEASURE THE DEATH CYCLE BEFORE TOUCHING IT.** Flagged too-long (~7.7 s) three rounds
-   running, always against ONE frame-pinned reading never re-measured. **Decode several arcade
-   deaths at 60 Hz and settle it.** If it really is ~7.7 s, the pace problem is the tumble
-   filling the time, not the length — and R7 already reversed a short cycle. Do not cut it on
-   an eyeball. (Flow lane + a measurement pass.)
-4. **BREADTH — 3 of 23 stages, no resupply/bonus pass.** The biggest structural absence;
+3. **~~RE-MEASURE THE DEATH CYCLE~~ — RESOLVED R14, DO NOT RE-OPEN.** Settled
+   (`judging/R14/playtest-open.md`): two arcade deaths re-measured (hit→READY-gone **8.35 s**
+   and **7.90 s**, mean **~8.1 s**) — the 7.7 s reading is **confirmed, if anything an
+   under-read.** The death cycle is arcade-correct; **do NOT shorten it** (R7 already reversed
+   a short cycle). The ~6 s tumble filling the dead time is a *content* polish item, not a
+   length bug. (`ab2-gameplay.mp4` is **30 fps native** — true 60 Hz is impossible from the
+   only deaths file; 30 Hz is ample on an 8 s interval.)
+4. **BREADTH — ~~3 of 23 stages~~ 4 of 23 now (R14 added the forest), no resupply/bonus.**
+   Still the biggest structural absence;
    every round should chip at the stage count or a missing pass. (World + flow.)
 5. **POLISH: small climaxes, the flame, the title.** Kill fireballs read sub-screen vs the
    arcade's half-screen blasts; the afterburner is a touch long/liquid; the title wordmark is
