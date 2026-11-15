@@ -1,8 +1,9 @@
 # STATUS — where the rebuild stands
 
-**Last updated**: 2026-11-15. **R27 (in progress): owner played the fixed-weapons build and drove a
-burst of play-feedback fixes — missiles, afterburner, jet colour, enemy art, barrel roll all addressed;
-gun-FEEL lane still running.** The loop is **"look first, measure second"** (CLAUDE.md, "How work
+**Last updated**: 2026-11-15. **R27+R28 shipped: eight owner/judge-driven fixes — missiles usable,
+afterburner attached, grey jet, twin-engine enemies, arcade barrel roll, gun hit-flash, bold gun
+round-stream, and the explosion de-confettied. Fresh naive judge: honest 7/10. Next: R29.** The loop
+is **"look first, measure second"** (CLAUDE.md, "How work
 happens here"; rationale in `judging/R12/method-retrospective.md`). Every round ships an HTML report
 (`judging/R<n>/report.html`, `python3 tools/round_report.py`). Pre-R12 STATUS is archived at
 `judging/archive/STATUS-through-R11.md`. Repo: github.com/UriZ/after-burner-web.
@@ -38,25 +39,35 @@ happens here"; rationale in `judging/R12/method-retrospective.md`). Every round 
   peak; time-at-readable-large is comparable (ours 33 % vs arcade ~35–45 %). Do NOT bump enemy width.
   (Lane's note: the arcade's density comes from the PLAYER killing close enemies, not the spawner
   holding them close — our demo pilot barely engages, a demo-AI/feel issue, not a spawner one.)
-- **Active lane:** gun-FEEL — a non-fatal gun hit currently shows nothing (combat.js `_damage` returns
-  early); adding an enemy hit-flash so rounds visibly land. (effects/** + combat.js, running.)
-- **Honest build state: ~7/10** (R27 fresh-context judge, naive play). Both weapons usable; jet +
-  enemies now read as real aircraft; afterburner + roll fixed. Held under 8 by combat FEEL (hit
-  feedback) — the active lane.
+- **R28 shipped (TL + effects lane):** GUN HIT-FLASH (a connecting round flashes the struck enemy +
+  spark; the fix is in combat.js `_damage` BEFORE the early return so non-fatal hits read); BOLD GUN
+  ROUND-STREAM (puffs +25% so the orange column reads in busy combat — judge saw "nothing leaves the
+  jet"); EXPLOSION DE-CONFETTIED (debris was flung ~4× the fireball radius as red squares across the
+  whole sky → now short radial spikes hugging the fireball, warm orange/amber; measured fireball
+  palette untouched). The "giant white smoke ball" the judge flagged is NOT kill smoke — it's a
+  stage-1 CLOUD (render/clouds.js), on screen before any kill; routed to a World look (R29).
+- **Honest build state: ~7/10** (R28 fresh-context judge, naive play). Both weapons usable AND now
+  read (stream + hit-flash); jet + enemies are real aircraft; afterburner + roll + explosions fixed.
 
-## R27 gap list — owner playtest + fresh-context judge (naive), owner-anchored
+## R29 gap list — R28 judge residue + TL look
 
-1. **GUN HIT FEEDBACK (active lane).** Hits register but don't FEEL like they land — no enemy flash,
-   faint puffs. Add a hit-flash on every connecting round (bombers have hp 2, so non-fatal hits must
-   read). Do NOT add white tracers — the arcade gun is orange puffs (REFERENCE.md). (effects/combat.)
-2. **COMBAT DENSITY / DEMO ENGAGEMENT.** The attract/demo pilot barely engages (4 hits/40 s vs arcade
-   ~13/32 s), so combat reads thin in attract and in the judge's naive baseline. The arcade's density
-   is the PLAYER actively killing close enemies. Candidate: a demo pilot that aims+fires. (game/flow.)
-3. **EXPLOSION NOISE (polish).** The kill explosion scatters a lot of red-square "confetti"; the arcade
-   fireball is rounder/cleaner. (effects/** — fold into the combat-feel lane.)
+1. **ENEMY FIRE DOESN'T READ AS A DODGEABLE THREAT (candidate #1).** AB2's core loop is weaving
+   through a storm of enemy fire. Telemetry shows enemies DO fire (~24 shots/run) but combat frames
+   show no visible stream of enemy rounds coming down at the player. Verify whether enemy fire renders
+   as a readable, dodgeable threat; if not, that's the biggest remaining FEEL gap. (enemyShots.js,
+   telegraph.js — no lane owns them.)
+2. **EXPLOSION MORE DRAMATIC (polish).** De-confettied, but vs reference/ab2-arcade-huge-explosion.jpg
+   ours is smaller with shorter spikes — the arcade is a big starburst with long rays + a larger white
+   hot core. Grow it. (effects/explosions.js.)
+3. **STAGE-1 CLOUD TOO DOMINANT? (World look).** The big opaque white cumulus reads as a solid ball.
+   Stage 1 DOES have big clouds (arcade climbout-t92), so measure before changing — may be faithful.
+   (render/clouds.js.)
+4. **DEMO ENGAGEMENT — DEFERRED, needs arcade evidence first.** The demo pilot kills sparingly, but
+   demoTimeline.js is MEASURED to the arcade attract's motion; before rewriting it to aim+fire, measure
+   the arcade attract's actual kill rate — if the arcade attract is also sparse, ours is correct.
 
 Deferred (backdrop is ahead of the play): more stages, canyon density. Do NOT add content — the FEEL
-of the core loop (hit feedback, engagement) is the frontier now.
+of the core loop (enemy fire / dodging) is the frontier now.
 
 ## Hard warnings that stay load-bearing
 
