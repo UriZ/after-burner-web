@@ -1,6 +1,6 @@
 # STATUS — where the rebuild stands
 
-**Last updated**: 2026-11-15. **R14 CLOSED at 8.3; R15 is open.** The loop is
+**Last updated**: 2026-11-15. **R15 CLOSED at 8.5; R16 is open.** The loop is
 **"look first, measure second"** (CLAUDE.md, "How work happens here"; rationale in
 `judging/R12/method-retrospective.md`). Every round ships an HTML report
 (`judging/R<n>/report.html`, `python3 tools/round_report.py`) published to the standing
@@ -9,78 +9,62 @@ Repo: github.com/UriZ/after-burner-web.
 
 ## Current state
 
-- **R14 verdict**: **8.3** (motion 8.1, stills 8.5) — `judging/R14/judge-report.md`. Two real
-  reproduced gains (a 4th stage; the blind gun halved) vs two combat illusion-breakers that
-  improved but didn't close.
-- **Score trend**: … R11 8 → R12 8.0 → R13 8.2 → **R14 8.3**.
-- **R14 shipped (judge-confirmed)**: a **4th stage** (green forest = arcade stage 4, palette
-  measured; 1–3 regression-free); the **blind gun HALVED** (dead-centre fire-held pilot ~20→10
-  kills/90 s, reproduced both seeds); **missile availability** fixed (lock every other wave incl.
-  the adverse seed); the **death cycle SETTLED** (arcade re-measure ~8.1 s — correct, do not shorten).
-- **R14's honest limits (judge)**: aiming the gun still does **NOT** beat the blind stick (9 vs
-  10 even with the sight shoved onto the enemy row) — the cap is target **supply** + the wide hit
-  net as much as reach; the missile lock is **available** but a human still can't always **convert**
-  it (coin-flip shifted from "no bait" to "a lock a human can't reach"). Both reduce to the
-  **vertical sight-reach keystone** (`ENVELOPE_Y`).
-- **What works end to end**: title → flight → combat → death/respawn → tally → stage 1/2/3/**4**
+- **R15 verdict**: **8.5** (motion 8.5, stills 8.5) — `judging/R15/judge-report.md`. The two oldest
+  combat illusion-breakers BOTH closed; the vertical-reach keystone was refuted by measurement.
+- **Score trend**: … R12 8.0 → R13 8.2 → R14 8.3 → **R15 8.5**.
+- **R15 shipped (judge-confirmed)**: **aiming the gun BEATS the blind stick** (aim 24 vs blind 12,
+  both seeds — the complaint open since R10, closed) via the **burst wall** (a wall of jets at gun
+  range then a lull, presence NOT inflated); the **missile is human-usable** — climb → lock → dodge
+  → fire, held by a **1.2 s lock grace window** + a **UI lock-pip cue**; the **afterburner crisped**
+  into separated cones. **ENVELOPE_Y REFUTED** — we over-reach the arcade (climb +0.76 > +0.62);
+  do NOT grow it.
+- **R15's honest limits (judge)**: the **first** missile lock is hard to find (sight doesn't
+  auto-recentre, full climb overshoots the band — the judge flew ~15 empty passes before finding
+  "ease up gently, park mid-height"); a FIXED aim posture still loses the gun (needs active
+  tracking); blind gun floor still ~8–12 (structural span-scaled net). The grace "18→32" figure was
+  **withdrawn** (wrong probe key; correct 34→42, mechanism real).
+- **What works end to end**: title → flight → combat → death/respawn → tally → stage 1/2/3/4
   → GAME OVER / continue → restart. Throttle (drives the flame), barrel roll, formations,
-  lock/missiles/vulcan, afterburner, synthesized audio + FM music all run.
-- **Still absent**: 4 of 23 stages, no resupply/bonus pass, limited enemy variety. Absence
-  outranks constant tuning.
+  lock/missiles/vulcan (now usable), afterburner, lock cue, synthesized audio + FM music all run.
+- **Still absent**: 4 of 23 stages, no resupply/bonus pass, limited enemy variety — **now the
+  biggest gap, since combat feel is closed.**
 
-## R15 gap list — from the R14 judge's close-look (`judging/R14/judge-report.md`)
+## R16 gap list — from the R15 judge's close-look (`judging/R15/judge-report.md`)
 
-Theme: **the vertical-reach keystone + the density it depends on.** The two combat residuals
-that stayed open through R14 reduce to one knot — the sight can't reach the targets, and there
-aren't enough close targets. R15 attacks both, but **measurement-first** (one lever has no
-arcade column). Ranked:
+Theme: **BREADTH.** The combat feel is closed (both oldest cracks shut in R15), so the biggest
+remaining distance from the arcade is structural — 4 of 23 stages and no resupply/bonus. Ranked:
 
-1. **~~THE SIGHT CAN'T REACH~~ — REFUTED R15 by measurement. DO NOT GROW `ENVELOPE_Y`.** The
-   first-ever arcade vertical-sight measurement (`judging/R15/playtest-open.md`): the arcade
-   sight ranges **−0.18 (dive) to +0.62 (climb) NDC**, rest **~+0.16 above centre**. **Our build
-   already OVER-reaches it** — we climb to **+0.76**, dive to **−0.25**, and climbing DOES
-   acquire locks. Growing the envelope moves us AWAY from the arcade. The R14 "sight can't reach"
-   diagnosis was wrong; measuring first caught it. **The two combat residuals are NOT reach:**
-   - **GUN = supply + wide hit-net.** Pushing the sight DOWN *lost* kills (8/5 vs blind 10/12).
-     Blind-centre is dominant because traffic funnels through centre + the span-scaled hit net is
-     a wide auto-converter. The fix is **close-target supply** (density bursts, gap 3) — NOT
-     reach, NOT `ASSIST_RADIUS_FRAC`/`HIT_RADIUS_SPAN_MULT` (both forbidden/inert). (Combat lane.)
-   - **MISSILE = execution UX, not reach or mechanics.** The player lane confirmed convertibility
-     works mechanically (autopilots fire 31–34 salvos/180 s; it played a 6-missile salvo by eye).
-     The human block is two things: (a) **holding the vulnerable climb to acquire gets you killed**
-     (both testers died holding the posture), and (b) the **hold-to-lock → release-to-fire mechanic
-     is invisible.** Two-part fix: a **lock grace window** so an acquired lock SURVIVES you leveling
-     out and dodging (`lockSystem.js`, combat lane), and a **UI lock cue** so the player sees they
-     have a lock worth releasing (`ui/`, player lane — check the arcade: the lock bracket does NOT
-     animate in size, R10). Keep blind protection (bait sits above the rest cone at +0.425).
-   One real nuance flagged, NOT for this round: our REST sight offset is +0.30 vs arcade ~+0.16
-   — but that's `SIGHT_NDC_Y_OFFSET` (combat.js), possibly a different operator (vulcan-stream
-   convergence) than the nose-sight glyph. Reconcile before touching; do not blind-change.
-2. **THE GUN KILLS BY SUPPLY, NOT BY AIM.** Aiming still doesn't out-kill a dead stick. The cap
-   is as much target **supply** (too few close targets) + the wide span-scaled hit net as it is
-   reach. This is the same knot as gap 3 — more close targets to aim at is part of the fix.
-   `HIT_RADIUS_SPAN_MULT` is the forbidden lever (visible centred hits must register); the
-   supply side is the spawner's. (Combat lane, coupled with gap 3.)
-3. **THE SKY IS TOO EVEN — NO WALL, NO LULL.** The arcade is a wall of planes at every depth,
-   then empties; ours holds a steady ~3–6. Build the **burst-then-drought** rhythm (R10 measured
-   the arcade killing 3 in 0.367 s then a 3.1 s drought). This both reads as AB2 *and* gives the
-   gun its close targets. Mind R9: the arcade AVERAGES only ~19 % density — the fix is variance,
-   not more enemies everywhere. (Combat/spawner lane.)
-4. **BREADTH — 4 of 23 stages, no resupply/bonus pass.** Keep chipping: another stage, or the
-   iconic resupply/refuel interstitial. (World + flow.)
-5. **POLISH: the forest ground, climaxes, the title.** Stage-4 ground is darker/flatter than the
-   arcade's bright mottled canopy; kill fireballs read sub-screen; the title wordmark is
-   hand-rounded where the arcade's is brush-angular. (World / effects / ui.)
+1. **BREADTH — 4 of 23 stages, no resupply/bonus pass.** Now the single biggest gap. Add stages
+   (palettes measured from STAGE_MAP), and/or build the iconic **resupply/refuel interstitial**
+   (arcade stages 5 & 13 — fly low over a runway; a whole missing beat of the arcade). Quality over
+   quantity — one stage or the resupply, done well and reachable in play. (World + flow lanes.)
+2. **THE FIRST MISSILE LOCK IS HARD TO FIND.** The climb→lock→dodge→fire loop works once you know
+   the move, but the sight doesn't auto-recentre and a full climb OVERSHOOTS the lockable band
+   (+0.76 vs the bait at 0.44–0.58), so the R15 judge flew ~15 empty passes before discovering
+   "ease up gently and park mid-height on the approaching wave." Make that first lock discoverable —
+   a telegraph/cue when a lockable target is in range, or tune the bait so a natural climb lands on
+   it. Do NOT grow ENVELOPE_Y (refuted). (Combat + player/ui.)
+3. **POLISH — the stage-4 forest ground.** Reads darker and flatter than the arcade's bright
+   mottled canopy with its cyan river. A palette/texture pass (measured off STAGE_MAP stage 4).
+   (World lane.)
+4. **POLISH — small climaxes, the title.** Kill fireballs read sub-screen vs the arcade's
+   half-screen blasts; the title wordmark is hand-rounded where the arcade's is brush-angular.
+   (Effects / ui.)
+5. **LOOSE ENDS (low priority).** Blind gun floor still ~8–12 (structural span-scaled net — a known
+   floor, not a quick fix); locked-vs-tracked bracket COLOUR distinction (deferred R15 — brackets
+   are near-white by R10 design, needs a measured pass); the `SIGHT_NDC_Y_OFFSET` +0.30 (vulcan
+   convergence) vs ~+0.16 (nose-sight glyph) reconciliation — likely two different elements, measure
+   before touching.
 
-**Kept as positives (do not regress):** the 4th stage + stages 1–3; the afterburner flame; the
-blind-gun floor halved; missile availability every other wave + blind-pilot protection; the
-flyby/live sky/enemies-through-respawn; game-over; ±60° attract; **the death cycle at ~8 s
-(arcade-confirmed — do NOT shorten).**
+**Kept as positives (do not regress):** aiming beats the blind gun; the missile climb-lock-dodge-
+fire loop + 1.2 s grace window + pip cue; the burst-wall rhythm (presence not inflated); the crisp
+afterburner; blind-pilot protection; four stages; islands; game-over; ±60° attract; the death cycle
+at ~8 s (arcade-confirmed). **Do NOT grow `ENVELOPE_Y`** — we already over-reach the arcade.
 
-**Carried interfaces** (`judging/R12/flow-asks.md`): a `gameOver` SFX (audio), a stage-
-transition cross-fade on sky/ground `setStage` (world). Record R13's lock-bait + flyby and
-R14's stage 4 as **ADOPTED** in GAME_SPEC §4. **Capture caveat**: the combat p-gate makes
-`demo=2` under-read gun explosions — use `?combatexpl=1` and an aiming pilot (or play).
+**Carried interfaces** (`judging/R12/flow-asks.md`): a `gameOver` SFX (audio), a stage-transition
+cross-fade on sky/ground `setStage` (world). Record R13 lock-bait/flyby, R14 stage 4, R15 burst
+wall + lock grace + lock cue as **ADOPTED** in GAME_SPEC §4. **Capture caveat**: the combat p-gate
+makes `demo=2` under-read gun explosions — use `?combatexpl=1` and an aiming pilot (or play).
 
 ## Hard warnings that stay load-bearing
 
