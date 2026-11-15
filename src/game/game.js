@@ -224,7 +224,10 @@ export class Game {
       clouds: this.clouds,
       demoActive: skipTitle,
     });
-    this.screen.overlays.push(this.flow.titleOverlay, this.flow.cardOverlay);
+    // R19: reloadOverlay carries the mid-air tanker's blinking "RELOAD WEAPONS"
+    // prompt, pushed alongside the title/card overlays so it composites in the
+    // same low-res pass. Owned and toggled by flow.js's airrefuel state.
+    this.screen.overlays.push(this.flow.titleOverlay, this.flow.cardOverlay, this.flow.reloadOverlay);
 
     // R6: the carrier the opening launches off (flow/carrier.js, built by
     // flow.js). It is a 3D sprite rather than an overlay because the player
@@ -233,6 +236,14 @@ export class Game {
     // file's job alone — same wiring pattern as the cloud group above.
     // It starts invisible and is only shown by LaunchSequence.
     if (this.flow.carrier) this.scene.add(this.flow.carrier);
+
+    // R19: the mid-air refuel TANKER (render/tanker.js, built by flow.js). Added
+    // to the scene here for the same reason as the carrier — adding a scene
+    // object is this file's job alone — and by the same pattern: it starts
+    // invisible and is shown/positioned only by flow.js's `airrefuel` state. A
+    // 3D billboard rather than an overlay because the player jet must draw IN
+    // FRONT of it (tucked in underneath), and overlays composite over everything.
+    if (this.flow.tanker) this.scene.add(this.flow.tanker);
 
     this.loop = new FixedLoop(
       (dt, simTime) => this.update(dt, simTime),
@@ -451,7 +462,16 @@ export class Game {
       this.player.update(dt, flow.input, this.worldRoll);
     }
     this.ground.update(dt, this.flow.scrollSpeed);
-    if (this.clouds) this.clouds.update(dt);
+    // R19: hide the cloud banks during the mid-air tanker beat. The arcade's
+    // tanker refuel (reference/stage3-reload-tanker-t165.png) is a clear dark
+    // sky — the stage-3 cloud bank would otherwise drift across and swallow the
+    // tanker overhead. STRICTLY a stateless gate on flow.state === 'airrefuel'
+    // and nothing else, so clouds are visible and byte-identical in every other
+    // state (combat included). The group is restored the tick the beat ends.
+    if (this.clouds) {
+      this.clouds.group.visible = this.flow.state !== 'airrefuel';
+      this.clouds.update(dt);
+    }
 
     // Sprite-art's interface request (R5, player.js's top-of-file note,
     // "I3"): night-stage jet palette, same integration pattern as

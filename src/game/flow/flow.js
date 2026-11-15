@@ -2,9 +2,11 @@ import { Score, HIT_VALUE } from '../score.js';
 import { DeathSequence } from './deathSequence.js';
 import { LaunchSequence } from './launchSequence.js';
 import { createCarrierSprite } from './carrier.js';
+import { createTankerSprite, placeTanker } from '../../render/tanker.js';
 import { drawTitleScreen } from './titleScreen.js';
-import { drawReadyCard, drawTallyCard, drawContinueCard, drawGameOverCard } from './cards.js';
+import { drawReadyCard, drawTallyCard, drawContinueCard, drawGameOverCard, drawReloadWeaponsCard } from './cards.js';
 import { Overlay } from './overlay.js';
+import { GAME_W, GAME_H } from '../../render/screen.js';
 import { STAGES, STAGE_5, STAGE_13 } from '../stage.js';
 import { demoTimeline } from './demoTimeline.js';
 import { AudioBus } from '../../audio/index.js';
@@ -122,6 +124,57 @@ function isResupplyStage(stageNumber) {
 // STAGE_5's conceptual slot; combat.update never runs during resupply anyway.
 const RESUPPLY_CONTENT_INDEX = STAGES.length;
 
+// R19 BREADTH — the MID-AIR TANKER refuel, the SECOND of the arcade's two
+// resupply mechanisms (the first is the runway, above). Unlike the runway
+// (stages 5/13 are ENTIRELY a refuel pass), the tanker is a short INTERSTITIAL
+// at a combat stage's OPEN: GAME_SPEC.md §5 measures it at "stage-3 open,
+// t164-168" (reference/stage3-reload-tanker-t165.png) — a giant grey tanker
+// hangs overhead, the player tucks in beneath, cyan "RELOAD WEAPONS" blinks,
+// the missile stock refills 20->70 across ~4 s, no enemies — and then combat
+// for stage 3 resumes. So `airrefuel` is a brief state entered when ADVANCING
+// INTO an air-tanker stage, handing back to 'flight' for the SAME stage.
+//
+// Stage 3 is MEASURED (the frame above). Stage 9 is ADOPTED: GAME_SPEC.md §4's
+// player-altitude operator excludes "one with the STAGE 9 card still up" as a
+// tanker approach, so a tanker beat opens stage 9 too — a second data point,
+// not a measured frame. Keyed off the number the PLAYER is shown (stageNumber),
+// like isResupplyStage, so it lands on the arcade's own stages and nowhere else.
+// Recorded in judging/R19/tanker-asks.md.
+function isAirRefuelStage(stageNumber) {
+  return stageNumber === 3 || stageNumber === 9;
+}
+
+// The tanker beat's duration and its approach ease-in. The arcade's visible
+// tanker window is t164-168 (~4 s) with the stock refilling t163-167; 5.5 s is
+// ADOPTED — the measured hold plus a ~1.2 s approach where the tanker eases
+// down into formation from higher/farther, selling the "fly up behind the big
+// plane" read. The restock is ramped across the beat so the HUD pips visibly
+// fill (the arcade's 20->70 climb) rather than snapping.
+const AIR_REFUEL_S = 5.5;
+const AIR_REFUEL_APPROACH_S = 1.2;
+// Fraction of a full load the player is assumed to arrive with when the beat is
+// reached cold (the ?airrefuel capture path, which has no prior play to drain
+// the stock). ~0.3 matches the arcade's 20/70 start. In normal progression the
+// real pre-boundary stock is captured instead — see _startTally.
+const AIR_REFUEL_COLD_START_FRAC = 0.3;
+
+// Tanker billboard placement, in screen fractions (see placeTanker). The DOCKED
+// framing is the reference: the tanker body centred at ~0.26H spanning a touch
+// over full width (wings exit both edges, measured). The APPROACH framing it
+// eases FROM sits higher and smaller, so it reads as closing in from ahead.
+// Depth is fixed (CLAUDE.md perspective-parallax rule); only scale + world Y
+// move, so the commanded screen fraction is exactly what renders.
+const TANKER_DEPTH = -30;
+const TANKER_DOCK_SPAN = 1.12;
+const TANKER_DOCK_CENTRE = 0.26;
+const TANKER_APPROACH_SPAN = 0.74;
+const TANKER_APPROACH_CENTRE = 0.1;
+// RELOAD WEAPONS blink, matching the arcade's blinking prompt. 0.5 s period,
+// ~on half the time — the same on/off cadence family as the title's INSERT
+// COIN blink. Held off during the approach so the text appears once the tanker
+// is in formation.
+const RELOAD_BLINK_PERIOD_S = 0.5;
+
 // Attract cycle (R5 gap 8's second half: "no attract-mode gameplay demo").
 // An unattended cabinet alternates title card and a gameplay demo forever;
 // ours used to time out of the title ONCE and then fly a real game with
@@ -228,6 +281,11 @@ export class GameFlow {
 
     this.titleOverlay = new Overlay();
     this.cardOverlay = new Overlay();
+    // R19: a dedicated overlay for the mid-air tanker's "RELOAD WEAPONS" prompt.
+    // Separate from cardOverlay so it never collides with the incoming stage's
+    // tally card, which overlays the same opening (see _updateAirRefuel). game.js
+    // pushes it into screen.overlays alongside the other two.
+    this.reloadOverlay = new Overlay();
 
     this.stageIndex = 0;
     this.lives = START_LIVES;
@@ -289,6 +347,16 @@ export class GameFlow {
     // sky or sea needs the 50 %W grey mass out of the frame.
     this.carrier = params.has('nocarrier') ? null : createCarrierSprite(1);
     this.launchSeq = new LaunchSequence(player, this.carrier);
+
+    // R19: the mid-air refuel tanker (render/tanker.js). Built here, like the
+    // carrier, so the whole airborne-refuel beat stays in this lane's files;
+    // game.js adds the sprite to the scene (the one thing only it does) and the
+    // `airrefuel` state below shows/positions it. Starts invisible. `?notanker=1`
+    // is the measurement escape hatch matching ?nocarrier/?noclouds — a judge
+    // measuring the refuel sky needs the full-width grey mass out of the frame.
+    this.tanker = params.has('notanker') ? null : createTankerSprite();
+    this.airRefuelTimer = 0;
+    this._airRefuelStartStock = Math.round(MISSILE_START_STOCK * AIR_REFUEL_COLD_START_FRAC);
     this._forceDeathAt = params.has('forcedeath') ? Number(params.get('forcedeath')) : null;
     this._forcedDeathDone = false;
     this._debugInvincible = params.has('invincible') || params.get('demo') === '2';
@@ -321,6 +389,23 @@ export class GameFlow {
       if (Number.isFinite(n) && n >= 1) startStageIndex = Math.min(n, STAGE_COUNT) - 1;
     }
 
+    // `?airrefuel=1` — measurement-only, same family as ?stage: land directly in
+    // the mid-air TANKER refuel beat (the `airrefuel` state) so a `?fixed=1`
+    // capture can reach it deterministically without flying through stages 1-2.
+    // `?airrefuel=N` (N an air-tanker stage, default 3) picks which stage opens
+    // under the tanker. Natural progression is unmodified — this only sets the
+    // STARTING state. Deliberately a SEPARATE param from ?stage so ?stage=3 keeps
+    // landing in plain stage-3 combat, byte-identical to today (judges capture
+    // the night stage that way); the tanker open is reached by this param or by
+    // real progression into stage 3/9. Never read in normal play.
+    this._startAirRefuel = false;
+    if (params.has('airrefuel')) {
+      const n = Number.parseInt(params.get('airrefuel'), 10);
+      const stageN = Number.isFinite(n) && isAirRefuelStage(n) ? n : 3;
+      startStageIndex = stageN - 1;
+      this._startAirRefuel = true;
+    }
+
     // Carrier launch (R5, feel-critique.md §9/§10 rank 14): a fresh game
     // now opens with src/game/flow/launchSequence.js instead of dropping
     // straight into flight. Gated to real interactive play (the `else`
@@ -346,7 +431,13 @@ export class GameFlow {
         // combat over the runway — so a capture reaches the resupply state the
         // same way normal progression does. Every other starting stage is
         // ordinary flight.
-        this.state = isResupplyStage(this.stageNumber) ? 'resupply' : 'flight';
+        // R19: `?airrefuel=N` lands in the mid-air tanker beat (the cold-start
+        // stock default stands, since there is no prior play to drain).
+        if (this._startAirRefuel) {
+          this._enterAirRefuel(this._airRefuelStartStock);
+        } else {
+          this.state = isResupplyStage(this.stageNumber) ? 'resupply' : 'flight';
+        }
       }
     } else {
       this.state = 'title';
@@ -575,6 +666,9 @@ export class GameFlow {
       case 'resupply':
         result = this._updateResupply(dt, rawInput);
         break;
+      case 'airrefuel':
+        result = this._updateAirRefuel(dt, rawInput);
+        break;
       default:
         result = this._updateFlight(dt, rawInput, simTime, rng);
         break;
@@ -688,9 +782,17 @@ export class GameFlow {
     AudioBus.setEngine(this.launchSeq.engineFrac);
     if (done) {
       // Normally the launch rolls straight into combat flight; if the opening
-      // stage is a refuel stage (reachable only via ?stage=5/13&demo=1), it
-      // rolls into the resupply beat instead, same gate as every other entry.
-      this.state = isResupplyStage(this.stageNumber) ? 'resupply' : 'flight';
+      // stage is a runway refuel stage (reachable only via ?stage=5/13&demo=1),
+      // it rolls into the resupply beat, and an air-tanker stage (3/9) rolls into
+      // the airrefuel beat — same gate as every other entry. A fresh launch has a
+      // full load, so the cold-start default stands in for a drained stock.
+      if (isResupplyStage(this.stageNumber)) {
+        this.state = 'resupply';
+      } else if (isAirRefuelStage(this.stageNumber)) {
+        this._enterAirRefuel(this._airRefuelStartStock);
+      } else {
+        this.state = 'flight';
+      }
     }
     return { input: ZERO_INPUT, combatActive: false, playerControlled: false };
   }
@@ -774,6 +876,102 @@ export class GameFlow {
     this._updateTally(dt);
     if (this.state === 'resupply' && this.stageTimer >= STAGE_DURATIONS_S[this.stageIndex % STAGE_COUNT]) {
       this._startTally();
+    }
+
+    return { input: rawInput, combatActive: false, playerControlled: true };
+  }
+
+  // R19 BREADTH — enter the mid-air TANKER refuel beat. Called both from the
+  // ?airrefuel capture path (constructor) and from _startTally when progression
+  // advances into an air-tanker stage (3/9). Structurally this is 'flight' with
+  // combat switched off and a big tanker overhead: the player still holds the
+  // stick and the world still scrolls, no enemies spawn and no hit test runs
+  // (game.js gates combat on combatActive), and the missile stock refills over
+  // the beat. `startStock` is what the player had when the beat began — the real
+  // pre-boundary stock in progression, or the cold-start default for a capture —
+  // and it is ramped back up to a full load across the pass (the arcade's 20->70
+  // climb) by _updateAirRefuel.
+  _enterAirRefuel(startStock) {
+    this.state = 'airrefuel';
+    this.airRefuelTimer = 0;
+    this._airRefuelStartStock = startStock;
+    // Clear the sky so the formation pass is calm — leftover enemies/shots from
+    // the prior combat stage would otherwise hang in the air through the refuel,
+    // same reasoning as the runway resupply's clear in _startTally.
+    if (this.combat) {
+      this.combat.clear();
+      this.combat.missileStock = startStock; // clear() leaves the stock untouched
+    }
+    // A respawn flash in progress right before the boundary must not strand the
+    // sprite hidden through the pass (same guard as _updateResupply).
+    this.invincibleTimer = 0;
+    if (this.player && this.player.sprite) this.player.sprite.visible = true;
+    if (this.tanker) this.tanker.visible = true;
+    this.reloadOverlay.visible = false;
+    AudioBus.music('flight');
+  }
+
+  // The tanker pass itself. Combat off, player flying the stick, tanker eased
+  // into formation overhead, RELOAD WEAPONS blinking once docked, missile stock
+  // ramping to full. Hands back to 'flight' for the SAME stage (does NOT advance
+  // the stage — the tanker is this combat stage's opening interstitial, so the
+  // stageTimer keeps running underneath and flight resumes mid-stage).
+  _updateAirRefuel(dt, rawInput) {
+    this.titleOverlay.visible = false;
+    this.score.accrue(dt, false); // passive, same as flight/resupply
+    this.stageTimer += dt;        // the beat counts toward this combat stage
+    this.airRefuelTimer += dt;
+
+    // Throttle stays a live lever (the player can close on or hang back from the
+    // tanker), same as flight/resupply; the gauge is published from update()'s
+    // tail for every state.
+    if (typeof rawInput.throttleIndex === 'number') this.throttleIndex = rawInput.throttleIndex;
+    AudioBus.setEngine(THROTTLE_ENGINE_GAIN[this.throttleIndex]);
+
+    // Approach ease-in, then hold in formation. The eased parameter drives both
+    // the tanker's scale/screen-Y (it grows and settles) and gates the reload
+    // prompt + the restock, so the three stay in step.
+    const approach = Math.min(1, this.airRefuelTimer / AIR_REFUEL_APPROACH_S);
+    const e = approach * approach * (3 - 2 * approach); // smoothstep
+    if (this.tanker) {
+      placeTanker(this.tanker, {
+        depth: TANKER_DEPTH,
+        aspect: GAME_W / GAME_H,
+        spanFrac: TANKER_APPROACH_SPAN + (TANKER_DOCK_SPAN - TANKER_APPROACH_SPAN) * e,
+        centreFrac: TANKER_APPROACH_CENTRE + (TANKER_DOCK_CENTRE - TANKER_APPROACH_CENTRE) * e,
+      });
+    }
+
+    // Restock: ramp from the entry stock up to a full load across the beat (the
+    // arcade's visible 20->70 refill), delivered once the tanker is in formation.
+    if (this.combat) {
+      const fill = Math.min(1, Math.max(0, (this.airRefuelTimer - AIR_REFUEL_APPROACH_S) /
+        Math.max(0.001, AIR_REFUEL_S - AIR_REFUEL_APPROACH_S)));
+      this.combat.missileStock = Math.round(
+        this._airRefuelStartStock + (MISSILE_START_STOCK - this._airRefuelStartStock) * fill
+      );
+    }
+
+    // RELOAD WEAPONS blinks low-centre once the tanker is docked (not during the
+    // approach), the same blink family as the title's INSERT COIN.
+    const docked = approach >= 1;
+    const blinkOn = docked && (this.airRefuelTimer % RELOAD_BLINK_PERIOD_S) < RELOAD_BLINK_PERIOD_S / 2;
+    this.reloadOverlay.visible = blinkOn;
+    if (blinkOn) this.reloadOverlay.redraw((ctx, w, h) => drawReloadWeaponsCard(ctx, w, h));
+
+    // Let any incoming stage tally card finish over the opening (hits is 0 on an
+    // air-tanker entry when the prior stage was clean, but a combat stage feeds a
+    // real card — it coexists with the pass exactly as it does with flight).
+    this._updateTally(dt);
+
+    if (this.airRefuelTimer >= AIR_REFUEL_S) {
+      // Formation complete: stow the tanker and the prompt, hand back to combat
+      // for the rest of THIS stage. The stage does not advance here.
+      if (this.tanker) this.tanker.visible = false;
+      this.reloadOverlay.visible = false;
+      if (this.combat) this.combat.missileStock = MISSILE_START_STOCK; // exact full load
+      this.state = 'flight';
+      return { input: ZERO_INPUT, combatActive: false, playerControlled: true };
     }
 
     return { input: rawInput, combatActive: false, playerControlled: true };
@@ -936,17 +1134,24 @@ export class GameFlow {
       lastHitShown: 0,
     };
     this.score.add(hits * HIT_VALUE);
+    // R19: capture the real pre-boundary missile stock BEFORE _enterStage's
+    // every-boundary refill tops it up, so an air-tanker open ramps the pips up
+    // from what the player actually had (the arcade's visible refill) rather than
+    // from an already-full load. Harmless for every other transition.
+    const preRefillStock = this.combat ? this.combat.missileStock : this._airRefuelStartStock;
     this._enterStage(this.stageIndex + 1); // palette + HIT reset happen immediately; see class header
-    // R16: the stage we just advanced INTO decides whether the next beat is
-    // combat or a refuel pass. Entering a refuel stage switches to the
-    // 'resupply' state and clears the sky so the low pass is calm (leftover
-    // enemies/shots from the prior combat stage would otherwise hang in the
-    // air through the refuel); entering any other stage is ordinary flight.
-    // Called from both _updateFlight (combat -> next) and _updateResupply
-    // (refuel -> next combat stage), so this is where the two beats hand off.
+    // R16/R19: the stage we just advanced INTO decides the next beat. Entering a
+    // RUNWAY refuel stage (5/13) switches to the 'resupply' state; entering an
+    // air-TANKER stage (3/9) opens with the 'airrefuel' interstitial; every other
+    // stage is ordinary flight. Both refuel beats clear the sky so the pass is
+    // calm (leftover enemies/shots would otherwise hang through it). Called from
+    // _updateFlight (combat -> next), _updateResupply and _updateAirRefuel (refuel
+    // -> next), so this is where the beats hand off.
     if (isResupplyStage(this.stageNumber)) {
       this.state = 'resupply';
       if (this.combat) this.combat.clear();
+    } else if (isAirRefuelStage(this.stageNumber)) {
+      this._enterAirRefuel(preRefillStock);
     } else {
       this.state = 'flight';
     }

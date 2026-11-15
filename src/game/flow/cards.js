@@ -250,6 +250,20 @@ export function drawGameOverCard(ctx, w, h) {
     COIN_RED, CARD_PX, CARD_PY, OUTLINED);
 }
 
+// R19 breadth: the mid-air TANKER refuel prompt (GAME_SPEC.md §5 "Mid-air
+// tanker", REFERENCE.md "mid-air reload prompt — cyan RELOAD WEAPONS blinking
+// low-center beneath the tanker"). Shown during the `airrefuel` flow state,
+// blinked on/off the same way the arcade blinks it. MEASURED off
+// reference/stage3-reload-tanker-t165.png (1028x720): the cyan text is centred
+// (ink cx 0.493W) with its top at y 0.724H — well clear of the bottom HUD strip
+// (native y199 = 0.888H), low-centre under the tanker. Drawn in the tally/number
+// cyan (#00dec5), which the frame samples at (0,217,198) inside the glyphs — the
+// same board cyan the card numbers already use, through the same video encode.
+export function drawReloadWeaponsCard(ctx, w, h) {
+  drawTextCenteredInk(ctx, 'RELOAD WEAPONS', w * 0.493, h * 0.724,
+    CARD_CYAN, CARD_PX, CARD_PY, OUTLINED);
+}
+
 export function drawContinueCard(ctx, w, h, countdown) {
   drawTextCenteredInk(ctx, 'CONTINUE PLAY', w * 0.486, h * 0.333,
     CONTINUE_GREEN, CARD_PX, CARD_PY, OUTLINED);
