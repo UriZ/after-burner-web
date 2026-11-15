@@ -21,78 +21,79 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 # ---------------------------------------------------------------- ROUND DATA
 ROUND = {
-    "number": 15,
+    "number": 16,
     "date": "2026-11-15",
     "status": "CLOSED",                      # or "BUILD IN PROGRESS"
-    "score": "8.5 / 10",                     # judge score once the round closes
-    "last_score": "8.3 / 10 (R14)",
+    "score": "8.6 / 10",                     # judge score once the round closes
+    "last_score": "8.5 / 10 (R15)",
     "tldr": (
-        "R15 closed the <em>two oldest combat cracks at once.</em> Aiming the gun now clearly "
-        "out-kills a dead stick (the complaint that stood open since R10), and the judge flew the "
-        "full <em>climb → lock → dodge → fire</em> missile loop by hand — a grace window holds the "
-        "lock through the dodge, amber pips show what you’ve got. It rises to 8.5. And the round’s "
-        "defining moment wasn’t a fix at all: the headline gap — ‘grow the sight’s reach’ — was "
-        "<em>refuted by measurement before a line of it shipped.</em> We already over-reach the arcade."
+        "With combat closed in R15, R16 turned to <em>breadth</em> — the biggest remaining distance "
+        "from the arcade. It shipped a whole missing beat: the <em>refuel interstitial</em>, a "
+        "no-combat low pass over a runway that restocks your missiles between combat stages. And it "
+        "closed the one named R15 residual — the <em>first</em> missile lock is now found by the "
+        "naive climb (3 locks on the first try, where the judge once flew ~15 empty passes). It "
+        "rises to 8.6 — modest, because the refuel stage reads as a <em>road</em>, not the arcade’s "
+        "refuel <em>base</em>: it still lacks the tankers, the crew, and the trees-to-the-top framing."
     ),
     "verdict": (
-        "“The two oldest combat illusion-breakers both closed — reactive aiming now clearly out-kills "
-        "the blind stick, and I flew the full climb-lock-dodge-fire missile loop by hand. Honest "
-        "progress against a still-fiddly first lock.”"
+        "“The first lock just happens now — climb at the wave and it locks, first try. And there’s a "
+        "fifth beat: a calm refuel runway between combat stages, reachable in real play. It reads as "
+        "a bare road rather than the arcade’s refuel base, but the wiring is right.”"
     ),
-    "verdict_attr": "R15 fresh-context judge · composite 8.5 (motion 8.5 · stills 8.5)",
+    "verdict_attr": "R16 fresh-context judge · composite 8.6 (motion 8.6 · stills 8.5)",
     # Side-by-side hero pairs (already composited OURS | ARCADE).
     "pairs": [
+        ("judging/R16/resupply-ours-vs-arcade.png",
+         "A fifth beat — the refuel runway",
+         "Shipped this round: a no-combat low pass that restocks missiles between combat stages. Reachable in real play — but it reads as a road; the arcade’s refuel BASE has tankers, crew, and trees to the top (R17)."),
         ("judging/R15/combat-ours-vs-arcade.png",
-         "Combat finally plays like After Burner",
-         "Shipped this round: a wall of jets at gun range (aiming now beats a dead stick), the crisp afterburner, and amber lock pips under the reticle — the missile is usable by hand now."),
-        ("judging/R15/flame-ours-vs-arcade.png",
-         "The afterburner is crisp now",
-         "The R14 ‘long and liquid’ flame is fixed into two clean separated teardrop cones, throttle-scaled."),
+         "Combat still plays like After Burner",
+         "From R15 and holding: the burst wall (aiming beats a dead stick), the crisp afterburner, and the lock pips — plus R16’s fix so the FIRST lock is found by the naive climb."),
         ("judging/R14/stage4-ours-vs-arcade.png",
-         "Four stages, and R16 chips at breadth",
-         "The green forest (arcade stage 4) from R14 still holds. Four of 23 — breadth is now the biggest remaining gap since combat closed."),
+         "Four combat stages + the refuel beat",
+         "The green forest (stage 4) still holds. 5 of 23 beats now; the airborne tanker and more stages remain."),
     ],
     # What shipped and held up under the judge's re-measure.
     "shipped": [
-        "Aiming the gun BEATS the blind stick (aim 24 vs blind 12) — the complaint open since R10, closed",
-        "The missile is human-usable — climb → lock → dodge → fire, held by a 1.2 s lock grace window",
-        "A UI lock cue — amber pips under the reticle show how many locks you hold (arcade-faithful, no invented label)",
-        "A burst-wall density rhythm — a wall of jets then a real lull, average presence NOT inflated",
-        "The afterburner flame crisped into separated teardrop cones (R14 ‘long and liquid’ fixed)",
+        "A fifth beat — the refuel interstitial: a no-combat runway pass that restocks missiles, reachable in play",
+        "The FIRST missile lock is discoverable — the naive full climb now lands a lock (3 on the first wave)",
+        "Blind protection STRONGER — raising the bait put it further above the rest cone (centred + held = 0 locks)",
+        "All R15 wins held unregressed — aim-beats-blind gun (24 vs 12), grace window, burst wall, crisp flame",
     ],
     # Ranked gaps for NEXT round. kind drives the colour chip.
-    "gaps_label": "Next — R16",
+    "gaps_label": "Next — R17",
     "gaps": [
-        (1, "missing", "Breadth — 4 of 23 stages, no resupply or bonus",
-         "Now the single biggest gap, since the combat feel is closed. Keep adding stages, and build the "
-         "iconic resupply/refuel interstitial — a whole missing beat of the arcade."),
-        (2, "feel", "The FIRST missile lock is hard to find",
-         "Once you know the move the loop works — but the sight doesn’t auto-recentre and a full climb "
-         "overshoots the lockable band, so the judge flew ~15 empty passes before discovering ‘ease up "
-         "gently and park mid-height on the approaching wave.’ Make that first lock discoverable."),
-        (3, "polish", "The stage-4 forest ground",
-         "Reads darker and flatter than the arcade’s bright mottled canopy with its cyan river. A palette/"
-         "texture pass on the forest ground."),
+        (1, "missing", "The refuel stage is a road, not a BASE",
+         "The round’s headline is its weakest frame. It needs the two signifiers it lacks: the autumn "
+         "trees that fill the frame to the top (the low-camera swoop), and the ground props — fuel "
+         "tankers, tents, crew — beside the runway. Also stage 13 should render its own palm/sage biome, "
+         "and the clouds should lift on the clear-sky refuel stages."),
+        (2, "missing", "Still only 5 of 23 beats — the airborne tanker is unbuilt",
+         "Breadth stays the standing theme. The runway is one of two arcade refuel mechanisms; the "
+         "airborne tanker is still absent, and more combat stages widen the game. The next beat as well-"
+         "wired as the runway — but with the scenery the runway lacks."),
+        (3, "polish", "The stage-4 forest ground is dark and flat",
+         "Carried and deferred twice now: the arcade canopy is brighter and mottled with a cyan river; "
+         "ours is a near-flat dark green field. Needs the measured V-distribution re-centre, not a by-eye nudge."),
         (4, "polish", "Small climaxes and the title",
-         "Kill fireballs still read sub-screen next to the arcade’s half-screen blasts; the title wordmark "
-         "is hand-rounded where the arcade’s is brush-angular."),
+         "Kill fireballs read sub-screen vs the arcade’s half-screen blasts; the title wordmark is "
+         "hand-rounded where the arcade’s is brush-angular. A grouped polish pass."),
         (5, "polish", "Loose ends",
-         "The blind gun floor is halved but still ~8–12 (structural, the span-scaled net); the "
-         "SIGHT_NDC_Y_OFFSET vulcan-vs-glyph reconciliation (+0.30 vs +0.16) is a low-priority measurement."),
+         "Blind gun floor still ~8–12 (structural); the refuel restock isn’t actually caused by the runway "
+         "(fires at every boundary); the SIGHT_NDC_Y_OFFSET reconciliation stays a measure-first item."),
     ],
     # What not to break.
     "keep": [
-        "Aiming beats the blind gun; the missile climb-lock-dodge-fire loop + grace window + pip cue",
-        "The burst-wall rhythm (presence not inflated); the crisp afterburner; blind-pilot protection",
-        "Four stages; islands; game-over; ±60° attract; the death cycle at ~8 s (arcade-confirmed)",
-        "Do NOT grow ENVELOPE_Y — measurement confirmed we already over-reach the arcade",
+        "The first lock found by the naive climb; blind protection (centred + held = 0 locks)",
+        "Aim-beats-blind gun (24 vs 12); the missile loop + grace window + pips; the burst wall",
+        "Five beats incl. the refuel wiring; the crisp afterburner; the ~8 s death cycle; stages 1–4",
+        "Do NOT grow ENVELOPE_Y — the raised bait moved the target into the existing reach (the right lever)",
     ],
     "method_note": (
-        "R15’s defining moment was the method catching itself: the headline gap (grow the sight’s "
-        "vertical reach) was REFUTED by the first-ever arcade vertical-sight measurement — we already "
-        "over-reach — before a line shipped. Three independent sources agreed; the lanes redirected to "
-        "the real problems (density supply + a lock grace window + a UI cue), which closed both cracks. "
-        "The judge also caught an overstated grace figure (wrong probe key); withdrawn. History in judging/R15/."
+        "R16 kept the discipline: the breadth lane disclosed exactly what the refuel beat does and "
+        "doesn’t do (restock fires at the boundary, not caused by the runway; framing and props "
+        "deferred with reasons), and the judge independently confirmed the wiring while marking the "
+        "look PARTIAL — no claim outran its evidence. History in judging/R16/."
     ),
 }
 
