@@ -543,6 +543,231 @@ function createRunwayTrees() {
   };
 }
 
+// ======================================================================
+// CANYON WALL MASSES (R21 gap 1) — the defining structure of the canyon biome.
+// ======================================================================
+//
+// The arcade stage 8 is a canyon: the camera sits LOW between tall rock WALL
+// masses rising on both flanks over a tan floor (frames decoded from
+// ab2-longplay.mp4 t=344-372; the clean t=357 read). The floor is the shader's
+// isotropic 'field' dither over the measured tan (stage.js STAGE_8); the WALLS
+// are what make it a canyon, and — like a wall that rises above the ground
+// plane cannot be painted into a flat ground shader — they are WORLD-SPACE
+// billboard masses, the exact construction the refuel tree tunnel uses: tall
+// sprites planted on both flanks, bottom on the ground plane, scrolled toward
+// the camera and recycled, rising past the low canyon horizon to the top of
+// frame. Parented to the ground mesh (identity transform == world space), so
+// they reach the scene with ground.mesh and need no game.js change. Inert on
+// every non-canyon stage (group hidden, slots hidden) so those frames are
+// byte-identical.
+//
+// PALETTE (CANYON_WALL_PAL): MEASURED on t=357 — the walls are the SAME tan hue
+// family as the floor at LOWER value, #6b3f00 (H35 V0.42) down to #502c00 (V0.31)
+// on the shadowed flank (STAGE_MAP ground_b #874f00 V0.53 is the lit mid), with
+// sparse OLIVE vegetation (STAGE_MAP's measured wall accent, a desaturated olive
+// Color(0.450,0.459,0.344) ~ #5a5a38). The ladder runs dark rock -> olive veg
+// rung -> lit tan, monotone in value so stippleMass bands it light-on-noise-peak.
+// WALL MASS GEOMETRY (size / placement / count) is ADOPTED and flagged — sized
+// in world units against the decoded frames (walls hug the corridor edges and
+// rise tall), not measured pixel-for-pixel.
+const CANYON_Z_FAR = -170; // far spawn depth: walls recede toward the vanishing point
+const CANYON_Z_NEAR = 8; // despawn just past the camera
+const CANYON_SPAN = CANYON_Z_NEAR - CANYON_Z_FAR;
+const WALLS_PER_SIDE = 10; // dense enough for a continuous wall at the canyon scroll speed
+const CANYON_BUSHES = 16; // scattered rock/scrub clumps on the floor
+
+// Wall MASS: tall tan/brown rock. Dark rock -> olive vegetation -> lit tan,
+// monotone in V (stippleMass assigns the lightest rung to the noise peak).
+const CANYON_WALL_PAL = ['#2e1700', '#4a2a00', '#5a5a38', '#633100', '#944f00', '#b57300', '#d6a44a'];
+// Floor BUSH: a low scrub/rock clump, the same family a touch brighter.
+const CANYON_BUSH_PAL = ['#4a2a00', '#5a5a38', '#633100', '#844200', '#a56300'];
+
+const CANYON_WALL_TEX = { w: 64, h: 104 }; // tall mass
+const CANYON_BUSH_TEX = { w: 40, h: 26 }; // low wide clump
+// World WIDTH band per kind (random per instance); world height = width*aspect.
+const CANYON_WALL_W = [9.0, 14.0];
+const CANYON_BUSH_W = [1.8, 3.6];
+// Wall centre X band (world units, OUTSIDE the corridor so the masses frame the
+// edges and only the inner fringe overhangs); bushes scatter across the floor.
+const CANYON_WALL_X = [8.5, 12.5];
+const CANYON_BUSH_X = [-6.0, 6.0];
+
+// A tall lumpy rock column: overlapping lobes down the canvas give a ragged
+// rocky top, the lower half is a solid base so the mass reads as a wall sitting
+// on the ground rather than a floating blob.
+function drawCanyonWall(ctx, W, H, rng) {
+  ctx.clearRect(0, 0, W, H);
+  const inside = new Uint8Array(W * H);
+  const cx = W / 2;
+  const lobes = 7 + Math.floor(rng() * 3);
+  for (let i = 0; i < lobes; i++) {
+    const t = i / (lobes - 1); // 0 top .. 1 bottom
+    const ly = H * (0.06 + 0.92 * t);
+    const lx = cx + (rng() - 0.5) * W * 0.40;
+    const rx = W * (0.30 + rng() * 0.22);
+    const ry = H * (0.10 + rng() * 0.10);
+    const x0 = Math.max(0, Math.floor(lx - rx));
+    const x1 = Math.min(W - 1, Math.ceil(lx + rx));
+    const y0 = Math.max(0, Math.floor(ly - ry));
+    const y1 = Math.min(H - 1, Math.ceil(ly + ry));
+    for (let y = y0; y <= y1; y++) {
+      for (let x = x0; x <= x1; x++) {
+        const dx = (x - lx) / rx;
+        const dy = (y - ly) / ry;
+        if (dx * dx + dy * dy <= 1) inside[y * W + x] = 1;
+      }
+    }
+  }
+  // Solid base: the lower half is a continuous wall, not a stack of blobs.
+  for (let y = Math.floor(H * 0.52); y < H; y++) {
+    for (let x = 0; x < W; x++) inside[y * W + x] = 1;
+  }
+  const img = ctx.getImageData(0, 0, W, H);
+  stippleMass(img.data, W, H, inside, rng, CANYON_WALL_PAL);
+  ctx.putImageData(img, 0, 0);
+}
+
+// A low rounded scrub/rock clump on the canyon floor.
+function drawCanyonBush(ctx, W, H, rng) {
+  ctx.clearRect(0, 0, W, H);
+  const inside = new Uint8Array(W * H);
+  const cx = W / 2;
+  const cy = H * 0.62;
+  const R = W * 0.40;
+  const crowns = [{ x: cx, y: cy, r: R }];
+  const n = 5 + Math.floor(rng() * 3);
+  for (let i = 0; i < n; i++) {
+    const a = (i / n) * Math.PI * 2 + (rng() - 0.5) * 0.4;
+    crowns.push({ x: cx + Math.cos(a) * R * 0.7, y: cy + Math.sin(a) * R * 0.5, r: R * (0.4 + rng() * 0.2) });
+  }
+  for (const c of crowns) {
+    const x0 = Math.max(0, Math.floor(c.x - c.r));
+    const x1 = Math.min(W - 1, Math.ceil(c.x + c.r));
+    const y0 = Math.max(0, Math.floor(c.y - c.r));
+    const y1 = Math.min(H - 1, Math.ceil(c.y + c.r));
+    for (let y = y0; y <= y1; y++) {
+      for (let x = x0; x <= x1; x++) {
+        const dx = x - c.x;
+        const dy = y - c.y;
+        if (dx * dx + dy * dy <= c.r * c.r) inside[y * W + x] = 1;
+      }
+    }
+  }
+  const img = ctx.getImageData(0, 0, W, H);
+  stippleMass(img.data, W, H, inside, rng, CANYON_BUSH_PAL);
+  ctx.putImageData(img, 0, 0);
+}
+
+function canyonTexture(kind, rng) {
+  const { w, h } = kind === 'wall' ? CANYON_WALL_TEX : CANYON_BUSH_TEX;
+  const canvas = document.createElement('canvas');
+  canvas.width = w;
+  canvas.height = h;
+  const ctx = canvas.getContext('2d');
+  ctx.imageSmoothingEnabled = false; // chunky pixels, never blurred
+  (kind === 'wall' ? drawCanyonWall : drawCanyonBush)(ctx, w, h, rng);
+  const tex = new THREE.CanvasTexture(canvas);
+  tex.magFilter = THREE.NearestFilter;
+  tex.minFilter = THREE.LinearMipmapLinearFilter; // coherent silhouette when small/distant
+  tex.colorSpace = THREE.SRGBColorSpace;
+  return { tex, aspect: h / w };
+}
+
+const CANYON_VARIANTS = 4;
+
+// Built the same way createRunwayTrees() is — one pooled sprite per slot, a
+// fixed layout seed so ?fixed captures are deterministic regardless of ?seed,
+// textures authored once up front. Enabled only on stages declaring
+// `canyonWalls`; hidden and inert on every other stage.
+function createCanyonWalls() {
+  const group = new THREE.Group();
+  group.visible = false;
+  const rng = createPrng(20260321);
+
+  const texByKind = { wall: [], bush: [] };
+  for (const kind of ['wall', 'bush']) {
+    for (let v = 0; v < CANYON_VARIANTS; v++) texByKind[kind].push(canyonTexture(kind, rng));
+  }
+
+  // Wall slots: WALLS_PER_SIDE on each flank, side FIXED. Bush slots: scattered
+  // across the floor, no fixed side.
+  const slots = [];
+  for (let side = -1; side <= 1; side += 2) {
+    for (let i = 0; i < WALLS_PER_SIDE; i++) {
+      const material = new THREE.SpriteMaterial({ map: null, transparent: true });
+      const sprite = new THREE.Sprite(material);
+      sprite.visible = false;
+      group.add(sprite);
+      slots.push({ sprite, material, kind: 'wall', side, z: 0, order: i, perSide: WALLS_PER_SIDE });
+    }
+  }
+  for (let i = 0; i < CANYON_BUSHES; i++) {
+    const material = new THREE.SpriteMaterial({ map: null, transparent: true });
+    const sprite = new THREE.Sprite(material);
+    sprite.visible = false;
+    group.add(sprite);
+    slots.push({ sprite, material, kind: 'bush', side: 0, z: 0, order: i, perSide: CANYON_BUSHES });
+  }
+
+  let enabled = false;
+
+  function placeSlot(slot, z) {
+    const variant = Math.floor(rng() * CANYON_VARIANTS);
+    const { tex, aspect } = texByKind[slot.kind][variant];
+    slot.material.map = tex;
+    slot.material.needsUpdate = true;
+    const [wlo, whi] = slot.kind === 'wall' ? CANYON_WALL_W : CANYON_BUSH_W;
+    const w = wlo + rng() * (whi - wlo);
+    const h = w * aspect;
+    slot.sprite.scale.set(w, h, 1);
+    let x;
+    if (slot.kind === 'wall') {
+      const [xlo, xhi] = CANYON_WALL_X;
+      x = slot.side * (xlo + rng() * (xhi - xlo));
+    } else {
+      const [xlo, xhi] = CANYON_BUSH_X;
+      x = xlo + rng() * (xhi - xlo);
+    }
+    slot.z = z;
+    slot.sprite.position.set(x, h / 2, z); // bottom sits on the ground plane
+    slot.sprite.visible = true;
+  }
+
+  function layout() {
+    for (const slot of slots) {
+      const base = CANYON_Z_FAR + ((slot.order + 0.5) / slot.perSide) * CANYON_SPAN;
+      const jitter = (rng() - 0.5) * (CANYON_SPAN / slot.perSide) * 0.8;
+      placeSlot(slot, base + jitter);
+    }
+  }
+
+  return {
+    group,
+    setStage(stage) {
+      enabled = !!stage.canyonWalls;
+      if (!enabled) {
+        group.visible = false;
+        for (const slot of slots) slot.sprite.visible = false;
+        return;
+      }
+      group.visible = true;
+      layout();
+    },
+    update(dt, scrollSpeed) {
+      if (!group.visible || !enabled) return;
+      for (const slot of slots) {
+        if (!slot.sprite.visible) continue;
+        slot.z += dt * scrollSpeed;
+        if (slot.z > CANYON_Z_NEAR) {
+          placeSlot(slot, slot.z - CANYON_SPAN); // recycle to the far end, fresh width/variant/x
+        } else {
+          slot.sprite.position.z = slot.z;
+        }
+      }
+    },
+  };
+}
+
 // Per-stage ground terrain + horizon haze band. Both are computed in this
 // one shader because the haze band is NOT sky — it is distant GROUND fading
 // to pale haze before the vanishing point (REFERENCE.md "Horizon": the
@@ -2435,11 +2660,28 @@ export function createGround(stage, horizonFrac) {
   mesh.add(trees.group);
   trees.setStage(stage);
 
+  // Canyon wall masses (R21 gap 1). Same world-space parenting as the props and
+  // trees, so it reaches the scene with ground.mesh. Enabled only on stages
+  // declaring `canyonWalls`; inert (hidden) on every other stage.
+  const canyonWalls = createCanyonWalls();
+  mesh.add(canyonWalls.group);
+  canyonWalls.setStage(stage);
+
+  // The stage currently rendered, exposed so game.js's STATELESS canyon camera
+  // gate can read the one source of truth (stage.canyon / stage.horizonFraction)
+  // without reaching into flow.js. flow.js calls setStage below on every
+  // transition; this tracks it. Initialised to the construction stage.
+  let currentStage = stage;
+
   return {
     mesh,
+    get currentStage() {
+      return currentStage;
+    },
     update(dt, scrollSpeed) {
       props.update(dt, scrollSpeed);
       trees.update(dt, scrollSpeed);
+      canyonWalls.update(dt, scrollSpeed);
       // MINUS, not plus: a noise feature sampled at (worldPos.z + uScroll)
       // tracks world position z=Z0-scrollSpeed*dt over one tick when uScroll
       // INCREASES (kinematics: for the same noise value to reappear,
@@ -2567,6 +2809,8 @@ export function createGround(stage, horizonFrac) {
       u.uRiverColorLight.value = q.riverColorLight;
       props.setStage(newStage);
       trees.setStage(newStage);
+      canyonWalls.setStage(newStage);
+      currentStage = newStage;
     },
     // R17 refuel low-swoop (framing2 lane). The haze band is computed in the
     // fragment shader from uCameraPitch + uHorizonFrac (the roll-free pitch is

@@ -107,6 +107,56 @@ const RESUPPLY_PLAYER_BASE_Y = worldYForScreenFrac(RESUPPLY_PLAYER_SCREEN_FRAC, 
 const AIRREFUEL_PLAYER_SCREEN_FRAC = 0.39;
 const AIRREFUEL_PLAYER_BASE_Y = worldYForScreenFrac(AIRREFUEL_PLAYER_SCREEN_FRAC, PLAYER_BASE_Z, CAMERA_PITCH, FOV_DEG);
 
+// R21 canyon low-horizon camera (gap 1). Whenever the RENDERED stage is the
+// canyon (stage.canyon, i.e. arcade stage 8), the camera pitches DOWN so the
+// rock walls rise and the tan floor fills the frame — the arcade's low canyon
+// framing. Unlike the refuel low-swoop (a flow-STATE gate), this is keyed on the
+// STAGE and runs DURING combat (the canyon is a combat stage, enemies fly
+// through it), so the gate below is STATELESS — a pure function of the current
+// stage each tick — which is what keeps combat BYTE-IDENTICAL on every
+// non-canyon stage (every value fed off the non-canyon branch equals today's
+// construction value).
+//
+// CANYON_PITCH is solved from the MEASURED canyon horizon: STAGE_MAP.md #120
+// gives stage 8 horizon_fraction 0.13 (the median over 41 frames; one of the two
+// strongest horizon values in the table — it moves only 3.33pp across the whole
+// tolerance sweep). horizonFracFor(-0.36770009497078837) = 0.13 exactly. It MUST
+// stay in step with STAGE_8.horizonFraction in stage.js.
+//
+// WHY COMBAT STILL WORKS under the drop. The combat layer is authored in
+// ScreenSpace's PITCH-ONLY unrolled frame (effects/screenSpace.js), which caches
+// its basis (this.base/this._inv) rather than re-reading the live camera. If the
+// render camera alone dropped, the whole combat layer would reproject rigidly to
+// the TOP of the frame (the jet lands at screen frac ~0.05) — mechanically
+// working but visually crammed off-frame. So the gate also RETRACKS combat's
+// ScreenSpace basis to the canyon pitch and calls its public refresh() — exactly
+// the "the base pitch changed, retrack" hook ScreenSpace documents, and the
+// combat-side analogue of ground.setFraming(). With the basis matching the
+// render camera, enemies authored in NDC render at their SAME screen positions
+// as cruise, so the whole combat layer keeps its normal framing OVER the low
+// canyon floor: enemies in the usual band, the sight on the nose, locks still
+// bracketing, the gun still hitting — proven byte-identical in combat telemetry
+// to cruise (6 brackets / 6 locks / 5 missiles, matching ?stage=1).
+//
+// The one consequence: with the basis at canyon pitch, the player SPRITE must be
+// placed so it projects (through the canyon camera) to the CRUISE screen fraction
+// — otherwise combat's playerNdc (now read in the canyon basis) drifts off the
+// enemy band and locks stop forming. So the jet holds the cruise screen frac
+// (0.556) under the canyon pitch, which keeps combat's measured sight geometry
+// (SIGHT_NDC_Y_OFFSET, the 1.000 sight:jet excursion ratio) exactly in the enemy
+// traffic. The jet at 0.556 sits well below the 0.13 horizon, over the floor,
+// between the walls — the arcade's low canyon framing. (The arcade jet centroid
+// in t357 reads a touch higher, ~0.48; holding 0.556 is the value that keeps the
+// lock geometry in the measured enemy band rather than an eyeballed nudge that
+// would cost locks — flagged in canyon-asks.md.) Everything OUTSIDE the canyon is
+// byte-identical: the basis/baseY/pitch are only swapped while the rendered stage
+// is the canyon, restored off it.
+const CANYON_PITCH = -0.36770009497078837; // rad (-21.07deg); horizonFracFor -> 0.1300
+// Hold the CRUISE screen fraction under the canyon pitch, so combat's
+// canyon-basis playerNdc equals its cruise value and the sight stays in the
+// enemy band (see the WHY COMBAT STILL WORKS note).
+const CANYON_PLAYER_BASE_Y = worldYForScreenFrac(PLAYER_CRUISE_SCREEN_FRAC, PLAYER_BASE_Z, CANYON_PITCH, FOV_DEG);
+
 // Zeroed input fed to combat.update() during 'death' (R5 feel fix, see
 // update() below) so a dead jet never fires/launches while the world
 // around the tumbling hulk keeps ticking.
@@ -141,6 +191,13 @@ export class Game {
     // update() swaps the pointer to only while flow.state === 'resupply'.
     this._pitchQuatCruise = this._pitchQuat;
     this._pitchQuatResupply = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), RESUPPLY_PITCH);
+    // R21 canyon: a THIRD separate attitude object (never a mutation of the
+    // cruise one — combat's ScreenSpace holds the cruise object by reference and
+    // must keep reading it), swapped in by the stateless canyon gate in update().
+    this._pitchQuatCanyon = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), CANYON_PITCH);
+    // Whether combat's ScreenSpace basis is currently retracked to canyon pitch
+    // (see the canyon gate in update()). Starts cruise; edge-triggered there.
+    this._combatCanyonBasis = false;
     this.worldRoll = 0; // radians; see interface note below
     this._lastInput = { x: 0, y: 0 }; // measurement-only, see __flowState
     this._applyCameraOrientation();
@@ -153,6 +210,7 @@ export class Game {
     // the camera (geometry) but the haze would fog as if still at cruise unless
     // these track too. update() feeds ground.setFraming() on the resupply gate.
     this._resupplyHorizonFrac = horizonFracFor(RESUPPLY_PITCH, FOV_DEG);
+    this._canyonHorizonFrac = horizonFracFor(CANYON_PITCH, FOV_DEG); // 0.13, see CANYON_PITCH
 
     this.screen = new Screen(canvas);
     this.sky = createSky(this.camera, STAGE_1);
@@ -462,17 +520,46 @@ export class Game {
     // resupply swoop or combat; the pitch stays cruise for airrefuel (only baseY
     // moves), while resupply alone swaps pitch + ground framing below.
     const airrefuel = this.flow.state === 'airrefuel';
-    this._pitchQuat = resupply ? this._pitchQuatResupply : this._pitchQuatCruise;
+    // R21: the canyon low horizon (gap 1). STATELESS and keyed on the RENDERED
+    // STAGE, not a flow state — true whenever the ground is rendering the canyon
+    // biome (stage.canyon), combat included. Read from ground.currentStage (the
+    // single source of truth flow.js sets on every transition) so this never
+    // reaches into flow internals. Resupply takes priority (a refuel stage is
+    // never the canyon), so the two gates never fight; a non-canyon, non-resupply
+    // tick feeds exactly today's cruise values -> byte-identical.
+    const renderStage = this.ground.currentStage;
+    const canyon = !resupply && !!(renderStage && renderStage.canyon);
+    this._pitchQuat = resupply
+      ? this._pitchQuatResupply
+      : canyon
+        ? this._pitchQuatCanyon
+        : this._pitchQuatCruise;
     this.player.baseY = resupply
       ? RESUPPLY_PLAYER_BASE_Y
       : airrefuel
         ? AIRREFUEL_PLAYER_BASE_Y
-        : CRUISE_PLAYER_BASE_Y;
+        : canyon
+          ? CANYON_PLAYER_BASE_Y
+          : CRUISE_PLAYER_BASE_Y;
     if (this.ground.setFraming) {
       this.ground.setFraming(
-        resupply ? RESUPPLY_PITCH : CAMERA_PITCH,
-        resupply ? this._resupplyHorizonFrac : this.horizonFrac,
+        resupply ? RESUPPLY_PITCH : canyon ? CANYON_PITCH : CAMERA_PITCH,
+        resupply ? this._resupplyHorizonFrac : canyon ? this._canyonHorizonFrac : this.horizonFrac,
       );
+    }
+    // Retrack combat's ScreenSpace basis to match the render camera's pitch in
+    // the canyon, and restore cruise off it — the combat-side analogue of
+    // ground.setFraming (ScreenSpace.refresh() is its documented "base pitch
+    // changed" hook). Edge-triggered on the canyon transition so steady-state
+    // non-canyon frames never touch combat, keeping them byte-identical; the
+    // basis is always a pure function of the current stage's canyon-ness. The
+    // resupply swoop does NOT do this because combat is inactive there; the
+    // canyon is a combat stage, so its basis must follow the drop or the sight
+    // leaves the enemy traffic. Guarded on `this.combat` (null under ?nocombat).
+    if (this.combat && canyon !== this._combatCanyonBasis) {
+      this.combat.space.base = canyon ? this._pitchQuatCanyon : this._pitchQuatCruise;
+      this.combat.space.refresh();
+      this._combatCanyonBasis = canyon;
     }
     this._applyCameraOrientation();
 

@@ -1073,6 +1073,136 @@ export const STAGE_16 = {
   scrollSpeed: 68.93, // cruise (STAGE_MAP scroll_speed 2.8); same camera geometry as stages 1-4
 };
 
+// VERIFIED arcade stage 8 (the CANYON — the highest-value unbuilt biome, R21
+// gap 1).
+//
+// R21 BREADTH + STRUCTURE. The arcade's stage 8 is a canyon: the camera sits LOW
+// between tall rock WALL masses rising on both sides, a cream/tan rock floor
+// running down the middle, enemies flying through (it is a COMBAT stage).
+// STAGE_MAP.md's HUD-verified span t=344-372 reads "STAGE 8"; the frames decoded
+// from ab2-longplay.mp4 over that span show exactly this (the clean t=357 frame:
+// dithered tan/brown rock walls flanking a tan floor, a pale cream sky gap
+// concentrated in the top ~13%H, scattered rock/scrub clumps on the floor, a
+// lock bracket and enemies in play).
+//
+// This biome is TWO pieces, split across two owners:
+//   - TERRAIN (here + render/ground.js): the tan canyon FLOOR is the measured
+//     'field' dither (below); the defining WALL masses are world-space billboard
+//     sprites (render/ground.js createCanyonWalls), the same construction as the
+//     refuel tree tunnel — tall masses planted on both flanks, scrolling toward
+//     the camera, rising past the low horizon to the top of frame.
+//   - LOW HORIZON CAMERA (game.js): a STATELESS per-stage gate drops the camera
+//     pitch whenever the RENDERED stage carries `canyon: true`, so the walls rise
+//     and the floor fills the frame (like the refuel low-swoop's pitch gate, but
+//     keyed on the STAGE, not a flow state — the canyon is a combat stage, so the
+//     drop happens DURING combat). Combat stays byte-identical OUTSIDE the canyon
+//     (the gate restores cruise off it) and keeps WORKING inside it (the combat
+//     layer is authored in the pitch-only unrolled frame and reprojects rigidly
+//     through the dropped camera — the sight stays on the nose, locks still
+//     bracket, the gun still hits; see game.js's canyon gate).
+//
+// Sky: MEASURED (STAGE_MAP.md #123, stage 8). sky_top == sky_horizon =
+// Color(0.980, 0.925, 0.690) = #faecb0, a FLAT fill — stage 8 is NOT a glow
+// stage, so skyGlowElevDeg 0 (the glow ramp is inert). STAGE_MAP flags this as
+// one of the few high-confidence OFF-column reads: the cream was confirmed by
+// DIRECT pixel reads at t=357 rather than the column scan (which "kept landing
+// on canyon wall"). Corroborated here on the decoded t=357 sky gap: #f6efaf
+// (H54 S0.29 V0.96), within upscale noise of the committed #faecb0. Off the
+// hardware ladder (a measured modal value, like stage 1/4/16), so no ladder snap.
+//
+// HORIZON: 0.13 (horizonFraction), MEASURED (STAGE_MAP.md #120, the row-coverage
+// cut seeded on sky_top, metric sum|dRGB|, tolerance 60): the MEDIAN over 41
+// frames across the verified span, and one of the TWO strongest horizon values
+// in the table (stage 8's median moves only 3.33 pp across the whole tolerance
+// sweep — "stability evidence, not a frame count to relax past"). game.js derives
+// CANYON_PITCH from this exact 0.13 (horizonFracFor(-0.36770) = 0.13); the two
+// must agree. Corroborated here on t=357: full-width cream coverage concentrates
+// in the top ~13%H (0.57-0.64 at yfrac 0.08-0.12) then falls as the walls take
+// over — consistent with a horizon that high, though my crude full-width cream
+// scan is NOT a reproduction of #120's classifier, so 0.13 is kept as the
+// certified value rather than overridden.
+//
+// GROUND (the tan FLOOR): PALETTE MEASURED, geometry the isotropic 'field'
+// dither. MEASURED (STAGE_MAP.md #124, stage 8, one of the KEPT-9 grounds):
+// H=35 S=1.000 V75=0.831+/-0.008 V25=0.529+/-0.069, YIELD 7/80 frames (the
+// canyon's near-ground band is mostly wall, so few floor frames accept — it
+// reproduced at BOTH sampling densities, both corroborators at delta 3deg).
+// Corroborated here on t=357's floor: #d08400 / #cb8300 (H~38 S1.0 V~0.81),
+// matching STAGE_MAP ground_a #d47c00. The 'field' branch composes this measured
+// HSV over the macro+stipple index field (index centres at 0.5 -> V~0.68,
+// between the measured V25 0.529 and V75 0.831) and the ladder quantizer snaps
+// every emitted colour. Stipple/macro FREQUENCIES are ADOPTED from the
+// canopy/field family (no stage-8 floor autocorrelation in the repo).
+//
+// WALL palette (render/ground.js CANYON_WALL_PAL): the walls are the SAME tan
+// hue family as the floor at LOWER value — MEASURED on t=357 at #6b3f00 (H35
+// V0.42) down to #502c00 (H33 V0.31) on the shadowed flank (STAGE_MAP ground_b
+// #874f00 V0.53 is the lit mid) — with sparse OLIVE vegetation (STAGE_MAP's
+// measured wall accent ground_accent Color(0.450,0.459,0.344), a desaturated
+// olive). The wall ladder is dark rock -> lit tan with an olive rung for the
+// vegetation; the wall MASS geometry (size/placement/count) is ADOPTED, flagged,
+// referenced against the decoded stage-8 frames.
+export const STAGE_8 = {
+  name: 'stage-8-canyon',
+  groundMode: 'field', // the tan canyon FLOOR is the measured isotropic dither
+  // The two canyon markers, read by two different owners (both STATELESS):
+  //   canyon       -> game.js's low-horizon camera gate (drop the pitch when this
+  //                   stage is rendered, restore cruise otherwise).
+  //   canyonWalls  -> render/ground.js createCanyonWalls (build the flank masses).
+  // Keeping them as explicit data (not inferred from groundMode, which stays
+  // 'field' so the floor shader has a valid mode) means the gate and the walls
+  // read the same source of truth and no other stage is ever misread as canyon.
+  canyon: true,
+  canyonWalls: 'rock',
+  horizonFraction: 0.13, // MEASURED STAGE_MAP #120 (median/41 frames, 3.33pp stable); game.js CANYON_PITCH derives from it
+  skyTop: srgbHex('#faecb0'),
+  skyHorizon: srgbHex('#faecb0'),
+  skyGlowElevDeg: 0, // flat fill: no glow (STAGE_MAP: stage 8 is not a glow stage)
+  showClouds: false, // STAGE_MAP cloud_density 0; same gate as stages 4/14/16
+  cloudPalette: 'desert',
+
+  // Tan canyon FLOOR. MEASURED HSV (see header), ADOPTED geometry — the same
+  // 'field' dither stages 14/16 use, composed over the measured tan.
+  terrain: {
+    hueDeg: 35,
+    hueJitterDeg: 16, // +/-8 about 35; STAGE_MAP circular hue spread 10deg, a touch wider for texture
+    satLo: 0.90,
+    satHi: 1.00, // measured S 1.000
+    vLo: 0.50,
+    vHi: 0.86, // index centres at 0.5 -> V~0.68, between measured V25 0.529 and V75 0.831
+    grainFreqX: 0.09,
+    grainFreqZ: 0.26,
+    macroFreqX: 10.0,
+    macroFreqZ: 20.0,
+    macroAmp: 1.2,
+    detailAmp: 1.4,
+    stipLodBoost: 0.4,
+  },
+
+  // Horizon haze band. ADOPTED (sky-derived), NOT measured — same discipline as
+  // stages 4/5/14/16: distant tan floor hazes UP toward the measured cream sky
+  // #faecb0 at the vanishing point and resolves to a warm tan on the near side.
+  // Thin band (0.07) — under the low canyon horizon only a few rows of distant
+  // floor sit above the near field before the walls close the gap.
+  haze: {
+    atHorizon: srgbHex('#faecb0'),
+    atBandEdge: srgbHex('#c58400'),
+    bandHeightFrac: 0.070,
+    peakFrac: 0,
+  },
+  // CANYON scroll. ADOPTED, flagged: no our-engine canyon flow measurement
+  // exists. STAGE_MAP #139 runs the arcade canyon at 0.804 of the godot
+  // depth-space unit against cruise 2.800 (0.287x) precisely so the canyon's
+  // LARGER span (low horizon -> more screen is ground) does not over-speed the
+  // apparent flow — the arcade runs its canyon at ~0.63x cruise, not faster.
+  // Applying that SAME regime ratio to our cruise 68.93 gives 68.93 * 0.804/2.8
+  // = 19.79, so the walls stream past at the arcade's slower canyon cadence
+  // rather than cruise speed. This is the arcade's own regime ratio, not an
+  // independent our-engine measurement; a capture-and-measure of our canyon flow
+  // (the #139 method, 120 fps) is the follow-up, recorded in canyon-asks.md.
+  scrollSpeed: 19.79,
+};
+
 // The COMBAT content lap (stages 1-4 plus the R20 additions). STAGE_5/STAGE_13
 // are deliberately NOT in this array: they are the refuel content, pulled in
 // only for arcade stageNumber 5 and 13 by flow.js's `_renderStage`, so the
@@ -1082,11 +1212,22 @@ export const STAGE_16 = {
 // appended (STAGE_14 gold-dusk olive forest, STAGE_16 blue city), so the
 // progression stops lapping the same four palettes so quickly. flow.js laps
 // content every STAGES.length, so these appear in normal play wherever
-// `stageIndex % 6` lands on index 4 / 5 (STAGE_16 at arcade stageNumber
-// 6/12/18, STAGE_14 at 11/17/23 — stageNumber 5 is the resupply beat, routed
-// away). The content-index == arcade-stage-number alignment that holds for
-// stages 1-4 does NOT extend to these (they lap in at other numbers) — the
-// honest existing behaviour; an optional flow.js route to also show them at
-// their true arcade numbers 14/16 is asked in judging/R20/stages-asks.md.
-// Reach them directly for capture via ?stage=6 (STAGE_16) / ?stage=11 (STAGE_14).
-export const STAGES = [STAGE_1, STAGE_2, STAGE_3, STAGE_4, STAGE_14, STAGE_16];
+// `stageIndex % length` lands on their index. The content-index ==
+// arcade-stage-number alignment that holds for stages 1-4 does NOT extend to
+// these (they lap in at other numbers) — the honest existing behaviour; an
+// optional flow.js route to also show them at their true arcade numbers is
+// asked in judging/R20/stages-asks.md.
+//
+// R21 BREADTH: the lap grows 6 -> 7 with the CANYON (STAGE_8) appended at index
+// 6 (gap 1, the breadth headline). It laps into normal play wherever
+// `stageIndex % 7` lands on 6, and — because flow.js's _renderStage falls
+// through to STAGES[stageIndex % length] for any stageNumber it does not route
+// explicitly — the first such landing is stageIndex 6 == arcade stageNumber 7,
+// so the canyon is reachable for capture TODAY via `?stage=7` with no flow.js
+// change. A flow.js route to ALSO render it at its true arcade number 8
+// (`?stage=8`, like stages 13/14/16 are routed) is a one-line cross-lane change
+// asked in judging/R21/canyon-asks.md. Stages 1-4 (stageIndex 0-3) and the
+// stageNumber-routed 14/16 are unaffected by the longer array — they stay
+// byte-identical.
+// Reach for capture: ?stage=6 (STAGE_16) / ?stage=7 (STAGE_8 canyon) / ?stage=11 (STAGE_14).
+export const STAGES = [STAGE_1, STAGE_2, STAGE_3, STAGE_4, STAGE_14, STAGE_16, STAGE_8];
