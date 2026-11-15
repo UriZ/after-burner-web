@@ -21,68 +21,68 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 # ---------------------------------------------------------------- ROUND DATA
 ROUND = {
-    "number": 19,
+    "number": 20,
     "date": "2026-11-15",
     "status": "CLOSED",
-    "score": "8.9 / 10",
-    "last_score": "8.8 / 10 (R18)",
+    "score": "9.0 / 10",
+    "last_score": "8.9 / 10 (R19)",
     "tldr": (
-        "R19 built the arcade's <em>other</em> refuel — the <em>airborne tanker.</em> Fly up behind a "
-        "big grey tanker, RELOAD WEAPONS blinks, your stock refills, and it hands you back to the fight. "
-        "Both of AB2's refuel mechanisms now exist. The kill blast also <em>widened</em> into the arcade's "
-        "horizontal debris spray. It rises to 8.9 with zero regression — two top R18 gaps closed in one "
-        "round. (Both lanes finished their code, then the account hit its session limit mid-report; the "
-        "work was in the tree, verified by look, and committed.)"
+        "R20 crosses <em>9.0.</em> Breadth was the floor, so it shipped <em>two new measured combat "
+        "biomes</em> (a lavender coast and a gold-dusk olive), growing the game from 4 lapping biomes to "
+        "6; gave the refuel tanker a real fuselage and <em>docked the jet</em> to its belly; and put "
+        "<em>white-hot cores</em> in the kill blast. Zero regression — combat is proven byte-identical to "
+        "before the round. Every win is honest: the palettes and directions are right, the fine detail "
+        "(flat terrain, the tanker's tail fin) is the next stretch."
     ),
     "verdict": (
-        "“AB2's other refuel finally happens — I fly up behind a big grey tanker, the stock "
-        "refills, RELOAD WEAPONS blinks, and it hands me back to combat. The kill blast is a wide "
-        "horizontal spray now. The tanker reads like a stealth-manta where the arcade's is a winged "
-        "tanker with a tail fin — the right beat, not yet the right airframe.”"
+        "“Two genuinely new biomes with the arcade's own skies, the refuel jet now noses up and docks to "
+        "the tanker, and the kill blast has hot cores. Nothing in the fight moved — it's byte-for-byte "
+        "what it was. The new ground is still flat where the arcade has hills and forest.”"
     ),
-    "verdict_attr": "R19 fresh-context judge · composite 8.9 (motion 8.9 · stills 8.9)",
+    "verdict_attr": "R20 fresh-context judge · composite 9.0 (motion 9.0 · stills 9.0)",
     "pairs": [
-        ("judging/R19/tanker-ours-vs-arcade.png",
-         "AB2's other refuel — the airborne tanker",
-         "Shipped this round: fly up behind a big grey tanker to refuel (RELOAD WEAPONS, stock refills, hands back to combat). The composition and prompt match; the airframe reads as a manta vs the arcade's winged tanker — R20."),
-        ("judging/R19/tl-verify-fireball-wide.png",
-         "The kill blast is wide now",
-         "Widened to ~34%W (toward the arcade's 37.8%W) — a flat horizontal debris spray with flanking smoke, not a tall puff. Last stretch: white-hot cores in the flanking balls."),
-        ("judging/R18/tree-tunnel-ours-vs-arcade.png",
-         "The refuel runway still holds",
-         "R18's tree tunnel (autumn + palm) and the R17 low-swoop base — the runway refuel, the first of the two mechanisms."),
+        ("judging/R20/cmp-stage16.png",
+         "Two new combat biomes — now six",
+         "Shipped this round: new measured biomes (lavender coast shown; plus a gold-dusk olive). The skies match the arcade strongly; the ground is still a flat field where the arcade has dense hillside/forest — R21."),
+        ("judging/R20/cmp-tanker.png",
+         "The refuel jet docks now",
+         "The F-14 noses up and docks under the tanker's belly (R19's gap closed), and the tanker got a real fuselage. Still short of the arcade's vertical tail fin + down-swept wings."),
+        ("judging/R20/cmp-fireball.png",
+         "The kill blast has hot cores",
+         "The flanking spray balls now carry hot cores (not flat orange), matching the arcade's look. Width was fixed in R19; this is the interior."),
     ],
     "shipped": [
-        "The AIRBORNE TANKER refuel — AB2's second refuel mechanism, built end-to-end (enter / refill / RELOAD WEAPONS / hand back to flight), wired into stages 3 and 9",
-        "The kill fireball WIDENED to ~34%W with horizontal debris + flanking smoke (toward the arcade's 37.8%W), without being taller or recolored",
-        "Both of the arcade's refuel mechanisms now exist — the runway (R16-18) and the tanker (R19)",
-        "Zero regression — combat played unchanged (aim beats blind, locks form, missiles fire, enemies shoot back); the runway resupply + low-swoop intact",
+        "Crossed 9.0 — composite 9.0 (motion 9.0, stills 9.0), zero regression",
+        "TWO new measured combat biomes (lavender coast + gold-dusk olive) — the game laps 6 biomes now, up from 4",
+        "The refuel jet DOCKS to the tanker's belly, and the tanker got a real fuselage (R19's manta fixed)",
+        "White-hot cores in the kill blast's flanking puffs — the flat-orange tell is gone",
+        "Combat proven BYTE-IDENTICAL to pre-R20 (worktree A/B, maxdiff 0) — all the new gates are stateless",
     ],
-    "gaps_label": "Next — R20",
+    "gaps_label": "Next — R21",
     "gaps": [
-        (1, "missing", "Breadth is the floor — ~5 of 23 beats, most stages lap 4 palettes",
-         "Both refuel mechanisms exist now, so distinct COMBAT stages are the biggest remaining distance: beyond stages 1-4 the content laps the same four authored biomes. More authored biomes/set-pieces toward 23."),
-        (2, "polish", "The tanker is the right beat with the wrong airframe",
-         "The composition and RELOAD WEAPONS prompt are right, but ours reads as a stealth manta — give it the arcade's vertical TAIL FIN and down-swept winged-tanker read, and DOCK the jet (nose up to a visible refuel boom instead of hanging in a gap below)."),
-        (3, "polish", "Densify the tree tunnel; measure the refuel sky",
-         "Carried from R18: ours is a sparser row of blobby canopies vs the arcade's dense continuous wall. Secondary: the stage-5 refuel sky reads pale-cream vs arcade orange — measure the low-confidence thin band before tuning."),
-        (4, "polish", "Fireball — last stretch: white-hot cores",
-         "Width is close now (~34 vs 37.8%W). The remaining tell is the puff interior: the arcade's spray balls carry white-hot cores; ours are orange-only. Add white cores to the flanking puffs — NOT more height."),
-        (5, "polish", "The title still trails the arcade's italic lean",
-         "Sharper after R18 but still short of the arcade's lean and letter packing. A second pass once the bigger gaps are handled."),
+        (1, "missing", "The new biomes have the right sky but flat ground",
+         "The skies match the arcade; the ground is a flat open field where the arcade has dense hillside city / palm forest. Give the field biomes real terrain structure — OR build the CANYON (arcade stage 8, the strongest unbuilt biome): wall masses + a stateless per-stage low horizon."),
+        (2, "missing", "Keep widening toward 23 beats",
+         "~6 of ~23 biomes now. Breadth is still the biggest structural distance; the canyon is the highest-value next stage, and more measured biomes after it."),
+        (3, "polish", "Finish the tanker airframe",
+         "Docking is done. The airframe still reads as a dorsal hump — give it the arcade's vertical TAIL FIN and down-swept wings to finish the silhouette."),
+        (4, "polish", "The title still trails the arcade's block wordmark",
+         "The italic lean is in, but ours is a diagonal ball-swoosh where the arcade's plate is a vertical II block. A structural pass, not just letterforms."),
+        (5, "polish", "Loose ends",
+         "Fireball flanking cores read yellow (white reserved to centre) — fine, or push whiter; the tree tunnel is still sparse; blind gun floor ~8-12 (structural)."),
     ],
     "keep": [
-        "The airborne tanker refuel (enter/refill/handback, RELOAD WEAPONS, stages 3/9); the wider fireball (horizontal, not taller)",
-        "Both refuel mechanisms; the runway tree tunnel + low-swoop + depot props",
-        "COMBAT framing byte-identical outside the refuel states (stateless flow.state gates); every combat win",
-        "Do NOT inflate the fireball vertically (R20 fix is white cores, not height); do NOT grow ENVELOPE_Y (refuted)",
+        "Six combat biomes; both refuel beats (runway tree tunnel + low-swoop, airborne tanker + docking)",
+        "COMBAT byte-identical outside the refuel states (proven); every combat win; the ~8 s death cycle",
+        "The wider fireball + hot cores; the sharper leaning title",
+        "Do NOT inflate the fireball vertically; do NOT grow ENVELOPE_Y; keep new camera work stateless",
     ],
     "method_note": (
-        "R19 absorbed an interruption cleanly: both build lanes finished their code, then the account hit "
-        "its session limit before they could self-report. The work was in the tree — the TL verified the "
-        "tanker against its real arcade reference (reference/stage3-reload-tanker-t165.png) and the widened "
-        "fireball by look, committed, and a fresh judge independently re-measured every surface (tanker "
-        "lifecycle, fireball width scale-matched, combat played unregressed). Nothing was lost. History in judging/R19/."
+        "R20 crossed 9.0 with four wins and zero regression — and the judge PROVED the no-regression with a "
+        "git-worktree A/B showing combat byte-identical (maxdiff 0), the same gold-standard check the R17 "
+        "framing lane used. It also caught two sampling traps (the fireball's white-hot peak is ~2 ticks; "
+        "needed --every 1 to find it) — measure at the right rate. The game is now close: every remaining "
+        "gap is detail, not absence. History in judging/R20/."
     ),
 }
 
