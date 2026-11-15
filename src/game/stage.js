@@ -1154,6 +1154,14 @@ export const STAGE_8 = {
   // read the same source of truth and no other stage is ever misread as canyon.
   canyon: true,
   canyonWalls: 'rock',
+  // R22 gap 1 — THE FLOOR BATTLEFIELD. The arcade stage-8 floor is packed with
+  // dark-olive TANKS and olive TRUCKS amid dense gold scrub (frames t=344-372;
+  // the clean t=350 read: a dark-olive tank cluster with striped tents beside it
+  // in the near-left foreground, amid gold scrub). createCanyonProps
+  // (render/ground.js) scatters these world-space props across the floor
+  // corridor, scrolling toward the camera like the walls. The scrub-tuft density
+  // (CANYON_BUSHES) is boosted in the same file to the arcade's coverage.
+  canyonProps: ['tank', 'truck', 'tent'],
   horizonFraction: 0.13, // MEASURED STAGE_MAP #120 (median/41 frames, 3.33pp stable); game.js CANYON_PITCH derives from it
   skyTop: srgbHex('#faecb0'),
   skyHorizon: srgbHex('#faecb0'),
