@@ -84,7 +84,7 @@ import { missileTexture } from './projectileSprites.js';
 // published 1.563 %W, which is the control that lets the bracket figure be
 // quoted at all -- two published numbers out of one unvalidated-until-now
 // operator, on frames chosen for neither.
-const HIT_RADIUS_FRAC = 0.026;
+const HIT_RADIUS_FRAC = 0.052; // R25: doubled -- owner wants heat-seekers that reliably HIT (was 0.026)
 
 // MAXIMUM TURN RATE, in frame-width fractions per second of LATERAL screen
 // travel.
@@ -133,7 +133,7 @@ const HIT_RADIUS_FRAC = 0.026;
 // THE CONSEQUENCE IS MEASURED, NOT ASSUMED: §1.3 of the lane report gives
 // the hit rate this produces for an aiming pilot and for a blind one, and
 // the two are no longer the same number.
-const MAX_TURN_FRAC_PER_S = 0.77;
+const MAX_TURN_FRAC_PER_S = 1.7; // R25: ~2.2x -- out-authority the launch splay + close the lateral miss (was 0.77)
 
 // A missile that has crossed its target's depth and missed goes ballistic
 // (it cannot steer at something now behind it) and recedes for this long
@@ -142,7 +142,7 @@ const MAX_TURN_FRAC_PER_S = 0.77;
 // wasted salvo does not leave six ribbons in the sky.
 const MISS_FLYOUT_S = 0.7;
 
-const HOMING_DELAY_S = 0.3; // ADOPTED: missiles run straight before homing
+const HOMING_DELAY_S = 0.12; // R25: start homing sooner (was 0.3 ADOPTED) -- owner usability directive
 const MAX_LIFE_S = 5.0; // ADOPTED
 // Speed profile. MEASURED-TO-SPEC rather than picked: GAME_SPEC.md §3 puts
 // launch -> impact at 0.5-1.5 s. The first profile (12 + 60t, cap 55) with a
@@ -155,7 +155,7 @@ const MAX_LIFE_S = 5.0; // ADOPTED
 const V0 = 7; // world depth units/s at launch
 const ACC = 28;
 const V_MAX = 46;
-const HOMING_GAIN = 1.7;
+const HOMING_GAIN = 2.8; // R25: stronger pursuit (was 1.7)
 const MAX_DEPTH = 130;
 
 // Wing pylons, in NDC relative to the player's sprite centre.
