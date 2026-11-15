@@ -1,6 +1,6 @@
 # STATUS — where the rebuild stands
 
-**Last updated**: 2026-11-15. **OWNER PLAYED IT: "pretty bad." JUDGING RECALIBRATED; real build ~5/10.** The loop is
+**Last updated**: 2026-11-15. **R25 CLOSED at 6.5 (recalibrated/honest). Missiles + sprites FIXED; the GUN is dead — R26 #1.** The loop is
 **"look first, measure second"** (CLAUDE.md, "How work happens here"; rationale in
 `judging/R12/method-retrospective.md`). Every round ships an HTML report
 (`judging/R<n>/report.html`, `python3 tools/round_report.py`) published to the standing
@@ -9,54 +9,47 @@ Repo: github.com/UriZ/after-burner-web.
 
 ## Current state
 
-> ## THE OWNER PLAYED THE 9.3 BUILD AND IT IS "PRETTY BAD." The judges drifted back into R12's
-> original failure — scoring element-by-element arcade fidelity (biomes, tanker, canyon match the
-> frames) up to 9.3 while the game is bad to PLAY. **Owner verdict (ground truth, outranks every
-> judge):** *"no missiles, no heat-seeking missiles; the UI/sprites — both my jet and the enemies —
-> are not good enough; overall pretty bad."*
->
-> **Confirmed by naive play (TL):** flying at enemies and pressing the missile button like a normal
-> player fires NOTHING — 0 locks, 0 missiles, over and over. The missile code exists (it's even a
-> heat-seeker) but is only fireable with an obscure insider move (climb to a specific NDC band, camp,
-> hold, release). **From a player's seat there are no missiles.** The R12-R16 lock-band machinery made
-> AB2's signature point-and-shoot weapon HARDER than the arcade, and every judge passed it by testing
-> DELIBERATE play, never naive play.
->
-> **JUDGING RECALIBRATED (CLAUDE.md, binding):** the score is anchored on a full NAIVE playtest (play
-> like a first-timer, no insider moves); weapons-usable + controls-feel + sprite/UI quality are scored
-> dimensions ABOVE backdrop fidelity; re-baselined so 9-10 = genuinely good to play, 5-6 = "pretty bad
-> but real content" = **where this build actually is.** Element fidelity cannot lift the score above how
-> the game plays.
+> ## RECALIBRATION WORKED. The owner played the "9.3" build and said "pretty bad" (no usable missiles,
+> weak sprites). The judging was RECALIBRATED to anchor on NAIVE play (CLAUDE.md). R25 fixed both
+> complaints and a judge playing the SAME naive way scored an honest **6.5** — not the 9.3 the old
+> frame-match judge gave the same backdrop. **Naive play then immediately found the NEXT unusable
+> weapon: the GUN is dead.** This is the exact failure the old judges missed for 15 rounds by testing
+> DELIBERATE play. Play like the owner; the owner outranks the judge.
 
-- **Real build state: ~5/10** (owner's measure). The prior 8.0→9.3 trend measured backdrop/beat
-  FIDELITY, which is genuinely high (7 biomes, both refuel beats, a structured canyon, matched
-  airframes) — but the CORE PLAY is weak: the missile is unusable, the sprites (player jet + enemies)
-  are not good enough. **Fidelity of parts ≠ a good game.**
-- **R24 judge (running when the owner's verdict arrived) used the OLD calibration — its score is
-  SUPERSEDED.** Its canyon/tanker findings (element fidelity) still stand as evidence; its number does not.
+- **R25 verdict: 6.5** (recalibrated, naive playtest) — `judging/R25/judge-report.md`,
+  `playtest-verdict.md`. Off the ~5 floor; "solid and playable with clear rough edges."
+- **R25 shipped (judge-confirmed by naive play)**: **MISSILES USABLE** — point at enemies, press,
+  heat-seekers chase them down (~70% naive hit, up from 0 fired; camp-to-lock barrier ripped out +
+  seeker strengthened: HIT_RADIUS 0.026→0.052, MAX_TURN 0.77→1.7, HOMING_DELAY 0.3→0.12, GAIN 1.7→2.8).
+  **SPRITES GOOD ENOUGH** — the player jet was an INSECT FACE (nozzles=eyes, fins=ears), redrawn to a
+  real F-14 (fuselage, canted tails, engine deck); enemy MiGs crisped to swept-wing jets. Palettes kept.
+- **R25's new #1 finding (naive play)**: **THE GUN IS DEAD** — mashing the fire button kills NOTHING
+  (0 hits/~11 turns vs 2-10 enemies, both seeds). The R11-R15 gun gated kills behind precise aim/depth
+  (the p-gate VULCAN_MIN_HIT_P, readable-span) that a naive player never meets — the SAME disease the
+  missile had. Needs the same fix: point-and-hold must kill (generous on-screen hit at the reticle).
+- **Honest build state: ~6.5/10.** Core weapons: missile FIXED, gun DEAD. Sprites good. Backdrop
+  fidelity is high (7 biomes, both refuel beats, structured canyon) but does NOT lift the score — play does.
 
-## R25 gap list — RECALIBRATION ROUND, from the owner's playtest (authoritative)
+## R26 gap list — from the R25 recalibrated judge (naive play), owner-anchored
 
-Theme: **make the core game good to PLAY.** Backdrop fidelity is ahead of the gameplay; stop widening
-and fix what the player's hands and eyes touch. Ranked by the owner's own words:
+Theme: **make the weapons work in the hands.** The missile is fixed; the gun is the mirror image of
+the bug just fixed. Ranked by naive-play impact:
 
-1. **MISSILES DO NOT WORK FOR A PLAYER — make them arcade-simple point-and-shoot heat-seekers.** AB2's
-   missile is its signature: you point the reticle at an enemy (or several), press the missile button,
-   it LOCKS what's under/near the reticle and fires HOMING missiles that chase them down. Ours requires
-   camping a lock band — a normal player fires none. **Rip out the camp-to-lock barrier:** pressing the
-   missile button should lock the enemies the reticle is on (or near, within a generous on-screen radius)
-   and fire heat-seekers that reliably home and hit. Keep the salvo/multi-lock feel. ACCEPTANCE: a naive
-   player flying at enemies and pressing X gets locks and kills within seconds, every engagement — verify
-   by NAIVE play, not band-camping. (Combat lane — weapons/lockSystem/missiles; this is the round's #1.)
-2. **THE SPRITES AREN'T GOOD ENOUGH — the player jet AND the enemies.** The owner singled out both.
-   Re-judge the player F-14 and the enemy aircraft sprites against the arcade's with fresh, critical eyes
-   (the arcade sprites are crisp, readable, characterful; ours read flat/toylike). This is an ART-QUALITY
-   pass, not a palette-number pass — make them look good and arcade-faithful. (Player-art + enemy-art lanes.)
-3. **THEN re-judge the whole feel at naive play** — once missiles work and sprites improve, does it feel
-   like AB2 in the hands? The recalibrated judge plays naively and scores the PLAY, not the frames.
+1. **THE GUN IS DEAD — FIX IT LIKE THE MISSILE (the round's #1).** A naive player mashing the fire
+   button (the obvious first weapon) kills nothing — 0 hits in ~11 turns. The gun's kill is gated behind
+   precise aim + depth (combat.js p-gate `VULCAN_MIN_HIT_P`, readable-span, the round's depth ramp) that
+   normal play never satisfies. **Make point-and-hold kill:** a generous on-screen hit at/near the
+   reticle for any enemy roughly ahead, like the R25 missile fix. ACCEPTANCE by NAIVE play: fly at
+   enemies, hold the gun, kill them — a clear kills-per-second, every engagement, multiple seeds.
+   (Combat lane — vulcan.js/combat.js.)
+2. **RE-TUNE THE MISSILE ONCE THE GUN WORKS.** The missile may be slightly too strong/easy now
+   (point-roughly clears a wave). Once the gun kills, re-balance so both have a role — gun for the
+   stream, missiles for lock-and-salvo. Don't re-cripple the missile; just give the gun its job back.
+3. **SPRITE COLOUR BALANCE (polish).** Shapes are good; the palette leans too red — pull the player off
+   heavy red toward the arcade grey-white F-14; calm the enemy hot-red cockpit. A colour pass, not a redraw.
 
-Deferred until the core plays well: the flat field biomes' structure, more stages toward 23, canyon floor
-density — all backdrop, all ahead of the gameplay already. Do NOT add content this round; fix the core.
+Deferred (backdrop, already ahead of the gameplay): flat field biomes' structure, canyon cliff/density,
+more stages. Do NOT add content — fix the weapons first.
 
 ## Hard warnings that stay load-bearing
 
