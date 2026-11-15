@@ -21,78 +21,79 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 # ---------------------------------------------------------------- ROUND DATA
 ROUND = {
-    "number": 13,
+    "number": 14,
     "date": "2026-11-15",
     "status": "CLOSED",                      # or "BUILD IN PROGRESS"
-    "score": "8.2 / 10",                     # judge score once the round closes
-    "last_score": "8.0 / 10 (R12)",
+    "score": "8.3 / 10",                     # judge score once the round closes
+    "last_score": "8.2 / 10 (R13)",
     "tldr": (
-        "R13 chased combat <em>feel</em>: the systems existed, they just didn’t behave like the "
-        "arcade in play. The jet now <em>breathes fire</em> — twin afterburner cones that answer "
-        "the throttle — the sky stays <em>alive</em> (shorter lulls, a big enemy flyby, no empty "
-        "respawn), and the <em>missile is finally usable</em> from a normal posture, if only on a "
-        "coin-flip of wave timing. It rises to 8.2. The oldest crack is still open: the gun still "
-        "kills <em>without</em> you — readable enemies swarm below the caged sight."
+        "R14 added a <em>fourth stage</em> — a green forest that reads unmistakably as the arcade’s "
+        "— and <em>halved</em> the oldest crack: a do-nothing stick now gets ~10 gun kills in 90 s, "
+        "down from ~20. It rises to 8.3. But the two combat illusion-breakers only <em>improved</em>, "
+        "they didn’t close: pointing the gun at the enemies still doesn’t out-kill a dead stick, and "
+        "a missile lock is now <em>available</em> every wave but a human still can’t always convert it. "
+        "Both trace to one keystone — the sight can’t reach where it needs to."
     ),
     "verdict": (
-        "“Two clean wins — the afterburner and a live sky — and the missile crossing from "
-        "<em>unusable</em> to <em>usable-but-intermittent</em>, while the oldest illusion-breaker, "
-        "the blind gun, stays untouched. Honest progress, not a leap.”"
+        "“Two real reproduced gains — the blind gun halved and a fourth stage — against two headline "
+        "combat illusion-breakers that improved but did not close. Pointing the gun where the planes "
+        "are still didn’t beat a dead-centre stick; the missile lock exists now but a human can’t "
+        "always convert it.”"
     ),
-    "verdict_attr": "R13 fresh-context judge · composite 8.2 (motion 8.0 · stills 8.5)",
+    "verdict_attr": "R14 fresh-context judge · composite 8.3 (motion 8.1 · stills 8.5)",
     # Side-by-side hero pairs (already composited OURS | ARCADE).
     "pairs": [
+        ("judging/R14/stage4-ours-vs-arcade.png",
+         "A fourth stage — the green forest",
+         "Shipped this round: arcade stage 4, teal sky over green forest, palette measured from the reference. Four distinct biomes now, up from three."),
         ("judging/R13/afterburner-ours-vs-arcade.png",
          "The jet breathes fire",
-         "Shipped this round: twin afterburner cones that answer the throttle and bank with the airframe — the game’s namesake, finally on the plane."),
+         "From R13 and still holding: twin afterburner cones that answer the throttle and bank with the airframe."),
         ("judging/R13/flyby-ours-vs-arcade.png",
-         "The sky is alive now",
-         "A big enemy flyby crosses the full screen, 5–6 enemies persist through the death cycle, and the longest dead stretch dropped from ~6 s to ~3.5 s."),
-        ("judging/R12/gestalt/pair5-title.png",
-         "The title is close, the letterforms aren’t",
-         "Structure, plate and accent colours match; the brush-angular wordmark and tall plate don’t. Still open."),
+         "The sky is alive",
+         "A big enemy flyby crosses the full screen; enemies persist through the death cycle. Density is still thinner than the arcade’s wall of planes — an R15 target."),
     ],
     # What shipped and held up under the judge's re-measure.
     "shipped": [
-        "The jet breathes fire — twin afterburner cones, throttle-responsive, banking with the airframe",
-        "Missile usable from a normal posture — a real salvo fires without camping the horizon (intermittent)",
-        "A big enemy flyby crosses the full screen; dead-sky lulls cut ~6 s → ~3.5 s",
-        "Enemies persist through the death cycle — no more empty respawn",
-        "A mid-range gun-dwell window (26 % → 34 % of enemies at a trackable depth)",
+        "A 4th stage — the green forest (arcade stage 4), palette measured; stages 1–3 regression-free",
+        "The blind gun HALVED — a do-nothing stick gets ~10 gun kills/90 s, down from ~20 (reproduced both seeds)",
+        "Missile lock now AVAILABLE every other wave, including the adverse seed that fired nothing before",
+        "The death-cycle argument SETTLED with data — arcade deaths re-measure at ~8.1 s, the cycle is correct",
     ],
     # Ranked gaps for NEXT round. kind drives the colour chip.
-    "gaps_label": "Next — R14",
+    "gaps_label": "Next — R15",
     "gaps": [
-        (1, "feel", "The gun still kills without you",
-         "The oldest complaint, still open: a blind centered stick with the trigger held collects ~20 gun "
-         "kills in 90 s — aiming doesn’t clearly beat it, because the readable enemies swarm the low waterline "
-         "row the caged sight can’t reach. Make aiming the gun actually cause the kill."),
-        (2, "feel", "Missiles are a coin-flip on wave timing",
-         "Usable now, but a lock only comes around on the every-fourth-wave bait — land on a bad phase (or die "
-         "first) and you fire nothing. Make a lock reachable every wave from a survivable posture."),
-        (3, "tension", "Re-measure the death cycle before touching it",
-         "Flagged as too long (~7.7 s) three rounds running, always against a single frame-pinned reading that "
-         "was never re-measured. Settle it: decode several arcade deaths at 60 Hz. If it really is ~7.7 s, the "
-         "pace problem is the tumble filling it, not the length."),
-        (4, "missing", "Breadth — 3 of 23 stages, no resupply or bonus",
-         "The biggest structural absence. Every round should keep chipping at the stage count and the missing "
-         "resupply/bonus passes."),
-        (5, "polish", "Small climaxes and the title",
-         "Kill fireballs still read sub-screen next to the arcade’s half-screen blasts; the flame is a touch "
-         "long and liquid; the title wordmark is hand-rounded where the arcade’s is brush-angular."),
+        (1, "feel", "The sight can’t reach where it needs to (the keystone)",
+         "Both combat residuals reduce to one fact: the sight can’t dip to the low close jets (gun) or climb "
+         "high enough to centre the lock cone on the bait (missile). Give it more vertical reach — but MEASURE "
+         "the arcade’s vertical sight range first (it has no arcade column yet), and check the gun actually "
+         "converts, because the judge pushed the sight down and still lost to a blind stick."),
+        (2, "feel", "The gun kills by supply, not by aim",
+         "Aiming still doesn’t out-kill a dead stick (9 vs 10 even with the sight shoved onto the enemy row). "
+         "The cap is as much target SUPPLY — too few close targets — and the wide hit net, as it is reach. "
+         "This is the same problem as density below."),
+        (3, "missing", "The sky is too even — no wall, no lull",
+         "The arcade is a wall of planes at every depth, then empties; ours holds a steady ~3–6. The burst-"
+         "then-drought rhythm is missing, and it’s also what would give the gun close targets to aim at."),
+        (4, "missing", "Breadth — 4 of 23 stages, no resupply or bonus",
+         "Four biomes now, but the resupply/bonus passes and the rest of the 23 stages remain the biggest "
+         "structural absence. Keep chipping."),
+        (5, "polish", "Forest ground, climaxes, title",
+         "The stage-4 forest reads darker/flatter than the arcade’s bright mottled canopy; kill fireballs "
+         "still read sub-screen; the title wordmark is hand-rounded where the arcade’s is brush-angular."),
     ],
     # What not to break.
     "keep": [
-        "The afterburner flame (throttle-responsive, banks with the jet, death-safe)",
-        "The flyby, the live sky, and enemies persisting through respawn",
-        "Missile usable from normal posture; islands, game-over, ±60° attract drama",
-        "Gun kills at the sight; death starburst → tumble → READY; stage 2 sunset",
+        "The 4th stage and stages 1–3 (no regression); the afterburner flame across all four",
+        "The blind-gun floor halved; missile availability every other wave; blind-pilot protection",
+        "The flyby, live sky, enemies through respawn; the game-over path; ±60° attract drama",
+        "The death cycle at ~8 s (arcade-confirmed — do NOT shorten it)",
     ],
     "method_note": (
-        "R13 ran the loop end to end with no human in it: an agent played the open, three lanes built, the "
-        "TL verified every claim by playing, and a fresh judge re-measured — catching that the ‘22–28 "
-        "salvos/min’ probe over-reads human play ~10×, and confirming an assist-cone tweak was inert. "
-        "Honest numbers over headline ones. History in judging/R13/."
+        "R14 settled a three-round-old argument with data — the ‘death cycle too long’ complaint was "
+        "re-measured on real arcade deaths (~8.1 s) and confirmed correct, so it’s closed for good. The "
+        "combat lane also declined to hack a cross-lane lever and wrote a precise ask instead, naming the "
+        "keystone the next round opens on. History in judging/R14/."
     ),
 }
 

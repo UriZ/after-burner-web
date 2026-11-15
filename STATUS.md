@@ -1,6 +1,6 @@
 # STATUS — where the rebuild stands
 
-**Last updated**: 2026-11-15. **R13 CLOSED at 8.2; R14 is open.** The loop is
+**Last updated**: 2026-11-15. **R14 CLOSED at 8.3; R15 is open.** The loop is
 **"look first, measure second"** (CLAUDE.md, "How work happens here"; rationale in
 `judging/R12/method-retrospective.md`). Every round ships an HTML report
 (`judging/R<n>/report.html`, `python3 tools/round_report.py`) published to the standing
@@ -9,60 +9,66 @@ Repo: github.com/UriZ/after-burner-web.
 
 ## Current state
 
-- **R13 verdict**: **8.2** (motion 8.0, stills 8.5) — `judging/R13/judge-report.md`. Two clean
-  wins (afterburner, live sky), the missile now usable-but-intermittent; the blind gun stays open.
-- **Score trend**: … R10 7.5 → R11 8 → R12 8.0 → **R13 8.2**.
-- **R13 shipped (judge-confirmed)**: the jet **breathes fire** (twin throttle-responsive
-  afterburner cones, bank + death safe); a **live sky** (big flyby crossing full screen, lulls
-  ~6→~3.5 s, enemies persist through the death cycle — no empty respawn); the **missile usable
-  from normal posture** (a real salvo without horizon-camping); a **mid-range gun window** (26→34 %).
-- **R13's honest limits (judge)**: missile is **coin-flip on wave timing** (lock only on the
-  every-4th-wave bait; the lane's "22–28 salvos/min" probe over-reads human play ~10×); the
-  **gun still kills without you** (blind ≈ aimed, ~20 kills/90 s — readable enemies swarm below
-  the caged sight); the ASSIST_RADIUS_FRAC 0.13→0.09 tweak is **INERT** (confirms R11 §2.1).
-- **What works end to end**: title → flight → combat → death/respawn → tally → stage 1/2/3
-  → GAME OVER / continue → restart. Throttle (now drives the flame), barrel roll, formations,
+- **R14 verdict**: **8.3** (motion 8.1, stills 8.5) — `judging/R14/judge-report.md`. Two real
+  reproduced gains (a 4th stage; the blind gun halved) vs two combat illusion-breakers that
+  improved but didn't close.
+- **Score trend**: … R11 8 → R12 8.0 → R13 8.2 → **R14 8.3**.
+- **R14 shipped (judge-confirmed)**: a **4th stage** (green forest = arcade stage 4, palette
+  measured; 1–3 regression-free); the **blind gun HALVED** (dead-centre fire-held pilot ~20→10
+  kills/90 s, reproduced both seeds); **missile availability** fixed (lock every other wave incl.
+  the adverse seed); the **death cycle SETTLED** (arcade re-measure ~8.1 s — correct, do not shorten).
+- **R14's honest limits (judge)**: aiming the gun still does **NOT** beat the blind stick (9 vs
+  10 even with the sight shoved onto the enemy row) — the cap is target **supply** + the wide hit
+  net as much as reach; the missile lock is **available** but a human still can't always **convert**
+  it (coin-flip shifted from "no bait" to "a lock a human can't reach"). Both reduce to the
+  **vertical sight-reach keystone** (`ENVELOPE_Y`).
+- **What works end to end**: title → flight → combat → death/respawn → tally → stage 1/2/3/**4**
+  → GAME OVER / continue → restart. Throttle (drives the flame), barrel roll, formations,
   lock/missiles/vulcan, afterburner, synthesized audio + FM music all run.
-- **Still absent**: 3 of 23 stages, no resupply/bonus pass, limited enemy variety. Absence
+- **Still absent**: 4 of 23 stages, no resupply/bonus pass, limited enemy variety. Absence
   outranks constant tuning.
 
-## R14 gap list — from the R13 judge's close-look (`judging/R13/judge-report.md`)
+## R15 gap list — from the R14 judge's close-look (`judging/R14/judge-report.md`)
 
-Theme: **close the combat-feel cracks R13 left open, and start on breadth.** Ranked:
+Theme: **the vertical-reach keystone + the density it depends on.** The two combat residuals
+that stayed open through R14 reduce to one knot — the sight can't reach the targets, and there
+aren't enough close targets. R15 attacks both, but **measurement-first** (one lever has no
+arcade column). Ranked:
 
-1. **THE GUN STILL KILLS WITHOUT YOU — the oldest open complaint.** A blind centered stick
-   with the trigger held gets ~20 gun kills/90 s; aiming doesn't clearly beat it, because
-   readable enemies swarm the low waterline row the caged sight can't reach, and a wide gun-
-   assist auto-converts them. **The real lever is NOT `ASSIST_RADIUS_FRAC` (R11 §2.1 + R13
-   judge both measured it INERT over 0.05–0.13).** Candidates: tighten the assist differently
-   (reachdepth/minspan), or raise the readable-enemy row toward the sight line, or gate gun
-   hits on aim like the missile. Make aiming the gun *cause* the kill. (Combat lane.)
-2. **MISSILES ARE A COIN-FLIP ON WAVE TIMING.** Usable now, but a lock only comes on the
-   every-4th-wave bait — a bad phase (or an early death) fires nothing. **Make a lock
-   reachable every wave from a survivable posture** (more frequent/parallel bait, or a second
-   routing). Keep the blind-pilot gain (blind missile kills must stay low). (Combat lane.)
-3. **~~RE-MEASURE THE DEATH CYCLE~~ — RESOLVED R14, DO NOT RE-OPEN.** Settled
-   (`judging/R14/playtest-open.md`): two arcade deaths re-measured (hit→READY-gone **8.35 s**
-   and **7.90 s**, mean **~8.1 s**) — the 7.7 s reading is **confirmed, if anything an
-   under-read.** The death cycle is arcade-correct; **do NOT shorten it** (R7 already reversed
-   a short cycle). The ~6 s tumble filling the dead time is a *content* polish item, not a
-   length bug. (`ab2-gameplay.mp4` is **30 fps native** — true 60 Hz is impossible from the
-   only deaths file; 30 Hz is ample on an 8 s interval.)
-4. **BREADTH — ~~3 of 23 stages~~ 4 of 23 now (R14 added the forest), no resupply/bonus.**
-   Still the biggest structural absence;
-   every round should chip at the stage count or a missing pass. (World + flow.)
-5. **POLISH: small climaxes, the flame, the title.** Kill fireballs read sub-screen vs the
-   arcade's half-screen blasts; the afterburner is a touch long/liquid; the title wordmark is
-   hand-rounded where the arcade's is brush-angular. (Effects / player-art / ui.)
+1. **THE SIGHT CAN'T REACH WHERE IT NEEDS TO — the keystone, but MEASURE FIRST.** Both combat
+   residuals reduce to vertical sight reach (`ENVELOPE_Y`, player.js): the sight can't dip to
+   the low close jets (gun) or climb high enough to centre the lock cone on the bait (missile).
+   **`ENVELOPE_Y` has NO arcade column** — so R15 opens by MEASURING the arcade's vertical sight
+   range (where the sight sits in level flight, full climb, full dive; STATUS/R11 notes two
+   frames show the arcade sight BELOW the airframe). Only then tune. **Caveat from the R14 judge:
+   more down-reach is the clean fix for the MISSILE but may NOT make the gun win** — he pushed
+   the sight onto the enemy row and still lost 9 vs 10. Verify the gun actually converts before
+   committing the gun to the envelope. (Player lane + a measurement pass.)
+2. **THE GUN KILLS BY SUPPLY, NOT BY AIM.** Aiming still doesn't out-kill a dead stick. The cap
+   is as much target **supply** (too few close targets) + the wide span-scaled hit net as it is
+   reach. This is the same knot as gap 3 — more close targets to aim at is part of the fix.
+   `HIT_RADIUS_SPAN_MULT` is the forbidden lever (visible centred hits must register); the
+   supply side is the spawner's. (Combat lane, coupled with gap 3.)
+3. **THE SKY IS TOO EVEN — NO WALL, NO LULL.** The arcade is a wall of planes at every depth,
+   then empties; ours holds a steady ~3–6. Build the **burst-then-drought** rhythm (R10 measured
+   the arcade killing 3 in 0.367 s then a 3.1 s drought). This both reads as AB2 *and* gives the
+   gun its close targets. Mind R9: the arcade AVERAGES only ~19 % density — the fix is variance,
+   not more enemies everywhere. (Combat/spawner lane.)
+4. **BREADTH — 4 of 23 stages, no resupply/bonus pass.** Keep chipping: another stage, or the
+   iconic resupply/refuel interstitial. (World + flow.)
+5. **POLISH: the forest ground, climaxes, the title.** Stage-4 ground is darker/flatter than the
+   arcade's bright mottled canopy; kill fireballs read sub-screen; the title wordmark is
+   hand-rounded where the arcade's is brush-angular. (World / effects / ui.)
 
-**Kept as positives (do not regress):** the afterburner flame (throttle-responsive, banks,
-death-safe); the flyby + live sky + enemies persisting through respawn; the missile usable
-from normal posture; gun-at-the-sight; islands/game-over/±60° attract; stage 2 sunset.
+**Kept as positives (do not regress):** the 4th stage + stages 1–3; the afterburner flame; the
+blind-gun floor halved; missile availability every other wave + blind-pilot protection; the
+flyby/live sky/enemies-through-respawn; game-over; ±60° attract; **the death cycle at ~8 s
+(arcade-confirmed — do NOT shorten).**
 
 **Carried interfaces** (`judging/R12/flow-asks.md`): a `gameOver` SFX (audio), a stage-
-transition cross-fade on sky/ground `setStage` (world) for the 1→2 hard cut. Record R13's
-lock-bait + flyby as **ADOPTED R13** in GAME_SPEC §4. **Capture caveat**: the combat p-gate
-makes `demo=2` under-read gun explosions — use `?combatexpl=1` and an aiming pilot (or play).
+transition cross-fade on sky/ground `setStage` (world). Record R13's lock-bait + flyby and
+R14's stage 4 as **ADOPTED** in GAME_SPEC §4. **Capture caveat**: the combat p-gate makes
+`demo=2` under-read gun explosions — use `?combatexpl=1` and an aiming pilot (or play).
 
 ## Hard warnings that stay load-bearing
 
