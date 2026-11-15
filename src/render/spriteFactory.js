@@ -803,18 +803,26 @@ const FLAME_CORE_X = [12, 36];
 const FLAME_TOP_Y = 3; // nozzle end; cones grow downward (aft) from here
 // Warm flame ramp, hottest at the nozzle. Hot core white-yellow -> yellow ->
 // orange (the airframe's own `flame` #ff7300) -> deep red at the cone tip.
+// R15 polish (R14 judge: the flame was "a touch long and liquid"). The arcade
+// afterburner (judging/R13/jx-afterburner-L-level.png / -H-bank.png) is CRISP:
+// short fat bright teardrops at low speed, longer but still clean two-cone
+// plumes at high -- yellow/orange body dominant, a THIN red rim and a short red
+// tip, never a long red liquid tail. So the two inner layers are widened (they
+// fill more of the cone, pushing red to a rim) and the cone is shortened/
+// rounded below -- see buildFlameTexture's len/bulge and the ramp lf bumps.
 const FLAME_RAMP = [
-  { color: '#c42400', wf: 1.0, lf: 1.0 }, // deep red, full cone
-  { color: '#ff7300', wf: 0.74, lf: 0.82 }, // orange body (== airframe flame)
-  { color: '#ffd600', wf: 0.5, lf: 0.56 }, // yellow
-  { color: '#fff2c5', wf: 0.28, lf: 0.3 }, // hot white-yellow core at the nozzle
+  { color: '#c42400', wf: 1.0, lf: 1.0 }, // deep red: thin rim + short tip, NOT a long tail
+  { color: '#ff7300', wf: 0.82, lf: 0.9 }, // orange body (== airframe flame), now fills most of the cone
+  { color: '#ffd600', wf: 0.58, lf: 0.64 }, // yellow, carried further down for a brighter read
+  { color: '#fff2c5', wf: 0.34, lf: 0.36 }, // hot white-yellow core at the nozzle
 ];
 
-// One nested-kite cone: a teardrop pinned at (cx, yTop) that bulges at ~30% of
-// its length and tapers to a point. Layers are drawn largest (red) to smallest
-// (white), all sharing yTop, so downstream cools red and the nozzle end stays
-// white-hot. `flick` offsets the tip sideways to animate a live, guttering
-// flame between frames.
+// One nested-kite cone: a teardrop pinned at (cx, yTop) that bulges at ~24% of
+// its length (R15: raised from 30% for a rounder, tighter teardrop closer to
+// the arcade's) and tapers to a point. Layers are drawn largest (red) to
+// smallest (white), all sharing yTop, so downstream cools red and the nozzle
+// end stays white-hot. `flick` offsets the tip sideways to animate a live,
+// guttering flame between frames.
 function drawFlameCone(buf, cx, yTop, len, halfW, flick) {
   for (const { color, wf, lf } of FLAME_RAMP) {
     const l = len * lf;
@@ -824,9 +832,9 @@ function drawFlameCone(buf, cx, yTop, len, halfW, flick) {
       buf,
       [
         [cx, yTop],
-        [cx - hw, yTop + l * 0.3],
+        [cx - hw, yTop + l * 0.24],
         [cx + tip, yTop + l],
-        [cx + hw, yTop + l * 0.3],
+        [cx + hw, yTop + l * 0.24],
       ],
       color
     );
@@ -844,15 +852,22 @@ function buildFlameTexture({ len, halfW, flick }) {
   return bufferToTexture(buf);
 }
 
-// Two authored flicker frames: a long narrow plume and a shorter, fatter,
-// tip-flicked one. player.js cycles them and jitters scale on top, so the
-// flame never reads as a static decal. Returns a transparent, non-depth-writing
-// sprite (the airframe behind it owns the depth buffer -- see createJetSprite's
-// alphaTest note) carrying the frames on userData for the caller to swap.
+// Two authored flicker frames: a slightly longer narrower plume and a shorter,
+// fatter, tip-flicked one. player.js cycles them and jitters scale on top, so
+// the flame never reads as a static decal. Returns a transparent, non-depth-
+// writing sprite (the airframe behind it owns the depth buffer -- see
+// createJetSprite's alphaTest note) carrying the frames on userData for swap.
+//
+// R15 polish: both cones SHORTENED (len 50/40 -> 38/30, now 0.63/0.50 of the
+// FLAME_H=60 canvas vs 0.83/0.67) and fattened (halfW 8/9.5 -> 9/10.5) so they
+// read as crisp teardrops rather than a long liquid flame, and the flicker tip
+// wander is halved (2.5 -> 1.4) to firm up the guttering. The throttle length
+// ramp (player.js FLAME_LEN_BY_THROTTLE) is untouched, so L/M/H still open the
+// plume -- this only changes the authored SHAPE the ramp scales.
 export function createAfterburnerFlame() {
   const frames = [
-    buildFlameTexture({ len: 50, halfW: 8, flick: 0 }),
-    buildFlameTexture({ len: 40, halfW: 9.5, flick: 2.5 }),
+    buildFlameTexture({ len: 38, halfW: 9, flick: 0 }),
+    buildFlameTexture({ len: 30, halfW: 10.5, flick: 1.4 }),
   ];
   const material = new THREE.SpriteMaterial({
     map: frames[0],

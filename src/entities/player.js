@@ -197,6 +197,25 @@ export const ENVELOPE_X = 0.733;
 // three decimals (27.017 %H against the 27.02 written above), including
 // through a real KeyboardEvent on the page's own window rather than only
 // through __setStick — the two agree to 0.000000 NDC.
+//
+// R15 — THE "SIGHT CAN'T REACH" KEYSTONE WAS REFUTED; NEITHER RAIL MOVES.
+// R15 opened on the premise that both combat residuals reduce to this envelope
+// being too small (sight "tops at +0.40 climbing, rests +0.30, resting cone
+// +0.537", bait only grazed). That arithmetic used the STALE +0.106 player
+// ceiling and assumed neutral playerNdc.y = 0. Re-measured against combat's own
+// live hooks (three agents, identical numbers): at x=0, settled,
+//   neutral  sight +0.188 (player -0.112), rest-cone top 0.425
+//   full UP  sight +0.760 (player +0.460)  -- OVERSHOOTS the bait (0.44-0.58)
+//   full DN  sight -0.246 (player -0.546),  cone bottom -0.483
+// __combatDebug playerNdc.y == __flowState jetNdcY == __sight().ndcY - 0.30 to
+// 5 decimals (tools/out/player-r15/measure_reach.mjs). Our sight travel (+0.76
+// climb / -0.25 dive) already OVER-reaches the arcade's measured +0.62 / -0.18
+// (judging/R15/playtest-open.md); growing it moves AWAY from the arcade. Locks
+// and a 6-missile salvo were converted in by-eye play; the missile's real
+// blocker is execution UX (climb-to-lock draws fire; hold/release is non-
+// obvious) and the gun's is target supply + the span hit net -- both combat's
+// lanes, not this envelope. Full working: judging/R14/combat-asks.md (corrected
+// header) and judging/R15/playtest-open.md.
 export const ENVELOPE_Y_UP = 1.55;
 export const ENVELOPE_Y_DOWN = 1.1;
 
