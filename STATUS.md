@@ -1,6 +1,6 @@
 # STATUS — where the rebuild stands
 
-**Last updated**: 2026-11-15. **R22 CLOSED at 9.2; R23 is open.** The loop is
+**Last updated**: 2026-11-15. **R23 CLOSED at 9.3; R24 is open.** The loop is
 **"look first, measure second"** (CLAUDE.md, "How work happens here"; rationale in
 `judging/R12/method-retrospective.md`). Every round ships an HTML report
 (`judging/R<n>/report.html`, `python3 tools/round_report.py`) published to the standing
@@ -9,62 +9,64 @@ Repo: github.com/UriZ/after-burner-web.
 
 ## Current state
 
-- **R22 verdict**: **9.2** (motion 9.1, stills 9.2) — `judging/R22/judge-report.md`. The canyon floor
-  battlefield landed; close play surfaced the canyon's real next problems (dark/tunnel + aiming).
-- **Score trend**: … R19 8.9 → R20 9.0 → R21 9.1 → **R22 9.2**.
-- **R22 shipped (judge-confirmed)**: the **canyon floor BATTLEFIELD** — tanks, tents, boulders/scrub on
-  what was bare ochre (reusing depot props), combat still readable; the **tanker fin bolder/swept** +
-  wings dropped (docking byte-identical). **ZERO regression** (stage-1 A/B maxdiff 0; all biomes + both
-  refuel beats render).
-- **R22's KEY FINDING (pre-existing since R21, surfaced by close play — refutes R21's "canyon combat
-  indistinguishable from open")**: the canyon reads as a **DARK TUNNEL** — near wall masses balloon over
-  the CENTRE and blot the sky, swallowing jet+enemies in a brown blur (arcade is bright/open); and
-  **canyon AIMING is degraded** — identical play gives 6 locks on stage 1 vs 0-1 in the canyon, the sight
-  rails ~0.2 NDC off-centre. The low-camera sight retracking broke the canyon's aim/lock geometry. These
-  are R23's #1 and #2.
-- **What works end to end**: title → flight → combat → death/respawn → tally → **7 combat biomes** +
-  runway refuel 5/13 + airborne tanker 3/9 → GAME OVER / continue → restart. All combat systems (full
-  elsewhere; lock-suppressed in the canyon), both refuel beats, afterburner, lock cue, wider fireball + hot cores, FM music.
-- **Still absent**: the canyon needs OPENING + an aiming fix (headline biome, partially broken in play);
-  the flat field biomes (14/16) need structure; ~7 of ~23 biomes.
+- **R23 verdict**: **9.3** (motion 9.3, stills 9.3) — `judging/R23/judge-report.md`. Both R22 canyon
+  breaks fixed (opened/lightened + aiming at parity); tanker airframe finished; zero regression; a criterion retired.
+- **Score trend**: … R20 9.0 → R21 9.1 → R22 9.2 → **R23 9.3**.
+- **R23 shipped (judge-confirmed)**: the canyon is **OPEN + BRIGHT** (walls to flanks, cream sky across
+  the centre 4.3%→19.6%, no near wall swallows the middle); **canyon AIMING FIXED** (a camera roll-axis
+  bug had railed the sight to -0.70 off the enemies — now centered, locks at parity: canyon 5 vs stage-1 4);
+  the **tanker airframe is finished** (measured swept-wedge wings + the bold fin). **ZERO regression**
+  (stage-1 A/B maxdiff 0, roll-axis fix canyon-gated).
+- **R23's criterion retirement**: the R22 judge's "drooping/anhedral" tanker-wing wording is **RETIRED** —
+  the tanker lane measured the arcade (wingtips sit ABOVE the root by +0.065H, the OPPOSITE of droop) and
+  built the correct swept wedge; the judge independently confirmed. The 4th retired criterion of the new era.
+- **What works end to end**: title → flight → combat → death/respawn → tally → **7 combat biomes (canyon
+  now open + aimable)** + runway refuel 5/13 + airborne tanker 3/9 (finished airframe) → GAME OVER /
+  continue → restart. All combat systems (full everywhere now, incl. the canyon), both refuel beats,
+  afterburner, lock cue, wider fireball + hot cores, FM music.
+- **Still absent**: the canyon needs tall CLIFF walls (reads as open desert w/ rocky hills vs the arcade's
+  sheer corridor) + a denser floor; the flat field biomes (14/16) need structure; ~7 of ~23 biomes.
 
-## R23 gap list — from the R22 judge's close-look (`judging/R22/judge-report.md`)
+## R24 gap list — from the R23 judge's close-look (`judging/R23/judge-report.md`)
 
-Theme: **FIX THE CANYON — open it and make it aimable.** Close play revealed the headline biome is
-partially broken: too dark/tunnel-like, and you can barely lock in it. That outranks new content. Ranked:
+Theme: **finish the canyon (cliffs + density), then give the flat biomes structure.** The canyon is open
+and aimable now; the last canyon tells are the wall SHAPE and floor density. Ranked:
 
-1. **OPEN AND LIGHTEN THE CANYON — it reads as a dark tunnel.** The dominant canyon tell: near-field wall
-   masses balloon over the CENTRE and blot out the sky, swallowing the jet + enemies in a brown blur,
-   where the arcade is BRIGHT and OPEN (cream sky #faecb0 showing between flanking walls). Pull the walls
-   back to the flanks; **CAP how large/close a near wall mass can get** (it must NEVER swallow the centre);
-   let the measured cream sky show. Reference the arcade stage-8 frames (ab2-longplay t=344-372 — bright,
-   walls to the SIDES). (World: ground.js canyon geometry; possibly the game.js low-camera amount.)
-2. **FIX CANYON AIMING — you can barely lock in there.** Identical stick play gives 6 locks on stage 1 vs
-   0-1 in the canyon, and the sight rails ~0.2 NDC OFF-CENTRE from the enemy cluster (x≈0). The R21
-   low-camera sight retracking (combat.space.base + refresh gated on the canyon) degraded the aim/lock
-   geometry. **Trace it** — the headline biome needs the missile loop working like the open stages. Keep
-   the fix STATELESS and prove combat still byte-identical OUTSIDE the canyon. (Combat/camera: game.js
-   canyon ScreenSpace retracking + weapons if the sight offset is there.)
-3. **DENSIFY THE CANYON FLOOR.** Ours is ~1-2 vehicles/frame vs the arcade's ~3 tanks + tents + 15-20
-   scrub wall-to-wall. Raise prop/scrub counts (combat readability held in R22, so there's room). (World.)
-4. **GIVE THE FLAT FIELD BIOMES (14/16) REAL STRUCTURE** — once the canyon's own issues are fixed so the
-   wall+low-camera pattern is sound to copy. (World + a game.js horizon gate.)
-5. **LOOSE ENDS.** Tanker wings still near-flat; STAGE_8 scrollSpeed ADOPTED (certify); tree tunnel sparse;
-   blind gun floor ~8-12 (structural).
+1. **GIVE THE CANYON TALL VERTICAL CLIFF WALLS — a corridor, not rocky hills.** It's bright/open now, but
+   ours reads as open desert with rocky HILLS along the edges; the arcade boxes a NARROW CORRIDOR with
+   SHEER walls rising floor-to-top on both flanks. Raise the flanks into real cliffs — BUT keep the centre
+   open (do NOT re-create R22's dark tunnel; the walls stay on the SIDES, tall but not leaning over the
+   centre). Reference the arcade stage-8 frames (ab2-longplay t=344-372 — sheer side walls, open bright
+   corridor). (World: ground.js canyon wall geometry.)
+2. **DENSIFY THE CANYON FLOOR TO WALL-TO-WALL.** Ours is ~1-2 vehicles + scattered scrub vs the arcade's
+   ~3 tanks + tents + 15-20 scrub packed wall-to-wall. Raise the prop/scrub counts (combat is aimable over
+   it now, so there's room). (World: ground.js canyon props.)
+3. **GIVE THE FLAT FIELD BIOMES (14/16) REAL STRUCTURE.** The gold-dusk field (14) and blue water/city (16)
+   are still flat open fields. The canyon's wall + low-camera + props pattern is SOUND now — copy it to
+   14/16 (MEASURE each biome's horizon/structure from its arcade frames; keep any low camera stateless).
+   (World + a game.js horizon gate.)
+4. **KEEP WIDENING TOWARD 23.** ~7 of ~23 biomes. More measured biomes/set-pieces after the canyon finish
+   + field-biome structure. (World + flow.)
+5. **LOOSE ENDS.** The tanker wing up-sweep (0.038H) is shallower than the arcade's measured 0.065H — deepen
+   for a full match (render/tanker.js); STAGE_8 scrollSpeed ADOPTED (certify); the tree tunnel is still
+   sparse; the blind gun floor ~8-12 (structural span-scaled net).
 
-**Kept as positives (do not regress):** the canyon floor battlefield + the structured canyon walls; both
-refuel beats (runway tree tunnel + low-swoop + depot props, airborne tanker + docking + bolder fin); the
-upright title block; seven combat biomes; **COMBAT byte-identical outside the refuel/canyon camera states
-(proven maxdiff 0)**; every combat win on the OPEN stages (aim-beats-blind, the missile loop + grace
-window + pips + naive-climb first lock, the burst wall); the wider fireball + hot cores; the ~8 s death
-cycle. **Keep new camera work STATELESS** (prove byte-identical outside); **do NOT grow `ENVELOPE_Y`**.
+**Kept as positives (do not regress):** the OPEN canyon + its FIXED aiming (locks at parity) + the floor
+battlefield; **COMBAT byte-identical outside the refuel/canyon camera states (proven maxdiff 0)**; both
+refuel beats (runway tree tunnel + low-swoop, airborne tanker + docking + the FINISHED airframe); the
+upright title block; seven combat biomes; every combat win; the wider fireball + hot cores; the ~8 s death
+cycle. **Do NOT re-tunnel the canyon** (walls stay on the flanks, centre open); **keep new camera work
+STATELESS** (prove byte-identical outside); **do NOT grow `ENVELOPE_Y`**.
+
+**Retired criteria (do not tune to these):** the tanker-wing "drooping/anhedral downsweep" (R23 — the
+arcade's tips sit ABOVE the root; correct target is a deep-root → high-thin-tip swept wedge). Plus the
+pre-R12 ledger in REFERENCE.md.
 
 **Carried interfaces** (`judging/R12/flow-asks.md`): a `gameOver` SFX + `resupply`/`airrefuel` landing
-cues (audio). Record ADOPTED in GAME_SPEC: all R16-R22 beats. **Capture caveat**: the combat p-gate makes
-`demo=2` under-read gun explosions — use `?combatexpl=1` and an aiming pilot (or play). **Framing note**:
-the canyon low camera is a stateless per-stage game.js gate retracking combat ScreenSpace — R23's aiming
-fix must stay stateless and prove byte-identical outside. **Measurement note**: telemetry can pass a biome
-the eyes/hands fail — the R22 judge caught the canyon's lock-suppression by PLAYING it, not by the counter.
+cues (audio). Record ADOPTED in GAME_SPEC: all R16-R23 beats. **Capture caveat**: the combat p-gate makes
+`demo=2` under-read gun explosions — use `?combatexpl=1` and an aiming pilot (or play). **Measurement
+note**: telemetry can pass a biome the eyes/hands fail (R22 caught the canyon lock-suppression by PLAYING);
+and a criterion can be wrong — check it against the arcade before tuning (R23 retired the anhedral wording).
 
 ## Hard warnings that stay load-bearing
 
