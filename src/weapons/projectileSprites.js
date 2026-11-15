@@ -91,7 +91,17 @@ export const SHOT_CORE = '#ffd673'; // sampled #ffd570
 export const SHOT_BODY = '#ff7331'; // sampled #ff7733
 export const SHOT_RIM = '#941010'; // sampled #941114
 const SHOT_EDGE = '#e66b63'; // sampled #e96c63
-export const SHOT_PALETTE = [SHOT_EDGE, SHOT_RIM, SHOT_BODY, SHOT_CORE];
+// R29 — a hot near-white centre pip, for READABILITY. The R29 judge's #1 gap
+// is "you never feel shot at": the round rendered as a tiny dark-dominated
+// dot that vanished into the sky/explosion/HUD clutter, so the AB2 "weave
+// through a hail of fire" loop read as absent (judging/R29/crop_enemyfire.png).
+// This is the SAME hot tone the telegraph flare already uses (telegraph.js
+// T_HOT), so the warning glyph and the round it predicts share their hottest
+// colour — the player learns one threat colour, not two. Ladder-valid:
+// ff=255, f7=247, ce=206 are all on SEGA_LADDER (pixelTexture.js), so
+// fx_palette_probe's ladder assertion still passes.
+const SHOT_HOT = '#fff7ce';
+export const SHOT_PALETTE = [SHOT_EDGE, SHOT_RIM, SHOT_BODY, SHOT_CORE, SHOT_HOT];
 
 function drawEnemyShot(ctx, w, h) {
   const cx = w / 2;
@@ -103,10 +113,23 @@ function drawEnemyShot(ctx, w, h) {
     ctx.fill();
   };
   // Oval, wider than tall, per "oval fireballs" and the t330 crop.
-  ell(w * 0.5, h * 0.44, SHOT_EDGE);
-  ell(w * 0.44, h * 0.38, SHOT_RIM);
-  ell(w * 0.33, h * 0.27, SHOT_BODY);
-  ell(w * 0.17, h * 0.14, SHOT_CORE);
+  //
+  // R29 — RE-WEIGHTED FOR BRIGHTNESS. Same five-ring fireball and the same
+  // measured dark-red identity rim, but the dark half no longer dominates.
+  // Before, the dark-red RIM ran out to 0.44/0.38 radius and the pale-gold
+  // core was a 0.17 speck, so the sprite was mostly dark red and a 7px round
+  // read as a dim brown dot. Now the dark rim is a THIN ring (0.46->0.42) kept
+  // only for its identifying edge, and the hot orange body + pale-gold core
+  // own the interior: core radius 0.17 -> 0.28 (~2.7x the area), body 0.33 ->
+  // 0.40, with a near-white hot pip at the centre. The fireball now reads as a
+  // hot pale-gold/orange ball with a dark edge, not a dark ball with a gold
+  // dot. The oval shape, the colour family and the identifying dark rim are
+  // unchanged; only how much of the sprite each role covers moved.
+  ell(w * 0.50, h * 0.46, SHOT_EDGE); // salmon halo, thin outer
+  ell(w * 0.46, h * 0.42, SHOT_RIM);  // dark-red identity ring, thin
+  ell(w * 0.40, h * 0.36, SHOT_BODY); // orange body, enlarged
+  ell(w * 0.28, h * 0.26, SHOT_CORE); // pale-gold hot core, enlarged
+  ell(w * 0.13, h * 0.12, SHOT_HOT);  // near-white centre pip
 }
 
 // --- Missile body ----------------------------------------------------------

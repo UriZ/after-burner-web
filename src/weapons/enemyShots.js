@@ -180,8 +180,20 @@ const PASS_DEPTH = 1.6; // retire once it has gone by
 // lever this file's own sweep spent itself on. See judging/R10/lane-envelope.md
 // for the arithmetic and the cross-lane ask. What this change does is stop us
 // drawing a size the arcade never draws.
-const FRAC_FAR = 0.014; // 4.5 px of 320 — the arcade's own p10 round width
-const FRAC_NEAR = 0.024; // 7.7 px of 320, the measured near-end size
+// R29 — bumped for READABILITY (the judge's #1 gap: "you never feel shot
+// at" — the rounds were tiny dots lost in the clutter). Both ends stay inside
+// the arcade's OWN measured round-width envelope (3.74-10.58 native px, p10
+// 4.36, median 6.85, p90 8.50; the stage-7 t330 train, 48 rounds — see the
+// long note above). FRAC_FAR 0.014 -> 0.018 lifts the far end off the p10
+// floor (4.5 -> 5.8 px) so a round is already legible when it is fired, and
+// FRAC_NEAR 0.024 -> 0.031 pushes the near end from the median (7.7 px) up
+// toward the arcade's own p90/max (9.9 px, below the 10.58 px max) so a
+// closing round reads as a real inbound fireball. This is a SPRITE-SIZE
+// change only: the player hit test (combat.js checkPlayerHit) uses the shot's
+// aim LINE and the fixed PLAYER_HIT_RADIUS_FRAC, never the drawn width, so
+// nothing here touches lethality — verified unchanged on fairness_probe.
+const FRAC_FAR = 0.018; // 5.8 px of 320 — between the arcade's p10 and median
+const FRAC_NEAR = 0.031; // 9.9 px of 320 — near the arcade's p90/max near-end
 
 export class EnemyShots {
   constructor(scene, space) {
