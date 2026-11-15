@@ -466,13 +466,22 @@ const ROLL_COOLDOWN_S = 0.3; // guards against re-triggering off the same stick 
 // +-0.15) and its hot cores pinned to the nozzle line, with the cones growing
 // DOWNWARD (aft, in the astern view) as throttle opens.
 const FLAME_SCALE_X = 0.46; // local scale.x -> world width ~1.25, cones at ~+-0.15
-const FLAME_BASE_SCALE_Y = 0.5; // local scale.y at mid throttle before flicker/throttle
+// R27b — SHORTER PLUME. 0.5 gave a long cone (up to 0.71 at full throttle);
+// because the airframe's drawn nozzles move around their cell differently in
+// each hand-authored bank/roll pose, a long plume's far body swung clear of the
+// tail on the hard LEFT bank and mid-roll -- the residual detachment the owner
+// still saw after the follow fix. A compact plume anchored at the nozzle line
+// cannot visibly separate however the pose rotates, and the arcade afterburner
+// is itself a short bright stub, not a liquid tail (R14 judge's "long and
+// liquid" note). 0.34 keeps a clear flame without the swing.
+const FLAME_BASE_SCALE_Y = 0.34; // local scale.y at mid throttle before flicker/throttle
 const FLAME_TOP_LOCAL_Y = -0.02; // the flame's TOP edge is pinned here (over the nozzle discs)
 const FLAME_LOCAL_Z = 0.06; // in FRONT of the airframe so the cores glow over the dark nozzle rings
 // Throttle L/M/H -> plume length and intensity. The arcade afterburner visibly
 // lengthens and brightens with speed; this is what makes the throttle verb
-// (near-decorative until now) read on the aircraft itself.
-const FLAME_LEN_BY_THROTTLE = [0.62, 1.0, 1.42];
+// (near-decorative until now) read on the aircraft itself. R27b trimmed the
+// top end (was 1.42) so even full throttle stays a compact, attached stub.
+const FLAME_LEN_BY_THROTTLE = [0.68, 1.0, 1.26];
 const FLAME_OPACITY_BY_THROTTLE = [0.8, 0.92, 1.0];
 const FLAME_FLICKER_FPS = 13; // frame-swap rate between the two authored cone shapes
 const FLAME_JITTER_HZ = 38; // scale-jitter rate layered on top of the frame swap

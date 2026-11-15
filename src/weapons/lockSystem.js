@@ -111,7 +111,22 @@ const LOCK_INTERVAL_S = 0.10; // locks accumulate while the button is held
 // depth-band geometry bug, fixed in R12, not an acquire-time problem). Paired
 // with the tightened cone (LOCK_RADIUS_FRAC) so the beat is spent AIMING, not
 // waiting on a target that was never under the sight.
-const LOCK_ACQUIRE_S = 0.4;
+// R27b — OVERSHOT, CORRECTED FROM THE OWNER'S CHAIR. 0.40 s + the 0.18 cone
+// below made missiles stop firing in real play: a hand-flown stick wavers, and
+// the hard RESET at line ~600 wiped the whole 24-frame beat the instant the
+// sight left the cone, so a lock almost never completed. The owner asked for
+// the lock to be EARNED, not UNACHIEVABLE. 0.25 s (~15 frames) is still a clear,
+// watchable targeting beat -- harder than the old 0.12 s "instant" -- but it
+// completes for a player who points at an enemy and holds roughly on it,
+// especially now that a brief waver DECAYS the beat instead of zeroing it
+// (ACQUIRE_DECAY_MULT, used below).
+const LOCK_ACQUIRE_S = 0.25;
+// How fast the acquire beat bleeds back DOWN while the sight is off the
+// candidate, as a multiple of the build rate. 1.5 means a 0.1 s waver costs
+// 0.15 s of progress -- forgiving of hand-flown jitter, not free. This is the
+// fix that actually makes the lock usable; the acquire-time number alone did
+// not, because a hard reset turns any tremor into "no lock, ever."
+const ACQUIRE_DECAY_MULT = 1.5;
 // R26 — THE ACQUIRE SNAP. The box SIZE converges from this multiple of its
 // final size down to 1.0 over the acquire, so the player sees the sight close
 // onto the target (a "reticle locking in"), then it tracks at final size. This
@@ -302,7 +317,11 @@ const ARM_FRAC_TRACK = 3.5 / 16.5;
 // sight has to be ON the target's heading, not merely pointed at the same half
 // of the screen. This is the arcade's own "crosshair NEAR the enemy" skill,
 // restored without going back to the 0.083 cone R12 proved was unreachable.
-const LOCK_RADIUS_FRAC = 0.18;
+// R27b — 0.18 was part of the "missiles won't fire" overshoot (see
+// LOCK_ACQUIRE_S). 0.26 still makes the player AIM -- well under the old
+// whole-screen 0.33 -- but gives a hand-flown stick enough margin to hold the
+// candidate in the cone through the acquire beat.
+const LOCK_RADIUS_FRAC = 0.26;
 // Lockable depth window.
 //
 // R12 -- THE NEAR EDGE WAS UNREACHABLE BY A PLAYER AND IS BROUGHT DOWN TO
@@ -597,13 +616,33 @@ export class LockSystem {
         // at whatever is momentarily nearest is not acquiring anything. The
         // skill is still priced -- sweeping OFF the target still costs the
         // progress -- it is just no longer charged for traffic moving past.
-        if (this.acquiring && !this._lockable(this.acquiring.enemy, aim)) this.acquiring = null;
+        // R27b — DECAY, not hard reset. The old line zeroed `acquiring` the
+        // instant the sight left the cone; on a hand-flown stick that turned
+        // every tremor into "lock never completes" and the owner saw no
+        // missiles. Now: if the sight is still on the candidate, the beat
+        // builds; if it drifts off, we first check whether the player is
+        // deliberately re-aiming at a DIFFERENT in-cone enemy (switch, fresh
+        // beat) and otherwise DECAY the beat (a brief waver costs some progress,
+        // not all of it). The skill is still priced -- sweeping fully off and
+        // staying off bleeds the beat to zero in ~LOCK_ACQUIRE_S/DECAY_MULT.
+        if (this.acquiring) {
+          if (this._lockable(this.acquiring.enemy, aim)) {
+            this.acquiring.t += dt;
+          } else {
+            const next = this._nearestLockable(enemies, aim);
+            if (next && next !== this.acquiring.enemy) {
+              this.acquiring = { enemy: next, t: 0 };
+            } else {
+              this.acquiring.t -= dt * ACQUIRE_DECAY_MULT;
+              if (this.acquiring.t <= 0) this.acquiring = null;
+            }
+          }
+        }
         if (!this.acquiring) {
           const next = this._nearestLockable(enemies, aim);
           if (next) this.acquiring = { enemy: next, t: 0 };
         }
         if (this.acquiring) {
-          this.acquiring.t += dt;
           if (this.acquiring.t >= LOCK_ACQUIRE_S) {
             this.locks.push(this.acquiring.enemy);
             this.lockFlash.set(this.acquiring.enemy, LOCK_FLASH_S);

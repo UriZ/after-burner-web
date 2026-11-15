@@ -12,11 +12,12 @@ import { createServer } from 'vite';
 import puppeteer from 'puppeteer';
 
 const argv = process.argv.slice(2);
-const args = { seed: 7, secs: 20, urlParams: '' };
+const args = { seed: 7, secs: 20, urlParams: '', jitter: 0 };
 for (let i = 0; i < argv.length; i++) {
   const a = argv[i];
   if (a === '--seed') args.seed = Number(argv[++i]);
   else if (a === '--secs') args.secs = Number(argv[++i]);
+  else if (a === '--jitter') args.jitter = Number(argv[++i]);
   else if (a === '--url-params') args.urlParams = argv[++i];
 }
 
@@ -45,7 +46,7 @@ try {
   await page.waitForFunction('window.__frameReady === true', { timeout: 10000 });
 
   const ticks = Math.floor(args.secs * 60);
-  const out = await page.evaluate((ticks) => {
+  const out = await page.evaluate(({ ticks, JITTER }) => {
     const log = [];
     let firstLockTick = null;
     let firstLaunchTick = null;
@@ -73,10 +74,13 @@ try {
         const errX = target.ndcX - sight.ndcX;
         const errY = target.ndcY - sight.ndcY;
         const K = 4.0;
-        sx = Math.max(-1, Math.min(1, K * errX));
-        // Sight moves with the nose; +stick.y pitches the nose UP (sight ndcY
-        // up). Drive toward the target's ndcY.
-        sy = Math.max(-1, Math.min(1, K * errY));
+        // JITTER simulates a hand-flown stick: a real player does not hold the
+        // sight pixel-perfect on the target, they hover around it. Deterministic
+        // (seeded by tick), no Math.random (banned in this env).
+        const jx = JITTER * Math.sin(i * 0.9 + 1.3);
+        const jy = JITTER * Math.sin(i * 1.27 + 0.4);
+        sx = Math.max(-1, Math.min(1, K * errX + jx));
+        sy = Math.max(-1, Math.min(1, K * errY + jy));
       }
       window.__setStick({ x: sx, y: sy, missile: true, throttleIndex: 1 });
       window.__step(1);
@@ -114,7 +118,7 @@ try {
       finalStock,
       log,
     };
-  }, ticks);
+  }, { ticks, JITTER: args.jitter });
 
   console.log(JSON.stringify({ seed: args.seed, secs: args.secs, ...out, errors }, null, 2));
 } finally {
