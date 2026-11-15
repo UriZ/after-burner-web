@@ -543,6 +543,8 @@ export class Player {
     this._clock = 0;
     this._lastFlickSign = 0;
     this._lastFlickT = -Infinity;
+    this._flickHeld = false; // true while the stick is held past ROLL_SLAM_MIN_X,
+    // so a flick is counted once per tap (rising edge), not every tick it is held.
     this._rollActive = false;
     this._rollT = 0;
     this._rollDir = 1;
@@ -883,10 +885,23 @@ export class Player {
     // first ANALOG stick and it fired 8 unauthored rolls per 160 s cycle on a
     // wander that merely crossed centre. The authored slam is +-1, so anything
     // under half deflection is the wander, not a slam.
-    const sign = Math.abs(input.x) >= ROLL_SLAM_MIN_X ? Math.sign(input.x) : 0;
-    if (sign !== 0 && sign !== this._lastFlickSign) {
+    // R27 — THE ARCADE TRIGGER IS A DOUBLE-TAP THE SAME WAY. The owner went to
+    // barrel-roll and could not: the detector fired on a SIGN CHANGE (flick
+    // left THEN right), but After Burner's roll is a double-tap in ONE
+    // direction -- tap right-right to roll right, left-left to roll left. So a
+    // player doing the real arcade input got a bank, never a roll. Now a flick
+    // is a RISING EDGE (stick crosses into deflection from near-centre), and
+    // two flicks of the SAME sign inside ROLL_SLAM_WINDOW_S roll that way. The
+    // release between taps is required by construction (the edge only re-arms
+    // after the stick drops back under ROLL_SLAM_MIN_X), so simply HOLDING the
+    // stick over is still a bank, not a roll.
+    const deflected = Math.abs(input.x) >= ROLL_SLAM_MIN_X;
+    const sign = deflected ? Math.sign(input.x) : 0;
+    const isNewFlick = deflected && !this._flickHeld;
+    this._flickHeld = deflected;
+    if (isNewFlick) {
       if (
-        this._lastFlickSign !== 0 &&
+        this._lastFlickSign === sign &&
         this._clock - this._lastFlickT <= ROLL_SLAM_WINDOW_S &&
         !this._rollActive &&
         this._rollCooldown <= 0
@@ -898,6 +913,10 @@ export class Player {
         this._rollActive = true;
         this._rollT = 0;
         this._rollDir = sign;
+        // Consume the pair so a held third tap cannot immediately re-roll; the
+        // cooldown below is the other half of that guard.
+        this._lastFlickSign = 0;
+        this._lastFlickT = -Infinity;
         // Why the level cell: a roll is triggered by a stick slam, so the
         // pose ladder is almost always at its 35.6 deg extreme when the roll
         // arms, and spinning THAT drawing double-counts the bank -- the jet
@@ -906,9 +925,10 @@ export class Player {
         // falsified: the roll spins a level astern drawing, as it did before
         // the sheet landed. It is a spun bitmap either way -- see A1 in
         // judging/R5/ask-player-feel.md for the drawn roll sequence.
+      } else {
+        this._lastFlickSign = sign;
+        this._lastFlickT = this._clock;
       }
-      this._lastFlickSign = sign;
-      this._lastFlickT = this._clock;
     }
     if (this._rollCooldown > 0) this._rollCooldown = Math.max(0, this._rollCooldown - dt);
 
