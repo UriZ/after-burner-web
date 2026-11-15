@@ -100,7 +100,18 @@ const LOCK_INTERVAL_S = 0.10; // locks accumulate while the button is held
 // presses the missile button — well inside "instant". The salvo pacing is
 // unchanged (LOCK_INTERVAL_S still spaces successive locks), so a held button
 // still fans 6 locks across the wave over ~1.3 s, one visible snap at a time.
-const LOCK_ACQUIRE_S = 0.12;
+// R27 — THE OWNER WANTS THE LOCK TO BE EARNED. 0.12 s was "effectively
+// instant": combined with the whole-screen LOCK_RADIUS_FRAC below, an enemy
+// anywhere ahead locked the frame you pressed, so the signature mechanic read
+// as "missiles just fire." The owner asked for it a bit harder -- "you need to
+// get a lock." 0.40 s (~24 frames) makes the acquire a DELIBERATE beat: the
+// snap-in bracket is watchable from open to closed and the player feels the
+// moment the lock takes before the missile leaves. Still well inside the
+// arcade's "within seconds," and not the old obscure camp-to-lock (that was a
+// depth-band geometry bug, fixed in R12, not an acquire-time problem). Paired
+// with the tightened cone (LOCK_RADIUS_FRAC) so the beat is spent AIMING, not
+// waiting on a target that was never under the sight.
+const LOCK_ACQUIRE_S = 0.4;
 // R26 — THE ACQUIRE SNAP. The box SIZE converges from this multiple of its
 // final size down to 1.0 over the acquire, so the player sees the sight close
 // onto the target (a "reticle locking in"), then it tracks at final size. This
@@ -283,7 +294,15 @@ const ARM_FRAC_TRACK = 3.5 / 16.5;
 // do-nothing pilot is accepted (the arcade has it too); the gun's own aiming
 // skill test (combat.js ASSIST_RADIUS/minspan) is untouched and still
 // rewards tracking. The `?gun=lockrad=0.083` isolation recovers the old cone.
-const LOCK_RADIUS_FRAC = 0.33;
+// R27 — TIGHTENED FROM 0.33 (owner: "you need to get a lock"). 0.33 made the
+// cone cover essentially the whole playfield ahead, so the player never had to
+// AIM -- any enemy on screen was in the cone and locked instantly. 0.18 %W
+// still comfortably covers the big dead-ahead threat a naive pilot points the
+// missile at (the R12 depth-band fix put those enemies in reach), but now the
+// sight has to be ON the target's heading, not merely pointed at the same half
+// of the screen. This is the arcade's own "crosshair NEAR the enemy" skill,
+// restored without going back to the 0.083 cone R12 proved was unreachable.
+const LOCK_RADIUS_FRAC = 0.18;
 // Lockable depth window.
 //
 // R12 -- THE NEAR EDGE WAS UNREACHABLE BY A PLAYER AND IS BROUGHT DOWN TO
