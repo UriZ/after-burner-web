@@ -55,6 +55,13 @@ const PACE_KEYS = new Set([
   'dwellfrac', // fraction of echelon members that gun-dwell at readable depth
   'flyby', // seconds between large close flyby events (0 = never)
   'deadmax', // longest empty-sky stretch tolerated before a wave is forced
+  // R15 BURST-WALL levers (see the _burstWave block below):
+  'burstevery', // 0 = no bursts (pre-R15 rotation); n>0 = among non-bait, non-
+  //               crosser waves, every nth is a close-dwell WALL, the rest echelons
+  'burstmin', // fewest aircraft in a burst wall
+  'burstmax', // most aircraft in a burst wall
+  'burstcap', // transient alive cap while a burst wall is being dispensed
+  'bursthold', // centre of the burst wall's close-depth hold time, seconds (+-0.35)
 ]);
 let paceOverrides = null;
 function paceTunable(key, fallback) {
@@ -974,6 +981,88 @@ const GUN_DWELL_DEPTH_MAX = 6.5;
 const GUN_DWELL_TIME_MIN = 0.7;
 const GUN_DWELL_TIME_MAX = 1.1;
 
+// ---------------------------------------------------------------------------
+// R15 — THE BURST WALL (gaps 2 & 3). The R14 judge: "the sky is uniformly
+// sparse where the arcade is a wall then a lull ... I flew against ~3-6 enemies
+// evenly." MEASURED on this build before the change (judging/R15/burst_probe.mjs,
+// passive pilot, close = span >= 14 %W = the gun-kill band, seed 7, 120 s):
+// close-count mean 0.54, **peak 4**, and 3+-close "walls" lasted **4.5 s total**
+// across the whole run. There is no wall. There IS a close-lull (72 s with zero
+// close enemies), so the defect is purely the missing WALL, not the lull.
+//
+// THE FIX IS VARIANCE, NOT DENSITY (the one thing R9 forbids — the arcade
+// AVERAGES ~19 % readable presence and this build was once 5.5x too dense). A
+// burst must be PAID FOR by a drought so the mean does not move; it only has to
+// swing the instantaneous count between a wall and near-empty. That is bought
+// here with the EXISTING schedule, not a new density: on the non-bait waves the
+// close-dwell wall REPLACES the ordinary echelon, and the bait waves between
+// them are DISTANT (hold at depth 17-21, ~3-4 %W — the MAX_ALIVE block and
+// _lockBaitWave), so the close band naturally empties between walls. No wave is
+// added; the close mass is BUNCHED into the wall instead of trickled evenly.
+//
+// HOW THE WALL FORMS — the loiter is the synchroniser. A wave dispensed one
+// aircraft every 0.2-0.5 s with a wide depthA spread arrives as a TRICKLE, never
+// a wall (that is why the baseline peaks at 4). A burst instead (a) dispenses
+// FAST (BURST_DISPENSE) from a TIGHT depthA so arrivals bunch within ~0.7 s, and
+// (b) holds its members together at close depth (enemy.js loiter) so the early
+// arrivals FREEZE and wait for the late ones — the hold turns bunched arrivals
+// into a standing wall of 6-9 close aircraft, then they resume and fly past and
+// the wall dissolves into the drought.
+//
+// WHY THE WALL SERVES GAP 2 TOO (the gun's target supply). The R14 judge and
+// combat.js both found the gun capped by SUPPLY, not aim placement: a perfect
+// gun-aimer out-kills a blind centred stick on the probe (21 vs 10, seed 7) but
+// a human cannot, because there are too few close targets to rake. The wall is
+// supply: 6-9 close aircraft SPREAD ACROSS THE FRAME (BURST_SPREAD_STEP), all
+// inside an aimer's lateral reach but spread past a blind centred net, so the
+// aimer rakes the whole wall while the blind stick catches only the few that
+// cross centre. The members PEEL OUTWARD on exit (ndcB fanned past the hold x,
+// like the lock-bait's R14 peel) so the dissolving wall does NOT feed the blind
+// gun down the centre — the blind floor must stay ~10 (STATUS R15).
+//
+// REVERSIBLE: `?pace=burstevery=0` takes the exact pre-R15 echelon/crosser
+// rotation with its exact draw sequence, so the before arm of any A/B is a
+// switch on THIS build, not a different build (the MAX_ALIVE block's discipline).
+const BURST_EVERY = paceTunable('burstevery', 1);
+const BURST_N_MIN = paceTunable('burstmin', 6);
+const BURST_N_MAX = paceTunable('burstmax', 9);
+// A transient cap, above MAX_ALIVE, that applies ONLY while a burst's own
+// members are being dispensed (the dispenser checks the head of `pending`). The
+// ordinary cap still governs between walls, so this does not raise the mean —
+// it lets the wall reach its full height for the ~1.5 s it stands. 10 clears a
+// 9-ship wall plus a straggler.
+const BURST_MAX_ALIVE = paceTunable('burstcap', 10);
+// Fast dispense while draining a burst, so the whole wall is in the air within
+// ~0.7 s and the holds overlap. Trickling it at the ordinary 0.2-0.5 s would
+// spread arrivals over 2-4 s and the early members would pass before the late
+// ones arrived — no wall.
+const BURST_DISPENSE_MIN_S = 0.05;
+const BURST_DISPENSE_MAX_S = 0.11;
+// The close depth the wall holds at. span %W = 70.6 / depth (enemy.js), so
+// 3.5-5.2 is 13.6-20.2 %W — the gun-kill band (>= 14 %W, combat.js
+// GUN_KILL_SPAN_FRAC) at the near end and solidly readable across it. Below
+// FIRE_DEPTH_MIN = 24, so a holding wall NEVER fires (fair, same as the other
+// loiters). Members draw individual depths in this band so the wall is a ladder
+// of close depths, the arcade's "planes at every depth" at close range.
+const BURST_DWELL_DEPTH_MIN = 3.5;
+const BURST_DWELL_DEPTH_MAX = 5.2;
+// Fraction of a wall's members that HOLD (the rest fly straight through at mixed
+// depths, so the wall has depth variety and is not a flat picket line).
+const BURST_DWELL_FRAC = 0.7;
+// Hold time, seconds, centred on `bursthold` +-0.35. Long enough that the wall
+// stands as one readable event; short enough that it dissolves into the drought.
+const BURST_HOLD_CENTRE_S = paceTunable('bursthold', 1.3);
+// Lateral step between adjacent wall members, NDC. Sized so a full 9-ship wall's
+// HOLD positions span out to ~|x| 0.30 — inside an aiming pilot's lateral reach
+// (the probe's REACH_X 0.33) but well past a blind centred net, which is the
+// gap-2 supply asymmetry. The hold x works out to ~1.2x the authored `sx` below
+// (the 1/d screen-path lerp at the ~depth-4 hold, enemy.js note 2), so the step
+// is set against that factor, not the raw hold position. Measured center-heavy
+// at 0.05 (wall holds piled inside |x| 0.12, feeding a blind net); 0.072 pushes
+// most of an 8-ship wall past |x| 0.12 — OFF-CENTRE supply the aimer rakes and a
+// blind centred stick mostly misses, while the outermost stay within reach.
+const BURST_SPREAD_STEP = 0.072;
+
 export class Spawner {
   constructor(scene, space, rng) {
     this.scene = scene;
@@ -984,6 +1073,10 @@ export class Spawner {
     this.dispenseTimer = 0;
     this.waveTimer = 0;
     this.waveIndex = 0;
+    // R15: counts only the NON-BAIT waves, so the burst/echelon/crosser rotation
+    // is independent of how often the bait cadence pre-empts a wave. See
+    // _nextWave.
+    this.ordinaryIndex = 0;
     this.openerDone = false;
 
     // `?combatsolo=1` — measurement-only: emit exactly ONE head-on fighter
@@ -1042,6 +1135,11 @@ export class Spawner {
         dwellfrac: GUN_DWELL_FRAC,
         flyby: FLYBY_PERIOD_S,
         deadmax: DEAD_SKY_MAX_S,
+        burstevery: BURST_EVERY,
+        burstmin: BURST_N_MIN,
+        burstmax: BURST_N_MAX,
+        burstcap: BURST_MAX_ALIVE,
+        bursthold: BURST_HOLD_CENTRE_S,
         overridden: [...(paceOverrides ?? new Map()).keys()],
       });
     }
@@ -1117,8 +1215,16 @@ export class Spawner {
       this.pending.push(...this._primedEchelon(), ...this._openerWave(playerNdc ? playerNdc.x : 0));
     }
 
+    // R15: a BURST wall is dispensed FAST and under a raised cap so the whole
+    // wall reaches the air together and stands as one event — see the burst
+    // block above. The decision is per-item off the HEAD of the queue (`_burst`,
+    // a measurement-only tag Enemy ignores), so a burst that happens to share
+    // the queue with a trailing ordinary wave still dispenses each at its own
+    // rate. When no burst is at the head this is byte-identical to the old path.
     this.dispenseTimer -= dt;
-    if (this.pending.length && this.dispenseTimer <= 0 && this.enemies.length < MAX_ALIVE) {
+    const nextBurst = this.pending.length > 0 && this.pending[0]._burst === true;
+    const cap = nextBurst ? BURST_MAX_ALIVE : MAX_ALIVE;
+    if (this.pending.length && this.dispenseTimer <= 0 && this.enemies.length < cap) {
       const cfg = this.pending.shift();
       // Stamped at dispense rather than at wave construction: a wave can sit
       // in `pending` across a stage boundary, and an aircraft should wear the
@@ -1126,7 +1232,9 @@ export class Spawner {
       const e = new Enemy({ ...cfg, stageIndex: this.stageIndex });
       this.scene.add(e.sprite);
       this.enemies.push(e);
-      this.dispenseTimer = DISPENSE_MIN_S + this.rng() * (DISPENSE_MAX_S - DISPENSE_MIN_S);
+      this.dispenseTimer = nextBurst
+        ? BURST_DISPENSE_MIN_S + this.rng() * (BURST_DISPENSE_MAX_S - BURST_DISPENSE_MIN_S)
+        : DISPENSE_MIN_S + this.rng() * (DISPENSE_MAX_S - DISPENSE_MIN_S);
     }
 
     // Runs unconditionally, so waves overlap rather than queueing strictly
@@ -1268,9 +1376,27 @@ export class Spawner {
     let specs;
     if (BAIT_EVERY > 0 && this.waveIndex % BAIT_EVERY === 0) {
       specs = this._lockBaitWave();
+    } else if (BURST_EVERY > 0) {
+      // R15 rotation on the non-bait waves. `ordinaryIndex` counts only these,
+      // so the burst/crosser/echelon cadence is independent of the bait pre-empt.
+      // Crossers stay "occasional" (every 3rd ordinary wave, the near-field
+      // lateral pass); of the rest, every `BURST_EVERY`th is a close-dwell WALL
+      // and the others are ordinary echelons. burstevery=1 makes every non-
+      // crosser ordinary wave a wall (the default rhythm); burstevery=2 alternates
+      // wall/echelon, for sweeping the wall frequency down.
+      this.ordinaryIndex += 1;
+      if (this.ordinaryIndex % 3 === 0) {
+        specs = this._crosserWave();
+      } else if (this.ordinaryIndex % BURST_EVERY === 0) {
+        specs = this._burstWave();
+      } else {
+        specs = this._echelonWave();
+      }
     } else if (this.waveIndex % 3 === 0) {
-      // 3 echelons to 1 crosser pass. The crossers are "occasional" in the
-      // measurement, and they are the pattern that most crowds the near field.
+      // Pre-R15 rotation, preserved byte-identical for the ?pace=burstevery=0
+      // A/B and as the fallback: 3 echelons to 1 crosser pass. The crossers are
+      // "occasional" in the measurement, and they are the pattern that most
+      // crowds the near field.
       specs = this._crosserWave();
     } else {
       specs = this._echelonWave();
@@ -1561,6 +1687,88 @@ export class Spawner {
     return out;
   }
 
+  // --- R15 BURST WALL: a close-dwell wall that stands, then dissolves --------
+  // See the BURST block near the top of this file for the full reasoning. Built
+  // from the same measured machinery as the echelon (NEAR_BAND vertical band,
+  // the bomber slot, roles/liveries, clampReach, the dispense shuffle) so it
+  // reads as a head-on wave; the burst-specific parts are (a) more members,
+  // (b) a TIGHT spawn depth so arrivals bunch, (c) a synchronised close-depth
+  // HOLD so they stand as a wall, (d) a wide lateral spread that peels OUTWARD
+  // on exit. Tagged `_burst` so the dispenser drains it fast under the raised cap.
+  _burstWave() {
+    const n = BURST_N_MIN + Math.floor(this.rng() * (BURST_N_MAX - BURST_N_MIN + 1)); // 6-9
+    const rake = (this.rng() - 0.5) * 0.9;
+    const vrake = rake * VERTICAL_RAKE_SCALE;
+    // Centred near the frame centre so the wall SPANS the frame (an arcade wall
+    // fills it) rather than being shoved to one side; small jitter only.
+    const baseB = (this.rng() - 0.5) * 0.12;
+    // The wall's altitude, from the measured near-field vertical band, raked
+    // into a ladder below so it reads as planes at every height, not a flat row.
+    const baseWallY = clampReach(bandSample(NEAR_BAND, this.rng()));
+    // ONE hold time for the whole wall so its members FREEZE together and stand
+    // as a single event; +-0.35 around the tunable centre.
+    const holdTime = Math.max(0.4, BURST_HOLD_CENTRE_S - 0.35 + this.rng() * 0.7);
+    // One bomber may lead the wall (variety on span), same discipline as the
+    // echelon: drawn once, outside the loop (CLAUDE.md shared-PRNG rule).
+    const bomberSlot = this.rng() < 0.34 ? Math.floor(this.rng() * n) : -1;
+    const out = [];
+    for (let i = 0; i < n; i++) {
+      const k = i - (n - 1) / 2;
+      // All draws unconditional, used only sometimes — the shared-PRNG rule
+      // forbids a sometimes-draw desynchronising the stream.
+      const roll = this.rng();
+      const roleRoll = this.rng();
+      const dwellRoll = this.rng();
+      const holdDepthU = this.rng();
+      const depthAU = this.rng();
+      const yJitterU = this.rng();
+      const fireDelayU = this.rng();
+      const dwell = dwellRoll < BURST_DWELL_FRAC;
+      // The authored lateral position; the on-screen HOLD x lands at ~1.2x this
+      // (the 1/d lerp at the ~depth-4 hold), inside an aimer's reach but spread
+      // past a blind centred net — the gap-2 supply asymmetry.
+      const sx = baseB + k * BURST_SPREAD_STEP;
+      const holdDepth =
+        BURST_DWELL_DEPTH_MIN + holdDepthU * (BURST_DWELL_DEPTH_MAX - BURST_DWELL_DEPTH_MIN);
+      const wy = clampReach(baseWallY + k * vrake + (yJitterU - 0.5) * 0.08);
+      out.push({
+        // Measurement-only tag; Enemy ignores it. The dispenser reads it off the
+        // head of `pending` to drain the wall fast under the raised cap.
+        _burst: true,
+        pattern: 'approach',
+        type: i === bomberSlot ? 'bomber' : roll < 0.25 ? 'interceptor' : 'fighter',
+        role: i === bomberSlot ? 'heavy' : this._roleFor(roleRoll),
+        // TIGHT depthA (0.95-1.05 x spawn) so the wall's arrivals bunch — the
+        // fast dispense plus a tight spawn depth is what lets the early arrivals'
+        // holds overlap the late arrivals' instead of passing before them.
+        depthA: APPROACH_SPAWN_DEPTH * (0.95 + depthAU * 0.1),
+        depthB: FLY_PAST_DEPTH,
+        // Tight near the horizon, fanned/peeled OUTWARD at fly-past so the
+        // dissolving wall sweeps to the sides and never converges on the central
+        // gun band — the blind-floor protection (STATUS R15: don't balloon the
+        // blind gun).
+        ndcA: [clearCorridor(sx * 0.3), baseWallY + k * vrake * 0.1],
+        ndcB: [clearCorridor(sx * 1.7), wy],
+        weaveAmp: this.rng() * 0.04,
+        weaveRate: 1.1 + this.rng() * 0.9,
+        weavePhase: this.rng() * Math.PI * 2,
+        // A DWELLING member holds below FIRE_DEPTH_MIN and never fires (a fair
+        // gun target you rake). A non-dwelling member flies straight through at
+        // mixed depth and fires on its approach like an echelon member, so the
+        // wall still carries enemy-fire volume (R4 gap 5 forbids losing it) and
+        // the wall has depth variety. The fire-delay draw is unconditional.
+        fireDelay: dwell ? 1e9 : 0.0 + fireDelayU * 0.15,
+        holdDepth: dwell ? holdDepth : null,
+        holdTime: dwell ? holdTime : 0,
+        // A slow lateral sway while frozen: a tracking sight follows the wall, a
+        // parked sight only clips it — the skill the gun kill is meant to price.
+        holdWeaveAmp: dwell ? 0.04 : 0,
+        holdWeaveRate: 1.1,
+      });
+    }
+    return out;
+  }
+
   // --- R13 LOCK-BAIT: a distant cluster that holds for the missile ----------
   // A tight head-on cluster that approaches and FREEZES just inside the lock
   // band, placed up and to one side of the sight's rest posture. It is the
@@ -1718,6 +1926,9 @@ export class Spawner {
     this.openerDone = false;
     this.waveTimer = 0;
     this.dispenseTimer = 0;
+    // R15: the non-bait rotation counter resets with the sky, so a fresh
+    // stage/life opens its ordinary rotation the same way every time.
+    this.ordinaryIndex = 0;
     // R13: a fresh stage/life should not instantly force-spawn or drop a flyby
     // on top of the opener. Reset the empty tracker (the opener fills the sky
     // next tick) and re-seed the flyby delay the same way the constructor does.
