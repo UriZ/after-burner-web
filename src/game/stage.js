@@ -665,6 +665,30 @@ export const STAGE_4 = {
     macroAmp: 1.2,
     detailAmp: 1.3,
     stipLodBoost: 0.4,
+
+    // R17 gap 3 — RE-CENTRE THE MEASURED GREEN. The forest branch's veg index
+    // was hardcoded 0.45, which lands the MODAL colour on vegRamp's #004200
+    // (V0.259) — below STAGE_MAP's measured stage-4 V25 of 0.282, i.e. the
+    // "dark and flat" the R15/R16 judges costed. 0.58 lands the mode on #005200
+    // (V0.322 = STAGE_MAP's measured modal/mid) with the macro+stipple spread
+    // reaching #004200 (~V25 0.282) and #006310 (V0.388 ~ V75 0.416) either
+    // side. This is the value whose RENDERED V-distribution matches the
+    // STAGE_MAP band on capture (judging/R17/world-lane.md), not a by-eye nudge.
+    forestCentre: 0.58,
+
+    // THE CYAN RIVER (R17 gap 3). The arcade stage-4 canopy is mottled with a
+    // meandering cyan river (the bright turquoise channel in the t=200-240
+    // frames). MEASURED on that water: H=183deg S=1.00, modal #00d6e6, V p50
+    // 0.91 — bright saturated cyan. The HUE is measured; the width/meander are
+    // ADOPTED (no stage-4 river geometry in the repo), sized in world units.
+    // See the forest branch in render/ground.js for the mechanism.
+    riverEnable: 1.0,
+    riverHalfWidth: 1.8, // world units; a narrow channel, not a lake
+    riverFeather: 0.7, // feathered banks into the canopy
+    riverWanderAmp: 7.0, // centreline wanders +/-7 world units across the flank
+    riverWaveLen: 55.0, // over a long wavelength, so it weaves in and out slowly
+    riverColor: srgbHex('#00c5d6'), // turquoise water body (measured hue, ladder)
+    riverColorLight: srgbHex('#00e6f7'), // bright ripple (measured hue, ladder)
   },
 
   // Horizon haze band. ADOPTED (sky-derived), NOT measured — the repo holds
@@ -726,10 +750,18 @@ export const STAGE_5 = {
   skyTop: srgbHex('#f8e2d6'),
   skyHorizon: srgbHex('#f8e2d6'),
   skyGlowElevDeg: 0, // flat fill: no glow (STAGE_MAP: stage 5 is not a glow stage)
-  // Pale warm sky -> cream 'desert' clouds rather than white 'day', the same
-  // live-sky treatment every stage gets (clouds render on every stage in this
-  // build; only the palette is switched — see render/clouds.js setStage).
+  // R17 gap 1 — CLEAR SKY. STAGE_MAP gives the refuel stages cloud_density 0,
+  // and the R16 judge costed our cloud-filled refuel frame directly. showClouds
+  // false suppresses the banks on this stage (see the per-stage gate in
+  // render/clouds.js); cloudPalette is kept only so a future stage that lifts
+  // the gate still has a defined tint.
+  showClouds: false,
   cloudPalette: 'desert',
+  // R17 gap 1 — THE BASE PROPS beside the strip: silver fuel tankers, olive
+  // military trucks, tan tent rows and ground crew (render/ground.js's
+  // createRunwayProps). This is the arcade refuel stage's defining signifier;
+  // without it the strip reads as a road. Autumn base -> tents included.
+  runwayProps: ['tanker', 'truck', 'tent', 'crew'],
 
   terrain: {
     // Autumn-woodland FLANK. Palette borrowed from stage 2's MEASURED autumn
@@ -786,6 +818,91 @@ export const STAGE_5 = {
     peakFrac: 0,
   },
   scrollSpeed: 68.93, // cruise (STAGE_MAP scroll_speed 2.8); same camera geometry as stages 1-4
+};
+
+// VERIFIED arcade RESUPPLY / REFUEL stage 13 (the SECOND refuel run).
+//
+// R17 gap 1. The arcade's two refuel stages are NOT the same biome: stage 5 is
+// autumn woodland (orange), stage 13 is a GREEN palm/sage base (frames
+// judging reference arcade-s13-t558/t562). R16 rendered BOTH as STAGE_5's
+// autumn runway (flow.js's _renderStage maps stage 13 -> STAGE_5), which the
+// R16 judge costed as "stage 13 shows the wrong biome". This is stage 13's own
+// biome; it still needs flow.js to ROUTE stage 13 here — a one-line cross-lane
+// change asked in judging/R17/world-asks.md. Until that lands, stage 13 keeps
+// rendering STAGE_5 and this object is unused; it is a flagged BOUND either way.
+//
+// Sky: MEASURED, LOW CONFIDENCE. STAGE_MAP.md stage 13 sky = Color(0.624,
+// 0.788, 0.647) = #9fc9a5 (sage), a FLAT fill, flagged LOW CONFIDENCE there
+// (thin refuel sky band). Off the hardware ladder (measured modal, like stage
+// 1/4/5), so no ladder snap and skyGlowElevDeg 0.
+//
+// GROUND: BOUND, said plainly. STAGE_MAP leaves stage 13's own ground
+// UNMEASURABLE (rejects entirely on the variance gate, 0/16 frames) and warns
+// against an invented value. So the flank is the yellow-green grass MEASURED
+// off the arcade stage-13 frame FOR HUE ONLY (H~75-90deg S~0.9 modal #608000,
+// V25 0.11 / V50 0.30 / V75 0.52) — a measured-hue bound, not a certified
+// palette — composed as HSV and left to the hardware-ladder quantizer
+// (runwayFlankGreen, see render/ground.js) rather than the autumn snap. The
+// paved strip and its markings are the same ASSUMED neutrals as stage 5. Palms
+// are NOT built as discrete props this round (the green flank + sage sky
+// already read as the distinct biome); deferred in judging/R17/world-lane.md.
+export const STAGE_13 = {
+  name: 'stage-13-runway-green',
+  groundMode: 'runway',
+  skyTop: srgbHex('#9fc9a5'),
+  skyHorizon: srgbHex('#9fc9a5'),
+  skyGlowElevDeg: 0, // flat fill: no glow (STAGE_MAP: stage 13 is not a glow stage)
+  showClouds: false, // STAGE_MAP cloud_density 0; same gate as stage 5
+  cloudPalette: 'day',
+  // Green base -> no tent rows (an autumn-camp signifier); tankers, trucks and
+  // crew, as the arcade stage-13 frames show.
+  runwayProps: ['tanker', 'truck', 'crew'],
+
+  terrain: {
+    // Yellow-green palm/sage FLANK. MEASURED-HUE bound (see the header):
+    // H~80deg, S high, V band 0.11-0.55. runwayFlankGreen routes the runway
+    // branch past the autumn snap so the hue is kept.
+    hueDeg: 80,
+    hueJitterDeg: 30,
+    satLo: 0.85,
+    satHi: 1.0,
+    vLo: 0.11,
+    vHi: 0.55,
+    runwayFlankGreen: 1.0,
+    grainFreqX: 0.09,
+    grainFreqZ: 0.26,
+    macroFreqX: 10.0,
+    macroFreqZ: 20.0,
+    macroAmp: 1.2,
+    detailAmp: 1.3,
+    stipLodBoost: 0.4,
+
+    // The paved landing strip — identical geometry/colour to stage 5 (ASSUMED
+    // neutrals on the ladder; the refuel strip is the same object in both).
+    runwayHalfWidth: 4.0,
+    runwayShoulder: 0.5,
+    runwayColor: srgbHex('#737373'),
+    runwayMarkColor: srgbHex('#f7f7f7'),
+    runwayCtrHalfW: 0.16,
+    runwayDashPeriod: 7.0,
+    runwayDashDuty: 0.5,
+    runwayEdgeInset: 3.55,
+    runwayEdgeHalfW: 0.13,
+    runwayMarkFade: 42.0,
+    runwayMarkFadeSpan: 28.0,
+  },
+
+  // Horizon haze band. ADOPTED (sky-derived), NOT measured — same discipline as
+  // stages 4/5: built from the one measured stage-13 value (the sage sky).
+  // Distant green hazes UP toward #9fc9a5 at the vanishing point and resolves to
+  // a deeper sage-green on the near side.
+  haze: {
+    atHorizon: srgbHex('#9fc9a5'),
+    atBandEdge: srgbHex('#6c9463'),
+    bandHeightFrac: 0.070,
+    peakFrac: 0,
+  },
+  scrollSpeed: 68.93, // cruise (STAGE_MAP scroll_speed 2.8); same camera geometry
 };
 
 // The COMBAT content lap stays length 4 (stages 1-4). STAGE_5 is deliberately

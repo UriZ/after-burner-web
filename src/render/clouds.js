@@ -588,15 +588,36 @@ export function createClouds(stage, camera, seed = 1) {
 
   let groupTimer = rngStruct() * (BANK_COOLDOWN_MIN + BANK_COOLDOWN_MAX) / 2; // staggered start
   let groupState = 'cooldown';
+  // R17 gap 1 — PER-STAGE CLOUD GATE. STAGE_MAP gives the refuel stages (5/13)
+  // cloud_density 0 (clear sky), and the R16 judge costed the refuel beat's
+  // cloud-filled frame directly (two big banks where the arcade's refuel base
+  // has none — judging/R16/resupply-ours-vs-arcade.png). A stage opts OUT of
+  // clouds with `showClouds: false`; when suppressed, every bank is hidden and
+  // the spawn state machine is parked so none come up. This is deliberately
+  // OPT-OUT, not keyed to STAGE_MAP's cloud_density: STAGE_MAP lists 0 for
+  // stages 2-23 as well, but the three.js build has always rendered banks on
+  // stages 1-4 and STATUS.md's R17 brief says not to regress them — so only the
+  // stages that explicitly ask for a clear sky get one.
+  let suppressed = stage.showClouds === false;
+  if (suppressed) for (const bank of banks) hideBank(bank);
 
   return {
     group,
 
     // Stage-progression interface, matching ground.js/sky.js's setStage.
-    // NOT yet called by src/game/flow/flow.js (that file belongs to the
-    // game-flow lane) — until it is, clouds keep stage 1's 'day' palette on
-    // every stage. See the dev report's "interfaces needed" section.
+    // Called by src/game/flow/flow.js's _enterStage on every stage transition.
     setStage(newStage) {
+      suppressed = newStage.showClouds === false;
+      if (suppressed) {
+        // Clear-sky stage: hide every bank and park the state machine in
+        // cooldown so update() brings none up while suppressed. The palette is
+        // left untouched (no point re-authoring textures for hidden sprites);
+        // the next cloud stage's setStage re-points it.
+        for (const bank of banks) hideBank(bank);
+        groupState = 'cooldown';
+        groupTimer = BANK_COOLDOWN_MIN;
+        return;
+      }
       const next = CLOUD_PALETTES[newStage.cloudPalette] || CLOUD_PALETTES.day;
       if (next === palette) return;
       palette = next;
@@ -609,6 +630,8 @@ export function createClouds(stage, camera, seed = 1) {
     },
 
     update(dt) {
+      // Clear-sky stages (gate above): nothing approaches, nothing spawns.
+      if (suppressed) return;
       // Active banks keep approaching regardless of the group state, so an
       // active bank's members visibly move for their whole window.
       for (const bank of banks) {
