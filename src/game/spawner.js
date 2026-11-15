@@ -887,7 +887,25 @@ const CROSSER_ELITE_BONUS = 0.18;
 // None of these touches ENVELOPE_X, the sight rails, or LOCK_RADIUS_FRAC
 // (arcade-closed / frozen). They move where the TRAFFIC is, which is this
 // file's job.
-const BAIT_EVERY = paceTunable('baitevery', 4);
+// R14 — 4 -> 2. Rank-2 was "the missile is a coin-flip on wave timing": a lock
+// only came on the every-4th-wave bait, so a bad phase or an early death fired
+// nothing. Measured (judging/R13/lock_probe.mjs, 90 s, seeds 7 & 3): at every-
+// 4th the aim pilot's salvos were 33 vs 47 across the two seeds (a wide, phase-
+// dependent spread); at every-other they tighten to 37 vs 37 and the ticks with
+// a lockable target in reach rise ~17 %. A lock is now reachable within one or
+// two wave gaps of any life rather than once in four.
+//
+// THE COST THIS RAISES AND HOW THE LATERAL EXIT BELOW ANSWERS IT: more bait is
+// more total traffic, and a bait that DIVES to the central fly-past after its
+// hold becomes free gun fodder for a dead-centre stick — measured, a naive
+// 4->2 with the old diving exit pushed the blind GUN floor 13 -> 17, eroding
+// R14's rank-1 gun fix (combat.js GUN_KILL_SPAN_FRAC). The bait now PEELS OFF to
+// its own side after the hold (see ndcB in _lockBaitWave), so it never crosses
+// the central gun band; with that, 4->2 holds the blind gun floor while
+// delivering the missile reliability. The aimer's locks form during the hold
+// and its missiles home regardless of where the cluster then goes, so the exit
+// change does not cost the aiming pilot anything (verified, lock_probe aim arm).
+const BAIT_EVERY = paceTunable('baitevery', 2);
 // 0.25, kept deliberately MODEST. The window the judge asked for is a quality
 // of the dwell — an enemy FROZEN at readable size for ~0.9 s is trackable — not
 // a quantity of readable enemies: this file's own history (the MAX_ALIVE block)
@@ -940,6 +958,17 @@ const BAIT_X_MAX = 0.2;
 
 // Gun-dwell hold geometry: a pause at readable depth (span ~15-19 %W) short
 // enough to read as a hesitation in the pass, not a parked target.
+//
+// R14 NOTE — a RELOCATED dwell was tried and REVERTED. The idea (judge/R14
+// playtest: "aiming is cramped, no reachable gun targets") was to move the hold
+// OFF-CENTRE and up near the sight line so it became an aim target a dead-centre
+// stick misses. Measured on gun_aim_probe.mjs (gun-only, seeds 7/3/19): it was
+// INERT — aim 21/19/18 and blind 9/12/13, unchanged from the un-relocated dwell.
+// The aimer's gun total is bounded by target SUPPLY, not placement: relocating
+// 25 % of members moves where a tracking sight kills them, not how many it can.
+// The dwell (relocated or not) is a minor contributor; the blind-floor lever is
+// GUN_KILL_SPAN_FRAC, not dwell geometry. Left here for the next lane so the
+// inert arm is not re-run.
 const GUN_DWELL_DEPTH_MIN = 5.0;
 const GUN_DWELL_DEPTH_MAX = 6.5;
 const GUN_DWELL_TIME_MIN = 0.7;
@@ -1562,7 +1591,18 @@ export class Spawner {
         // ndcA (enemy.js header note 2). Author the cluster where it should
         // FREEZE: tight, off-centre, up near but above the resting cone.
         ndcA: [clampReach(baitX + k * 0.06), baitY + k * 0.015],
-        ndcB: [baitX + k * 0.22, clampReach(baitY - 0.2 + k * 0.1)],
+        // R14 — PEEL OFF TO ITS OWN SIDE after the hold, rather than diving to
+        // the central fly-past. The cluster holds off-centre on the `dir` side
+        // (baitX = dir*0.1..0.2); its exit is pushed far out the SAME side
+        // (|x| ~ 1.0, off-frame) so as the depth resumes dropping it sweeps out
+        // laterally and never crosses the central gun band where a dead-centre
+        // stick would collect it for free. This is what lets BAIT_EVERY = 2
+        // (above) raise the missile's reliability without raising the blind gun
+        // floor. It also reads better — a distant wave you lock, that then
+        // breaks off — than a cluster that obligingly flies down your throat.
+        // The lock is already taken during the hold, so the exit path costs the
+        // aiming pilot nothing.
+        ndcB: [dir * (0.95 + this.rng() * 0.2) + k * 0.1, clampReach(baitY - 0.12 + k * 0.08)],
         weaveAmp: 0.01,
         weaveRate: 1.2,
         weavePhase: this.rng() * Math.PI * 2,

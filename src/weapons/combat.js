@@ -164,6 +164,50 @@ const ASSIST_Y_FRAC = 0;
 // criterion, "at least one enemy at >= 10 %W", which is also the gate both
 // R7 reviewers measured the kill-size distribution against.
 export const READABLE_SPAN_FRAC = 0.1;
+// R14 — THE GUN'S KILL-SPAN GATE, DECOUPLED FROM THE READABILITY GATE and
+// raised 0.10 -> 0.14. This is the rank-1 lever ("the gun kills without you"):
+// the gun may now only kill an aircraft that is genuinely close/big (>= 14 %W),
+// not merely readable.
+//
+// THE DEFECT IT CLOSES, measured. A dead-centre do-nothing stick gets ~20 gun
+// kills/90 s and a perfect gun-aimer gets ~36 — aiming barely out-kills doing
+// nothing (R13 judge: "blind ~= aimed"). The cause is not the assist (R11 §2.1
+// + R13 both found ASSIST_RADIUS_FRAC inert, and R14 re-confirmed removing the
+// assist entirely HURTS the aimer MORE than the blind pilot: aim 36->24, blind
+// 20->16 — the assist is not the blind-feeder). It is that readable traffic
+// converges onto the centred sight by the 1/d back-loading (enemy.js note 2),
+// so a parked sight sits in the fat of the traffic. The gun's own span gate was
+// tied to the READABILITY gate (0.10), which licensed the gun against every
+// 10 %W speck that drifted through centre — the widest part of the approach,
+// where a blind sight catches most.
+//
+// Raising the gate to 0.14 makes the gun the "anti-close-range weapon"
+// GAME_SPEC.md §3 already calls it: a base-wingspan fighter reaches 14 %W at
+// depth ~5.0 (vs 10 %W at 7.06), so the kill window is the last ~2 depth-units
+// of the pass. A centred sight only clips a target during that short close
+// window; a sight that TRACKS a target down to close range kills it wherever it
+// flies. Measured (judging/R14/gun_aim_probe.mjs, gun-only isolation — trigger
+// held, no missiles — 90 s, seeds 7 & 3; the aim arm is a perfect-tracker UPPER
+// BOUND and over-reads human play, the blind arm is trustworthy):
+//
+//   minspan   blind gun   aim gun   aim/blind   aim-blind
+//     0.10       20/22       36        1.80         16     <- shipped before R14
+//     0.14       13/15       32        2.46         19     <- R14
+//     0.16       11          22        2.00         11     (aim over-culled)
+//
+// 0.14 maximises BOTH the ratio and the absolute aim-minus-blind gap; 0.16
+// starts culling the aimer's own kills (the target is big enough to gun for too
+// short a window even when tracked). Pairing it with hitminp=0.9 was measured
+// and rejected: it drops the aimer to 26 for no better ratio (the p-gate narrows
+// the kill band around the sight vertically, which bites the tracker too).
+//
+// IT IS ADOPTED, NOT MEASURED-AGAINST-THE-ARCADE, and honestly so: no arcade
+// gun kill-size census exists (the pre-R14 0.10 was itself ADOPTED, tied to the
+// readability gate, never an arcade gun reading). This moves one ADOPTED number
+// to another, justified by the blind-vs-aim control the method requires, in the
+// direction GAME_SPEC.md §3's own "anti-close-range" wording points. `?gun=
+// minspan=0.10` recovers the pre-R14 gate exactly for the A/B.
+const GUN_KILL_SPAN_FRAC = 0.14;
 // Lead the target's closure over the round's time of flight. An enemy closes
 // by exp(depthRate * TRAVEL_S) during the 0.7 s a round is in the air — a
 // factor of 0.609 at the shipped depth rate — so snapping the round's depth
@@ -267,10 +311,11 @@ export class Combat {
     //
     // The R8 isolation sent me back here, and this is the refinement it
     // asked for. A depth bound is a PROXY for "the target is big enough to
-    // see" and the proxy is wrong per aircraft type: `widthScale` runs 0.92
-    // (interceptor) to 1.35 (bomber), so one depth licences the gun against
-    // an interceptor that is 9.2 %W — under the gate — while forbidding it
-    // against a bomber that is already 13 %W. Testing the aircraft's OWN
+    // kill" and the proxy is wrong per aircraft type: `widthScale` runs 0.92
+    // (interceptor) to 1.35 (bomber), so one depth licences the gun against a
+    // bomber that is already at the 14 %W gate while the interceptor beside it
+    // is only 9.5 %W — still under it (R14 raised the gate from 0.10 to 0.14,
+    // GUN_KILL_SPAN_FRAC; the per-type point is unchanged). Testing the OWN
     // projected span is the criterion rather than a stand-in for it, costs
     // nothing (`resolveHits` already computes `spanFrac` for the hit radius)
     // and is immune to the camera, the depth rate and any future widthScale.
@@ -285,7 +330,7 @@ export class Combat {
     // measured one at a time were actively misleading here: the assist band
     // and the reach cap are not two independent fixes, they are two halves
     // of one.
-    this.minKillSpan = gunTunable('minspan', READABLE_SPAN_FRAC);
+    this.minKillSpan = gunTunable('minspan', GUN_KILL_SPAN_FRAC);
     // R12: the depth an UNASSISTED vulcan round ramps to. Shipped at the
     // readable depth so unassisted kills resolve up at the sight (R11 §2.1);
     // `?gun=reachdepth=55` recovers the pre-R12 muzzle-killing behaviour for
