@@ -1,60 +1,62 @@
 # STATUS — where the rebuild stands
 
-**Last updated**: 2026-11-15. **R26: the GUN is FIXED too — both weapons now usable in naive play. Missiles + gun + sprites all addressed.** The loop is
-**"look first, measure second"** (CLAUDE.md, "How work happens here"; rationale in
-`judging/R12/method-retrospective.md`). Every round ships an HTML report
-(`judging/R<n>/report.html`, `python3 tools/round_report.py`) published to the standing
-dashboard artifact. Pre-R12 STATUS is archived at `judging/archive/STATUS-through-R11.md`.
-Repo: github.com/UriZ/after-burner-web.
+**Last updated**: 2026-11-15. **R27 (in progress): owner played the fixed-weapons build and drove a
+burst of play-feedback fixes — missiles, afterburner, jet colour, enemy art, barrel roll all addressed;
+gun-FEEL lane still running.** The loop is **"look first, measure second"** (CLAUDE.md, "How work
+happens here"; rationale in `judging/R12/method-retrospective.md`). Every round ships an HTML report
+(`judging/R<n>/report.html`, `python3 tools/round_report.py`). Pre-R12 STATUS is archived at
+`judging/archive/STATUS-through-R11.md`. Repo: github.com/UriZ/after-burner-web.
 
 ## Current state
 
-> ## RECALIBRATION WORKED. The owner played the "9.3" build and said "pretty bad" (no usable missiles,
-> weak sprites). The judging was RECALIBRATED to anchor on NAIVE play (CLAUDE.md). R25 fixed both
-> complaints and a judge playing the SAME naive way scored an honest **6.5** — not the 9.3 the old
-> frame-match judge gave the same backdrop. **Naive play then immediately found the NEXT unusable
-> weapon: the GUN is dead.** This is the exact failure the old judges missed for 15 rounds by testing
-> DELIBERATE play. Play like the owner; the owner outranks the judge.
+> ## THE OWNER IS DRIVING THE GAPS BY PLAYING. R25/26 fixed both weapons (missile + gun usable). The
+> owner then played and named, in order: afterburner detached from the jet, missiles "not firing" (my
+> own lock change had overshot), jet "too red", enemies "too pixelated", and "add the barrel roll."
+> Every one was a real gap; every one is now fixed or has a lane. Play like the owner; the owner
+> outranks the judge. Standing rule: never idle — always be improving a gap (CLAUDE.md / memory).
 
-- **R25 verdict: 6.5** (recalibrated, naive playtest) — `judging/R25/judge-report.md`,
-  `playtest-verdict.md`. Off the ~5 floor; "solid and playable with clear rough edges."
-- **R25 shipped (judge-confirmed by naive play)**: **MISSILES USABLE** — point at enemies, press,
-  heat-seekers chase them down (~70% naive hit, up from 0 fired; camp-to-lock barrier ripped out +
-  seeker strengthened: HIT_RADIUS 0.026→0.052, MAX_TURN 0.77→1.7, HOMING_DELAY 0.3→0.12, GAIN 1.7→2.8).
-  **SPRITES GOOD ENOUGH** — the player jet was an INSECT FACE (nozzles=eyes, fins=ears), redrawn to a
-  real F-14 (fuselage, canted tails, engine deck); enemy MiGs crisped to swept-wing jets. Palettes kept.
-- **R26 gun FIX (done, TL)**: the dead gun now KILLS in naive play (HITS 0->5 in ~3s holding fire;
-  combined with missiles, a fresh seed gave 8 kills in ~4s). Loosened the R11-R15 gates the same way as
-  the R25 missile: GUN_KILL_SPAN_FRAC 0.14->0.03, VULCAN_MIN_HIT_P 0.8->0.15, HIT_RADIUS_SPAN_MULT 0.5->1.2
-  + floor 0.05, depthTol widened. It kills what's in your line (5 of 8), not the whole screen. BOTH core
-  weapons work now -- the owner's "pretty bad" core is materially fixed.
-- **R25's new #1 finding (naive play)**: **THE GUN IS DEAD** — mashing the fire button kills NOTHING
-  (0 hits/~11 turns vs 2-10 enemies, both seeds). The R11-R15 gun gated kills behind precise aim/depth
-  (the p-gate VULCAN_MIN_HIT_P, readable-span) that a naive player never meets — the SAME disease the
-  missile had. Needs the same fix: point-and-hold must kill (generous on-screen hit at the reticle).
-- **Honest build state: ~6.5/10.** Core weapons: missile FIXED, gun DEAD. Sprites good. Backdrop
-  fidelity is high (7 biomes, both refuel beats, structured canyon) but does NOT lift the score — play does.
+- **R27 landed (owner-driven, all verified + pushed):**
+  - **Afterburner re-attached.** R15 tuned the flame to the old insect-face sheet; the R25 F-14 redraw
+    moved the nozzles, so the plume flung off on banks/rolls. Now follows 0.4× the bank + a shortened
+    stub (base 0.5→0.34) that can't visibly separate in any pose.
+  - **Missile lock EARNED, then made usable.** First pass over-tightened (0.40 s + 0.18 cone + hard
+    reset) and the owner saw NO missiles on a hand-flown stick. Fixed: 0.25 s acquire, 0.26 cone, and
+    the acquire DECAYS on a waver instead of resetting. Verified with a wavering-pilot probe (13
+    missiles/18 s across jitter). Still earned (aim + hold a beat); gun needs no lock.
+  - **Jet reads grey-white, not maroon.** The R26 colour item: `#840000` was on every surface
+    (wings/deck/strakes/fins); the MEASURED red is the OUTLINE only (palettes.js R7). Moved all
+    interior red to the measured grey shadow tone; red kept on the outline rim. Verified vs the stage-1
+    arcade grey jet.
+  - **Enemy jets twin-engine.** Owner's "too pixelated": ours was a grey dart + one dot; the arcade is
+    two black nacelles cored by orange afterburner. Redrew nozzle()/noseIntake() in enemy-mig.js — twin
+    bells, scale-proof; reads as a jet at game size now.
+  - **Barrel roll = arcade double-tap.** The roll existed but triggered on a sign CHANGE (left-then-
+    right); AB2 is a double-tap the SAME way (right-right / left-left). Rewrote the detector to rising-
+    edge same-sign flicks; holding is still a bank. Verified.
+- **Measurement correction (binding):** the R27 judge's "enemies are 3× too small" is WRONG. The
+  enemy-presence lane MEASURED it and WITHDREW: our close enemies hit 18–35 %W vs the arcade's ~19.5 %W
+  peak; time-at-readable-large is comparable (ours 33 % vs arcade ~35–45 %). Do NOT bump enemy width.
+  (Lane's note: the arcade's density comes from the PLAYER killing close enemies, not the spawner
+  holding them close — our demo pilot barely engages, a demo-AI/feel issue, not a spawner one.)
+- **Active lane:** gun-FEEL — a non-fatal gun hit currently shows nothing (combat.js `_damage` returns
+  early); adding an enemy hit-flash so rounds visibly land. (effects/** + combat.js, running.)
+- **Honest build state: ~7/10** (R27 fresh-context judge, naive play). Both weapons usable; jet +
+  enemies now read as real aircraft; afterburner + roll fixed. Held under 8 by combat FEEL (hit
+  feedback) — the active lane.
 
-## R26 gap list — from the R25 recalibrated judge (naive play), owner-anchored
+## R27 gap list — owner playtest + fresh-context judge (naive), owner-anchored
 
-Theme: **make the weapons work in the hands.** The missile is fixed; the gun is the mirror image of
-the bug just fixed. Ranked by naive-play impact:
+1. **GUN HIT FEEDBACK (active lane).** Hits register but don't FEEL like they land — no enemy flash,
+   faint puffs. Add a hit-flash on every connecting round (bombers have hp 2, so non-fatal hits must
+   read). Do NOT add white tracers — the arcade gun is orange puffs (REFERENCE.md). (effects/combat.)
+2. **COMBAT DENSITY / DEMO ENGAGEMENT.** The attract/demo pilot barely engages (4 hits/40 s vs arcade
+   ~13/32 s), so combat reads thin in attract and in the judge's naive baseline. The arcade's density
+   is the PLAYER actively killing close enemies. Candidate: a demo pilot that aims+fires. (game/flow.)
+3. **EXPLOSION NOISE (polish).** The kill explosion scatters a lot of red-square "confetti"; the arcade
+   fireball is rounder/cleaner. (effects/** — fold into the combat-feel lane.)
 
-1. **THE GUN IS DEAD — FIX IT LIKE THE MISSILE (the round's #1).** A naive player mashing the fire
-   button (the obvious first weapon) kills nothing — 0 hits in ~11 turns. The gun's kill is gated behind
-   precise aim + depth (combat.js p-gate `VULCAN_MIN_HIT_P`, readable-span, the round's depth ramp) that
-   normal play never satisfies. **Make point-and-hold kill:** a generous on-screen hit at/near the
-   reticle for any enemy roughly ahead, like the R25 missile fix. ACCEPTANCE by NAIVE play: fly at
-   enemies, hold the gun, kill them — a clear kills-per-second, every engagement, multiple seeds.
-   (Combat lane — vulcan.js/combat.js.)
-2. **RE-TUNE THE MISSILE ONCE THE GUN WORKS.** The missile may be slightly too strong/easy now
-   (point-roughly clears a wave). Once the gun kills, re-balance so both have a role — gun for the
-   stream, missiles for lock-and-salvo. Don't re-cripple the missile; just give the gun its job back.
-3. **SPRITE COLOUR BALANCE (polish).** Shapes are good; the palette leans too red — pull the player off
-   heavy red toward the arcade grey-white F-14; calm the enemy hot-red cockpit. A colour pass, not a redraw.
-
-Deferred (backdrop, already ahead of the gameplay): flat field biomes' structure, canyon cliff/density,
-more stages. Do NOT add content — fix the weapons first.
+Deferred (backdrop is ahead of the play): more stages, canyon density. Do NOT add content — the FEEL
+of the core loop (hit feedback, engagement) is the frontier now.
 
 ## Hard warnings that stay load-bearing
 
