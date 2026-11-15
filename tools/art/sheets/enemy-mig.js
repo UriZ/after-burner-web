@@ -280,34 +280,51 @@ function wing(c, T, p, { span = HALF_SPAN, root = 4, chord = 6, tipChord = 2,
 }
 
 // --- Shared features --------------------------------------------------------
-// The nose intake, three nested shapes, AT THE WING LINE on the fuselage
-// centreline. R10 critique finding 2 item 2: ours sat on top of a tall bright
-// mast and read as a stork's head on a neck, and that was "the single
-// strongest wrong cue".
+// TWIN ENGINES -- the arcade enemy's defining, scale-proof anchor (R27).
+// The owner, looking at the shipped build: the enemy jets "read as ambiguous
+// blobs". The cause, read straight off reference/stage1-level-flight-t116.png
+// and judging/R27/crop_arcade_enemy.png: the arcade stage-1 enemy is a
+// TWIN-ENGINE jet whose two BLACK engine nacelles sit side by side at the body
+// centre, each cored by a bright ORANGE afterburner glow. That black-and-orange
+// cluster is the one feature that survives downscaling to 3-18 % of screen
+// width -- a high-contrast mass, not a thin grey line. Ours had a SINGLE central
+// disc with one orange dot, so scaled down it was a grey speck with a pin of
+// colour: the "blob" the owner saw.
 //
-// Sizes from the arcade column (arc-enemy-mid-4x.png, native-equivalent):
-// near-black housing ~8 n on a 73.8 n span = 11 %, red ~5 n = 6.8 %, cream
-// pip 2.8 n. On a 60 px span that is 6.6 / 4.1 / 2.3 px, i.e. r 3.3 / 2.1 /
-// 1.1. R8's measured core/red diameter ratio of 0.58 is preserved at 0.52.
+// Both engines are placed in the AIRCRAFT frame (x along the wing, +x right)
+// and mapped through the roll T, so the pair rolls and leans with the bank like
+// the rest of the airframe -- no cell is a pixel-rotation, so no soft edges.
+// The two housings overlap slightly at the centreline into one continuous dark
+// engine mass (which is how the arcade reads at range), while the two hot cores
+// stay separated by a dark gap so the TWIN-ness reads at medium size. Hard
+// discs only (PixelCanvas does not blend) -- the engines never antialias to mush.
+const ENGINE_DX = 2.8; // half the nacelle spacing, aircraft frame
+
+// Head-on: twin intake faces. No afterburner plume toward the viewer, so the
+// cores are the RED intake glow, which also keeps head-on distinct from rear.
 function noseIntake(c, T, p) {
-  const [x, y] = T(0, -1);
-  c.disc(x, y, 3.7, p.keyline);
-  c.ring(x, y, 2.3, 1.0, p.intakeRing);
-  c.disc(x, y, 1.0, p.intakeCore);
+  for (const side of [-1, 1]) {
+    const [x, y] = T(side * ENGINE_DX, -1);
+    c.disc(x, y, 3.2, p.keyline);     // black nacelle housing
+    c.disc(x, y, 1.5, p.intakeRing);  // red intake glow
+    c.disc(x, y, 0.7, p.intakeCore);  // cream pip
+  }
 }
 
-// The nozzle, rear aspect. R8 measured the arcade's housing : glow diameter
-// ratio at 2.05 on the t=104 stage-1 enemy (housing 39x38 px, glow 19x20) and
-// that measurement stands -- it is scale-free, so it survives the subject's
-// pose. What R10 found wrong was its POSITION: ours hung below the wing root
-// like a pumpkin under a gull. On reference/stage1-missile-salvo-t100.75.png
-// and on tools/out/art-critic-r10/arc-s1-enemy-rear2-5x.png the housing sits
-// ON the body, in line with the wing root, with airframe wrapped around it.
+// Rear: twin afterburners. Two black nozzle bells side by side, each with a hot
+// orange core and a yellow-white centre -- the pair of orange glows is the
+// arcade enemy's signature from behind (the aspect you chase it in). Sizes set
+// by eye against the crop: the dark cluster spans ~12 px and the two orange
+// cores ~2 px each on our 60 px span, the proportion the reference shows.
+// The afterburner colours (keyline/nozzleCore/nozzleHot) are NOT overridden at
+// night, so the twin glows stay hot against the night sky, as the arcade's do.
 function nozzle(c, T, p) {
-  const [x, y] = T(0, 1);
-  c.disc(x, y, 5.0, p.keyline);
-  c.disc(x, y, 2.5, p.nozzleCore);
-  c.disc(x, y, 1.1, p.nozzleHot);
+  for (const side of [-1, 1]) {
+    const [x, y] = T(side * ENGINE_DX, 1);
+    c.disc(x, y, 3.3, p.keyline);     // black nozzle housing
+    c.disc(x, y, 1.9, p.nozzleCore);  // orange afterburner
+    c.disc(x, y, 0.9, p.nozzleHot);   // hot yellow-white centre
+  }
 }
 
 /** The fin. One rung below the wing's lit edge, with a single shaded side.
