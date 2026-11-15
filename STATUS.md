@@ -35,15 +35,23 @@ that stayed open through R14 reduce to one knot — the sight can't reach the ta
 aren't enough close targets. R15 attacks both, but **measurement-first** (one lever has no
 arcade column). Ranked:
 
-1. **THE SIGHT CAN'T REACH WHERE IT NEEDS TO — the keystone, but MEASURE FIRST.** Both combat
-   residuals reduce to vertical sight reach (`ENVELOPE_Y`, player.js): the sight can't dip to
-   the low close jets (gun) or climb high enough to centre the lock cone on the bait (missile).
-   **`ENVELOPE_Y` has NO arcade column** — so R15 opens by MEASURING the arcade's vertical sight
-   range (where the sight sits in level flight, full climb, full dive; STATUS/R11 notes two
-   frames show the arcade sight BELOW the airframe). Only then tune. **Caveat from the R14 judge:
-   more down-reach is the clean fix for the MISSILE but may NOT make the gun win** — he pushed
-   the sight onto the enemy row and still lost 9 vs 10. Verify the gun actually converts before
-   committing the gun to the envelope. (Player lane + a measurement pass.)
+1. **~~THE SIGHT CAN'T REACH~~ — REFUTED R15 by measurement. DO NOT GROW `ENVELOPE_Y`.** The
+   first-ever arcade vertical-sight measurement (`judging/R15/playtest-open.md`): the arcade
+   sight ranges **−0.18 (dive) to +0.62 (climb) NDC**, rest **~+0.16 above centre**. **Our build
+   already OVER-reaches it** — we climb to **+0.76**, dive to **−0.25**, and climbing DOES
+   acquire locks. Growing the envelope moves us AWAY from the arcade. The R14 "sight can't reach"
+   diagnosis was wrong; measuring first caught it. **The two combat residuals are NOT reach:**
+   - **GUN = supply + wide hit-net.** Pushing the sight DOWN *lost* kills (8/5 vs blind 10/12).
+     Blind-centre is dominant because traffic funnels through centre + the span-scaled hit net is
+     a wide auto-converter. The fix is **close-target supply** (density bursts, gap 3) — NOT
+     reach, NOT `ASSIST_RADIUS_FRAC`/`HIT_RADIUS_SPAN_MULT` (both forbidden/inert). (Combat lane.)
+   - **MISSILE = conversion, not reach.** Climbing acquires locks fine, but they're **transient
+     (~2 s)** and fire-is-on-release, so a human can't time it (1 missile in 27 s). Fix: a **lock
+     grace window** (hold an acquired lock long enough to convert) in `lockSystem.js`, keeping
+     blind protection. (Combat lane.)
+   One real nuance flagged, NOT for this round: our REST sight offset is +0.30 vs arcade ~+0.16
+   — but that's `SIGHT_NDC_Y_OFFSET` (combat.js), possibly a different operator (vulcan-stream
+   convergence) than the nose-sight glyph. Reconcile before touching; do not blind-change.
 2. **THE GUN KILLS BY SUPPLY, NOT BY AIM.** Aiming still doesn't out-kill a dead stick. The cap
    is as much target **supply** (too few close targets) + the wide span-scaled hit net as it is
    reach. This is the same knot as gap 3 — more close targets to aim at is part of the fix.
