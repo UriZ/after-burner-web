@@ -21,79 +21,77 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 # ---------------------------------------------------------------- ROUND DATA
 ROUND = {
-    "number": 16,
+    "number": 17,
     "date": "2026-11-15",
     "status": "CLOSED",                      # or "BUILD IN PROGRESS"
-    "score": "8.6 / 10",                     # judge score once the round closes
-    "last_score": "8.5 / 10 (R15)",
+    "score": "8.7 / 10",                     # judge score once the round closes
+    "last_score": "8.6 / 10 (R16)",
     "tldr": (
-        "With combat closed in R15, R16 turned to <em>breadth</em> — the biggest remaining distance "
-        "from the arcade. It shipped a whole missing beat: the <em>refuel interstitial</em>, a "
-        "no-combat low pass over a runway that restocks your missiles between combat stages. And it "
-        "closed the one named R15 residual — the <em>first</em> missile lock is now found by the "
-        "naive climb (3 locks on the first try, where the judge once flew ~15 empty passes). It "
-        "rises to 8.6 — modest, because the refuel stage reads as a <em>road</em>, not the arcade’s "
-        "refuel <em>base</em>: it still lacks the tankers, the crew, and the trees-to-the-top framing."
+        "R17 turned R16’s refuel <em>road</em> into a refuel <em>base.</em> Fuel tankers, tents and "
+        "crew now line the runway; the sky clears; and the camera <em>swoops low</em> so terrain "
+        "fills the frame like the arcade — all three signifiers, landed. The combat framing is "
+        "proven byte-identical, so the fight is untouched. Stage 13 got its own green biome and the "
+        "forest was brightened to its measured target. It rises to 8.7. The one tell left is the "
+        "arcade’s dense <em>tree tunnel</em> walling the runway to the top."
     ),
     "verdict": (
-        "“The first lock just happens now — climb at the wave and it locks, first try. And there’s a "
-        "fifth beat: a calm refuel runway between combat stages, reachable in real play. It reads as "
-        "a bare road rather than the arcade’s refuel base, but the wiring is right.”"
+        "“A clean breadth/polish round — the refuel stage reads as a depot now, not a road: low "
+        "framing, fuel tankers and tents scrolling past, clear sky. The fight is untouched. The one "
+        "thing still missing is the arcade’s wall of trees down both sides of the strip.”"
     ),
-    "verdict_attr": "R16 fresh-context judge · composite 8.6 (motion 8.6 · stills 8.5)",
+    "verdict_attr": "R17 fresh-context judge · composite 8.7 (motion 8.7 · stills 8.7)",
     # Side-by-side hero pairs (already composited OURS | ARCADE).
     "pairs": [
-        ("judging/R16/resupply-ours-vs-arcade.png",
-         "A fifth beat — the refuel runway",
-         "Shipped this round: a no-combat low pass that restocks missiles between combat stages. Reachable in real play — but it reads as a road; the arcade’s refuel BASE has tankers, crew, and trees to the top (R17)."),
+        ("judging/R17/refuel-base-ours-vs-arcade.png",
+         "The refuel stage is a base now",
+         "Shipped this round: the low-swoop camera (measured horizon 0.20), fuel tankers/tents/crew beside the runway, and clear sky. R16’s ‘it’s a road’ is gone — the remaining tell is the arcade’s dense tree tunnel."),
+        ("judging/R17/world-s4-ours-vs-arcade.png",
+         "The forest is brighter, with a river",
+         "A measured V-recenter lands the forest green on the arcade’s own value, plus a cyan river — closer to the arcade’s mottled canopy."),
         ("judging/R15/combat-ours-vs-arcade.png",
-         "Combat still plays like After Burner",
-         "From R15 and holding: the burst wall (aiming beats a dead stick), the crisp afterburner, and the lock pips — plus R16’s fix so the FIRST lock is found by the naive climb."),
-        ("judging/R14/stage4-ours-vs-arcade.png",
-         "Four combat stages + the refuel beat",
-         "The green forest (stage 4) still holds. 5 of 23 beats now; the airborne tanker and more stages remain."),
+         "Combat untouched — and proven so",
+         "The R15/R16 combat wins all hold; the refuel low-swoop is byte-identical-gated to the resupply state and does not leak into the fight (combat horizon 0.62, resupply 0.20)."),
     ],
     # What shipped and held up under the judge's re-measure.
     "shipped": [
-        "A fifth beat — the refuel interstitial: a no-combat runway pass that restocks missiles, reachable in play",
-        "The FIRST missile lock is discoverable — the naive full climb now lands a lock (3 on the first wave)",
-        "Blind protection STRONGER — raising the bait put it further above the rest cone (centred + held = 0 locks)",
-        "All R15 wins held unregressed — aim-beats-blind gun (24 vs 12), grace window, burst wall, crisp flame",
+        "The refuel stage reads as a BASE — low-swoop framing (measured horizon 0.20), props (tanker/tents/crew), clear sky",
+        "Combat framing proven byte-identical — the low-swoop is gated to resupply and never leaks into the fight",
+        "Stage 13 has its own distinct green sage biome (no longer the autumn stage-5 runway)",
+        "The stage-4 forest brightened to its measured value (mode on #005200) + a cyan river",
+        "Clouds lift on the refuel stages (per-stage cloud gate); stages 1–4 clouds intact",
     ],
     # Ranked gaps for NEXT round. kind drives the colour chip.
-    "gaps_label": "Next — R17",
+    "gaps_label": "Next — R18",
     "gaps": [
-        (1, "missing", "The refuel stage is a road, not a BASE",
-         "The round’s headline is its weakest frame. It needs the two signifiers it lacks: the autumn "
-         "trees that fill the frame to the top (the low-camera swoop), and the ground props — fuel "
-         "tankers, tents, crew — beside the runway. Also stage 13 should render its own palm/sage biome, "
-         "and the clouds should lift on the clear-sky refuel stages."),
-        (2, "missing", "Still only 5 of 23 beats — the airborne tanker is unbuilt",
-         "Breadth stays the standing theme. The runway is one of two arcade refuel mechanisms; the "
-         "airborne tanker is still absent, and more combat stages widen the game. The next beat as well-"
-         "wired as the runway — but with the scenery the runway lacks."),
-        (3, "polish", "The stage-4 forest ground is dark and flat",
-         "Carried and deferred twice now: the arcade canopy is brighter and mottled with a cyan river; "
-         "ours is a near-flat dark green field. Needs the measured V-distribution re-centre, not a by-eye nudge."),
-        (4, "polish", "Small climaxes and the title",
-         "Kill fireballs read sub-screen vs the arcade’s half-screen blasts; the title wordmark is "
-         "hand-rounded where the arcade’s is brush-angular. A grouped polish pass."),
+        (1, "missing", "The refuel runway needs its tree tunnel",
+         "The single biggest tell left: the arcade walls the strip with dense flanking vegetation (autumn on "
+         "5, palm on 13) to the top of the frame; ours is flat scrub with props parked at the horizon. Build "
+         "the tree tunnel — and it fixes stage 13’s missing palms in the same stroke."),
+        (2, "missing", "Still ~6 of 23 beats — the airborne tanker is unbuilt",
+         "Breadth stays the standing theme. The runway is one of two arcade refuel mechanisms; the mid-air "
+         "TANKER refuel is still absent, and more combat stages widen the game toward 23."),
+        (3, "polish", "Climaxes read small; the title is hand-rounded",
+         "Rising now that the refuel headline is largely closed: kill fireballs are sub-screen vs the arcade’s "
+         "half-screen blasts; the title wordmark is hand-rounded where the arcade’s is brush-angular."),
+        (4, "polish", "A cheap win: clouds on combat stages 2–4",
+         "STAGE_MAP gives stages 2–4 cloud_density 0 too, but the R17 gate lifted only the refuel stages. "
+         "Extend the gate (carefully — STATUS warned not to regress 1–4’s look)."),
         (5, "polish", "Loose ends",
-         "Blind gun floor still ~8–12 (structural); the refuel restock isn’t actually caused by the runway "
-         "(fires at every boundary); the SIGHT_NDC_Y_OFFSET reconciliation stays a measure-first item."),
+         "Blind gun floor still ~8–12 (structural); the refuel restock isn’t caused by the runway (boundary); "
+         "the SIGHT_NDC_Y_OFFSET reconciliation stays a measure-first item."),
     ],
     # What not to break.
     "keep": [
-        "The first lock found by the naive climb; blind protection (centred + held = 0 locks)",
-        "Aim-beats-blind gun (24 vs 12); the missile loop + grace window + pips; the burst wall",
-        "Five beats incl. the refuel wiring; the crisp afterburner; the ~8 s death cycle; stages 1–4",
-        "Do NOT grow ENVELOPE_Y — the raised bait moved the target into the existing reach (the right lever)",
+        "The refuel base (low-swoop framing + props + clear sky); COMBAT framing byte-identical outside resupply",
+        "Stage 13’s green biome; the brighter forest + cyan river; the cloud gate",
+        "Every combat win: aim-beats-blind gun, the missile loop + grace window + pips, the first-lock naive climb, the burst wall",
+        "Do NOT grow ENVELOPE_Y; do NOT let the resupply pitch leak into combat (it’s proven gated)",
     ],
     "method_note": (
-        "R16 kept the discipline: the breadth lane disclosed exactly what the refuel beat does and "
-        "doesn’t do (restock fires at the boundary, not caused by the runway; framing and props "
-        "deferred with reasons), and the judge independently confirmed the wiring while marking the "
-        "look PARTIAL — no claim outran its evidence. History in judging/R16/."
+        "R17’s standout was rigor on a risky change: the framing lane MEASURED the arcade refuel horizon "
+        "(0.20) instead of eyeballing, used a separate pitch quaternion so combat’s camera is never mutated, "
+        "and PROVED combat byte-identical with an isolated-worktree pixel diff. A prior framing lane also "
+        "withdrew cleanly when assigned the wrong files, locating the real lever for wave 2. History in judging/R17/."
     ),
 }
 
