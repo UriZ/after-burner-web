@@ -101,67 +101,81 @@ const CX = 120; // texture centreline
 // width by row ~9 and the trailing edges sweep back in below.
 function drawTanker(buf) {
   // --- vertical TAIL FIN (the feature that breaks the manta read) ----------
-  // A tall narrow blade rising clearly above the wing line at centre (rows
-  // 1..14, screen ~0.12..0.21H). In the reference this fin — not the wing — is
-  // what reads the craft as a winged transport seen from the rear rather than a
-  // flat flying-wing. Narrow so it reads as a blade, not a nose cone.
-  fillPolygonHard(buf, [[120, 1], [126, 14], [114, 14]], WING_MID);
-  fillPolygonHard(buf, [[120, 1], [120, 14], [115, 14]], WING_LIGHT); // lit fwd face
-  fillPolygonHard(buf, [[120, 1], [126, 14], [122, 14]], WING_DARK);  // shaded aft edge
+  // A thin upright blade rising from the fuselage crown (rows 3..13, screen
+  // ~0.14..0.20H). In the reference this fin — not the wing — is what reads the
+  // craft as a winged transport seen from the rear rather than a flat
+  // flying-wing. Narrow (6 texels) so it reads as a blade, not a nose cone, and
+  // lit-front / shaded-aft so it has a vertical face.
+  fillPolygonHard(buf, [[118, 3], [122, 3], [123, 13], [117, 13]], WING_MID);
+  fillPolygonHard(buf, [[118, 3], [120, 3], [120, 13], [117, 13]], WING_LIGHT); // lit fwd face
+  fillPolygonHard(buf, [[120, 3], [122, 3], [123, 13], [120, 13]], WING_DARK);  // shaded aft edge
 
-  // --- high horizontal stabilizers, swept back + down off the fin ----------
-  // Poked out ABOVE the wing leading edge (rows 5..11) so the tail cross reads
-  // as a separate high tailplane, not another chevron buried in the wing.
-  fillPolygonHard(buf, [[116, 5], [90, 10], [96, 12], [117, 10]], WING_MID);  // left
-  fillPolygonHard(buf, [[124, 5], [150, 10], [144, 12], [123, 10]], WING_MID); // right
-  fillPolygonHard(buf, [[116, 5], [90, 10], [93, 10], [117, 6]], WING_LIGHT);  // lit edges
-  fillPolygonHard(buf, [[124, 5], [150, 10], [147, 10], [123, 6]], WING_LIGHT);
+  // --- high horizontal STABILIZER: a long thin gull crossbar atop the fin ---
+  // Roots connect solidly to the fin crown (x117..124) and the blades sweep OUT
+  // and gently UP to pointed tips at ~x151 (rows 1..5), sitting as a distinct
+  // high tailplane with clear black sky between it and the wing leading edge —
+  // the cross-tail read the arcade has and a flat flying-wing/manta does not.
+  // ASSUMED: fin + stabilizer proportions are read off the one video frame's
+  // silhouette, fitted into the ~11 texels above the wing that the docking
+  // composition leaves free — not a certified per-pixel measurement.
+  const rStab = [[119, 2], [124, 2], [151, 1], [151, 3], [124, 5], [119, 4]];
+  fillPolygonHard(buf, rStab, WING_MID);
+  fillPolygonHard(buf, rStab.map(([x, y]) => [240 - x, y]), WING_MID);
+  fillPolygonHard(buf, [[124, 2], [151, 1], [151, 2], [124, 3]], WING_LIGHT); // lit top edge
+  fillPolygonHard(buf, [[124, 2], [151, 1], [151, 2], [124, 3]].map(([x, y]) => [240 - x, y]), WING_LIGHT);
 
   // --- main wings: a broad DOWN-swept gull, tips exiting both frame edges ---
-  // Leading (upper) edge high at the root, sweeping down-and-out to pointed
-  // tips at the texture edges (measured: full screen width by ~0.20H, trailing
-  // edges then sweeping back inboard and down below). Pushed down vs the fin so
-  // the fin clears the wing. One polygon per side, left mirrors the right.
+  // Thick inboard shoulder (carrying the nacelles) with the leading edge high
+  // at the root, sweeping DOWN-and-out to the drooping pointed tips at the
+  // texture edges (measured: full screen width, trailing edges sweeping back
+  // and down below). Pushed down vs the tail so the fin + stabilizer clear it.
+  // One polygon per side, left mirrors the right.
   const rightWing = [
-    [134, 12], [202, 16], [239, 18], [239, 20],
-    [206, 22], [172, 27], [150, 31], [138, 28],
+    [134, 17], [148, 13], [172, 15], [205, 20], [239, 25],
+    [239, 28], [205, 29], [172, 30], [152, 30], [136, 27],
   ];
   fillPolygonHard(buf, rightWing, WING_MID);
   fillPolygonHard(buf, rightWing.map(([x, y]) => [240 - x, y]), WING_MID);
   // lit leading edges
-  fillPolygonHard(buf, [[134, 12], [239, 18], [239, 19], [136, 14]], WING_LIGHT);
-  fillPolygonHard(buf, [[106, 12], [1, 18], [1, 19], [104, 14]], WING_LIGHT);
+  fillPolygonHard(buf, [[150, 13], [172, 15], [205, 20], [239, 25],
+    [239, 26], [205, 21], [172, 16], [150, 14]], WING_LIGHT);
+  fillPolygonHard(buf, [[150, 13], [172, 15], [205, 20], [239, 25],
+    [239, 26], [205, 21], [172, 16], [150, 14]].map(([x, y]) => [240 - x, y]), WING_LIGHT);
   // shaded trailing edges
-  fillPolygonHard(buf, [[239, 20], [206, 22], [172, 27], [150, 31],
-    [154, 31], [176, 28], [208, 24], [239, 21]], WING_DARK);
-  fillPolygonHard(buf, [[1, 20], [34, 22], [68, 27], [90, 31],
-    [86, 31], [64, 28], [32, 24], [1, 21]], WING_DARK);
+  fillPolygonHard(buf, [[239, 27], [205, 29], [172, 30], [150, 30],
+    [150, 29], [172, 29], [205, 28], [239, 28]], WING_DARK);
+  fillPolygonHard(buf, [[239, 27], [205, 29], [172, 30], [150, 30],
+    [150, 29], [172, 29], [205, 28], [239, 28]].map(([x, y]) => [240 - x, y]), WING_DARK);
 
   // --- central FUSELAGE: a real rounded capsule, mid-grey and LIT -----------
   // The arcade's fuselage reads as a solid, lit body — NOT the near-black pod
-  // ours used to draw (which read as a hole in the wing). Rows 10..38, tapered
+  // ours used to draw (which read as a hole in the wing). Rows 11..39, tapered
   // to a narrow crown where the fin rises, widest mid-body, tapering to the
   // belly where the boom hangs.
   fillPolygonHard(buf, [
-    [112, 10], [128, 10], [138, 16], [140, 24],
-    [134, 33], [126, 38], [114, 38], [106, 33],
-    [100, 24], [102, 16],
+    [112, 11], [128, 11], [136, 16], [139, 22], [137, 29],
+    [131, 35], [124, 39], [116, 39], [109, 35], [103, 29], [101, 22], [104, 16],
   ], WING_MID);
-  fillPolygonHard(buf, [[112, 10], [128, 10], [132, 15], [108, 15]], WING_LIGHT); // lit crown
-  fillPolygonHard(buf, [[138, 16], [140, 24], [134, 33], [131, 31], [136, 24], [135, 17]], WING_DARK);
-  fillPolygonHard(buf, [[102, 16], [100, 24], [106, 33], [109, 31], [104, 24], [105, 17]], WING_DARK);
-  // one recessed sensor housing (the single dark accent, not a full black pod)
-  fillPolygonHard(buf, [[112, 18], [128, 18], [132, 24], [126, 31], [114, 31], [108, 24]], BODY_VDARK);
-  // red sensor lights clustered on the housing (measured centre band)
-  fillRectHard(buf, 114, 21, 2, 2, SENSOR_RED);
-  fillRectHard(buf, 120, 23, 2, 2, SENSOR_RED);
-  fillRectHard(buf, 125, 21, 2, 2, SENSOR_RED);
+  fillPolygonHard(buf, [[112, 11], [128, 11], [131, 15], [109, 15]], WING_LIGHT); // lit crown
+  fillPolygonHard(buf, [[136, 16], [139, 22], [137, 29], [134, 28], [136, 22], [134, 17]], WING_DARK);
+  fillPolygonHard(buf, [[104, 16], [101, 22], [103, 29], [106, 28], [104, 22], [106, 17]], WING_DARK);
+  // dark angular COCKPIT glass, offset to the upper-RIGHT as in the arcade —
+  // the single dark accent, not a full black pod swallowing the body.
+  fillPolygonHard(buf, [[120, 15], [134, 18], [135, 25], [123, 28], [117, 23], [118, 17]], BODY_VDARK);
+  // red sensor lights clustered right-of-centre on the glass (measured band)
+  fillRectHard(buf, 123, 21, 2, 2, SENSOR_RED);
+  fillRectHard(buf, 128, 23, 2, 2, SENSOR_RED);
+  fillRectHard(buf, 125, 26, 2, 2, SENSOR_RED);
+  // lower-body panel line + lit lip (the horizontal segment the reference shows)
+  fillPolygonHard(buf, [[108, 32], [132, 32], [130, 34], [110, 34]], WING_DARK);
+  fillPolygonHard(buf, [[110, 34], [130, 34], [128, 35], [112, 35]], WING_LIGHT);
 
   // --- four engine nacelles flanking the fuselage --------------------------
-  // Texel centres from the measured 29/37/62/69 %W engine columns; ey=18 puts
-  // the glow at ~0.23H screen (measured orange band 0.19-0.27H).
+  // Texel centres from the measured 29/37/62/69 %W engine columns; ey=21 nests
+  // the glow into the wing-root shoulder at ~0.25H screen (measured orange band
+  // 0.19-0.27H), sitting ON the down-swept wing as the reference shows.
   for (const ex of [70, 90, 150, 170]) {
-    const ey = 18;
+    const ey = 21;
     // cowl ring: a flat-topped octagon (no ellipse primitive canvas-side, same
     // construction carrier.js's tower caps use — reads round at this scale).
     fillPolygonHard(buf, [
