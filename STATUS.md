@@ -1,6 +1,6 @@
 # STATUS — where the rebuild stands
 
-**Last updated**: 2026-11-15. **R18 CLOSED at 8.8; R19 is open.** The loop is
+**Last updated**: 2026-11-15. **R19 CLOSED at 8.9; R20 is open.** The loop is
 **"look first, measure second"** (CLAUDE.md, "How work happens here"; rationale in
 `judging/R12/method-retrospective.md`). Every round ships an HTML report
 (`judging/R<n>/report.html`, `python3 tools/round_report.py`) published to the standing
@@ -9,65 +9,64 @@ Repo: github.com/UriZ/after-burner-web.
 
 ## Current state
 
-- **R18 verdict**: **8.8** (motion 8.8, stills 8.9) — `judging/R18/judge-report.md`. The refuel
-  tree tunnel landed on both stages; nothing regressed.
-- **Score trend**: … R15 8.5 → R16 8.6 → R17 8.7 → **R18 8.8**.
-- **R18 shipped (judge-confirmed)**: the **refuel TREE TUNNEL** — dense autumn trees walling
-  stage 5, palm trees walling stage 13 (also fixes R17's "no palms" gap) — both refuel stages now
-  pass the glance test as the arcade's tree-lined bases; **sharper title letterforms** (chamfered A,
-  knife-point terminals); **per-stage clouds** (stage 4 cleared — arcade is clear; stages 2/3 kept —
-  they carry banks). A **"fireballs too small" gap REFUTED** by scale-matched measurement.
-- **R18's honest limits (judge)**: the tree tunnel is a sparser/blobbier canopy vs the arcade's
-  dense continuous wall; the title still trails the arcade's italic lean; and the **fireball is NARROW
-  not short** — the judge refined the refutation: ours isn't short (core/height comparable), but the
-  arcade blast is **~2× wider** (flat horizontal debris spray), so it reads bigger. Width+debris is a
-  real R19 gap.
-- **What works end to end**: title → flight → combat → death/respawn → tally → stages 1–4 +
-  **refuel 5 (autumn tunnel) / 13 (palm tunnel)** → GAME OVER / continue → restart. Throttle (flame),
-  barrel roll, formations, lock/missiles/vulcan (usable, first lock discoverable), afterburner, lock
-  cue, the refuel low-swoop + tree tunnel, synthesized audio + FM music all run.
-- **Still absent**: **~6 of 23 beats**; the **airborne/mid-air TANKER** refuel (the second refuel
-  mechanism) and the rest of the stages remain — breadth is the standing theme.
+- **R19 verdict**: **8.9** (motion 8.9, stills 8.9) — `judging/R19/judge-report.md`. Two top R18
+  gaps closed in one round, zero regression: the airborne tanker beat works end-to-end; the fireball widened.
+- **Score trend**: … R16 8.6 → R17 8.7 → R18 8.8 → **R19 8.9**.
+- **R19 shipped (judge-confirmed)**: the **airborne TANKER refuel** — AB2's SECOND refuel mechanism:
+  fly up behind a big grey tanker, RELOAD WEAPONS blinks, stock refills, hands back to flight (a new
+  ~5.5 s beat, wired into stages 3/9, reachable `?airrefuel=N`); the **kill fireball WIDENED** to
+  ~34 %W (toward the arcade's 37.8 %W) as a horizontal debris spray + flanking smoke, NOT taller.
+  **Both arcade refuel mechanisms now exist** (runway + tanker). Combat played UNREGRESSED.
+- **R19's honest limits (judge)**: the tanker is the right beat with the WRONG AIRFRAME — ours reads
+  as a stealth-manta, missing the arcade's vertical tail fin / winged-tanker shape, and the jet hangs in
+  a gap below instead of docking to a boom; the fireball still lacks the arcade's **white-hot cores** in
+  the flanking puffs; the tree tunnel is still sparse. (Note: R19's lanes finished their code but hit the
+  account session limit before reporting — TL verified by look + the judge re-measured; nothing lost.)
+- **What works end to end**: title → flight → combat → death/respawn → tally → stages 1–4 + runway
+  refuel 5/13 + **airborne tanker (stages 3/9)** → GAME OVER / continue → restart. Throttle (flame),
+  barrel roll, formations, lock/missiles/vulcan (usable, first lock discoverable), afterburner, lock cue,
+  both refuel beats, synthesized audio + FM music all run.
+- **Still absent**: **~5 of 23 beats** — most stages lap the same 4 authored combat biomes. More distinct
+  combat stages toward 23 is now the biggest structural distance. Both refuel mechanisms are DONE.
 
-## R19 gap list — from the R18 judge's close-look (`judging/R18/judge-report.md`)
+## R20 gap list — from the R19 judge's close-look (`judging/R19/judge-report.md`)
 
-Theme: **breadth (the airborne tanker) + the climax width.** The refuel runway is substantially
-done; the biggest structural distance left is the unbuilt second refuel mechanism. Ranked:
+Theme: **breadth is the floor — distinct combat stages.** Both refuel mechanisms exist; the biggest
+remaining distance from the arcade is that most stages lap the same 4 authored biomes. Ranked:
 
-1. **THE AIRBORNE TANKER REFUEL IS UNBUILT.** The runway is only ONE of the arcade's two refuel
-   mechanisms; the **mid-air TANKER refuel** (fly up behind a large tanker aircraft to refuel) is
-   still absent — a whole missing beat like the runway was. Plus more combat stages toward 23. Still
-   ~6 of 23 beats; breadth is the biggest structural gap. Build the tanker beat (a new flow state +
-   a tanker aircraft to approach/dock), well-wired like the runway. (World + flow + a tanker visual.)
-2. **KILL BLASTS ARE TOO NARROW.** The fireball isn't short (measurement refuted that — ours
-   ~24%W ball / 32%H core vs arcade core 15.6%W / 22.8%H, ours taller), BUT the arcade's total blast
-   is **~2× WIDER** (37.8%W), a flat horizontal debris spray with flanking smoke, where ours is a
-   compact vertical puff. **Widen the blast + add horizontal debris** so climaxes read big. Do NOT
-   inflate it vertically (measured fine) — this is a WIDTH + debris change. (Effects.)
-3. **DENSIFY / CLEAN THE TREE TUNNEL.** Substantially closed, but ours is a sparser, blobbier canopy
-   row vs the arcade's dense continuous wall. More trees, cleaner smaller canopy silhouettes carried
-   further up the frame. Secondary: the stage-5 refuel sky reads pale-cream vs arcade orange — MEASURE
-   the thin sky band first (STAGE_MAP flags it low-confidence). (World.)
-4. **THE TITLE STILL TRAILS THE ARCADE.** Sharper now, but short of the arcade's italic lean and
-   letter packing. A second pass if the bigger gaps are handled. (UI.)
-5. **LOOSE ENDS (low priority).** Blind gun floor still ~8–12 (structural span-scaled net); the refuel
-   restock isn't caused by the runway (fires at every boundary — harmless); the `SIGHT_NDC_Y_OFFSET`
-   +0.30 (vulcan) vs ~+0.16 (glyph) reconciliation stays a measure-first item.
+1. **BREADTH — ~5 OF 23 BEATS; MOST STAGES LAP 4 PALETTES.** Beyond stages 1-4 the content repeats the
+   same four authored combat biomes. **More distinct combat stages / set-pieces toward 23** is now the
+   single biggest remaining distance from the arcade. Add authored biomes with measured palettes from
+   STAGE_MAP (like R14's forest), wired into the progression. Quality over quantity — one or two done
+   well, measured. (World + flow.)
+2. **THE TANKER IS THE RIGHT BEAT WITH THE WRONG AIRFRAME.** The composition + RELOAD WEAPONS prompt are
+   right, but ours reads as a stealth manta — give it the arcade's **vertical TAIL FIN** and down-swept
+   **winged-tanker** shape, and **DOCK the jet** (nose it up to a visible refuel boom instead of hanging
+   in a gap below). Reference reference/stage3-reload-tanker-t165.png. (Tanker visual: render/tanker.js +
+   the docking pose in game.js/flow.)
+3. **DENSIFY THE TREE TUNNEL; MEASURE THE REFUEL SKY.** Carried from R18: ours is a sparser row of blobby
+   canopies vs the arcade's dense continuous wall. Secondary: the stage-5 refuel sky reads pale-cream vs
+   arcade orange — MEASURE the low-confidence thin band (STAGE_MAP flags it) before tuning. (World.)
+4. **FIREBALL — LAST STRETCH: WHITE-HOT CORES.** Width is close now (~34 vs 37.8 %W). The remaining tell
+   is the puff INTERIOR: the arcade's spray balls carry white-hot cores; ours are orange-only. Add white
+   cores to the flanking puffs — NOT more vertical height (measured fine). (Effects.)
+5. **THE TITLE STILL TRAILS (carried).** Sharper after R18 but short of the arcade's italic lean and
+   letter packing. A second pass once the bigger gaps are handled. (UI.)
 
-**Kept as positives (do not regress):** the refuel tree tunnel (both biomes) + the R17 base
-(low-swoop + props + clear sky); **COMBAT framing byte-identical outside resupply**; stage 13's palms;
-the brighter forest + cyan river; the per-stage cloud gate; every combat win (aim-beats-blind gun, the
-missile loop + grace window + pips, the first-lock naive climb, the burst wall); the ~8 s death cycle;
-stages 1–4. **Do NOT grow `ENVELOPE_Y`** (R15-refuted); **do NOT inflate the fireball vertically**
-(measured fine — widen it instead).
+**Kept as positives (do not regress):** both refuel mechanisms — the airborne tanker (enter/refill/
+handback, RELOAD WEAPONS, stages 3/9) and the runway tree tunnel + low-swoop + depot props; the wider
+fireball (horizontal, not taller); **COMBAT framing byte-identical outside the refuel states** (stateless
+`flow.state` gates); every combat win (aim-beats-blind gun, the missile loop + grace window + pips, the
+first-lock naive climb, the burst wall); the ~8 s death cycle; stages 1-4. **Do NOT inflate the fireball
+vertically** (the R20 fix is white cores, not height); **do NOT grow `ENVELOPE_Y`** (R15-refuted).
 
-**Carried interfaces** (`judging/R12/flow-asks.md`): a `gameOver` SFX + a `resupply` landing cue
-(audio); a stage-transition cross-fade (world). Record as **ADOPTED** in GAME_SPEC: R16 runway
-resupply (§5), R17 refuel props + low-swoop + stage-13 biome + cloud gate, R18 tree tunnel. **Capture
-caveat**: the combat p-gate makes `demo=2` under-read gun explosions — use `?combatexpl=1` and an
-aiming pilot (or play). **Framing note**: the refuel low-swoop is a stateless `flow.state==='resupply'`
-gate in `game.js` — keep any new camera work stateless so combat stays byte-identical. **Fireball
-note**: measure scale-matched (the "too small" impression came off a non-scale-matched montage twice).
+**Carried interfaces** (`judging/R12/flow-asks.md`): a `gameOver` SFX + `resupply`/`airrefuel` landing
+cues (audio). Record as **ADOPTED** in GAME_SPEC: R16-18 runway resupply + tree tunnel, R19 airborne
+tanker (§5) + the wider fireball. **Capture caveat**: the combat p-gate makes `demo=2` under-read gun
+explosions — use `?combatexpl=1` and an aiming pilot (or play). **Framing note**: both refuel low-swoop
+and the tanker are stateless `flow.state` gates in game.js — keep new camera work stateless so combat
+stays byte-identical. **Fireball note**: measure scale-matched (the "too small" impression came off
+non-scale-matched montages twice).
 
 ## Hard warnings that stay load-bearing
 
