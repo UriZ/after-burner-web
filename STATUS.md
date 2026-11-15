@@ -1,6 +1,6 @@
 # STATUS — where the rebuild stands
 
-**Last updated**: 2026-11-15. **R16 CLOSED at 8.6; R17 is open.** The loop is
+**Last updated**: 2026-11-15. **R17 CLOSED at 8.7; R18 is open.** The loop is
 **"look first, measure second"** (CLAUDE.md, "How work happens here"; rationale in
 `judging/R12/method-retrospective.md`). Every round ships an HTML report
 (`judging/R<n>/report.html`, `python3 tools/round_report.py`) published to the standing
@@ -9,69 +9,62 @@ Repo: github.com/UriZ/after-burner-web.
 
 ## Current state
 
-- **R16 verdict**: **8.6** (motion 8.6, stills 8.5) — `judging/R16/judge-report.md`. A fifth beat
-  (the refuel runway) and the first missile lock made discoverable; the refuel LOOK is PARTIAL.
-- **Score trend**: … R13 8.2 → R14 8.3 → R15 8.5 → **R16 8.6**.
-- **R16 shipped (judge-confirmed)**: the **refuel interstitial** — a no-combat low pass over a
-  runway (new `resupply` flow state + `runway` ground + STAGE_5) that restocks missiles between
-  combat stages, reachable in normal progression (combat 4 → refuel 5 → combat 6) and via
-  `?stage=5`/`?stage=13`; the **first missile lock is discoverable** — raising the bait band
-  (0.44–0.58 → 0.55–0.65) to where the saturated full climb pins (+0.76) means the **naive climb
-  now lands a lock** (3 on the first wave vs R15's ~15 empty passes); **blind protection STRONGER**.
-- **R16's honest limits (judge)**: the refuel beat reads as a **road, not the arcade's refuel
-  BASE** — no tankers/crew/props, cruise-horizon framing not the terrain-rushing swoop, clouds fill
-  the frame, stage 13 shows the wrong biome. The restock is **not caused by the runway** (`_enterStage`
-  refills at every boundary — disclosed). "The LOOK is the game's weakest stage match."
-- **What works end to end**: title → flight → combat → death/respawn → tally → stages 1/2/3/4 +
-  **refuel 5/13** → GAME OVER / continue → restart. Throttle (drives the flame), barrel roll,
-  formations, lock/missiles/vulcan (usable, first lock discoverable), afterburner, lock cue,
-  synthesized audio + FM music all run.
-- **Still absent**: **5 of 23 beats** (4 combat + the runway refuel); the **airborne tanker** refuel
-  and the rest of the stages remain — breadth is the standing theme.
+- **R17 verdict**: **8.7** (motion 8.7, stills 8.7) — `judging/R17/judge-report.md`. A clean
+  breadth/polish round; R16's refuel "road" became a refuel BASE, nothing regressed.
+- **Score trend**: … R14 8.3 → R15 8.5 → R16 8.6 → **R17 8.7**.
+- **R17 shipped (judge-confirmed)**: the **refuel BASE** — low-swoop camera (measured horizon
+  **0.20** vs cruise 0.625), ground **props** (fuel tanker/tents/crew beside the runway), and
+  **clear sky** (per-stage cloud gate); **combat framing proven BYTE-IDENTICAL** (the low-swoop is
+  gated to `resupply` — combat horizon 0.62, resupply 0.20 — verified by isolated-worktree pixel
+  diff); **stage 13's own green sage biome** (routed, distinct from stage 5's autumn); the
+  **stage-4 forest** brightened to its measured value (mode on #005200) + a **cyan river**.
+- **R17's honest limits (judge)**: the refuel base is PARTIAL — the arcade's dense **TREE TUNNEL**
+  (autumn on 5, palm on 13, flanking vegetation to the top of frame) is absent, so a player can
+  still separate it at a glance; stage 13 has the green biome but no discrete palms.
+- **What works end to end**: title → flight → combat → death/respawn → tally → stages 1–4 +
+  **refuel 5 (autumn) / 13 (green)** → GAME OVER / continue → restart. Throttle (flame), barrel
+  roll, formations, lock/missiles/vulcan (usable, first lock discoverable), afterburner, lock cue,
+  the refuel low-swoop, synthesized audio + FM music all run.
+- **Still absent**: **~6 of 23 beats**; the **airborne/mid-air TANKER** refuel (the second refuel
+  mechanism) and the rest of the stages remain — breadth is the standing theme.
 
-## R17 gap list — from the R16 judge's close-look (`judging/R16/judge-report.md`)
+## R18 gap list — from the R17 judge's close-look (`judging/R17/judge-report.md`)
 
-Theme: **finish the refuel beat, and keep widening.** The combat feel is closed; the refuel
-stage exists but reads as a road. Ranked:
+Theme: **finish the refuel look (the tree tunnel), keep widening, start the polish pass.** Ranked:
 
-1. **THE REFUEL STAGE IS A ROAD, NOT A BASE.** R16's headline beat is its weakest frame. It needs
-   the two signifiers it lacks: the **autumn trees that fill the frame to the top** (the deferred
-   low-altitude framing — a cross-lane **camera-pitch** change during `resupply`, coordinated with
-   the player-sprite screen placement so the jet doesn't ride into the top HUD or point at the
-   ground) and the **ground props** — fuel tankers, tents, crew — beside the runway. Also: **stage
-   13** should render its measured palm/sage biome, not the autumn stage-5 runway; and the global
-   cloud bank should **lift on the refuel stages** (STAGE_MAP gives them cloud_density 0 — a
-   per-stage cloud gate). Until then a player reads "a road." (World + flow; camera pitch is
-   cross-lane with player.)
-2. **STILL ONLY 5 OF 23 BEATS — THE AIRBORNE TANKER IS UNBUILT.** Breadth is the standing theme and
-   the biggest structural distance from the arcade. The runway refuel is one of **two** arcade
-   refuel mechanisms; the **airborne tanker** refuel is still absent, and more combat stages widen
-   the game. Quality over quantity — the next beat as well-wired as the runway, but WITH the scenery
-   the runway lacks. (World + flow.)
-3. **THE STAGE-4 FOREST GROUND IS DARK AND FLAT.** Carried from R15, deferred twice. The arcade's
-   canopy is brighter and mottled with a cyan river; ours is a near-flat dark green field. Needs the
-   **measured V-distribution re-centre** the breadth lane scoped (vegRamp centre 0.45 → modal toward
-   `#005200` V0.322, mid the measured V25 0.282 / V75 0.416 band), NOT a by-eye nudge, plus the cyan
-   river as a real terrain feature. (World.)
-4. **CLIMAXES READ SMALL; THE TITLE IS HAND-ROUNDED.** Kill fireballs are sub-screen vs the arcade's
-   half-screen blasts; the title wordmark is hand-rounded where the arcade's is brush-angular. A
-   grouped polish pass. (Effects / ui.)
-5. **LOOSE ENDS (low priority).** Blind gun floor still ~8–12 kills/90 s (a known structural floor —
-   the span-scaled hit net); the resupply restock isn't tied to the runway (fires at every boundary —
-   harmless, make the runway the in-fiction cause if a tanker animation lands); the
+1. **THE REFUEL RUNWAY NEEDS ITS TREE TUNNEL.** The single biggest tell left: the arcade walls the
+   strip with **dense flanking vegetation to the top of the frame** — autumn trees on stage 5, palms
+   on stage 13. Ours is flat scrub with props parked at the horizon, so a player separates it at a
+   glance. Build the tree tunnel (world-space vegetation lining the runway, rising into the dropped
+   frame) — and it fixes stage 13's missing palms in the same stroke. Source the autumn/palm look
+   from the arcade refuel frames. (World.)
+2. **STILL ~6 OF 23 BEATS — THE AIRBORNE TANKER IS UNBUILT.** Breadth stays the standing theme. The
+   runway is one of **two** arcade refuel mechanisms; the **mid-air tanker** refuel is still absent,
+   and more combat stages widen the game toward 23. Quality over quantity, well-wired like the runway.
+   (World + flow.)
+3. **CLIMAXES READ SMALL; THE TITLE IS HAND-ROUNDED.** Rising now the refuel headline is largely
+   closed: kill fireballs are sub-screen vs the arcade's half-screen blasts; the title wordmark is
+   hand-rounded where the arcade's is brush-angular. A grouped polish pass. (Effects / ui.)
+4. **CHEAP WIN: CLOUDS ON COMBAT STAGES 2–4.** STAGE_MAP gives stages 2–4 cloud_density 0 too, but
+   the R17 gate lifted only the refuel stages. Extend the gate — CAREFULLY, STATUS/R17 warned not to
+   regress 1–4's look; verify each stage's cloud presence against STAGE_MAP before lifting. (World.)
+5. **LOOSE ENDS (low priority).** Blind gun floor still ~8–12 (structural span-scaled net); the
+   refuel restock isn't caused by the runway (fires at every boundary — harmless); the
    `SIGHT_NDC_Y_OFFSET` +0.30 (vulcan) vs ~+0.16 (glyph) reconciliation stays a measure-first item.
 
-**Kept as positives (do not regress):** the first missile lock found by the naive climb (0→3 on the
-first wave); blind protection intact/stronger (centred + held = 0 locks); aim-beats-blind gun (24 vs
-12); the burst wall; the human-usable missile loop (grace window + legible pips); the crisp
-afterburner; the ~8 s death cycle; stages 1–4; the refuel beat's wiring (no-combat, reachable, hands
-back automatically). **Do NOT grow `ENVELOPE_Y`** (R15-refuted; the raised bait is the right lever).
+**Kept as positives (do not regress):** the refuel BASE (low-swoop + props + clear sky); **COMBAT
+framing byte-identical outside resupply** (the gate is proven — do NOT let the resupply pitch leak
+into the fight); stage 13's green biome; the brighter forest + cyan river; every combat win
+(aim-beats-blind gun, the missile loop + grace window + pips, the first-lock naive climb, the burst
+wall); the ~8 s death cycle; stages 1–4. **Do NOT grow `ENVELOPE_Y`** (R15-refuted).
 
 **Carried interfaces** (`judging/R12/flow-asks.md`): a `gameOver` SFX + a `resupply` landing cue
-(audio); a stage-transition cross-fade on sky/ground `setStage` (world); a **per-stage cloud gate**
-(clouds) so the refuel stages run clear sky. Record as **ADOPTED** in GAME_SPEC: R16 runway resupply
-(§5), the raised first-lock bait + "aim here" hint (§3/§4). **Capture caveat**: the combat p-gate
-makes `demo=2` under-read gun explosions — use `?combatexpl=1` and an aiming pilot (or play).
+(audio); a stage-transition cross-fade on sky/ground `setStage` (world). Record as **ADOPTED** in
+GAME_SPEC: R16 runway resupply (§5), R17 refuel props + low-swoop framing + stage-13 biome + the
+cloud gate. **Capture caveat**: the combat p-gate makes `demo=2` under-read gun explosions — use
+`?combatexpl=1` and an aiming pilot (or play). **Framing note**: the refuel low-swoop is a
+per-frame `flow.state==='resupply'` gate in `game.js` (`RESUPPLY_PITCH`, `ground.setFraming`) — any
+new camera work must keep it stateless so combat stays byte-identical.
 
 ## Hard warnings that stay load-bearing
 
