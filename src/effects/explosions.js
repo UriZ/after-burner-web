@@ -290,17 +290,25 @@ const BREAKUP = [
   // phase 1, +83..+167 ms: the BURST. A dense hot chunk cluster with streaks
   // of fat flecks tearing out of it, and the re-flare.
   {
-    inner: 0.13, reach: 0.33, rays: 16, per: 5, gamma: 1.5,
-    fleck: [0.052, 0.026], lumps: 9, lump: 0.045, core: 0.065,
+    // R30 — the R30 judge's #1: the decay still flung CHUNKY SQUARE flecks ~40%
+    // of the fireball width out into clear sky, reading as confetti rather than
+    // the arcade's rays-that-hug-the-mass. R28 pulled the reach in; this pulls
+    // it in further AND shrinks the flecks to sparks (0.052->0.040 / 0.026->
+    // 0.020), so the rays stay tight to the fireball and read as a sparky fringe,
+    // not thrown squares. The fireball's own spikes (SPIKE_LEN) carry the long
+    // radiating look the arcade starburst has.
+    inner: 0.13, reach: 0.26, rays: 16, per: 5, gamma: 1.5,
+    fleck: [0.040, 0.020], lumps: 9, lump: 0.045, core: 0.065,
   },
   // phase 2, +167..+267 ms: the SPRAY. The cluster is gone, the streaks are
   // a little wider, finer and cooler, and only a trace of core is left — the
   // arcade's hot fraction falls back after its re-flare (judge §1.4: 0.051 at
   // +150 ms on event D, 0.063 on my own event F at the same lag). R28: reach
-  // 0.49 -> 0.38, still the widest phase but no longer a frame-crossing scatter.
+  // 0.49 -> 0.38; R30: -> 0.29 and flecks shrunk, so even the widest decay
+  // phase hugs the fireball instead of scattering squares into blue sky.
   {
-    inner: 0.10, reach: 0.38, rays: 16, per: 6, gamma: 1.25,
-    fleck: [0.038, 0.017], lumps: 4, lump: 0.026, core: 0.030,
+    inner: 0.10, reach: 0.29, rays: 16, per: 6, gamma: 1.25,
+    fleck: [0.030, 0.014], lumps: 4, lump: 0.026, core: 0.030,
   },
 ];
 
