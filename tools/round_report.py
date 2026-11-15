@@ -21,69 +21,67 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 # ---------------------------------------------------------------- ROUND DATA
 ROUND = {
-    "number": 21,
+    "number": 22,
     "date": "2026-11-15",
     "status": "CLOSED",
-    "score": "9.1 / 10",
-    "last_score": "9.0 / 10 (R20)",
+    "score": "9.2 / 10",
+    "last_score": "9.1 / 10 (R21)",
     "tldr": (
-        "R21 answered the flat-ground gap with real <em>structure</em>: the arcade's <em>canyon</em> "
-        "(stage 8) — rock walls rising on both flanks and a camera that drops <em>between</em> them — "
-        "and it's a full flyable combat biome, not a scenic pass: enemies spawn, you lock and fire, "
-        "kills blossom, all inside the dropped camera. And it's proven <em>byte-identical outside</em> "
-        "the canyon. The title's worst screen became a match (the upright II block), and the tanker grew "
-        "a tail fin. It rises to 9.1."
+        "R22 put the <em>battlefield</em> on the canyon floor — tanks, tents and scrub where it was "
+        "bare ochre — and made the tanker's fin bolder, with zero regression. It rises to 9.2. But "
+        "filling the floor let the judge play the canyon closely, and that surfaced the canyon's real "
+        "next problem: it's a <em>dark tunnel</em> where the arcade is bright and open (near walls "
+        "balloon over the centre), and <em>aiming is degraded</em> there (locks barely form). Honest "
+        "progress, and a sharper target for R23."
     ),
     "verdict": (
-        "“The canyon is real now — rock walls down both sides, the camera low between them, and I'm "
-        "fighting in it: enemies, locks, kills. Nothing outside the canyon moved a pixel. The title "
-        "finally reads as the upright II block. What's left is the canyon floor — ours is bare where "
-        "the arcade's is a battlefield.”"
+        "“The canyon floor is a battlefield now — tanks and tents scrolling past. But flying it close, "
+        "the walls loom in and swallow the middle, and I can barely get a lock in there. It reads as a "
+        "dark tunnel where the arcade is a bright open canyon.”"
     ),
-    "verdict_attr": "R21 fresh-context judge · composite 9.1 (motion 9.1 · stills 9.1)",
+    "verdict_attr": "R22 fresh-context judge · composite 9.2 (motion 9.1 · stills 9.2)",
     "pairs": [
+        ("judging/R22/canyonfloor-ours-vs-arcade.png",
+         "The canyon floor is a battlefield now",
+         "Shipped this round: tanks, tents and scrub on what was bare ochre, combat still legible. Sparser than the arcade's wall-to-wall packing — and the walls loom too dark/close, the R23 fix."),
         ("judging/R21/cmp-canyon.png",
-         "The canyon — real terrain, live combat",
-         "Shipped this round: rock walls both flanks + a low dropped camera, and combat works inside it (byte-identical outside). The floor is still bare where the arcade's is packed with tanks and tents — R22."),
-        ("judging/R21/cmp-title.png",
-         "The title is the upright II block now",
-         "The weakest R20 screen: root-caused the diagonal ball-swoosh to a stray rotation and re-measured the arcade's face-on dwell — now an upright ball-grid with the vertical II, still tumbling."),
-        ("judging/R21/cmp-tanker.png",
-         "The tanker grew a tail fin",
-         "A T-tail + down-swept wings replace the dorsal hump (docking kept byte-identical). Still a thin crossbar vs the arcade's bold swept fin — the last airframe stretch."),
+         "The canyon still reads dark vs the arcade's open bright",
+         "Close play surfaced it: near-field wall masses balloon over the centre and the sky is blotted out, where the arcade is bright and open with the cream sky showing. R23 opens and lightens it."),
+        ("judging/R22/tl-verify-tanker-fin2.png",
+         "The tanker fin is bolder",
+         "A bolder swept tail; wings still near-flat vs the arcade's downsweep. Docking kept byte-identical."),
     ],
     "shipped": [
-        "The CANYON (arcade stage 8) — rock walls + a low camera dropping between them, a model for real terrain structure",
-        "COMBAT WORKS IN THE CANYON — enemies, locks, missiles, kills all inside the dropped camera (not a scenic pass)",
-        "COMBAT BYTE-IDENTICAL OUTSIDE the canyon — the low camera is stateless/canyon-only (stage-1 A/B maxdiff 0)",
-        "The title plate is the arcade's upright II block now (was a diagonal swoosh) — still tumbling, not frozen",
-        "The tanker got a T-tail + down-swept wings (dorsal hump gone), docking kept byte-identical",
+        "The canyon floor is a BATTLEFIELD now — tanks, tents, boulders/scrub on what was bare ochre (reusing the depot props)",
+        "Floor props keep combat readable — they sit low/off-axis; the jet, sight and enemies read over them",
+        "The tanker fin is bolder/swept + wings dropped toward the pods (docking byte-identical)",
+        "ZERO regression — combat byte-identical outside the canyon (stage-1 A/B maxdiff 0); all biomes + both refuel beats render",
     ],
-    "gaps_label": "Next — R22",
+    "gaps_label": "Next — R23",
     "gaps": [
-        (1, "missing", "The canyon floor is bare — put the battlefield on it",
-         "The arcade stage-8 floor is packed wall-to-wall with tanks, trucks, striped tents, rock tufts; ours is smooth ochre with nothing. Reuse the runway depot prop vocabulary (the props already scroll past) to populate the canyon floor."),
-        (2, "missing", "Give the flat biomes the canyon's structure treatment",
-         "The R20 field biomes (14 gold-dusk forest, 16 blue hillside city) are still flat. Now that walls + props are proven on the canyon, give them real terrain structure the same way."),
-        (3, "polish", "Finish the tanker tail + wings",
-         "The T-tail is a thin crossbar vs the arcade's bold dark swept fin, and the wings are near-flat vs the arcade's downsweep. Fatten/darken the fin, drop the wings to the engine pods."),
-        (4, "polish", "Keep widening toward 23",
-         "~7 of ~23 biomes now. More measured biomes/set-pieces remain the standing breadth item after the canyon floor and the field-biome structure."),
-        (5, "polish", "Loose ends",
-         "STAGE_8 scrollSpeed is ADOPTED — certify it with an our-engine canyon flow measurement; the tree tunnel is still sparse; blind gun floor ~8-12 (structural)."),
+        (1, "feel", "Open and lighten the canyon — it reads as a dark tunnel",
+         "The dominant canyon tell (surfaced by close play, pre-existing since R21): near wall masses balloon over the CENTRE and blot out the sky, swallowing the jet + enemies in a brown blur, where the arcade is bright and open. Pull the walls back to the flanks, CAP how large/close a near wall can get (never swallow the centre), and let the measured cream sky #faecb0 show."),
+        (2, "bug", "Fix canyon aiming — you can barely lock in there",
+         "Identical stick play gives 6 locks on stage 1 vs 0-1 in the canyon, and the sight rails ~0.2 NDC off-centre from the enemy cluster. The low-camera sight retracking degraded the canyon's aim/lock geometry. Trace it — the headline biome needs its missile loop working."),
+        (3, "polish", "Densify the canyon floor toward the arcade's packing",
+         "Ours is ~1-2 vehicles/frame vs the arcade's ~3 tanks + tents + 15-20 scrub wall-to-wall. Raise the prop/scrub counts (combat readability held, so there's room)."),
+        (4, "missing", "Give the flat field biomes (14/16) real structure",
+         "The gold-dusk forest + blue city are still flat open fields. Now that walls + a low camera + props are proven on the canyon, give 14/16 the same treatment — once the canyon's own issues are fixed so the pattern is sound."),
+        (5, "polish", "Tanker wings + loose ends",
+         "The tanker wings are still near-flat vs the arcade's downsweep; STAGE_8 scrollSpeed is ADOPTED; the tree tunnel is still sparse; blind gun floor ~8-12."),
     ],
     "keep": [
-        "The canyon (walls + low camera + live combat); COMBAT byte-identical outside it (proven maxdiff 0)",
-        "Both refuel beats; the tanker T-tail + docking; the upright title block (still tumbling)",
-        "Seven combat biomes; every combat win; the wider fireball + hot cores; the ~8 s death cycle",
-        "Keep any new camera work STATELESS (the canyon low camera is the standard); do NOT grow ENVELOPE_Y",
+        "The canyon floor battlefield + the structured canyon; both refuel beats; the bolder tanker fin + docking",
+        "COMBAT byte-identical outside the refuel/canyon camera states (proven maxdiff 0); every combat win",
+        "Seven combat biomes; the upright title block; the wider fireball + hot cores; the ~8 s death cycle",
+        "Keep new camera work STATELESS (prove byte-identical outside); do NOT grow ENVELOPE_Y",
     ],
     "method_note": (
-        "R21's canyon was the riskiest change yet — a camera that drops DURING combat, where a leak would "
-        "break the carefully-closed sight. It measured the arcade horizon first, gated the drop statelessly "
-        "on the stage, retracked the combat ScreenSpace through its own public hook, and the judge PROVED "
-        "combat byte-identical outside (maxdiff 0) while confirming combat works inside by playing. The "
-        "livery shift the lap-widening would have caused was caught and fixed in the same round. History in judging/R21/."
+        "R22 is the method correcting a prior round: R21's judge measured canyon combat telemetry (locks "
+        "form) and passed it; R22's judge PLAYED the canyon closely and found locks are actually suppressed "
+        "there and the walls occlude the fight — refuting R21's 'indistinguishable from an open stage.' "
+        "Telemetry said yes; the eyes and hands said not quite. The deeper look only became possible once the "
+        "floor was filled enough to fly it for real. That correction is R23's #1 and #2. History in judging/R22/."
     ),
 }
 
