@@ -7,7 +7,7 @@ import { drawTitleScreen } from './titleScreen.js';
 import { drawReadyCard, drawTallyCard, drawContinueCard, drawGameOverCard, drawReloadWeaponsCard } from './cards.js';
 import { Overlay } from './overlay.js';
 import { GAME_W, GAME_H } from '../../render/screen.js';
-import { STAGES, STAGE_5, STAGE_13 } from '../stage.js';
+import { STAGES, STAGE_5, STAGE_13, STAGE_14, STAGE_16 } from '../stage.js';
 import { demoTimeline } from './demoTimeline.js';
 import { AudioBus } from '../../audio/index.js';
 import { MISSILE_START_STOCK } from '../../weapons/combat.js';
@@ -515,6 +515,10 @@ export class GameFlow {
     // Arcade stage 13 is its own green palm/sage refuel base, distinct from
     // stage 5's autumn woodland (R17 world lane built STAGE_13).
     if (this.stageNumber === 13) return STAGE_13;
+    // R20: the new biomes were measured from arcade stages 14/16, so render them
+    // at their own HUD numbers (like stage 13) in addition to the content lap.
+    if (this.stageNumber === 14) return STAGE_14;
+    if (this.stageNumber === 16) return STAGE_16;
     return isResupplyStage(this.stageNumber) ? STAGE_5 : STAGES[this.stageIndex % STAGES.length];
   }
 
