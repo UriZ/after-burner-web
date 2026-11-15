@@ -63,11 +63,29 @@ happens here"; rationale in `judging/R12/method-retrospective.md`). Every round 
 3. **CLOUD — FALSE GAP (measured).** Arcade stage-1 cloud is itself a big near-white opaque mass
    (bright mean #f5f2f6, 94% bright); our palette already matches. No change — third false gap caught.
 
-## R30 candidates — deferred, each needs evidence first (not yet real gaps)
+## R30 shipped + resolved — fresh judge 7.5/10 (up from 7)
 
-- **EXPLOSION MORE DRAMATIC?** vs reference/ab2-arcade-huge-explosion.jpg ours is smaller with shorter
-  spikes — BUT that jpg is a HUGE/special explosion, not a standard kill; our standard fireball is
-  measured (PEAK_FRAC 96px). Measure a STANDARD arcade kill before growing it. (effects/explosions.js.)
+1. **EXPLOSION DEBRIS NOW HUGS THE FIREBALL (judge #1, DONE).** R28 de-confettied the spread; R30 the
+   decay still flung CHUNKY SQUARES ~40%W into blue. Pulled breakup reach in (0.33→0.26 / 0.38→0.29)
+   and shrank flecks to sparks — the fireball's own spikes carry the radiating look. Compact now.
+2. **DODGE DENSITY — FALSE GAP (4th caught by measurement).** The judge read combat as "one round at a
+   time, not a hail." Measured the arcade (longplay stage 4, t212/218/225): arcade enemy FIRE is also
+   sparse (a few rounds) — its busyness comes from 3-4 ENEMIES on screen at once (which we have), NOT a
+   bullet-hail. Our fire density is arcade-faithful; readability (the real issue) is already fixed. Do
+   NOT raise fire volume into an un-arcade hail.
+3. **HARD-BANK AFTERBURNER (minor polish).** In aggressive banks the plume fans a bit wide on the
+   belly; partially arcade-faithful (the arcade jet also shows an afterburner cone). Low priority.
+
+## Build state: strong 7.5/10, approaching 8. Every real gap across R27-R30 addressed; FOUR false gaps
+caught by measurement (enemies-too-small, white-ball-is-a-cloud, cloud-opacity, dodge-density). The
+remaining frontier is FEEL-in-the-hands (dodge/roll/weapon feel), which captures can't settle — the
+judge itself concludes the highest-value next input is OWNER HANDS-ON PLAY.
+
+## Older R30 candidate (superseded by the measurement above)
+
+- **EXPLOSION MORE DRAMATIC?** vs reference/ab2-arcade-huge-explosion.jpg ours is smaller — BUT that jpg
+  is a HUGE/special explosion, not a standard kill; our standard fireball is measured (PEAK_FRAC 96px),
+  and R30 tightened the debris. Leave unless a STANDARD arcade kill measures bigger. (effects/explosions.js.)
 - **DEMO ENGAGEMENT — DEFERRED, needs arcade evidence first.** The demo pilot kills sparingly, but
    demoTimeline.js is MEASURED to the arcade attract's motion; before rewriting it to aim+fire, measure
    the arcade attract's actual kill rate — if the arcade attract is also sparse, ours is correct.
