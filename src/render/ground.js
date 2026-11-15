@@ -573,12 +573,21 @@ function createRunwayTrees() {
 const CANYON_Z_FAR = -170; // far spawn depth: walls recede toward the vanishing point
 const CANYON_Z_NEAR = 8; // despawn just past the camera
 const CANYON_SPAN = CANYON_Z_NEAR - CANYON_Z_FAR;
-const WALLS_PER_SIDE = 10; // dense enough for a continuous wall at the canyon scroll speed
+const WALLS_PER_SIDE = 13; // R23 gap 1: denser flanks so BOTH sides stay walled every frame
 // R22 gap 1: the arcade stage-8 floor is tuft-COVERED wall-to-wall (t=350/t=357
 // show ~15-20 gold scrub clumps per frame), so the scatter is dense, not a
 // sprinkle — 16 left the near/mid floor bare (R21 judge). 40 fills the corridor
 // while staying short/low so combat still reads over them.
-const CANYON_BUSHES = 40; // scattered rock/scrub tufts across the floor
+// R23 gap 1/3: the floor scrub is MANY SMALL tufts (arcade t=350/t=357 show a
+// dense scatter of small gold clumps, not a few big lumps). R22 shipped 40 tufts
+// at world width 1.8-3.6, and at that size a tuft crossing the near field — the
+// bush X band spans the centre (CANYON_BUSH_X) — balloons to ~40%W and swallows
+// the open centre the walls were just pulled off of (the near rounded mass dead
+// centre at t=350-equivalent frames). The fix is SIZE, not placement: small
+// tufts (see CANYON_BUSH_W) stay small even in the near field, so the centre
+// column stays open to the floor, and the count is raised so the floor still
+// reads tuft-covered wall-to-wall.
+const CANYON_BUSHES = 56; // dense scatter of SMALL rock/scrub tufts across the floor
 
 // Wall MASS: tall tan/brown rock. Dark rock -> olive vegetation -> lit tan,
 // monotone in V (stippleMass assigns the lightest rung to the noise peak).
@@ -590,14 +599,42 @@ const CANYON_WALL_PAL = ['#2e1700', '#4a2a00', '#5a5a38', '#633100', '#944f00', 
 // dropped (that is the WALL vegetation accent, not the gold floor scrub).
 const CANYON_BUSH_PAL = ['#3a2100', '#5a3100', '#844200', '#b56300', '#d68400'];
 
-const CANYON_WALL_TEX = { w: 64, h: 104 }; // tall mass
+// R23 gap 1 — OPEN AND LIGHTEN THE CANYON. R22 shipped walls 14-22 world units
+// TALL (the 1.625 aspect x the 9-14 width), and that height — not the count — is
+// what blotted the sky: a wall that tall subtends enough angle to reach the TOP
+// of frame at EVERY depth out to the far plane, so even the distant walls piled
+// a continuous brown ceiling across the top-centre where the arcade shows a
+// bright cream-sky corridor (ab2-longplay t=344-372: tall walls only at the far
+// LEFT/RIGHT, a wide open bright centre down to the vanishing point). Cut the
+// aspect so the masses are SHORTER in world (~7.5-10.5 units): the near flank
+// walls still tower to the top of frame (they are close, so large on screen),
+// but the distant walls now top out just above the 0.13 horizon, leaving the
+// measured cream sky (#faecb0) open above them down the centre. Solved from the
+// canyon camera (pitch -21.07deg, horizon 0.13): a wall of world-top H tops out
+// near screenFrac 0.08-0.10 at the far plane for H~8 (above the 0.13 horizon by
+// a sliver) and reaches the top of frame for depths nearer than ~z=-80.
+const CANYON_WALL_TEX = { w: 88, h: 62 }; // blocky rock mass, wider than tall (aspect ~0.705)
 const CANYON_BUSH_TEX = { w: 40, h: 26 }; // low wide clump
-// World WIDTH band per kind (random per instance); world height = width*aspect.
-const CANYON_WALL_W = [9.0, 14.0];
-const CANYON_BUSH_W = [1.8, 3.6];
-// Wall centre X band (world units, OUTSIDE the corridor so the masses frame the
-// edges and only the inner fringe overhangs); bushes scatter across the floor.
-const CANYON_WALL_X = [8.5, 12.5];
+// World WIDTH band per kind (random per instance); world height = width*aspect
+// (~0.705 for walls). Width 11-15 -> height 7.75-10.57: short enough that distant
+// walls tuck toward the horizon, wide enough to read as a continuous flank mass.
+const CANYON_WALL_W = [11.0, 15.0];
+// R23 gap 1: SMALL floor tufts (was 1.8-3.6). At 0.7-1.5 world width a tuft
+// passing through the near field peaks at ~13%W mid-floor / ~24%W at the very
+// bottom edge instead of the ~40%W centre-swallowing blob the 3.6 produced, so
+// the centre column stays open. Many small tufts, not a few big lumps.
+const CANYON_BUSH_W = [0.7, 1.5];
+// Wall centre X band (world units from the flight axis). R23 gap 1: PUSHED OUT
+// to the flanks. The floor corridor runs to |x|~6.4 (props) / 6.0 (bushes), so a
+// centre band of [12.5, 17.5] with width <=15 keeps every wall's INNER edge at
+// x >= 12.5 - 7.5 = 5.0 world units — at/just outside the corridor — so the
+// masses NEVER cross the centre of the frame (R22 shipped [8.5,12.5] with width
+// 14, inner edge 1.5, which ballooned a brown wall over the jet + enemies). Near
+// walls read as flanking cliffs filling the frame edge; distant walls converge
+// toward the vanishing point along the horizon, framing (not blotting) the sky.
+// Pulled in from an initial [14,19] so the flank walls sit lower/fuller rather
+// than riding only the upper corners, while the inner edge stays off-centre.
+const CANYON_WALL_X = [12.5, 17.5];
 const CANYON_BUSH_X = [-6.0, 6.0];
 
 // A tall lumpy rock column: overlapping lobes down the canvas give a ragged
@@ -756,7 +793,11 @@ const CANYON_PROP_DRAW = {
 // Interleaved pool — armour-heavy (the arcade floor's dominant vehicle),
 // trucks next, tents sparse (ADOPTED). Spread so a few sit in the visible
 // field at once.
-const CANYON_PROP_POOL = ['tank', 'truck', 'tank', 'tent', 'tank', 'truck', 'tank', 'tent', 'tank', 'truck', 'tank', 'truck'];
+// R23 gap 3: DENSIFIED toward the arcade's wall-to-wall floor battlefield
+// (t=350: ~3 tanks + tents per frame amid dense scrub). 12 -> 18 slots spread
+// over the floor span so more armour sits in frame at once, armour-heavy with
+// trucks and sparse tents, still off the flight-axis centre (CANYON_PROP_X_MIN).
+const CANYON_PROP_POOL = ['tank', 'truck', 'tank', 'tent', 'tank', 'truck', 'tank', 'tent', 'tank', 'truck', 'tank', 'truck', 'tank', 'tent', 'tank', 'truck', 'tank', 'truck'];
 
 function createCanyonProps() {
   const group = new THREE.Group();

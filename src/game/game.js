@@ -198,6 +198,29 @@ export class Game {
     // Whether combat's ScreenSpace basis is currently retracked to canyon pitch
     // (see the canyon gate in update()). Starts cruise; edge-triggered there.
     this._combatCanyonBasis = false;
+    // R23 gap 2 — THE CANYON AIMING FIX. player.js roll-compensates the jet's
+    // lateral offset about the camera's roll axis so the airframe HOLDS SCREEN
+    // STATION under bank (only self-banks) instead of being swung around screen
+    // centre with the world (player.js's _rollAxisWorld note / R2 gap 10). But
+    // that axis is baked from the CRUISE pitch (CAMERA_PITCH), while the canyon
+    // gate rolls the camera about the CANYON-pitched forward axis (13.6deg
+    // different). Under the dropped pitch the compensation no longer cancels, so
+    // the jet — and the combat sight pinned to it (combat.js: sight.x ==
+    // playerNdc.x by construction) — swings ~3.5x too far laterally (measured:
+    // jetNdcX -0.704 in the canyon vs the correct -0.198 at roll -47.9deg under
+    // identical stick), railing OFF the enemy cluster at x~0 and suppressing
+    // locks (R22 judge: 6 locks stage 1 vs 0-1 canyon). The clean fix is for
+    // player.js to compensate about the live pitch; that is another lane's file
+    // (asked in canyonfix-asks.md), so game.js — which OWNS the camera's roll —
+    // corrects the jet offset here: undo player's cruise-axis rotation and redo
+    // it about the canyon axis, so the airframe holds screen station under the
+    // canyon camera exactly as it does at cruise. Canyon-gated, so every other
+    // stage is byte-identical. The two world-space roll axes are the camera's
+    // local +Z carried into world by each pitch (player.js's own derivation).
+    this._rollAxisCruise = new THREE.Vector3(0, 0, 1).applyQuaternion(this._pitchQuatCruise);
+    this._rollAxisCanyon = new THREE.Vector3(0, 0, 1).applyQuaternion(this._pitchQuatCanyon);
+    this._cameraPosVec = new THREE.Vector3(0, CAMERA_HEIGHT, 0);
+    this._jetOffset = new THREE.Vector3(); // scratch, reused each tick
     this.worldRoll = 0; // radians; see interface note below
     this._lastInput = { x: 0, y: 0 }; // measurement-only, see __flowState
     this._applyCameraOrientation();
@@ -570,6 +593,20 @@ export class Game {
     // stick-follow transform and fight it every frame.
     if (flow.playerControlled) {
       this.player.update(dt, flow.input, this.worldRoll);
+      // R23 gap 2 (see the _rollAxisCruise/_rollAxisCanyon note in the
+      // constructor): in the canyon, re-aim the jet's roll compensation at the
+      // canyon roll axis so the airframe + sight hold screen station under the
+      // dropped camera, keeping the sight in the enemy band so locks form. Only
+      // in the canyon and only while the player controls the jet (death/launch
+      // sequences own the sprite transform), so every other state/stage is
+      // byte-identical. A no-op at worldRoll 0 (both rotations are identity),
+      // which includes a barrel roll's suppressed-roll window.
+      if (canyon && this.worldRoll !== 0) {
+        this._jetOffset.copy(this.player.sprite.position).sub(this._cameraPosVec);
+        this._jetOffset.applyAxisAngle(this._rollAxisCruise, -this.worldRoll); // undo player.js's cruise-axis comp
+        this._jetOffset.applyAxisAngle(this._rollAxisCanyon, this.worldRoll); // redo about the canyon axis
+        this.player.sprite.position.copy(this._jetOffset).add(this._cameraPosVec);
+      }
     }
     this.ground.update(dt, this.flow.scrollSpeed);
     // R19: hide the cloud banks during the mid-air tanker beat. The arcade's
