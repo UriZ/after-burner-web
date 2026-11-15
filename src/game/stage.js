@@ -921,8 +921,172 @@ export const STAGE_13 = {
   scrollSpeed: 68.93, // cruise (STAGE_MAP scroll_speed 2.8); same camera geometry
 };
 
-// The COMBAT content lap stays length 4 (stages 1-4). STAGE_5 is deliberately
-// NOT in this array: it is the refuel content, pulled in only for arcade
-// stageNumber 5 and 13 by flow.js's `_renderStage`, so the normal combat lap
-// never renders a runway under a wave of enemies.
-export const STAGES = [STAGE_1, STAGE_2, STAGE_3, STAGE_4];
+// VERIFIED arcade stage 14 (gold-dusk olive forest under a glowing sky).
+//
+// R20 BREADTH. A 5th authored COMBAT biome, maximally distinct from the four
+// shipped ones (blue coast 1, orange desert 2, near-black night 3, teal forest
+// 4) — its signature is a BRIGHT GOLD sky deepening to ORANGE at the horizon, a
+// glow that runs the OPPOSITE direction to stage 2's (STAGE_MAP: "stage 2 shifts
+// +23deg toward gold; stage 14 shifts -14deg toward orange"). STAGE_MAP's
+// HUD-verified span t=572-608 reads "STAGE 14".
+//
+// Sky: MEASURED (STAGE_MAP.md #123, stage 14, a GLOW stage). sky_top =
+// Color(1.000, 0.776, 0.000) = #ffc600 (gold), sky_horizon = Color(0.992,
+// 0.565, 0.031) = #fd9008 (orange). Both committed to STAGE_MAP verbatim (the
+// R20 directive: commit palettes to the measured STAGE_MAP values, never read
+// colour off the upscale). The GLOW ELEVATION is the one value STAGE_MAP does
+// not carry, so it is measured as GEOMETRY (not colour — a vertical extent the
+// upscale preserves; STATUS.md "the discriminating statistic one blur cannot
+// move is structure"): clean left-column scans of ab2-longplay.mp4 at
+// t=582/585/590/595 hold flat gold #fcc800 from the top of frame down to
+// ~60%H, then ramp to orange over the last ~4-5%H before the canopy horizon
+// (~62-68%H) — a TIGHT band hugging the horizon, the same character and
+// elevation as stage 2's measured 4.9deg/8.3%H band, so skyGlowElevDeg 4.0 and
+// the stage-2 glow treatment (posterize+dither+ladder-snap) are reused.
+export const STAGE_14 = {
+  name: 'stage-14-gold-forest',
+  groundMode: 'field',
+  skyTop: srgbHex('#ffc600'),
+  skyHorizon: srgbHex('#fd9008'),
+  skyGlowElevDeg: 4.0,
+  // Same glow treatment as stage 2: posterize + 4x4-dither the band (the R6
+  // Criterion-A fix — a continuous ramp between two ladder colours emits every
+  // value between them) and snap the posterized colour to the hardware ladder
+  // (R7 gap 9 — a mix of two ladder entries is not a ladder entry). The snap
+  // moves the measured endpoints by at most one rung (#ffc600 -> #ffc500,
+  // #fd9008 -> #ff8c00), inside upscale noise, and is the established glow-stage
+  // treatment; a glow band left un-snapped reintroduces exactly the sky-wide
+  // off-ladder blowup R6/R7 fixed.
+  skySteps: 7,
+  skyLadder: true,
+  // No measured stage-14 cloud palette exists in the repo, so — exactly as
+  // stage 4 — the per-stage cloud gate is lifted rather than inventing one
+  // (STAGE_MAP cloud_density 0.0 for stage 14; the #123 failure is a
+  // plausible-looking unmeasured value). cloudPalette kept only for a future lift.
+  showClouds: false,
+  cloudPalette: 'desert',
+
+  // Olive dry-forest canopy. PALETTE MEASURED, GEOMETRY ADOPTED, split stated.
+  // MEASURED (STAGE_MAP.md #124, stage 14): H=55deg S=0.703 V75=0.576+/-0.041
+  // V25=0.248+/-0.053, YIELD 23/56 frames over the proven span, circular hue
+  // spread 30deg; corroboration chroma-mean 56deg (delta 1deg, R=0.98) — a
+  // yellow-olive, distinct from stage 2's H=35 orange and stage 4's H=125
+  // green. The 'field' branch (render/ground.js) composes this measured HSV
+  // over a macro+stipple index field and the global ladder quantizer snaps
+  // every emitted colour to the hardware ladder. The stipple/macro FREQUENCIES
+  // are ADOPTED from the canopy/forest family (no stage-14 autocorrelation in
+  // the repo) and flagged as such — they are geometry, not colour.
+  terrain: {
+    hueDeg: 55,
+    hueJitterDeg: 30, // +/-15deg about 55, matching STAGE_MAP's 30deg hue spread
+    satLo: 0.60,
+    satHi: 0.85, // measured S 0.703 sits inside; the stipple spreads around it
+    vLo: 0.20,
+    vHi: 0.62, // index centres at 0.5 -> V~0.41, between measured V25 0.248 and V75 0.576
+    grainFreqX: 0.09,
+    grainFreqZ: 0.26,
+    macroFreqX: 10.0,
+    macroFreqZ: 20.0,
+    macroAmp: 1.3,
+    detailAmp: 1.4, // high contrast, like the forest/canopy olive dither
+    stipLodBoost: 0.4,
+  },
+
+  // Horizon haze band. ADOPTED (sky-derived), NOT measured — same discipline as
+  // stages 4/5: the repo holds no stage-14 haze measurement, so the band is
+  // built from the measured sky rather than an invented colour. Distant olive
+  // forest hazes UP toward the ORANGE horizon glow #fd9008 at the vanishing
+  // point and resolves to a dark amber on the near side.
+  haze: {
+    atHorizon: srgbHex('#fd9008'),
+    atBandEdge: srgbHex('#9a6a10'),
+    bandHeightFrac: 0.070,
+    peakFrac: 0,
+  },
+  scrollSpeed: 68.93, // cruise (STAGE_MAP scroll_speed 2.8); same camera geometry as stages 1-4
+};
+
+// VERIFIED arcade stage 16 (blue city terrain under a pale lavender sky).
+//
+// R20 BREADTH. A 6th authored COMBAT biome and the most distinct of the set —
+// the only BLUE terrain under the only LAVENDER sky, nothing like the four
+// shipped biomes or the gold stage 14. STAGE_MAP's HUD-verified span t=656-692
+// reads "STAGE 16" (confirmed: the frame holds a dense, saturated blue dithered
+// terrain under a flat pale-lavender sky).
+//
+// Sky: MEASURED (STAGE_MAP.md #123, stage 16). sky_top == sky_horizon =
+// Color(0.663, 0.659, 0.992) = #a9a8fd, a FLAT fill — stage 16 is NOT among
+// STAGE_MAP's glow stages (2, 14, 17, 20, 22), so it holds one colour
+// top-to-horizon and skyGlowElevDeg 0 (the glow ramp is inert). Like stage 1's
+// #009fff and stage 4's #009f93, #a9a8fd is a measured modal value off the
+// hardware ladder, so no ladder snap (snapping would move a defended
+// measurement).
+export const STAGE_16 = {
+  name: 'stage-16-city',
+  groundMode: 'field',
+  skyTop: srgbHex('#a9a8fd'),
+  skyHorizon: srgbHex('#a9a8fd'),
+  skyGlowElevDeg: 0, // flat fill: no glow (STAGE_MAP: stage 16 is not a glow stage)
+  // No measured stage-16 cloud palette in the repo -> lift the per-stage cloud
+  // gate, same discipline as stage 4/14 (STAGE_MAP cloud_density 0.0).
+  showClouds: false,
+  cloudPalette: 'day',
+
+  // Blue city terrain. PALETTE MEASURED, GEOMETRY ADOPTED, split stated.
+  // MEASURED (STAGE_MAP.md #124, stage 16, one of the KEPT-9 grounds): H=205deg
+  // S=1.000 V75=0.673+/-0.044 V25=0.478+/-0.031, YIELD 20/56 frames, circular
+  // hue spread 20deg; BOTH corroborators inside the window (exact-colour mode
+  // 220deg delta15 chromatic 20/20; chroma-mean 204deg delta1 R=0.98). A
+  // saturated azure (ground_a Color(0.000,0.392,0.673) = #0064ab) — maximally
+  // distinct from the blue SEA (stage 1 is #0010d6 deep-blue under a CYAN sky;
+  // this is a brighter azure under a LAVENDER sky, with city dither, not waves).
+  // STAGE_MAP classes stage 16 ground_structure "plain" (only 1/8/17 carry
+  // measured structure), so this is the isotropic 'field' dither over the
+  // measured blue, NOT an invented building grid. Stipple/macro FREQUENCIES
+  // ADOPTED from the canopy family (no stage-16 autocorrelation in the repo).
+  terrain: {
+    hueDeg: 205,
+    hueJitterDeg: 20, // +/-10deg about 205, matching STAGE_MAP's 20deg hue spread
+    satLo: 0.90,
+    satHi: 1.00, // measured S 1.000; a touch of desat variation for texture
+    vLo: 0.40,
+    vHi: 0.72, // index centres at 0.5 -> V~0.56, between measured V25 0.478 and V75 0.673
+    grainFreqX: 0.09,
+    grainFreqZ: 0.26,
+    macroFreqX: 10.0,
+    macroFreqZ: 20.0,
+    macroAmp: 1.1,
+    detailAmp: 1.2,
+    stipLodBoost: 0.4,
+  },
+
+  // Horizon haze band. ADOPTED (sky-derived), NOT measured — same discipline as
+  // stages 4/5/14: distant blue city hazes UP toward the pale lavender sky
+  // #a9a8fd at the vanishing point and resolves to a deeper steel-blue on the
+  // near side of the band.
+  haze: {
+    atHorizon: srgbHex('#a9a8fd'),
+    atBandEdge: srgbHex('#4a7aad'),
+    bandHeightFrac: 0.070,
+    peakFrac: 0,
+  },
+  scrollSpeed: 68.93, // cruise (STAGE_MAP scroll_speed 2.8); same camera geometry as stages 1-4
+};
+
+// The COMBAT content lap (stages 1-4 plus the R20 additions). STAGE_5/STAGE_13
+// are deliberately NOT in this array: they are the refuel content, pulled in
+// only for arcade stageNumber 5 and 13 by flow.js's `_renderStage`, so the
+// normal combat lap never renders a runway under a wave of enemies.
+//
+// R20 BREADTH: the lap grows 4 -> 6 with two new authored combat biomes
+// appended (STAGE_14 gold-dusk olive forest, STAGE_16 blue city), so the
+// progression stops lapping the same four palettes so quickly. flow.js laps
+// content every STAGES.length, so these appear in normal play wherever
+// `stageIndex % 6` lands on index 4 / 5 (STAGE_16 at arcade stageNumber
+// 6/12/18, STAGE_14 at 11/17/23 — stageNumber 5 is the resupply beat, routed
+// away). The content-index == arcade-stage-number alignment that holds for
+// stages 1-4 does NOT extend to these (they lap in at other numbers) — the
+// honest existing behaviour; an optional flow.js route to also show them at
+// their true arcade numbers 14/16 is asked in judging/R20/stages-asks.md.
+// Reach them directly for capture via ?stage=6 (STAGE_16) / ?stage=11 (STAGE_14).
+export const STAGES = [STAGE_1, STAGE_2, STAGE_3, STAGE_4, STAGE_14, STAGE_16];

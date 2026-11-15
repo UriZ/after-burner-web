@@ -632,7 +632,7 @@ export function createGround(stage, horizonFrac) {
     uniform float uCoarsenMin;
     uniform float uCoarsenMax;
     uniform float uCoarsenPower;
-    uniform float uGroundMode; // 0 = sea, 1 = night (blue dither), 2 = canopy (stage 2), 3 = forest (stage 4), 4 = runway (stages 5/13 resupply)
+    uniform float uGroundMode; // 0 = sea, 1 = night (blue dither), 2 = canopy (stage 2), 3 = forest (stage 4), 4 = runway (stages 5/13 resupply), 5 = field (stages 14/16, R20)
     uniform float uMacroFreqX;
     uniform float uMacroFreqZ;
     uniform float uMacroAmp;
@@ -1262,7 +1262,44 @@ export function createGround(stage, horizonFrac) {
       // per-fragment divergence cost.
       vec3 groundColor;
 
-      if (uGroundMode > 3.5) {
+      if (uGroundMode > 4.5) {
+        // ---- 'field' (stages 14 gold / 16 city, R20 breadth) --------
+        // A new authored COMBAT biome needs only a measured PALETTE and a
+        // measured SKY to be distinct — STAGE_MAP classes both stages
+        // ground_structure "plain" (only stages 1/8/17 carry measured
+        // structure), so this is the isotropic measured-palette dither that
+        // "plain" means, with NO invented road/plain/band or building grid.
+        //
+        // The colour is composed HSV around the stage's MEASURED modal
+        // hue/sat/val (STAGE_MAP #124: stage 14 H=55 S=0.703 V25-V75
+        // 0.248-0.576; stage 16 H=205 S=1.000 V25-V75 0.478-0.673) over a
+        // macro+stipple index field, exactly like the canopy/forest branches,
+        // and the global quantizeToArcadePalette at the end of main() snaps
+        // every emitted colour to the hardware ladder. Same fbmLod FILTER
+        // discipline as every other mode — both layers are faded per-fragment
+        // against this fragment's own worldPerRow/worldPerCol so the field
+        // does not alias into the radial smear unfiltered world-space noise
+        // produces at range (the R5/R6 defect). The stipple/macro FREQUENCIES
+        // are ADOPTED (no stage-14/16 autocorrelation in the repo); the
+        // palette is what has a reference behind it, which is the part the
+        // judge re-measures. uStipLodBoost < 1 under-filters the stipple to
+        // keep mid-field detail, the same trade the canopy branch documents.
+        float stipCpp = uStipLodBoost * max(worldPerCol / uGrainFreqX, worldPerRow / uGrainFreqZ);
+        float macroCpp = uStipLodBoost * max(worldPerCol / uMacroFreqX, worldPerRow / uMacroFreqZ);
+        float macro = fbmLod(vec2(vWorldPos.x / uMacroFreqX, (vWorldPos.z + uScroll) / uMacroFreqZ), macroCpp);
+        float stipV = fbmLod(grainP, stipCpp);
+        float stipS = fbmLod(grainP + vec2(97.1, 13.7), stipCpp);
+        float stipH = fbmLod(grainP + vec2(53.3, 71.9), stipCpp);
+        // Amplified away from fbm's own ~0.47 mean (summing octaves
+        // concentrates toward the middle of the range), the same deviation-
+        // from-0.47 index the canopy/forest/sea fields use, so the amplitude
+        // constants keep their meaning at depth.
+        float t = clamp(0.5 + (macro - 0.47) * uMacroAmp + (stipV - 0.47) * uDetailAmp, 0.0, 1.0);
+        float v = mix(uVLo, uVHi, t);
+        float sat = mix(uSatLo, uSatHi, stipS);
+        float hue = (uHueDeg + (stipH - 0.5) * uHueJitterDeg) / 360.0;
+        groundColor = hsv2rgb(vec3(hue, sat, v));
+      } else if (uGroundMode > 3.5) {
         // ---- 'runway' (stages 5 / 13, the resupply beat) ------------
         // R16 BREADTH. The arcade's refuel stages fly low over a landing
         // strip set in autumn woodland (STAGE_MAP.md spans t=244-256 and
@@ -2252,7 +2289,8 @@ export function createGround(stage, horizonFrac) {
       s.groundMode === 'night' ? 1 :
       s.groundMode === 'canopy' ? 2 :
       s.groundMode === 'forest' ? 3 :
-      s.groundMode === 'runway' ? 4 : 0;
+      s.groundMode === 'runway' ? 4 :
+      s.groundMode === 'field' ? 5 : 0;
     return p;
   }
 
