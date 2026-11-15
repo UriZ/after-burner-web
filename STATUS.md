@@ -1,6 +1,6 @@
 # STATUS — where the rebuild stands
 
-**Last updated**: 2026-11-15. **R20 CLOSED at 9.0; R21 is open.** (Crossed 9.0.) The loop is
+**Last updated**: 2026-11-15. **R21 CLOSED at 9.1; R22 is open.** The loop is
 **"look first, measure second"** (CLAUDE.md, "How work happens here"; rationale in
 `judging/R12/method-retrospective.md`). Every round ships an HTML report
 (`judging/R<n>/report.html`, `python3 tools/round_report.py`) published to the standing
@@ -9,63 +9,60 @@ Repo: github.com/UriZ/after-burner-web.
 
 ## Current state
 
-- **R20 verdict**: **9.0** (motion 9.0, stills 9.0) — `judging/R20/judge-report.md`. CROSSED 9.0.
-  Two new biomes + tanker docking + fireball cores, ZERO regression (combat proven byte-identical).
-- **Score trend**: … R17 8.7 → R18 8.8 → R19 8.9 → **R20 9.0**. (R1 was 3/10; the method change at R12
-  turned a stalled ~8 into steady climbing.)
-- **R20 shipped (judge-confirmed)**: **two new measured combat biomes** (STAGE_16 lavender coast,
-  STAGE_14 gold-dusk olive — the lap grows 4→6, routed at their arcade numbers); the refuel jet now
-  **DOCKS** to the tanker's belly + the tanker got a real fuselage (R19's manta fixed); **white-hot
-  cores** in the kill blast's flanking puffs. **Combat proven BYTE-IDENTICAL** to pre-R20 (worktree
-  A/B, maxdiff 0 — the new game.js/flow.js/stage.js gates are stateless w.r.t. combat).
-- **R20's honest limits (judge)**: every win is "palette/direction right, detail short" — the new
-  biomes have matching SKIES but FLAT ground (arcade has dense hillside city / palm forest); the tanker
-  airframe is a dorsal hump, still missing the arcade's vertical tail fin + down-swept wings; the title
-  lean is in but still a diagonal ball-swoosh vs the arcade's vertical II block.
-- **What works end to end**: title → flight → combat → death/respawn → tally → **6 combat biomes** +
-  runway refuel 5/13 + airborne tanker 3/9 (docking) → GAME OVER / continue → restart. All combat
-  systems, both refuel beats, afterburner, lock cue, wider fireball + hot cores, FM music run.
-- **Still absent**: **~6 of ~23 biomes** — the CANYON (arcade stage 8) is the highest-value unbuilt
-  biome; more measured biomes toward 23 remain the biggest structural distance.
+- **R21 verdict**: **9.1** (motion 9.1, stills 9.1) — `judging/R21/judge-report.md`. The canyon landed
+  as a full flyable combat biome (combat works inside, byte-identical outside); the title's worst screen matched.
+- **Score trend**: … R18 8.8 → R19 8.9 → R20 9.0 → **R21 9.1**. (R1 was 3/10; the R12 method change ended the plateau.)
+- **R21 shipped (judge-confirmed)**: the **CANYON** (arcade stage 8) — rock WALL masses + a LOW camera
+  dropping between them; **combat WORKS in the canyon** (played: 10 enemies, locks, missile fires,
+  hits 0→3, kill fireball — not a scenic pass) and is **BYTE-IDENTICAL OUTSIDE** (stage-1 A/B maxdiff 0,
+  stateless canyon-only gate); the **title plate is the upright "II" block** (was a diagonal swoosh,
+  still tumbling); the **tanker got a T-tail + down-swept wings** (docking byte-identical); plus a flow
+  fix so the canyon's lap-widening doesn't shift stages 14/16 enemy liveries.
+- **R21's honest limits (judge)**: the canyon FLOOR is bare (smooth ochre) where the arcade's is a
+  battlefield (tanks/trucks/tents wall-to-wall); the tanker T-tail is a thin crossbar vs the arcade's
+  bold swept fin; the R20 field biomes (14/16) are still flat. `STAGE_8.scrollSpeed` is ADOPTED (certify it).
+- **What works end to end**: title → flight → combat → death/respawn → tally → **7 combat biomes
+  (incl. the structured canyon)** + runway refuel 5/13 + airborne tanker 3/9 → GAME OVER / continue →
+  restart. All combat systems, both refuel beats, afterburner, lock cue, wider fireball + hot cores, FM music.
+- **Still absent**: **~7 of ~23 biomes**; the canyon floor battlefield + giving the flat biomes (14/16)
+  real structure are the near-term fidelity items; more measured biomes toward 23 remain the breadth floor.
 
-## R21 gap list — from the R20 judge's close-look (`judging/R20/judge-report.md`)
+## R22 gap list — from the R21 judge's close-look (`judging/R21/judge-report.md`)
 
-Theme: **real terrain structure + more biomes.** The game crossed 9.0; every remaining gap is DETAIL,
-not absence. Ranked:
+Theme: **populate the structure — the canyon floor battlefield, then the flat biomes.** The canyon
+proved walls + a low camera + props; now fill them. Ranked:
 
-1. **NEW BIOMES HAVE THE RIGHT SKY BUT FLAT GROUND — build the CANYON.** The R20 biomes match the
-   arcade SKIES but their ground is a flat open field where the arcade has dense hillside city / palm
-   forest. The highest-value next move is the **CANYON** (arcade stage 8, cream #faecb0, the strongest
-   unbuilt biome): **wall masses** (the stages lane can build the terrain) + a **stateless per-stage
-   low horizon from game.js** (the canyon camera sits low between walls — gate it on the stage like the
-   refuel low-swoop, keep it stateless so combat stays byte-identical). This is the breadth headline
-   AND gives the flat biomes a model for real structure. (Stages lane + a game.js horizon gate.)
-2. **KEEP WIDENING TOWARD 23.** ~6 of ~23 biomes. Breadth is still the biggest structural distance;
-   the canyon first, then more measured biomes / set-pieces. (World + flow.)
-3. **FINISH THE TANKER AIRFRAME.** Docking is done (R20). The airframe still reads as a dorsal hump —
-   give it the arcade's vertical **TAIL FIN** + down-swept wings to finish the silhouette. (Tanker: render/tanker.js.)
-4. **THE TITLE STILL TRAILS THE ARCADE'S BLOCK WORDMARK.** The italic lean is in, but ours is a
-   diagonal ball-swoosh where the arcade's "II" plate is a vertical block — a structural pass, not just
-   letterforms. (UI.)
-5. **LOOSE ENDS (low priority).** Fireball flanking cores read yellow (white reserved to centre) — fine
-   or push whiter; the tree tunnel is still sparse; blind gun floor ~8-12 (structural span-scaled net);
-   the `SIGHT_NDC_Y_OFFSET` reconciliation stays a measure-first item.
+1. **THE CANYON FLOOR IS BARE — PUT THE BATTLEFIELD ON IT.** The arcade stage-8 floor is packed
+   wall-to-wall with tanks, trucks, striped tents, rock tufts; ours is smooth ochre with nothing. Reuse
+   the runway DEPOT PROP vocabulary (createRunwayProps-style world-space props that already scroll past)
+   to populate the canyon floor with ground targets/clutter. Source the look from the arcade stage-8
+   frames (ab2-longplay t=344-372). (World.)
+2. **GIVE THE FLAT BIOMES THE CANYON'S STRUCTURE TREATMENT.** The R20 field biomes (14 gold-dusk forest,
+   16 blue hillside city) are still flat open fields. Now that wall masses + a low camera are proven on
+   the canyon, give 14/16 real terrain structure the same way (hills/forest masses; a low camera if the
+   arcade frames show one — MEASURE the horizon per biome, keep the gate stateless). (World + a game.js horizon gate.)
+3. **FINISH THE TANKER TAIL + WINGS.** The T-tail is a thin crossbar vs the arcade's bold dark swept fin;
+   the wings are near-flat vs the arcade's downsweep. Fatten/darken the fin to a bold swept triangle, drop
+   the wings to the engine pods. (Tanker: render/tanker.js.)
+4. **KEEP WIDENING TOWARD 23.** ~7 of ~23 biomes. More measured biomes/set-pieces after the floor + field
+   structure. (World + flow.)
+5. **LOOSE ENDS (low priority).** `STAGE_8.scrollSpeed` is ADOPTED — certify with an our-engine canyon
+   flow measurement (the #139 120 fps method on a ?stage=7 capture); the tree tunnel is still sparse; the
+   blind gun floor ~8-12 (structural span-scaled net).
 
-**Kept as positives (do not regress):** six combat biomes; both refuel beats (runway tree tunnel +
-low-swoop + depot props, airborne tanker + docking + RELOAD WEAPONS); **COMBAT byte-identical outside
-the refuel/low-horizon states** (stateless `flow.state` gates — PROVEN maxdiff 0); every combat win
-(aim-beats-blind gun, the missile loop + grace window + pips + naive-climb first lock, the burst wall);
-the wider fireball + hot cores; the ~8 s death cycle. **Do NOT inflate the fireball vertically; do NOT
-grow `ENVELOPE_Y`; keep any new camera work (the canyon low horizon) STATELESS** so combat stays
-byte-identical (the R17/R20 worktree A/B is the standard to hold).
+**Kept as positives (do not regress):** the canyon (walls + low camera + LIVE combat) with **COMBAT
+byte-identical outside it (proven maxdiff 0)**; both refuel beats (runway tree tunnel + low-swoop + depot
+props, airborne tanker + docking + T-tail); the upright title block (still tumbling); seven combat biomes;
+every combat win (aim-beats-blind, the missile loop + grace window + pips + naive-climb first lock, the
+burst wall); the wider fireball + hot cores; the ~8 s death cycle. **Keep any new camera work STATELESS**
+(the canyon low camera is the standard — prove byte-identical outside); **do NOT grow `ENVELOPE_Y`**.
 
 **Carried interfaces** (`judging/R12/flow-asks.md`): a `gameOver` SFX + `resupply`/`airrefuel` landing
-cues (audio). Record as **ADOPTED** in GAME_SPEC: all R16-R20 beats (refuel runway + tree tunnel +
-low-swoop, airborne tanker + docking, STAGE_14/16 biomes). **Capture caveat**: the combat p-gate makes
-`demo=2` under-read gun explosions — use `?combatexpl=1` and an aiming pilot (or play). **Sampling
-note**: the fireball's white-hot peak is ~2 ticks — capture `--every 1` to catch transients. **Framing
-note**: the refuel low-swoop + tanker docking are stateless `flow.state` gates in game.js; a canyon low
-horizon must be the same (gate on stage, stateless) so combat stays byte-identical.
+cues (audio). Record as **ADOPTED** in GAME_SPEC: all R16-R21 beats (both refuels + tree tunnel + low-swoop
++ docking, STAGE_8 canyon + its low camera, STAGE_14/16 biomes). **Capture caveat**: the combat p-gate
+makes `demo=2` under-read gun explosions — use `?combatexpl=1` and an aiming pilot (or play). **Framing
+note**: the canyon low camera is a stateless per-stage gate in game.js retracking combat ScreenSpace via
+its public hook — any new per-stage camera must follow this (stateless, prove byte-identical outside).
 
 ## Hard warnings that stay load-bearing
 
