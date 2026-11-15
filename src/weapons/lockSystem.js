@@ -71,17 +71,22 @@ const LOCK_INTERVAL_S = 0.10; // locks accumulate while the button is held
 //    Only the two states that USED to be indistinguishable from it have
 //    changed, and they changed in the direction of looking weaker.
 //
-// LOCK_ACQUIRE_S IS NOT MEASURED AND SAYS SO. Footage cannot show it: the
-// arcade's acquisition time is the delay between a button press I cannot
-// observe and a bracket I can. It is derived instead from two things that
-// ARE arcade-anchored -- MAX_LOCKS = 6 (GAME_SPEC §3, t100: ~6 brackets at
-// once) and the arcade's own salvo cadence, which my night burst puts at a
-// ~6-missile salvo whose impacts span t187.20-t187.67 after a launch flame
-// at t186.72. 0.22 s per lock makes a full six-lock salvo cost 1.32 s of
-// held sweep, against the 2 s that R9's trace of the shipped build took to
-// accumulate THREE locks from a motionless stick. The salvo therefore gets
-// no slower; it gets earned.
-const LOCK_ACQUIRE_S = 0.22;
+// R25 — ACQUISITION IS NOW NEAR-INSTANT, because the OWNER PLAYED IT and the
+// missile fired NOTHING in naive play (STATUS.md, "OWNER PLAYED IT"). The
+// 0.22 s "earned salvo" above was the barrier: a first-timer who points the
+// reticle at enemies and presses the button got 0 locks and 0 missiles —
+// measured, pure straight-ahead mashing landed 0 missile kills in 2 of 4
+// seeds over 90 s and first-killed at 20-59 s in the others. AB2's missile is
+// POINT-AND-SHOOT: you aim roughly, press, and it locks and fires. So the
+// hold-on-target skill gate is removed — a candidate becomes a lock on the
+// first armed tick it is inside the (now generous) cone, and MAX_LOCKS still
+// caps the salvo and LOCK_INTERVAL_S still paces successive locks so one press
+// fans the locks out over the wave rather than dumping six on one tick.
+//
+// Not literally 0: a 0.05 s acquire keeps the bracket's arm-growth escalation
+// readable for ~3 frames (the "it locked" feedback), while being well inside
+// "within seconds" — effectively instant to a player.
+const LOCK_ACQUIRE_S = 0.05;
 // R15 — COMPLETED-LOCK HOLD, the missile's rank-2 conversion fix. The R15
 // opening playtest fired ONE missile in 27 s of dedicated climbing. The block
 // is NOT acquisition (a perfect-tracker autopilot fires 31-34 salvos/180 s, and
@@ -218,7 +223,26 @@ const ARM_FRAC_TRACK = 2.5 / 16.5;
 //
 // Measured from the sight, not from the jet: the sight IS the crosshair the
 // measurement refers to.
-const LOCK_RADIUS_FRAC = 0.083;
+//
+// R25 — WIDENED TO 0.33, AND THE BLIND-PILOT ARGUMENT ABOVE IS OVERRULED BY
+// THE OWNER. Everything above treats a wide cone as the defect to avoid: at
+// 0.083 "a motionless stick must not get a tracking pilot's kills". But the
+// owner played the shipped build and the verdict (STATUS.md, authoritative)
+// is that there are NO missiles for a player at all — the 0.083 cone, pinned
+// to a sight that rides 0.30 NDC above the nose, covers almost nothing a
+// naive pilot is pointing at (R12's own note: at rest the cone tops out at
+// ndcY 0.537, below where the approaching wave sits), so the signature
+// point-and-shoot weapon never fires. The owner's instruction is explicit:
+// USABILITY over blind-pilot protection, and the arcade lets you fire freely.
+//
+// 0.33 fracW makes the cone cover essentially the whole playfield ahead: its
+// vertical reach is 0.33 / (0.5 * 224/320) = 0.943 NDC, so from a resting
+// sight at ndcY 0.30 it spans ndcY -0.64 .. 1.24 — any visible enemy roughly
+// ahead is lockable by just pointing the nose at the wave. Some benefit to a
+// do-nothing pilot is accepted (the arcade has it too); the gun's own aiming
+// skill test (combat.js ASSIST_RADIUS/minspan) is untouched and still
+// rewards tracking. The `?gun=lockrad=0.083` isolation recovers the old cone.
+const LOCK_RADIUS_FRAC = 0.33;
 // Lockable depth window.
 //
 // R12 -- THE NEAR EDGE WAS UNREACHABLE BY A PLAYER AND IS BROUGHT DOWN TO
@@ -264,15 +288,27 @@ const LOCK_RADIUS_FRAC = 0.083;
 // (>= the 0.5 s floor) and the approaching target is met even higher, sooner
 // never below it. Re-measured after the change: the min impact flight time
 // over the aim-pilot runs is reported in the lane report and stays >= 0.5 s.
-const LOCK_DEPTH_MIN = 16;
+//
+// R25 — NEAR EDGE 16 -> 10. The band still has to stay above the missile's
+// homing dead zone: a missile launches at depth ~5 and does not steer until
+// HOMING_DELAY_S = 0.3 s (missiles.js), by which time it has reached depth
+// ~8.4, so a target locked below that is crossed before the seeker turns and
+// the launch splay carries the shot wide. 10 is the lowest near edge that
+// still gives every fired missile time to home, while bringing the lockable
+// band down onto the close, big, dead-ahead enemies a naive player actually
+// points at (depth 10-20 project to the mid-screen band, not the horizon
+// speck depth 16+ sat at). Enemies closer than 10 are the gun's job.
+const LOCK_DEPTH_MIN = 10;
 const LOCK_DEPTH_MAX = 88;
 // A held lock breaks once its target has closed this far — see the drop
-// loop in update() for why this is a timing constraint as well as a
-// behavioural one. R12: 18 -> 13, tracking LOCK_DEPTH_MIN down so a lock
-// acquired near the new near edge is not dropped on the next tick, while
-// keeping the solved impact time at the break depth (0.546 s) above the
-// measured 0.5 s floor.
-const LOCK_BREAK_DEPTH = 13;
+// loop in update(). R25: 13 -> 6, tracking the near edge down (LOCK_DEPTH_MIN
+// 10) so a lock taken on a close enemy a naive player is pointing at is not
+// dropped the instant it is acquired. 6 is still above the launch depth (~5)
+// so a missile fired at a target that has reached the break depth still has
+// somewhere to fly; the 0.5 s impact "floor" the old value defended is a
+// nicety the owner's usability directive outranks — a close missile kill in
+// ~0.3 s is still a kill, and the point is that the missile WORKS.
+const LOCK_BREAK_DEPTH = 6;
 // Hysteresis: a challenger must be 0.85x the incumbent's range to steal the
 // tracking bracket (ADOPTED).
 const TRACK_HYSTERESIS = 0.85;

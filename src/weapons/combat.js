@@ -39,6 +39,14 @@ import { AudioBus } from '../audio/index.js';
 
 export const MISSILE_START_STOCK = 50;
 const SALVO_COOLDOWN_S = 0.4; // ADOPTED
+// R25 — how long a press GATHERS locks before the salvo auto-fires while the
+// button is still held. The missile must fire for every naive input: a tap or
+// mash fires on release, but a player who simply holds the button down must
+// fire too (and keep firing). On the rising edge this window opens; the salvo
+// launches on the first of release / this window closing / the lock set
+// filling. 0.35 s fans a few locks across the wave before launch without the
+// press feeling unresponsive.
+const SALVO_GATHER_S = 0.35;
 // R12: fraction of its muzzle->aim-point path a vulcan round must fly before
 // it can score. Pulls gun kills off the muzzle and up to the sight (R11 §2.1);
 // value set by the kill-vs-sight A/B in judging/R12/combat-lane.md.
@@ -285,6 +293,7 @@ export class Combat {
     this.missileStock = MISSILE_START_STOCK;
     this.hits = 0;
     this.salvoCooldown = 0;
+    this.gatherTimer = 0; // R25: lock-gather window, see SALVO_GATHER_S
     this.launchQueue = [];
     this.launchTimer = 0;
     this.launchSide = 1;
@@ -956,7 +965,8 @@ export class Combat {
     this.salvoCooldown -= dt;
     // Locks only accumulate when a salvo is not already being paid out and
     // there is stock to pay it with.
-    this._lockHold = holding && this.salvoCooldown <= 0 && this.missileStock > 0;
+    const canArm = this.salvoCooldown <= 0 && this.missileStock > 0;
+    this._lockHold = holding && canArm;
 
     if (this.trailHarness) {
       if (holding && !this._wasHolding) {
@@ -989,11 +999,34 @@ export class Combat {
       return;
     }
 
-    if (!holding && this._wasHolding && this.salvoCooldown <= 0) {
+    // R25 — FIRE IS DISCOVERABLE FOR EVERY NAIVE HAND. The arcade missile is
+    // point-and-shoot, so the player must not have to learn "release to fire".
+    // A press opens a short GATHER window (SALVO_GATHER_S) over which locks fan
+    // out across the wave; the salvo then launches on the FIRST of:
+    //   - release        — a tap or mash fires at once (the common naive input)
+    //   - gather closes   — a player who just HOLDS the button still fires, then
+    //                       re-gathers and fires again until stock/targets run out
+    //   - lock set full   — no reason to wait once MAX_LOCKS are held
+    // The gather clock only runs while armed (this._lockHold), so it freezes
+    // through the post-salvo cooldown instead of instantly re-firing the moment
+    // the cooldown lifts.
+    if (holding && !this._wasHolding) this.gatherTimer = SALVO_GATHER_S;
+    // The gather clock only runs once at least one lock is held, so holding
+    // over an empty sky waits to fan out a real salvo rather than firing a
+    // single missile the instant one enemy drifts into the cone.
+    if (this._lockHold && this.locks.locks.length > 0 && this.gatherTimer > 0) {
+      this.gatherTimer -= dt;
+    }
+
+    const released = !holding && this._wasHolding;
+    const gatheredWhileHeld = holding && this.gatherTimer <= 0;
+    const full = this.locks.locks.length >= MAX_LOCKS;
+    if (canArm && (released || gatheredWhileHeld || full) && this.locks.locks.length > 0) {
       const targets = this.locks.takeLocks();
       const n = Math.min(targets.length, this.missileStock, MAX_LOCKS);
       for (let i = 0; i < n; i++) this.launchQueue.push(targets[i]);
       if (n > 0) this.salvoCooldown = SALVO_COOLDOWN_S;
+      this.gatherTimer = SALVO_GATHER_S; // re-gather for the next salvo if still held
     }
     this._wasHolding = holding;
 
