@@ -477,6 +477,19 @@ const FLAME_OPACITY_BY_THROTTLE = [0.8, 0.92, 1.0];
 const FLAME_FLICKER_FPS = 13; // frame-swap rate between the two authored cone shapes
 const FLAME_JITTER_HZ = 38; // scale-jitter rate layered on top of the frame swap
 const FLAME_JITTER_AMP = 0.08;
+// How much of the airframe's bank the plume follows (R27 regression fix).
+// R15 tuned the flame against the OLD "insect-face" sheet, whose hard-bank
+// poses swung the whole jet -- nozzles included -- rigidly about the cell
+// centre, so rotating the plume by the FULL bank angle kept it on the
+// nozzles. R25 redrew the airframe as a real F-14 whose nozzle cluster stays
+// near the cell CENTRE in every pose (the jet leans, the engines barely
+// move). Against that art the full-angle swing flung the plume a third of
+// the screen sideways -- the detached cone the owner reported. In the astern
+// view the exhaust points away from the camera and barely crosses the screen
+// when you roll, so the plume should trail aft and only LEAN with the bank.
+// A barrel roll is a real 360deg image-plane spin and keeps the full rotation
+// (handled by the _rollActive branch below).
+const FLAME_BANK_FOLLOW = 0.4; // plume leans ~26deg at a 65deg hard bank
 
 export class Player {
   constructor({ baseY = 0, baseZ = -5 } = {}) {
@@ -801,7 +814,7 @@ export class Player {
       // its bank in the opposite image-plane sense, so the flame matches the
       // sheet's drawn airframe, verified by capture (a right-stick bank drops
       // the right wing and the plume trails down-right with it).
-      rotRad = THREE.MathUtils.degToRad(this.poseDeg);
+      rotRad = THREE.MathUtils.degToRad(this.poseDeg) * FLAME_BANK_FOLLOW;
     }
     // Pin the flame's TOP edge to the nozzle line at zero bank: a sprite scales
     // about its centre, so the centre sits half the (growing) height below the
