@@ -907,6 +907,61 @@ const SMOKE_LIFE_S = 0.9;
 const SMOKE_FRAC_START = 0.085;
 const SMOKE_FRAC_END = 0.145;
 
+// ---------------------------------------------------------------------------
+// R19 — THE WIDE, FLAT, FLANKED BLAST. Read this before touching the flank
+// smoke or the debris below.
+//
+// THE GAP (judging/R18/judge-report.md gap 2, corroborated by the polish
+// lane's scale-matched montage judging/R18/polish/fireball-scale-ours-vs-
+// arcade.png): ours is NOT short and its core is NOT small — measured
+// ~19 %W x 24 %H at peak against the arcade core's 15.6 %W x 22.8 %H, i.e.
+// comparable-or-bigger. What the arcade kill has that ours did not is WIDTH:
+// its total blast spans ~37.8 %W as a FLAT HORIZONTAL DEBRIS SPRAY with SMOKE
+// PUFFS FLANKING the fire, where ours was a compact, near-radial puff-cluster
+// ~32 %W x 32 %H. So this is a WIDTH + DEBRIS change, explicitly NOT a height
+// one (do not inflate vertically — the height is measured fine) and NOT a
+// colour one (R10 settled the palette; the flank smoke reuses the measured
+// KILL_SMOKE palette, no new hue).
+//
+// WHY THE FIX LIVES OUT HERE AND NOT IN THE BURST TEXTURE. drawBurst /
+// drawBreakup are tuned against two DIMENSIONLESS shape statistics and a
+// palette ladder that three rounds fought over, and the burst sprite is given
+// a RANDOM image-plane rotation per kill (spawn(), below) — so any "flat
+// horizontal" baked into the texture would be sheared to a random angle on
+// screen. The width is therefore built from elements that live in WORLD space
+// and so read horizontal on screen regardless of the burst's rotation:
+//   * the debris chunks, re-aimed into a tight cone about the screen x axis;
+//   * two flank smoke puffs thrown left and right of the fire.
+// The central fireball — the part the judge measured as already right — is
+// left exactly as it was.
+//
+// THE FLANK SMOKE IS ORANGE, NOT WHITE, AND THAT IS A MEASURED DECISION. The
+// arcade montage the 37.8 %W figure comes from is a NIGHT kill (black sky) and
+// its flanking puffs read white. The one unambiguous DAYLIGHT kill in this
+// repo (the isolated stage-1 air kill at longplay t=102.3-102.6,
+// tools/out/effects-r11/ARC-residue-origin.png) throws NO white smoke at all —
+// its residue is the saturated ORANGE ball smoke.js's KILL_SMOKE palette was
+// measured from. Authoring white daylight smoke out of a night frame is
+// REFERENCE ledger row 12's defect exactly (and the same trap the PHASES note
+// above cites), so the flank puffs reuse the measured daylight orange. On a
+// night stage the KILL palette is what it is; the shape — two puffs flanking —
+// is the part that is stage-independent and is what the gap named.
+//
+// SIZES solved for the ~37.8 %W target: a puff centred FLANK_OFFSET from the
+// blast centre with a half-width ~FLANK_FRAC_END/2 reaches
+// 0.115 + 0.130*0.94/2 = ~0.18 of frame width per side -> ~36 %W tip to tip,
+// overlapping the central ~+-10 %W fire into one continuous lumpy mass rather
+// than reading as three separate balls (the failure _spawnSmoke's 0.030 offset
+// note already paid for).
+const FLANK_OFFSET = 0.115;      // each side, screen-width fraction from centre
+const FLANK_FRAC_START = 0.090;
+const FLANK_FRAC_END = 0.130;
+const FLANK_LIFE_S = 0.42;        // spans the fire (LIFE_S 0.267) and a little past
+// Debris chunk on-screen size, screen-width fraction. R19: 0.017 up from 0.012
+// so the sideways streak READS as debris rather than as a dusting of single
+// texels; still a handful of pixels, so the set-cardinality gate is unmoved.
+const CHUNK_FRAC = 0.017;
+
 export class ExplosionField {
   constructor(scene, space) {
     this.scene = scene;
@@ -955,9 +1010,24 @@ export class ExplosionField {
       const c = this._acquireChunk();
       c.position.copy(position);
       c.material.opacity = 1;
-      const a = rng() * Math.PI * 2;
-      const sp = (0.12 + rng() * 0.22) * perSec;
-      debris.push({ sprite: c, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp });
+      // R19: HORIZONTAL DEBRIS SPRAY. The two draws that used to pick a random
+      // RADIAL angle and a slow speed now pick a near-horizontal angle (a tight
+      // +-0.4 rad cone about the screen x axis, alternating sides by index) and
+      // a faster, wider speed, so the kill throws fire-coloured chunks STREAKING
+      // SIDEWAYS instead of a symmetric puff. The vertical component is damped
+      // to 0.55 so the spray widens without getting TALLER (the gap was width,
+      // not height). EXACTLY the same two rng() draws per chunk as before, and
+      // the same `n`: combat.js spawns from the SHARED PRNG stream (combat.js
+      // ~L1411), and CLAUDE.md's "Shared PRNG stream sequencing" bug is adding
+      // or dropping a draw. Only the MEANING of these two draws changed.
+      const side = i % 2 === 0 ? 1 : -1;
+      const j = (rng() - 0.5) * 0.8;             // +-0.4 rad cone about horizontal
+      const sp = (0.55 + rng() * 0.9) * perSec;  // 0.55..1.45 screenW/s
+      debris.push({
+        sprite: c,
+        vx: side * Math.cos(j) * sp,
+        vy: Math.sin(j) * sp * 0.55,
+      });
       this.scene.add(c);
     }
 
@@ -969,6 +1039,38 @@ export class ExplosionField {
       sprite, age: 0, depth, scale, chunks: debris, fireOut: false,
       rot: sprite.material.rotation, pos: position.clone(),
     });
+
+    // R19: the flank smoke is thrown NOW, concurrent with the fire (the arcade
+    // blast's flanking puffs sit beside the fireball, not after it — they are
+    // what makes the kill read ~2x wide). Derived from the burst rotation, no
+    // PRNG draw — same rule as _spawnSmoke.
+    this._spawnFlankSmoke(position, depth, scale, sprite.material.rotation);
+  }
+
+  // Two orange/peach smoke puffs thrown LEFT and RIGHT of the fire, so the
+  // blast reads as a wide flat mass with smoke flanking it rather than a
+  // compact vertical puff. See the R19 note above FLANK_OFFSET for why these
+  // are orange on daylight (measured) and why the width lives out here rather
+  // than in the rotation-randomised burst texture. NO PRNG DRAW: the shared
+  // stream combat.js spawns from must not move, so the per-puff variation is a
+  // pure function of the burst rotation, exactly as _spawnSmoke derives its
+  // jitter.
+  _spawnFlankSmoke(position, depth, scale, rot) {
+    const sScale = Math.min(scale, 1.6);
+    const off = this.space.worldWidthFor(FLANK_OFFSET * sScale, depth);
+    const dy = this.space.worldWidthFor(0.02 * sScale, depth);
+    for (const side of [-1, 1]) {
+      const p = position.clone();
+      p.x += side * off;
+      // A small deterministic vertical stagger so the two puffs are not
+      // mirror-identical; keeps the mass lumpy without a draw.
+      p.y += (side === 1 ? Math.sin(rot) : Math.cos(rot)) * dy;
+      this.smoke.spawn('kill', p, depth, {
+        life: FLANK_LIFE_S * (0.85 + 0.3 * (0.5 + 0.5 * Math.sin(rot * 2 + side))),
+        fracStart: FLANK_FRAC_START * sScale,
+        fracEnd: FLANK_FRAC_END * sScale,
+      });
+    }
   }
 
   // The residue, spawned on the tick the fire goes out rather than at the
@@ -1041,7 +1143,7 @@ export class ExplosionField {
         for (const c of e.chunks) {
           c.sprite.position.x += c.vx * dt;
           c.sprite.position.y += c.vy * dt;
-          sizeSprite(c.sprite, this.space.worldWidthFor(0.012, e.depth));
+          sizeSprite(c.sprite, this.space.worldWidthFor(CHUNK_FRAC, e.depth));
           c.sprite.material.map = chunkTex[1];
           c.sprite.material.opacity = 1;
         }
@@ -1117,7 +1219,7 @@ export class ExplosionField {
       for (const c of e.chunks) {
         c.sprite.position.x += c.vx * dt;
         c.sprite.position.y += c.vy * dt;
-        sizeSprite(c.sprite, this.space.worldWidthFor(0.012, e.depth));
+        sizeSprite(c.sprite, this.space.worldWidthFor(CHUNK_FRAC, e.depth));
         // Same rule, two colours instead of a ramp: the chunk cools to dark
         // red rather than fading out. 4x4 texels each, so this is a handful
         // of pixels — and a handful of pixels is exactly what a set-cardinality
