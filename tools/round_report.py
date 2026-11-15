@@ -21,68 +21,69 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 # ---------------------------------------------------------------- ROUND DATA
 ROUND = {
-    "number": 20,
+    "number": 21,
     "date": "2026-11-15",
     "status": "CLOSED",
-    "score": "9.0 / 10",
-    "last_score": "8.9 / 10 (R19)",
+    "score": "9.1 / 10",
+    "last_score": "9.0 / 10 (R20)",
     "tldr": (
-        "R20 crosses <em>9.0.</em> Breadth was the floor, so it shipped <em>two new measured combat "
-        "biomes</em> (a lavender coast and a gold-dusk olive), growing the game from 4 lapping biomes to "
-        "6; gave the refuel tanker a real fuselage and <em>docked the jet</em> to its belly; and put "
-        "<em>white-hot cores</em> in the kill blast. Zero regression — combat is proven byte-identical to "
-        "before the round. Every win is honest: the palettes and directions are right, the fine detail "
-        "(flat terrain, the tanker's tail fin) is the next stretch."
+        "R21 answered the flat-ground gap with real <em>structure</em>: the arcade's <em>canyon</em> "
+        "(stage 8) — rock walls rising on both flanks and a camera that drops <em>between</em> them — "
+        "and it's a full flyable combat biome, not a scenic pass: enemies spawn, you lock and fire, "
+        "kills blossom, all inside the dropped camera. And it's proven <em>byte-identical outside</em> "
+        "the canyon. The title's worst screen became a match (the upright II block), and the tanker grew "
+        "a tail fin. It rises to 9.1."
     ),
     "verdict": (
-        "“Two genuinely new biomes with the arcade's own skies, the refuel jet now noses up and docks to "
-        "the tanker, and the kill blast has hot cores. Nothing in the fight moved — it's byte-for-byte "
-        "what it was. The new ground is still flat where the arcade has hills and forest.”"
+        "“The canyon is real now — rock walls down both sides, the camera low between them, and I'm "
+        "fighting in it: enemies, locks, kills. Nothing outside the canyon moved a pixel. The title "
+        "finally reads as the upright II block. What's left is the canyon floor — ours is bare where "
+        "the arcade's is a battlefield.”"
     ),
-    "verdict_attr": "R20 fresh-context judge · composite 9.0 (motion 9.0 · stills 9.0)",
+    "verdict_attr": "R21 fresh-context judge · composite 9.1 (motion 9.1 · stills 9.1)",
     "pairs": [
-        ("judging/R20/cmp-stage16.png",
-         "Two new combat biomes — now six",
-         "Shipped this round: new measured biomes (lavender coast shown; plus a gold-dusk olive). The skies match the arcade strongly; the ground is still a flat field where the arcade has dense hillside/forest — R21."),
-        ("judging/R20/cmp-tanker.png",
-         "The refuel jet docks now",
-         "The F-14 noses up and docks under the tanker's belly (R19's gap closed), and the tanker got a real fuselage. Still short of the arcade's vertical tail fin + down-swept wings."),
-        ("judging/R20/cmp-fireball.png",
-         "The kill blast has hot cores",
-         "The flanking spray balls now carry hot cores (not flat orange), matching the arcade's look. Width was fixed in R19; this is the interior."),
+        ("judging/R21/cmp-canyon.png",
+         "The canyon — real terrain, live combat",
+         "Shipped this round: rock walls both flanks + a low dropped camera, and combat works inside it (byte-identical outside). The floor is still bare where the arcade's is packed with tanks and tents — R22."),
+        ("judging/R21/cmp-title.png",
+         "The title is the upright II block now",
+         "The weakest R20 screen: root-caused the diagonal ball-swoosh to a stray rotation and re-measured the arcade's face-on dwell — now an upright ball-grid with the vertical II, still tumbling."),
+        ("judging/R21/cmp-tanker.png",
+         "The tanker grew a tail fin",
+         "A T-tail + down-swept wings replace the dorsal hump (docking kept byte-identical). Still a thin crossbar vs the arcade's bold swept fin — the last airframe stretch."),
     ],
     "shipped": [
-        "Crossed 9.0 — composite 9.0 (motion 9.0, stills 9.0), zero regression",
-        "TWO new measured combat biomes (lavender coast + gold-dusk olive) — the game laps 6 biomes now, up from 4",
-        "The refuel jet DOCKS to the tanker's belly, and the tanker got a real fuselage (R19's manta fixed)",
-        "White-hot cores in the kill blast's flanking puffs — the flat-orange tell is gone",
-        "Combat proven BYTE-IDENTICAL to pre-R20 (worktree A/B, maxdiff 0) — all the new gates are stateless",
+        "The CANYON (arcade stage 8) — rock walls + a low camera dropping between them, a model for real terrain structure",
+        "COMBAT WORKS IN THE CANYON — enemies, locks, missiles, kills all inside the dropped camera (not a scenic pass)",
+        "COMBAT BYTE-IDENTICAL OUTSIDE the canyon — the low camera is stateless/canyon-only (stage-1 A/B maxdiff 0)",
+        "The title plate is the arcade's upright II block now (was a diagonal swoosh) — still tumbling, not frozen",
+        "The tanker got a T-tail + down-swept wings (dorsal hump gone), docking kept byte-identical",
     ],
-    "gaps_label": "Next — R21",
+    "gaps_label": "Next — R22",
     "gaps": [
-        (1, "missing", "The new biomes have the right sky but flat ground",
-         "The skies match the arcade; the ground is a flat open field where the arcade has dense hillside city / palm forest. Give the field biomes real terrain structure — OR build the CANYON (arcade stage 8, the strongest unbuilt biome): wall masses + a stateless per-stage low horizon."),
-        (2, "missing", "Keep widening toward 23 beats",
-         "~6 of ~23 biomes now. Breadth is still the biggest structural distance; the canyon is the highest-value next stage, and more measured biomes after it."),
-        (3, "polish", "Finish the tanker airframe",
-         "Docking is done. The airframe still reads as a dorsal hump — give it the arcade's vertical TAIL FIN and down-swept wings to finish the silhouette."),
-        (4, "polish", "The title still trails the arcade's block wordmark",
-         "The italic lean is in, but ours is a diagonal ball-swoosh where the arcade's plate is a vertical II block. A structural pass, not just letterforms."),
+        (1, "missing", "The canyon floor is bare — put the battlefield on it",
+         "The arcade stage-8 floor is packed wall-to-wall with tanks, trucks, striped tents, rock tufts; ours is smooth ochre with nothing. Reuse the runway depot prop vocabulary (the props already scroll past) to populate the canyon floor."),
+        (2, "missing", "Give the flat biomes the canyon's structure treatment",
+         "The R20 field biomes (14 gold-dusk forest, 16 blue hillside city) are still flat. Now that walls + props are proven on the canyon, give them real terrain structure the same way."),
+        (3, "polish", "Finish the tanker tail + wings",
+         "The T-tail is a thin crossbar vs the arcade's bold dark swept fin, and the wings are near-flat vs the arcade's downsweep. Fatten/darken the fin, drop the wings to the engine pods."),
+        (4, "polish", "Keep widening toward 23",
+         "~7 of ~23 biomes now. More measured biomes/set-pieces remain the standing breadth item after the canyon floor and the field-biome structure."),
         (5, "polish", "Loose ends",
-         "Fireball flanking cores read yellow (white reserved to centre) — fine, or push whiter; the tree tunnel is still sparse; blind gun floor ~8-12 (structural)."),
+         "STAGE_8 scrollSpeed is ADOPTED — certify it with an our-engine canyon flow measurement; the tree tunnel is still sparse; blind gun floor ~8-12 (structural)."),
     ],
     "keep": [
-        "Six combat biomes; both refuel beats (runway tree tunnel + low-swoop, airborne tanker + docking)",
-        "COMBAT byte-identical outside the refuel states (proven); every combat win; the ~8 s death cycle",
-        "The wider fireball + hot cores; the sharper leaning title",
-        "Do NOT inflate the fireball vertically; do NOT grow ENVELOPE_Y; keep new camera work stateless",
+        "The canyon (walls + low camera + live combat); COMBAT byte-identical outside it (proven maxdiff 0)",
+        "Both refuel beats; the tanker T-tail + docking; the upright title block (still tumbling)",
+        "Seven combat biomes; every combat win; the wider fireball + hot cores; the ~8 s death cycle",
+        "Keep any new camera work STATELESS (the canyon low camera is the standard); do NOT grow ENVELOPE_Y",
     ],
     "method_note": (
-        "R20 crossed 9.0 with four wins and zero regression — and the judge PROVED the no-regression with a "
-        "git-worktree A/B showing combat byte-identical (maxdiff 0), the same gold-standard check the R17 "
-        "framing lane used. It also caught two sampling traps (the fireball's white-hot peak is ~2 ticks; "
-        "needed --every 1 to find it) — measure at the right rate. The game is now close: every remaining "
-        "gap is detail, not absence. History in judging/R20/."
+        "R21's canyon was the riskiest change yet — a camera that drops DURING combat, where a leak would "
+        "break the carefully-closed sight. It measured the arcade horizon first, gated the drop statelessly "
+        "on the stage, retracked the combat ScreenSpace through its own public hook, and the judge PROVED "
+        "combat byte-identical outside (maxdiff 0) while confirming combat works inside by playing. The "
+        "livery shift the lap-widening would have caused was caught and fixed in the same round. History in judging/R21/."
     ),
 }
 
