@@ -1,9 +1,10 @@
 # STATUS — where the rebuild stands
 
-**Last updated**: 2026-11-15. **R27+R28 shipped: eight owner/judge-driven fixes — missiles usable,
-afterburner attached, grey jet, twin-engine enemies, arcade barrel roll, gun hit-flash, bold gun
-round-stream, and the explosion de-confettied. Fresh naive judge: honest 7/10. Next: R29.** The loop
-is **"look first, measure second"** (CLAUDE.md, "How work
+**Last updated**: 2026-11-15. **R27–R29 shipped: ten+ owner/judge-driven fixes — both weapons usable
+AND readable, ENEMY FIRE now reads as a bright dodgeable stream (the AB2 core loop), afterburner
+attached, grey jet, twin-engine enemies, arcade barrel roll, clean explosions, jet no longer "on
+fire". Three false gaps caught by measurement (enemies-too-small, white-ball-is-a-cloud,
+cloud-too-opaque). Honest 7/10, climbing.** The loop is **"look first, measure second"** (CLAUDE.md, "How work
 happens here"; rationale in `judging/R12/method-retrospective.md`). Every round ships an HTML report
 (`judging/R<n>/report.html`, `python3 tools/round_report.py`). Pre-R12 STATUS is archived at
 `judging/archive/STATUS-through-R11.md`. Repo: github.com/UriZ/after-burner-web.
@@ -49,20 +50,25 @@ happens here"; rationale in `judging/R12/method-retrospective.md`). Every round 
 - **Honest build state: ~7/10** (R28 fresh-context judge, naive play). Both weapons usable AND now
   read (stream + hit-flash); jet + enemies are real aircraft; afterburner + roll + explosions fixed.
 
-## R29 gap list — R28 judge residue + TL look
+## R29 shipped (TL + enemy-fire lane) — the R29 fresh-judge gaps, resolved
 
-1. **ENEMY FIRE DOESN'T READ AS A DODGEABLE THREAT (candidate #1).** AB2's core loop is weaving
-   through a storm of enemy fire. Telemetry shows enemies DO fire (~24 shots/run) but combat frames
-   show no visible stream of enemy rounds coming down at the player. Verify whether enemy fire renders
-   as a readable, dodgeable threat; if not, that's the biggest remaining FEEL gap. (enemyShots.js,
-   telegraph.js — no lane owns them.)
-2. **EXPLOSION MORE DRAMATIC (polish).** De-confettied, but vs reference/ab2-arcade-huge-explosion.jpg
-   ours is smaller with shorter spikes — the arcade is a big starburst with long rays + a larger white
-   hot core. Grow it. (effects/explosions.js.)
-3. **STAGE-1 CLOUD TOO DOMINANT? (World look).** The big opaque white cumulus reads as a solid ball.
-   Stage 1 DOES have big clouds (arcade climbout-t92), so measure before changing — may be faithful.
-   (render/clouds.js.)
-4. **DEMO ENGAGEMENT — DEFERRED, needs arcade evidence first.** The demo pilot kills sparingly, but
+1. **ENEMY FIRE NOW READS AS A DODGEABLE STREAM (judge #1, DONE).** Rounds were small dark-red specks
+   lost in clutter; now bigger hot gold/white-cored fireballs (dark-red rim shrunk to a thin ring, gold
+   core ~2.7× area, +near-white pip; sizes still inside the arcade's measured round-width envelope) +
+   bigger telegraph. Reads as a bright stream descending on the player. **Fairness byte-identical**
+   (deathsPerMin 0.417→0.417 across 4 seeds) — a PERCEPTION fix, not a difficulty one.
+2. **JET NO LONGER "ON FIRE" + GUN STREAM TRAVELS (judge #2, DONE).** Muzzle flash 0.03→0.02 so the
+   grey airframe shows through; gun near-puff 0.020→0.017 so the column reads as rounds travelling to
+   the target, not a burst piled at the nose.
+3. **CLOUD — FALSE GAP (measured).** Arcade stage-1 cloud is itself a big near-white opaque mass
+   (bright mean #f5f2f6, 94% bright); our palette already matches. No change — third false gap caught.
+
+## R30 candidates — deferred, each needs evidence first (not yet real gaps)
+
+- **EXPLOSION MORE DRAMATIC?** vs reference/ab2-arcade-huge-explosion.jpg ours is smaller with shorter
+  spikes — BUT that jpg is a HUGE/special explosion, not a standard kill; our standard fireball is
+  measured (PEAK_FRAC 96px). Measure a STANDARD arcade kill before growing it. (effects/explosions.js.)
+- **DEMO ENGAGEMENT — DEFERRED, needs arcade evidence first.** The demo pilot kills sparingly, but
    demoTimeline.js is MEASURED to the arcade attract's motion; before rewriting it to aim+fire, measure
    the arcade attract's actual kill rate — if the arcade attract is also sparse, ours is correct.
 
