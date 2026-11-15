@@ -624,12 +624,16 @@ export const STAGE_4 = {
   skyTop: srgbHex('#009f93'),
   skyHorizon: srgbHex('#009f93'),
   skyGlowElevDeg: 0, // flat fill: no glow (STAGE_MAP: stage 4 is not a glow stage)
-  // Daytime stage -> white 'day' clouds (faint lavender cast), same live-sky
-  // treatment every stage gets. STAGE_MAP gives stage 4 cloud_density 0.0,
-  // but the three.js build has no per-stage cloud gate — clouds render on
-  // every stage and only their palette is switched (see render/clouds.js
-  // setStage), a global divergence that predates this stage and applies to
-  // stages 2/3 as well. Matching that behaviour is the non-regressive choice.
+  // R18 gap 4 — CLEAR SKY. STAGE_MAP gives stage 4 cloud_density 0.0, and the
+  // arcade bears it out: the stage-4 span (t=200-240 of ab2-longplay.mp4) shows
+  // a clean flat teal sky with NO cloud banks — the only pale masses in frame
+  // are snow-capped mountains below the horizon and kill-smoke, not sky clouds.
+  // Unlike stages 2 and 3 (whose 'desert'/'night' cloud palettes were measured
+  // from REAL arcade clouds on reference/ab2-arcade-desert.png and
+  // ab2-arcade-night-banking.png, so they keep their banks), stage 4 has no
+  // cloud reference anywhere. So the per-stage gate (render/clouds.js) is lifted
+  // here too. cloudPalette is kept only so a future lift still has a tint.
+  showClouds: false,
   cloudPalette: 'day',
 
   // Green forest canopy. PALETTE IS MEASURED, GEOMETRY IS ADOPTED — see the
@@ -762,6 +766,12 @@ export const STAGE_5 = {
   // createRunwayProps). This is the arcade refuel stage's defining signifier;
   // without it the strip reads as a road. Autumn base -> tents included.
   runwayProps: ['tanker', 'truck', 'tent', 'crew'],
+  // R18 gap 1 — THE TREE TUNNEL. Dense autumn trees walling the strip to the
+  // top of the frame, the arcade refuel stage's defining signifier (frame
+  // judging/R16/judge-evidence/arcade-s5-t245-refuel-base.png). World-space
+  // billboards, see render/ground.js createRunwayTrees; canopy palette is
+  // stage 2's measured autumn-scrub ladder.
+  runwayTrees: 'autumn',
 
   terrain: {
     // Autumn-woodland FLANK. Palette borrowed from stage 2's MEASURED autumn
@@ -857,6 +867,12 @@ export const STAGE_13 = {
   // Green base -> no tent rows (an autumn-camp signifier); tankers, trucks and
   // crew, as the arcade stage-13 frames show.
   runwayProps: ['tanker', 'truck', 'crew'],
+  // R18 gap 1 — THE PALM TUNNEL. Tall palms walling the strip to the top of the
+  // frame, which also fixes stage 13's missing-palms gap the R17 judge named
+  // (frame judging/R17/judge-evidence/arcade-s13-t557.png). World-space
+  // billboards, see render/ground.js createRunwayTrees; fronds use the measured
+  // arcade-green vegRamp ladder, matching this stage's green biome.
+  runwayTrees: 'palm',
 
   terrain: {
     // Yellow-green palm/sage FLANK. MEASURED-HUE bound (see the header):
