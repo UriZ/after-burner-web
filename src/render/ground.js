@@ -2214,5 +2214,19 @@ export function createGround(stage, horizonFrac) {
       u.uRiverColorLight.value = q.riverColorLight;
       props.setStage(newStage);
     },
+    // R17 refuel low-swoop (framing2 lane). The haze band is computed in the
+    // fragment shader from uCameraPitch + uHorizonFrac (the roll-free pitch is
+    // the single source of truth for where distant ground fades to haze — see
+    // the shader's distAlpha at ~line 1649). Both are baked to the cruise
+    // attitude at construction; when game.js drops the camera for the resupply
+    // swoop the terrain geometry follows the live camera but the haze gradient
+    // would keep fogging at the cruise horizon unless these track the new pitch.
+    // game.js calls this on its resupply gate (cruise values restored off it, so
+    // combat stays byte-identical). This sets ONLY the two framing uniforms; no
+    // stage/palette state is touched.
+    setFraming(pitchRad, horizonFrac) {
+      material.uniforms.uCameraPitch.value = pitchRad;
+      material.uniforms.uHorizonFrac.value = horizonFrac;
+    },
   };
 }

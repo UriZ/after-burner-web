@@ -64,6 +64,34 @@ const ROLL_SUPPRESS_RATE_RAD_PER_S = THREE.MathUtils.degToRad(332.5);
 // centroids cy 52.8%H (ADOPTED mean) and 58.3%H (t175) — midpoint 55.6%H.
 const PLAYER_BASE_Z = -5;
 const PLAYER_CRUISE_SCREEN_FRAC = 0.556;
+const CRUISE_PLAYER_BASE_Y = worldYForScreenFrac(PLAYER_CRUISE_SCREEN_FRAC, PLAYER_BASE_Z, CAMERA_PITCH, FOV_DEG);
+
+// R17 refuel low-swoop (framing2 lane, gap 1). During the `resupply` flow
+// state ONLY, the camera pitches DOWN so terrain and the refuel base fill the
+// frame to the top the way the arcade does, instead of our cruise horizon
+// (0.625) that reads the base as a distant road
+// (judging/R16/judge-evidence/arcade-s5-t245-refuel-base.png, and
+// judging/R17/world-s5-ours-vs-arcade.png for the before/after contrast).
+//
+// RESUPPLY_PITCH is solved from the MEASURED autumn-refuel horizon: on the
+// native stage-5 refuel frames decoded from .reference-cache ab2-longplay.mp4
+// (t=244-256), terrain meets sky at ~0.20 of screen height (the autumn canopy
+// tops poke to ~0.17, bare sky reaches ~0.20 in the gaps between trees;
+// per-column sky-depth p90-p95 cluster at 0.20). horizonFracFor(-0.30274) =
+// 0.2000 exactly. This is a measured BOUND off the refuel frames, flagged
+// because STAGE_MAP declines to CERTIFY a stage-5 horizon (its sky band is thin
+// — shipping it as MEASURED would be the #123 failure); it is nonetheless read
+// off the actual refuel frames, which beats the prior lane's eyeballed 0.22.
+// (Stage 13's palm refuel sits even higher, ~0.13, but STAGE_5 ships the autumn
+// biome, so 0.20 is the target this gate serves.)
+//
+// The jet rides screen frac 0.42 over the runway — the arcade jet centroid in
+// s5-t245 sits ~0.42 — which at the resupply pitch is baseY 1.084, well clear
+// of the bottom HUD strip and not riding into the top HUD (R7). Combat stages
+// keep CAMERA_PITCH / CRUISE_PLAYER_BASE_Y, byte-identical to today.
+const RESUPPLY_PITCH = -0.30274470913997156; // rad (-17.35deg); horizonFracFor -> 0.2000
+const RESUPPLY_PLAYER_SCREEN_FRAC = 0.42;
+const RESUPPLY_PLAYER_BASE_Y = worldYForScreenFrac(RESUPPLY_PLAYER_SCREEN_FRAC, PLAYER_BASE_Z, RESUPPLY_PITCH, FOV_DEG);
 
 // Zeroed input fed to combat.update() during 'death' (R5 feel fix, see
 // update() below) so a dead jet never fires/launches while the world
@@ -91,12 +119,26 @@ export class Game {
     // explicitly (not Euler.x/.z) sidesteps Euler-order ambiguity between
     // the two axes.
     this._pitchQuat = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), CAMERA_PITCH);
+    // R17 refuel low-swoop: the cruise attitude is the DEFAULT and keeps being
+    // the object `this._pitchQuat` points to outside resupply; combat's
+    // ScreenSpace is handed this same object below (line ~147) and reads it by
+    // reference, so it MUST stay this cruise object during combat. The resupply
+    // attitude is a SEPARATE object (never a mutation of the cruise one) that
+    // update() swaps the pointer to only while flow.state === 'resupply'.
+    this._pitchQuatCruise = this._pitchQuat;
+    this._pitchQuatResupply = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), RESUPPLY_PITCH);
     this.worldRoll = 0; // radians; see interface note below
     this._lastInput = { x: 0, y: 0 }; // measurement-only, see __flowState
     this._applyCameraOrientation();
     this.scene.add(this.camera);
 
     this.horizonFrac = horizonFracFor(CAMERA_PITCH, FOV_DEG);
+    // Haze-band target for the resupply swoop (see RESUPPLY_PITCH). The ground
+    // haze is computed in-shader from uCameraPitch + uHorizonFrac, both baked to
+    // cruise at construction; under the resupply pitch the terrain LINE follows
+    // the camera (geometry) but the haze would fog as if still at cruise unless
+    // these track too. update() feeds ground.setFraming() on the resupply gate.
+    this._resupplyHorizonFrac = horizonFracFor(RESUPPLY_PITCH, FOV_DEG);
 
     this.screen = new Screen(canvas);
     this.sky = createSky(this.camera, STAGE_1);
@@ -117,8 +159,7 @@ export class Game {
       this.scene.add(this.clouds.group);
     }
 
-    const playerBaseY = worldYForScreenFrac(PLAYER_CRUISE_SCREEN_FRAC, PLAYER_BASE_Z, CAMERA_PITCH, FOV_DEG);
-    this.player = new Player({ baseY: playerBaseY, baseZ: PLAYER_BASE_Z });
+    this.player = new Player({ baseY: CRUISE_PLAYER_BASE_Y, baseZ: PLAYER_BASE_Z });
     // Measurement-only hook (?hidejet=1): keeps the ground/sky isolated on
     // screen so a captured frame's center isn't occluded by the jet
     // sprite — the standard isolation-harness pattern for visual
@@ -380,6 +421,25 @@ export class Game {
     const targetRoll = rolling ? 0 : flow.input.x * ROLL_MAX_RAD;
     const rollRate = rolling ? ROLL_SUPPRESS_RATE_RAD_PER_S : ROLL_RATE_RAD_PER_S;
     this.worldRoll = moveTowards(this.worldRoll, targetRoll, rollRate * dt);
+
+    // R17 refuel low-swoop (framing2 lane). Gate STRICTLY on flow.state ===
+    // 'resupply' and nothing else: pitch the camera down, drop the jet to sit
+    // low over the runway, and retrack the ground haze to the new attitude. The
+    // pointer swap below is deliberate (never a mutation of _pitchQuatCruise) so
+    // combat's ScreenSpace, which holds the cruise quat by reference, is
+    // untouched. Every value fed on the non-resupply branch equals today's
+    // construction value, so combat/flight/title/death frames are byte-identical
+    // to HEAD. The gate sits BEFORE _applyCameraOrientation() and player.update()
+    // so the attitude and baseY are live for this tick's camera + sprite.
+    const resupply = this.flow.state === 'resupply';
+    this._pitchQuat = resupply ? this._pitchQuatResupply : this._pitchQuatCruise;
+    this.player.baseY = resupply ? RESUPPLY_PLAYER_BASE_Y : CRUISE_PLAYER_BASE_Y;
+    if (this.ground.setFraming) {
+      this.ground.setFraming(
+        resupply ? RESUPPLY_PITCH : CAMERA_PITCH,
+        resupply ? this._resupplyHorizonFrac : this.horizonFrac,
+      );
+    }
     this._applyCameraOrientation();
 
     // During 'death' or 'launch', deathSequence.js/launchSequence.js own
