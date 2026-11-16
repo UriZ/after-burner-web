@@ -967,9 +967,17 @@ export class Player {
       // do NOT inherit the camera's view-axis roll), while game.js now ALSO
       // rolls worldRoll through a full turn so the HORIZON rolls with it — the
       // two in sync give the owner's "the whole view rolls," not just the jet.
-      const usedRollSheet = selectRollCell(this.sprite, this._rollTexture, q * this._rollDir);
+      // R34 — the jet must co-rotate RIGIDLY with the world. A camera view-axis
+      // roll (game.js worldRoll) turns the world the OPPOSITE screen direction
+      // to a sprite's own material.rotation, so rolling both by +q counter-rotated
+      // them: the jet reached inverted while the horizon had barely tilted —
+      // which read to the owner as "the barrel roll is the wrong direction." The
+      // jet's own spin is negated here so it turns the same screen direction as
+      // the rolled world; the two now move as one rigid barrel roll.
+      const jetRollDir = -this._rollDir;
+      const usedRollSheet = selectRollCell(this.sprite, this._rollTexture, q * jetRollDir);
       if (!usedRollSheet) {
-        const angle = q * Math.PI * 2 * this._rollDir;
+        const angle = q * Math.PI * 2 * jetRollDir;
         this.sprite.material.rotation = angle;
         // Fallback only: fake the "sprite narrows to a line" edge-on moments
         // (GAME_SPEC.md §1) with a scale-x squish at the 90/270 deg points.
