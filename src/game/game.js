@@ -523,10 +523,23 @@ export class Game {
     // the horizon inside 0.2s from the 66.5 deg saturation point, which is
     // fast enough to read as "the manoeuvre cancels the bank" and still a
     // slew rather than a one-frame snap.
+    // R31 (owner play verdict) — THE BARREL ROLL ROLLS THE WHOLE WORLD. The old
+    // behaviour SUPPRESSED world roll for the manoeuvre (targetRoll 0), matching
+    // the arcade's one measured roll (GAME_SPEC §1, confirmed in footage: the
+    // horizon stays level, only the jet sprite spins). The owner played it and
+    // said "the barrel roll is broken — I want the HORIZON to roll, not just the
+    // plane." Owner outranks on feel: drive worldRoll through a full turn over
+    // the roll so the camera (and with it the jet billboard + its flame) rolls
+    // the entire view 360deg. player.js holds the jet art level during the roll
+    // so the camera carries the spin instead of doubling it. The HUD still
+    // counter-rotates (screen.render) and stays level.
     const rolling = this.player.isRolling();
-    const targetRoll = rolling ? 0 : flow.input.x * ROLL_MAX_RAD;
-    const rollRate = rolling ? ROLL_SUPPRESS_RATE_RAD_PER_S : ROLL_RATE_RAD_PER_S;
-    this.worldRoll = moveTowards(this.worldRoll, targetRoll, rollRate * dt);
+    if (rolling) {
+      this.worldRoll = this.player.rollDir * 2 * Math.PI * this.player.rollPhase;
+    } else {
+      const targetRoll = flow.input.x * ROLL_MAX_RAD;
+      this.worldRoll = moveTowards(this.worldRoll, targetRoll, ROLL_RATE_RAD_PER_S * dt);
+    }
 
     // R17 refuel low-swoop (framing2 lane). Gate STRICTLY on flow.state ===
     // 'resupply' and nothing else: pitch the camera down, drop the jet to sit

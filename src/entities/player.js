@@ -630,6 +630,13 @@ export class Player {
     return this._rollActive ? Math.min(1, this._rollT / ROLL_DURATION_S) : null;
   }
 
+  // R31: direction of the active barrel roll (+1/-1), read by game.js to drive
+  // the WORLD roll through a full turn during the manoeuvre (owner: the horizon
+  // rolls, not just the jet). 0 when not rolling.
+  get rollDir() {
+    return this._rollActive ? this._rollDir : 0;
+  }
+
   // Measurement-only: which drawing path the jet is on this tick —
   // 'sheet-day' / 'sheet-night' (an authored pose cell, selected by UV
   // offset) or 'procedural' (the single bitmap spun by material.rotation).
@@ -942,6 +949,10 @@ export class Player {
       // capitals). `_rollDir` is folded in as a phase direction so a
       // left-slam and a right-slam walk the strip opposite ways; the strip
       // is a closed 360 deg cycle, so a negative phase wraps cleanly.
+      // R31: the JET still rolls its own art here (sprites are billboards and
+      // do NOT inherit the camera's view-axis roll), while game.js now ALSO
+      // rolls worldRoll through a full turn so the HORIZON rolls with it — the
+      // two in sync give the owner's "the whole view rolls," not just the jet.
       const usedRollSheet = selectRollCell(this.sprite, this._rollTexture, q * this._rollDir);
       if (!usedRollSheet) {
         const angle = q * Math.PI * 2 * this._rollDir;
