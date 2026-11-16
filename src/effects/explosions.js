@@ -297,7 +297,11 @@ const BREAKUP = [
     // 0.020), so the rays stay tight to the fireball and read as a sparky fringe,
     // not thrown squares. The fireball's own spikes (SPIKE_LEN) carry the long
     // radiating look the arcade starburst has.
-    inner: 0.13, reach: 0.26, rays: 16, per: 5, gamma: 1.5,
+    // R33 — the R33 judge still saw "a few chunky squares fling a short distance
+    // beyond the fireball." Reach pulled in again (0.26->0.21) and per-ray flecks
+    // thinned (5->4) so the decay is a tight sparky fringe on the fireball, not
+    // squares in the sky. Sizes already sparks (R30).
+    inner: 0.13, reach: 0.21, rays: 16, per: 4, gamma: 1.5,
     fleck: [0.040, 0.020], lumps: 9, lump: 0.045, core: 0.065,
   },
   // phase 2, +167..+267 ms: the SPRAY. The cluster is gone, the streaks are
@@ -307,7 +311,7 @@ const BREAKUP = [
   // 0.49 -> 0.38; R30: -> 0.29 and flecks shrunk, so even the widest decay
   // phase hugs the fireball instead of scattering squares into blue sky.
   {
-    inner: 0.10, reach: 0.29, rays: 16, per: 6, gamma: 1.25,
+    inner: 0.10, reach: 0.24, rays: 16, per: 4, gamma: 1.25,
     fleck: [0.030, 0.014], lumps: 4, lump: 0.026, core: 0.030,
   },
 ];
