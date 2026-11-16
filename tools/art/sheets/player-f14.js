@@ -557,10 +557,18 @@ function levelOps(c) {
   // tapering to a point below the airframe bottom (y30), into the cell's lower
   // margin (~y42). Drawn AFTER the nacelles so the plume reads as emerging from
   // the exhausts. The old billboard flame in entities/player.js is disabled.
-  for (const nx of NAC_X) {
-    poly([[nx - 3.4, 25], [nx + 3.4, 25], [nx + 1.1, 41], [nx - 1.1, 41]], c.flame);
-    poly([[nx - 1.9, 25.5], [nx + 1.9, 25.5], [nx + 0.5, 36], [nx - 0.5, 36]], c.flameCore);
-  }
+  // R34b — richer 3-layer flame so it reads as a LIVING afterburner, not a flat
+  // orange cone (owner: "make the fire a bit more alive"). A wide orange body
+  // flared at the nozzle and tapering aft, a yellow-hot core inside it, and a
+  // short white-hot centre right at the exhaust; the two cones are given a 1px
+  // length/flare asymmetry so the pair looks like real burning gas rather than
+  // a mirror. Still BAKED into the planform, so it stays glued in every pose.
+  NAC_X.forEach((nx, i) => {
+    const d = i === 0 ? 0 : 1; // tiny L/R asymmetry
+    poly([[nx - 3.7, 24.4], [nx + 3.7, 24.4], [nx + 1.0, 42 + d], [nx - 1.0, 42 + d]], c.flame);
+    poly([[nx - 2.1, 25], [nx + 2.1, 25], [nx + 0.5, 37 - d], [nx - 0.5, 37 - d]], c.flameCore);
+    poly([[nx - 0.9, 25], [nx + 0.9, 25], [nx, 31]], c.specular);
+  });
 
   // ---- PANEL LINES: shaded line-work down the engine bodies ---------------
   // R27: these two vertical engine-body lines were c.rim (#840000 red). They
