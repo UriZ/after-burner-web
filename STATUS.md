@@ -1,6 +1,6 @@
 # STATUS — where the rebuild stands
 
-**Last updated**: 2026-11-15. **R27–R29 shipped: ten+ owner/judge-driven fixes — both weapons usable
+**Last updated**: 2026-11-16. **R31: six owner play-feedback fixes shipped — barrel roll rolls the HORIZON, afterburner tracks the nozzles (full-follow), enemy insect-face killed, lock is clear+earned, sea has banded waves, FM-rock music. All pushed. Next: R32 judge.** The loop is **"look first, measure second"** (CLAUDE.md, "How work
 AND readable, ENEMY FIRE now reads as a bright dodgeable stream (the AB2 core loop), afterburner
 attached, grey jet, twin-engine enemies, arcade barrel roll, clean explosions, jet no longer "on
 fire". Three false gaps caught by measurement (enemies-too-small, white-ball-is-a-cloud,
