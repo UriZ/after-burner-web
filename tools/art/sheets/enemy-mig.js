@@ -300,31 +300,63 @@ function wing(c, T, p, { span = HALF_SPAN, root = 4, chord = 6, tipChord = 2,
 // discs only (PixelCanvas does not blend) -- the engines never antialias to mush.
 const ENGINE_DX = 2.8; // half the nacelle spacing, aircraft frame
 
-// Head-on: twin intake faces. No afterburner plume toward the viewer, so the
-// cores are the RED intake glow, which also keeps head-on distinct from rear.
+// Head-on: twin intakes under the nose. R31: the old version drew two red
+// discs each with a bright CREAM pip -- two eyes with pupils, side by side and
+// bilaterally symmetric, which reads as a FACE at game size (the exact
+// insect-face mistake the player jet's nose had, owner-flagged). The fix is to
+// make the intakes read as recessed slots in a solid dark nose rather than as
+// eyes: one dark intake BAND across the nose, two DIM red glints in it and NO
+// bright pupil, and the cockpit canopy (drawn above) gives the nose a clear
+// "top", which is what finally kills the face -- a jet has a canopy over its
+// intakes, a face does not.
 function noseIntake(c, T, p) {
+  // Solid dark intake band across the nose -- one continuous mass, so the two
+  // glints read as slots in a nose, not as two floating eyes. Mapped through T,
+  // so it rolls with the airframe (no pixel-rotate, no soft edges).
+  poly(c, T, [
+    [-ENGINE_DX - 2.4, -2], [ENGINE_DX + 2.4, -2],
+    [ENGINE_DX + 2.4, 1.4], [-ENGINE_DX - 2.4, 1.4],
+  ], p.keyline);
   for (const side of [-1, 1]) {
-    const [x, y] = T(side * ENGINE_DX, -1);
-    c.disc(x, y, 3.2, p.keyline);     // black nacelle housing
-    c.disc(x, y, 1.5, p.intakeRing);  // red intake glow
-    c.disc(x, y, 0.7, p.intakeCore);  // cream pip
+    const [x, y] = T(side * ENGINE_DX, -0.3);
+    c.disc(x, y, 1.3, p.intakeRing);  // dim red intake glow, no bright pupil
   }
 }
 
-// Rear: twin afterburners. Two black nozzle bells side by side, each with a hot
-// orange core and a yellow-white centre -- the pair of orange glows is the
-// arcade enemy's signature from behind (the aspect you chase it in). Sizes set
-// by eye against the crop: the dark cluster spans ~12 px and the two orange
-// cores ~2 px each on our 60 px span, the proportion the reference shows.
-// The afterburner colours (keyline/nozzleCore/nozzleHot) are NOT overridden at
-// night, so the twin glows stay hot against the night sky, as the arcade's do.
+// Rear: twin afterburners. R31: the two black nozzle bells are now set into one
+// solid dark engine BLOCK spanning the pair, so the cluster reads as a single
+// bold BLACK mass with two hot orange cores -- the arcade enemy's scale-proof
+// signature from behind (the aspect you chase it in) -- instead of two grey
+// discs with sky leaking between them, which downscaled to the "grey blob" the
+// owner saw. Sizes set by eye against judging/R27/crop_arcade_enemy.png: the
+// dark cluster spans ~12 px and the two orange cores ~2 px each on our 60 px
+// span, the proportion the reference shows. The afterburner colours
+// (keyline/nozzleCore/nozzleHot) are NOT overridden at night, so the twin glows
+// stay hot against the night sky, as the arcade's do.
 function nozzle(c, T, p) {
+  // One solid dark engine block across both nacelles -- a continuous bold mass,
+  // mapped through T so it rolls and leans with the bank (no pixel-rotate).
+  poly(c, T, [
+    [-ENGINE_DX - 3, -1.5], [ENGINE_DX + 3, -1.5],
+    [ENGINE_DX + 3, 3.5], [-ENGINE_DX - 3, 3.5],
+  ], p.keyline);
   for (const side of [-1, 1]) {
     const [x, y] = T(side * ENGINE_DX, 1);
-    c.disc(x, y, 3.3, p.keyline);     // black nozzle housing
+    c.disc(x, y, 2.6, p.keyline);     // rounds the block ends into two bells
     c.disc(x, y, 1.9, p.nozzleCore);  // orange afterburner
     c.disc(x, y, 0.9, p.nozzleHot);   // hot yellow-white centre
   }
+}
+
+// A cockpit canopy on the upper fuselage spine. R31: the cue that reads the
+// shape as a FIGHTER rather than an ambiguous blob, and -- head-on -- the thing
+// that breaks the twin-intake bilateral symmetry so the nose stops reading as a
+// face. A bright glint over a dark canopy frame, both small and sitting on the
+// spine ABOVE the engine cluster, well clear of it so it never reads as a third
+// core. Drawn in the aircraft frame and mapped through T like everything else.
+function canopy(c, T, p, { top = -5, bot = -1 } = {}) {
+  poly(c, T, [[-1.6, top], [1.6, top], [1.2, bot], [-1.2, bot]], p.keyline);
+  poly(c, T, [[-1, top + 1], [1, top + 1], [0.7, bot], [-0.7, bot]], p.specular);
 }
 
 /** The fin. One rung below the wing's lit edge, with a single shaded side.
@@ -365,21 +397,25 @@ function fuselage(c, T, p, { halfW, top, bot, tail = 0 }) {
 // --- MIG: grey + camo -------------------------------------------------------
 function drawMigHead(c, T, p) {
   // Fin FIRST, so the fuselage block overlaps its root rather than the other
-  // way round.
-  fin(c, T, p, { base: -6, tip: -17, wRoot: 3, wTip: 1.4 });
+  // way round. R31: stubbier and wider at the tip (wTip 1.4->1.9, tip -17->-15)
+  // so it reads as a swept TAIL FIN, not the thin pale antenna/mast the needle
+  // taper produced -- the "white mast" the R10 critique first called out.
+  fin(c, T, p, { base: -6, tip: -15, wRoot: 3.5, wTip: 1.9 });
   wing(c, T, p);
   // 7 wide x 12 tall, compact and AT the wing line. The arcade's is ~8 n x
   // 11.8 n on a 73.8 n span, which is 7 x 10 on our 60 px span.
   fuselage(c, T, p, { halfW: 4, top: -6, bot: 7, tail: 2 });
   noseIntake(c, T, p);
+  canopy(c, T, p, { top: -6, bot: -2 });
 }
 
 function drawMigRear(c, T, p) {
-  fin(c, T, p, { base: -6, tip: -16, wRoot: 3, wTip: 1.4 });
+  fin(c, T, p, { base: -6, tip: -15, wRoot: 3.5, wTip: 1.9 });
   wing(c, T, p);
   // Wider and shorter than the head-on block: the nozzle housing needs a body
   // to sit IN, which is exactly what the gull version never had.
   fuselage(c, T, p, { halfW: 6, top: -6, bot: 7, tail: 2 });
+  canopy(c, T, p, { top: -6, bot: -2 });
   nozzle(c, T, p);
 }
 
@@ -388,16 +424,20 @@ function drawMigRear(c, T, p) {
 // to the smallest size: the tips sit 4 px BELOW the root (anhedral), where the
 // mig's bar is dead straight. Plus a taller, narrower fin and a longer belly.
 function drawSweptHead(c, T, p) {
-  fin(c, T, p, { base: -5, tip: -18, lean: 2, wRoot: 3, wTip: 1.6 });
+  // Taller, narrower fin than the mig keeps the interceptor distinct; R31 lifts
+  // its tip width off the needle (1.6->1.8) without touching its height.
+  fin(c, T, p, { base: -5, tip: -18, lean: 2, wRoot: 3, wTip: 1.8 });
   wing(c, T, p, { span: 29, root: 3, anhedral: 4 });
   fuselage(c, T, p, { halfW: 4, top: -6, bot: 10, tail: 2 });
   noseIntake(c, T, p);
+  canopy(c, T, p, { top: -6, bot: -2 });
 }
 
 function drawSweptRear(c, T, p) {
-  fin(c, T, p, { base: -6, tip: -18, lean: 2, wRoot: 3, wTip: 1.6 });
+  fin(c, T, p, { base: -6, tip: -18, lean: 2, wRoot: 3, wTip: 1.8 });
   wing(c, T, p, { span: 29, root: 3, anhedral: 4 });
   fuselage(c, T, p, { halfW: 6, top: -6, bot: 8, tail: 3 });
+  canopy(c, T, p, { top: -6, bot: -2 });
   nozzle(c, T, p);
 }
 
