@@ -1,4 +1,5 @@
 import { Enemy, APPROACH_SPAWN_DEPTH, FLY_PAST_DEPTH } from '../entities/enemy.js';
+import { GroundBatteryManager, MAX_BATTERIES, groundScrollDist } from '../entities/groundBattery.js';
 import { AudioBus } from '../audio/index.js';
 import { gunTunable } from '../weapons/tunables.js';
 // Imported, not transcribed: the guard below has to compare against the LIVE
@@ -1219,6 +1220,20 @@ export class Spawner {
     this.solo =
       typeof location !== 'undefined' && new URLSearchParams(location.search).has('combatsolo');
 
+    // R32 gap 3 — GROUND AA BATTERIES (src/entities/groundBattery.js). Managed
+    // here because this file is the entity manager combat.js drives: batteries
+    // are duck-typed enemies, so pushing them into `this.enemies` wires their
+    // telegraph, fire, gun/missile destroyability and scoring through the
+    // existing paths with no combat.js/game.js change (see that module's
+    // header). Enabled on combat stages (all non-solo); a battery fires only
+    // when the shared train budget is free, so it redistributes aim snapshots
+    // rather than stacking new ones. `?nobattery=1` disables them for the A/B.
+    this.batteryMgr = new GroundBatteryManager(scene);
+    this.batteryMgr.setActive(
+      !this.solo &&
+        !(typeof location !== 'undefined' && new URLSearchParams(location.search).has('nobattery')),
+    );
+
     // WHAT THE PAGE IS ACTUALLY PACING AT, read back rather than assumed —
     // the same contract `__gunTunables` carries in combat.js, and for the
     // same reason: a lane that writes down the arm it MEANT to run is one
@@ -1303,6 +1318,16 @@ export class Spawner {
     // for-one-quantity defect the lock radius already cost this project.
     this.closureScale = closure;
     if (this.solo) return this._updateSolo(dt);
+
+    // R32 — GROUND BATTERIES. One terrain-scroll advance for them this tick, and
+    // the live counts split so a battery (which lives in `this.enemies`) never
+    // crowds the AIRCRAFT alive cap or the close-drought/flyby headroom checks.
+    const batteryScroll = groundScrollDist(dt, throttleIndex);
+    let batteryCount = 0;
+    for (const e of this.enemies) if (e.isBattery) batteryCount += 1;
+    const aircraftAlive = this.enemies.length - batteryCount;
+    const newBattery = this.batteryMgr.trySpawn(dt, batteryCount, MAX_BATTERIES);
+    if (newBattery) this.enemies.push(newBattery); // sprite already added to the scene by the manager
     if (!this.openerDone) {
       this.openerDone = true;
       // The opener is the overtake flight PLUS a primed head-on element
@@ -1331,7 +1356,7 @@ export class Spawner {
     this.dispenseTimer -= dt;
     const nextBurst = this.pending.length > 0 && this.pending[0]._burst === true;
     const cap = nextBurst ? BURST_MAX_ALIVE : MAX_ALIVE;
-    if (this.pending.length && this.dispenseTimer <= 0 && this.enemies.length < cap) {
+    if (this.pending.length && this.dispenseTimer <= 0 && aircraftAlive < cap) {
       const cfg = this.pending.shift();
       // Stamped at dispense rather than at wave construction: a wave can sit
       // in `pending` across a stage boundary, and an aircraft should wear the
@@ -1378,7 +1403,7 @@ export class Spawner {
     // starves the ordinary waves.
     if (FLYBY_PERIOD_S > 0 && !this.solo) {
       this.flybyTimer -= dt;
-      if (this.flybyTimer <= 0 && this.enemies.length < MAX_ALIVE) {
+      if (this.flybyTimer <= 0 && aircraftAlive < MAX_ALIVE) {
         this.pending.push(this._flyby(playerNdc ? playerNdc.x : 0));
         this.flybyTimer = FLYBY_PERIOD_S;
       }
@@ -1400,13 +1425,13 @@ export class Spawner {
     // never a pile. Gated on headroom under the alive cap.
     if (CLOSE_DROUGHT_MAX_S > 0 && !this.solo) {
       const closePresent = this.enemies.some(
-        (e) => e.ndc && Math.abs(e.ndc.x) <= 1 && e.d <= CLOSE_DROUGHT_DEPTH,
+        (e) => !e.isBattery && e.ndc && Math.abs(e.ndc.x) <= 1 && e.d <= CLOSE_DROUGHT_DEPTH,
       );
       if (closePresent) {
         this.closeDroughtTimer = 0;
       } else {
         this.closeDroughtTimer += dt;
-        if (this.closeDroughtTimer >= CLOSE_DROUGHT_MAX_S && this.enemies.length < MAX_ALIVE) {
+        if (this.closeDroughtTimer >= CLOSE_DROUGHT_MAX_S && aircraftAlive < MAX_ALIVE) {
           this.pending.push(this._flyby(playerNdc ? playerNdc.x : 0));
           // COOLDOWN ~= the fly-past's depth-26 → depth-8.8 crossing time
           // (ln(30/8.8)/0.295 ≈ 4.1 s) plus a margin, so the next fill cannot
@@ -1424,7 +1449,9 @@ export class Spawner {
     for (let i = this.enemies.length - 1; i >= 0; i--) {
       const e = this.enemies[i];
       const wasFiring = e.firingTrain;
-      const fired = e.update(dt, this.rng, this.space, allowNewTrain, playerNdc, closure);
+      const fired = e.isBattery
+        ? e.update(dt, batteryScroll, this.space, allowNewTrain, playerNdc)
+        : e.update(dt, this.rng, this.space, allowNewTrain, playerNdc, closure);
       if (!wasFiring && e.firingTrain) {
         // This enemy just opened a train — consume the budget for this tick
         // and start the spacing gap.
@@ -2079,5 +2106,9 @@ export class Spawner {
     // R32: a fresh stage/life starts with the opener filling the near field, so
     // the close-drought timer must not carry a stale accumulation across it.
     this.closeDroughtTimer = 0;
+    // R32: batteries in `this.enemies` were just removed by the loop above; re-
+    // seed the ground-battery cadence so a fresh stage/life starts them the same
+    // way every time (deterministic for ?fixed captures).
+    this.batteryMgr.reset();
   }
 }

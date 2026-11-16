@@ -149,6 +149,72 @@ const PROP_DRAW = {
   crew: () => propTexture(32, 20, drawCrew),
 };
 
+// ======================================================================
+// GROUND AA BATTERY (R32 gap 3) — the emplacement sprite.
+// ======================================================================
+//
+// The missing AB2 ground threat: a gun emplacement planted ON the terrain that
+// fires aimed AA up at the player (the vertical-dodge beat). The ENTITY logic,
+// its approach/scroll, telegraph and fire live in src/entities/groundBattery.js
+// (the combat lane); this file owns only the PROP ART, built with the same
+// construction as the runway/canyon props (propTexture, hard pixel edges,
+// integer rects, NearestFilter — never AA-blurred) so an emplacement reads as a
+// ground object in the same visual family as the tanks and trucks it sits among.
+//
+// PALETTE is ADOPTED neutral military olive/grey on the hardware ladder and
+// FLAGGED as such — the repo holds no measured AA-emplacement palette (same
+// disposition as the depot props' header). A low bunker/platform base roots it
+// to the ground; a boxed turret carries twin barrels raked UP and to one side,
+// so a glance reads "a gun aimed at the sky", which is the threat it is.
+function drawBatteryBarrel(ctx, x0, y0, x1, y1, w) {
+  // Stepped integer march so the raked barrel stays on the pixel grid instead
+  // of letting a Canvas2D path antialias the diagonal into blur (CLAUDE.md).
+  const n = Math.max(Math.abs(x1 - x0), Math.abs(y1 - y0));
+  for (let s = 0; s <= n; s++) {
+    const t = s / n;
+    ctx.fillRect(Math.round(x0 + (x1 - x0) * t), Math.round(y0 + (y1 - y0) * t), w, 2);
+  }
+}
+
+function drawBattery(ctx) {
+  // 48x40 canvas, ground at the bottom edge. Neutral military olive/grey
+  // (ADOPTED, UNMEASURED — no measured emplacement palette in the repo).
+  // Bunker / platform base — roots the gun to the terrain on any biome (reads
+  // as a bunker over land, a gun platform over the sea).
+  ctx.fillStyle = '#23281f'; // base ground shadow
+  ctx.fillRect(5, 34, 38, 6);
+  ctx.fillStyle = '#3c4536'; // base body (dark olive)
+  ctx.fillRect(8, 27, 32, 8);
+  ctx.fillStyle = '#4d5745'; // base lit top edge
+  ctx.fillRect(8, 27, 32, 2);
+  ctx.fillStyle = '#2c3328'; // base right-side shade
+  ctx.fillRect(36, 27, 4, 8);
+  // Turret body.
+  ctx.fillStyle = '#454e3c';
+  ctx.fillRect(15, 17, 18, 12);
+  ctx.fillStyle = '#58634f'; // turret lit top
+  ctx.fillRect(15, 17, 18, 3);
+  ctx.fillStyle = '#2c3328'; // turret shade side
+  ctx.fillRect(29, 17, 4, 12);
+  // Mantlet / pivot where the barrels hinge.
+  ctx.fillStyle = '#353d2e';
+  ctx.fillRect(13, 19, 6, 8);
+  // Twin barrels, raked UP and slightly to the left (the firing direction on
+  // screen — up at the player overhead).
+  ctx.fillStyle = '#5a6450';
+  drawBatteryBarrel(ctx, 17, 19, 11, 3, 3);
+  drawBatteryBarrel(ctx, 22, 19, 16, 3, 3);
+  ctx.fillStyle = '#c9b24a'; // muzzle glint
+  ctx.fillRect(11, 3, 3, 2);
+  ctx.fillRect(16, 3, 3, 2);
+}
+
+// Exported for src/entities/groundBattery.js. Returns { tex, aspect } exactly
+// like the prop textures so the entity can build its own world-space Sprite.
+export function batteryTexture() {
+  return propTexture(48, 40, drawBattery);
+}
+
 // The pool. One sprite per entry, created once and reused; setStage shows the
 // subset a stage asks for and hides the rest. Types are interleaved so the
 // stream passing the strip is varied rather than runs of one kind.
