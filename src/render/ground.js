@@ -2321,14 +2321,37 @@ export function createGround(stage, horizonFrac) {
         // sparkle can ask for one.
         float crestDensity = uCrestDensity *
             (1.0 - smoothstep(uCrestNearDist, uCrestFarDist, groundDist));
+        // R31 (owner play-feedback "improve the sea texture") — BAND THE FOAM
+        // ONTO WAVE CRESTS. Side-by-side with reference/stage1-level-flight-
+        // -t116.png (crop judging/R31/world-texture/crop-*-sea.png): the arcade
+        // sea is deep blue with foam concentrated into horizontal CREST LINES
+        // over dark troughs, reading as rolling waves. Ours read as an even
+        // cyan SNOW-STATIC at ~45% coverage with no troughs — "flat noise."
+        // Root cause: the white CAPS already gate onto the wave field t
+        // (capWaveGate), but this CREST-SPARKLE layer fired UNIFORMLY (a pure
+        // random scatter independent of t), which was the all-over speckle.
+        // Gate it onto the same wave field — t is banded horizontally by the
+        // wave layer (uFreqX 4.2 >> uFreqZ 1.372, cross-track fronts), so
+        // concentrating the sparkle where t is high draws the foam into the
+        // crest rows the arcade shows and lets the dark base water show through
+        // the troughs between them. The gate re-ARRANGES the existing scatter
+        // (the R6/R7 cap layer did the same on t); it does not add a draw or a
+        // new PRNG stream, and the per-pixel firing still uses the same
+        // valueNoise cells, so the measured dash GEOMETRY (w/h/area) is
+        // unchanged — only the along-field placement moves onto crests. Peak
+        // density on a crest is lifted so the crest lines stay as bright as
+        // before while the troughs clear; this keeps the on-crest foam
+        // fraction near the measured target while killing the trough static.
+        float waveBand = smoothstep(0.48, 0.80, t);
+        float bandGate = 0.16 + 1.85 * waveBand; // ~0.16x trough (dark) .. ~2.0x crest (dense foam line)
         // R7 gap 3: the cell size now steps with depth so the dash holds its
         // SCREEN size. uDashRefDist 0 keeps the single-octave R6 behaviour.
         // See dashLod() above for why the ladder is in powers of two and why
         // the crossfade is by density.
         float ds0 = 1.0, ds1 = 1.0, dw1 = 0.0;
         if (uDashRefDist > 0.0) dashLod(groundDist, uDashRefDist, ds0, ds1, dw1);
-        float cdens0 = crestDensity * (1.0 - dw1);
-        float cdens1 = crestDensity * dw1;
+        float cdens0 = crestDensity * (1.0 - dw1) * bandGate;
+        float cdens1 = crestDensity * dw1 * bandGate;
         float crest0 = valueNoise(vec2(vWorldPos.x / (uCrestFreqX * ds0),
                                        (vWorldPos.z + uScroll) / (uCrestFreqZ * ds0)));
         float crest1 = valueNoise(vec2(vWorldPos.x / (uCrestFreqX * ds1),
