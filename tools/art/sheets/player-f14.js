@@ -546,6 +546,22 @@ function levelOps(c) {
     poly(podPoly(nx, NAC_Y + 0.3, 1.8, 1.5, 0.8), c.flameCore);
   }
 
+  // ---- BAKED AFTERBURNER (R34) --------------------------------------------
+  // The flame is drawn INTO the planform, at the nozzles, extending aft (down in
+  // the astern view). Every banked/rolled cell is this planform rotated rigidly
+  // about the cell centre (see `drawFrame`/xf), so the flame rotates WITH the
+  // nozzles and CANNOT detach -- the definitive fix after a separate billboard
+  // flame's follow-the-bank formula failed three times (owner: "the jet fire is
+  // still detached from the body, fix it already"). Twin cones: a hot
+  // yellow-white core inside an orange body, flared at the nozzle (y~25) and
+  // tapering to a point below the airframe bottom (y30), into the cell's lower
+  // margin (~y42). Drawn AFTER the nacelles so the plume reads as emerging from
+  // the exhausts. The old billboard flame in entities/player.js is disabled.
+  for (const nx of NAC_X) {
+    poly([[nx - 3.4, 25], [nx + 3.4, 25], [nx + 1.1, 41], [nx - 1.1, 41]], c.flame);
+    poly([[nx - 1.9, 25.5], [nx + 1.9, 25.5], [nx + 0.5, 36], [nx - 0.5, 36]], c.flameCore);
+  }
+
   // ---- PANEL LINES: shaded line-work down the engine bodies ---------------
   // R27: these two vertical engine-body lines were c.rim (#840000 red). They
   // run top-to-bottom, not along a lower edge, so as red they stacked onto the

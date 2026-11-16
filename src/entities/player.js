@@ -802,9 +802,15 @@ export class Player {
   // on the discs however long the plume gets, rather than a centre-anchored
   // scale that would pull the core up off the nozzles as it lengthens.
   _updateFlame(dt, throttleIndex) {
-    // Runs only while the player is under control (game.js gates update() on
-    // flow.playerControlled), so this is the right place to re-light a flame
-    // that cancelRoll() cut on the last control-loss transition.
+    // R34 — THE AFTERBURNER IS NOW BAKED INTO THE SPRITE SHEET (player-f14.js),
+    // drawn at the nozzles and rotating rigidly with every bank/roll cell, so it
+    // can never detach. This billboard flame (a child sprite driven by a
+    // follow-the-bank formula) was the thing that kept tearing off the airframe
+    // through three attempts; it is retired here. Kept hidden rather than
+    // removed so the sprite tree + call sites are untouched.
+    this._flame.visible = false;
+    return;
+    // eslint-disable-next-line no-unreachable
     this._flame.visible = true;
     this._flameClock += dt;
     const ti = throttleIndex >= 0 && throttleIndex <= 2 ? throttleIndex : 1;
