@@ -1,11 +1,11 @@
 # STATUS — where the rebuild stands
 
-**Last updated**: 2026-11-16. **R31: six owner play-feedback fixes shipped — barrel roll rolls the HORIZON, afterburner tracks the nozzles (full-follow), enemy insect-face killed, lock is clear+earned, sea has banded waves, FM-rock music. All pushed. Next: R32 judge.** The loop is **"look first, measure second"** (CLAUDE.md, "How work
-AND readable, ENEMY FIRE now reads as a bright dodgeable stream (the AB2 core loop), afterburner
-attached, grey jet, twin-engine enemies, arcade barrel roll, clean explosions, jet no longer "on
-fire". Three false gaps caught by measurement (enemies-too-small, white-ball-is-a-cloud,
-cloud-too-opaque). Honest 7/10, climbing.** The loop is **"look first, measure second"** (CLAUDE.md, "How work
-happens here"; rationale in `judging/R12/method-retrospective.md`). Every round ships an HTML report
+**Last updated**: 2026-11-16. **R31: six owner play-feedback fixes shipped — barrel roll rolls the
+HORIZON, afterburner tracks the nozzles (full-follow), enemy insect-face killed, lock is clear+earned,
+sea has banded waves, FM-rock music. All pushed. Across R27-R31 the owner has driven ~20 fixes from
+play; four false gaps were caught by measurement (enemies-too-small, white-ball-is-a-cloud,
+cloud-opacity, dodge-density). Next: R32 judge.** The loop is **"look first, measure second"**
+(CLAUDE.md, "How work happens here"; rationale in `judging/R12/method-retrospective.md`). Every round ships an HTML report
 (`judging/R<n>/report.html`, `python3 tools/round_report.py`). Pre-R12 STATUS is archived at
 `judging/archive/STATUS-through-R11.md`. Repo: github.com/UriZ/after-burner-web.
 
