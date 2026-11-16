@@ -498,8 +498,49 @@ export function setInboundWarning(intensity) {
   nodes.osc2.frequency.setTargetAtTime(f * 1.19, t, 0.05);
 }
 
+// --- Enemy fire: an incoming round whistling at you ------------------------
+// R34: the owner wants to HEAR enemy fire (it was silent). A SOFT, distinct
+// "incoming" cue -- NOT the player's hard percussive vulcan: a short
+// descending whistle (a round thrown toward the camera) + a little airy noise,
+// quiet so a wave of them layers into a threat bed rather than a machine-gun.
+// `pan` -1..1 places it where the shot came from.
+export function playEnemyFire(pan = 0) {
+  const c = ctx();
+  if (!c) return;
+  const t = now();
+  const dst = master();
+  const panner = c.createStereoPanner ? c.createStereoPanner() : null;
+  if (panner) {
+    panner.pan.value = Math.max(-1, Math.min(1, pan));
+    panner.connect(dst);
+  }
+  const out = panner || dst;
+
+  // Descending whistle body — a thrown round approaching, pitch falls as it
+  // "passes". Triangle so it is airy, not a laser.
+  const osc = c.createOscillator();
+  osc.type = 'triangle';
+  osc.frequency.setValueAtTime(1150, t);
+  osc.frequency.exponentialRampToValueAtTime(430, t + 0.14);
+  const og = c.createGain();
+  env(og, t, 0.006, 0.09, 0.0001, t + 0.16);
+  osc.connect(og).connect(out);
+  osc.start(t);
+  osc.stop(t + 0.18);
+
+  // A breath of bandpassed noise so it reads as fired matter, not a pure tone.
+  const { src, filter } = noiseVoice(c, noiseBuffer(0.16), 'bandpass', 1600, 700, t + 0.14);
+  filter.Q.value = 1.1;
+  const ng = c.createGain();
+  env(ng, t, 0.004, 0.05, 0.0001, t + 0.13);
+  filter.connect(ng).connect(out);
+  src.start(t);
+  src.stop(t + 0.16);
+}
+
 const HANDLERS = {
   vulcan: (opts) => playVulcan(opts.side ?? 1),
+  enemyFire: (opts) => playEnemyFire(opts.pan ?? 0),
   missileLaunch: playMissileLaunch,
   lockOn: playLockOn,
   explosion: (opts) => playExplosion(!!opts.big),

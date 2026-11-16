@@ -1,6 +1,7 @@
 import { makeBillboard } from '../effects/pixelTexture.js';
 import { sizeSprite } from '../effects/smoke.js';
 import { enemyShotTexture } from './projectileSprites.js';
+import { AudioBus } from '../audio/index.js';
 
 // Enemy fire.
 //
@@ -215,6 +216,10 @@ export class EnemyShots {
       sprite.renderOrder = 11;
     }
     this.scene.add(sprite);
+    // R34: an audible "incoming" whistle when an enemy fires at you, panned to
+    // where the shot came from (owner: the enemy fire was silent). Ground
+    // batteries route through this same spawn, so they are covered too.
+    AudioBus.play('enemyFire', { pan: Math.max(-1, Math.min(1, from.ndcX)) });
     this.shots.push({
       sprite,
       depth: from.depth,
