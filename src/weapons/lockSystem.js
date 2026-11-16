@@ -120,7 +120,23 @@ const LOCK_INTERVAL_S = 0.10; // locks accumulate while the button is held
 // completes for a player who points at an enemy and holds roughly on it,
 // especially now that a brief waver DECAYS the beat instead of zeroing it
 // (ACQUIRE_DECAY_MULT, used below).
-const LOCK_ACQUIRE_S = 0.25;
+// R31 — THE LOCK IS EARNED, PART 2 (owner: "missiles are still too easy — it
+// should be CLEAR who I have a lock on"). 0.25 s still read as near-instant: a
+// pilot who pointed roughly at a target had the lock before the targeting beat
+// was watchable, so the signature mechanic felt free. 0.42 s (~25 frames) makes
+// the acquire a genuine DELIBERATE beat — the player sees the cyan box close onto
+// the enemy and feels the moment the lock takes before the missile leaves. This
+// is NOT the R27b failure: that was 0.40 s paired with the 0.18 cone AND a hard
+// reset-on-waver, and it is the hard reset that killed it. We keep the DECAY
+// (ACQUIRE_DECAY_MULT below), so a hand-flown tremor costs a little progress, not
+// all of it, and the cone (LOCK_RADIUS_FRAC) is tightened only one notch (to
+// 0.24) — well clear of the 0.18 that would not hold a wavering stick. Verified:
+// a clean aim-and-hold locks in 0.43 s (jitter 0, deterministic) and a heavy
+// ±0.5-jitter aiming pilot still fires 8+ missiles/18 s on seeds 3/7
+// (tools/aim_lock_probe.mjs); seed 11 is traffic-limited at ~6 regardless of the
+// cone (0.22-0.25 all give 6), i.e. not lock-limited. Still well inside the arcade's "within
+// seconds."
+const LOCK_ACQUIRE_S = 0.42;
 // How fast the acquire beat bleeds back DOWN while the sight is off the
 // candidate, as a multiple of the build rate. 1.5 means a 0.1 s waver costs
 // 0.15 s of progress -- forgiving of hand-flown jitter, not free. This is the
@@ -321,7 +337,17 @@ const ARM_FRAC_TRACK = 3.5 / 16.5;
 // LOCK_ACQUIRE_S). 0.26 still makes the player AIM -- well under the old
 // whole-screen 0.33 -- but gives a hand-flown stick enough margin to hold the
 // candidate in the cone through the acquire beat.
-const LOCK_RADIUS_FRAC = 0.26;
+// R31 — 0.26 -> 0.24 (owner: "missiles are still too easy"). Most of the
+// "earned" difficulty this round comes from the acquire beat (0.25 s -> 0.42 s,
+// above); the cone is tightened only one notch so the sight has to be genuinely
+// ON the target's heading — the arcade's "crosshair NEAR the enemy" skill —
+// without starving a hand-flown stick. 0.20 and 0.22 were both measured and
+// dropped a heavy-jitter (±0.5) aiming pilot below the 8-missile floor on two of
+// three seeds (0.20 -> 6 on seed 7; 0.22 -> 7/6 on seeds 7/11); 0.24 is the
+// least widening that keeps that same stress-test pilot at the 8+ floor while
+// still, with the longer acquire, making the player AIM. Staying well above the
+// 0.18 cone that (paired with a hard reset) could not hold a wavering stick.
+const LOCK_RADIUS_FRAC = 0.24;
 // Lockable depth window.
 //
 // R12 -- THE NEAR EDGE WAS UNREACHABLE BY A PLAYER AND IS BROUGHT DOWN TO
@@ -428,7 +454,15 @@ const BRACKET_BOX_ASPECT = 1.0;
 // Corner arm length as a fraction of the box side, and its bounds. The upper
 // bound keeps the four Ls from meeting into a closed rectangle (at 0.5 they
 // touch); the lower bound keeps a minimum-size bracket legible.
-const ARM_FRAC_OF_BOX = 0.30; // R26: 0.25 -> 0.30, chunkier locked corners
+// R31 — 0.30 -> 0.40 (owner: "it should be CLEAR who I have a lock on"). The
+// completed lock now draws at the maximum arm length the geometry allows (0.40,
+// just short of the 0.5 where the four Ls close into a solid rectangle), so a
+// LOCKED target is boxed by four long bold corners that visibly hug it, while a
+// merely-tracked target still shows the short ARM_FRAC_TRACK ticks. Arm length
+// is now the loudest of the three locked cues (long arms + thick cyan stroke +
+// vivid tint), so "which enemy is locked" reads at a glance. The acquiring snap
+// ramps its arms up to this value, so the box is seen closing as the lock earns.
+const ARM_FRAC_OF_BOX = 0.40;
 const ARM_MIN_PX = 3.5; // R26: 2.5 -> 3.5, a legible L against the 2.4 px stroke
 const ARM_MAX_FRAC_OF_BOX = 0.40;
 // Stroke weight, native px, INDEPENDENT of box size. This is the constraint
@@ -439,6 +473,14 @@ const ARM_MAX_FRAC_OF_BOX = 0.40;
 // the measured ~1 native px stroke (CLAUDE.md). The sight square keeps its own
 // 1 px stroke via SIGHT_STYLE, so the two elements stay distinct.
 const STROKE_PX = 2.4;
+// R31 — THE LOCKED BRACKET GETS ITS OWN HEAVIER STROKE so a completed lock is
+// unmistakable from a tracked/acquiring one at a glance (owner: "it should be
+// CLEAR who I have a lock on"). Only the LOCKED/in-flight state uses this; the
+// tracked and acquiring states stay on STROKE_PX, so the lock visibly THICKENS
+// at the moment it completes — one more confirmation cue on top of the long arms,
+// the vivid cyan tint and the confirm flash. 3.6 px vs 2.4 px is a 50 % heavier
+// line, clearly bolder without closing the corner gaps.
+const LOCKED_STROKE_PX = 3.6;
 
 // The sight square (GAME_SPEC.md §3's lock-display element 1): "the small
 // dashed SIGHT square leading the player's nose — the aim point, always
@@ -831,27 +873,36 @@ export class LockSystem {
     // LOCK_FLASH_S after it completes). A locked bracket therefore never
     // downgrades to a hint, and the acquiring snap is never overwritten by the
     // weaker tracked bracket on the same enemy.
-    const put = (e, rank, armFrac, boxScale, color) => {
+    // R31 — `strokePx` added to each state. Rank 0/1 (tracked/hint/acquiring)
+    // keep the thin STROKE_PX; rank 2 (locked/in-flight) draws the heavier
+    // LOCKED_STROKE_PX, so the bracket visibly thickens the instant the lock
+    // completes — the loudest "you have a lock" cue alongside the full-length
+    // arms and the vivid cyan tint.
+    const put = (e, rank, armFrac, boxScale, color, strokePx) => {
       if (!e || !e.alive) return;
       const prev = wanted.find((w) => w.e === e);
       if (prev) {
-        if (rank > prev.rank) { prev.rank = rank; prev.armFrac = armFrac; prev.boxScale = boxScale; prev.color = color; }
-      } else wanted.push({ e, rank, armFrac, boxScale, color });
+        if (rank > prev.rank) { prev.rank = rank; prev.armFrac = armFrac; prev.boxScale = boxScale; prev.color = color; prev.strokePx = strokePx; }
+      } else wanted.push({ e, rank, armFrac, boxScale, color, strokePx });
     };
-    put(this.tracked, 0, ARM_FRAC_TRACK, 1, _COL_TRACK);
+    put(this.tracked, 0, ARM_FRAC_TRACK, 1, _COL_TRACK, STROKE_PX);
     // R16 first-lock hint (see the hint block in update()): the weak arm, so an
     // enemy that is also tracked/acquiring/locked keeps its stronger bracket.
-    for (const e of this.hintList) put(e, 0, ARM_FRAC_TRACK, 1, _COL_TRACK);
+    for (const e of this.hintList) put(e, 0, ARM_FRAC_TRACK, 1, _COL_TRACK, STROKE_PX);
     if (this.acquiring) {
       const q = Math.min(1, this.acquiring.t / LOCK_ACQUIRE_S);
       const scale = ACQUIRE_BOX_SCALE_START + (1 - ACQUIRE_BOX_SCALE_START) * q;
       const col = this._colScratch.copy(_COL_TRACK).lerp(_COL_LOCKED, q);
-      put(this.acquiring.enemy, 1, ARM_FRAC_TRACK + (ARM_FRAC_OF_BOX - ARM_FRAC_TRACK) * q, scale, col);
+      // Stroke eases from thin to the heavy locked weight over the acquire, so
+      // the line grows fatter as the box closes — the acquire reads as "earning"
+      // and completes into the heavy locked look with no jump.
+      const stroke = STROKE_PX + (LOCKED_STROKE_PX - STROKE_PX) * q;
+      put(this.acquiring.enemy, 1, ARM_FRAC_TRACK + (ARM_FRAC_OF_BOX - ARM_FRAC_TRACK) * q, scale, col, stroke);
     }
     const lockedColor = (e) => (this.lockFlash.has(e) ? _COL_FLASH : _COL_LOCKED);
-    for (const e of this.locks) put(e, 2, ARM_FRAC_OF_BOX, 1, lockedColor(e));
+    for (const e of this.locks) put(e, 2, ARM_FRAC_OF_BOX, 1, lockedColor(e), LOCKED_STROKE_PX);
     for (const e of this.activeTargets ?? []) {
-      if (e && !e.retired) put(e, 2, ARM_FRAC_OF_BOX, 1, lockedColor(e));
+      if (e && !e.retired) put(e, 2, ARM_FRAC_OF_BOX, 1, lockedColor(e), LOCKED_STROKE_PX);
     }
 
     while (this.brackets.length < wanted.length) {
@@ -864,8 +915,8 @@ export class LockSystem {
     }
 
     for (let i = 0; i < wanted.length; i++) {
-      const { e, armFrac, boxScale, color } = wanted[i];
-      this._placeCorners(this.brackets[i], e.ndc.x, e.ndc.y, e.d, BRACKET_BOX_PX * boxScale, { armFrac });
+      const { e, armFrac, boxScale, color, strokePx } = wanted[i];
+      this._placeCorners(this.brackets[i], e.ndc.x, e.ndc.y, e.d, BRACKET_BOX_PX * boxScale, { armFrac, strokePx });
       for (const c of this.brackets[i]) {
         c.material.color.copy(color);
         c.visible = true;
