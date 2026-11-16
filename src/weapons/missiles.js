@@ -133,7 +133,7 @@ const HIT_RADIUS_FRAC = 0.052; // R25: doubled -- owner wants heat-seekers that 
 // THE CONSEQUENCE IS MEASURED, NOT ASSUMED: §1.3 of the lane report gives
 // the hit rate this produces for an aiming pilot and for a blind one, and
 // the two are no longer the same number.
-const MAX_TURN_FRAC_PER_S = 1.7; // R25: ~2.2x -- out-authority the launch splay + close the lateral miss (was 0.77)
+const MAX_TURN_FRAC_PER_S = 2.2; // R34: 1.7->2.2, more turn authority so the heat-seeker curves harder onto banking targets (owner: improve heat-seeking)
 
 // A missile that has crossed its target's depth and missed goes ballistic
 // (it cannot steer at something now behind it) and recedes for this long
@@ -142,7 +142,7 @@ const MAX_TURN_FRAC_PER_S = 1.7; // R25: ~2.2x -- out-authority the launch splay
 // wasted salvo does not leave six ribbons in the sky.
 const MISS_FLYOUT_S = 0.7;
 
-const HOMING_DELAY_S = 0.12; // R25: start homing sooner (was 0.3 ADOPTED) -- owner usability directive
+const HOMING_DELAY_S = 0.08; // R34: 0.12->0.08, starts curving sooner so the chase reads as heat-seeking
 const MAX_LIFE_S = 5.0; // ADOPTED
 // Speed profile. MEASURED-TO-SPEC rather than picked: GAME_SPEC.md §3 puts
 // launch -> impact at 0.5-1.5 s. The first profile (12 + 60t, cap 55) with a
@@ -166,7 +166,7 @@ const MAX_LIFE_S = 5.0; // ADOPTED
 const V0 = 6; // world depth units/s at launch
 const ACC = 18;
 const V_MAX = 34;
-const HOMING_GAIN = 2.8; // R25: stronger pursuit (was 1.7) — kept: it closes the lateral miss
+const HOMING_GAIN = 3.2; // R34: 2.8->3.2, more aggressive pursuit (crossings hit ~0.8-1.0, still earned: ~0.6-0.75 of all fired)
 const MAX_DEPTH = 130;
 
 // Wing pylons, in NDC relative to the player's sprite centre.

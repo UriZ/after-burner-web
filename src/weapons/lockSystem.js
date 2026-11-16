@@ -347,7 +347,7 @@ const ARM_FRAC_TRACK = 3.5 / 16.5;
 // least widening that keeps that same stress-test pilot at the 8+ floor while
 // still, with the longer acquire, making the player AIM. Staying well above the
 // 0.18 cone that (paired with a hard reset) could not hold a wavering stick.
-const LOCK_RADIUS_FRAC = 0.24;
+const LOCK_RADIUS_FRAC = 0.27; // R34: 0.24->0.27, a touch easier to place the sight on a target (owner: aiming); the 0.42s hold stays earned
 // Lockable depth window.
 //
 // R12 -- THE NEAR EDGE WAS UNREACHABLE BY A PLAYER AND IS BROUGHT DOWN TO

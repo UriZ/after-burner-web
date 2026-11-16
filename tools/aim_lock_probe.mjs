@@ -55,6 +55,9 @@ try {
     let prevInFlightPlusImpacts = 0;
     let lockTickCount = 0; // ticks with >=1 completed lock held
     let acquiringTicks = 0; // ticks with an acquisition in progress
+    let hits = 0; // missiles that hit their locked target (fuse inside radius)
+    let crossings = 0; // missiles that reached their target's depth (hit OR miss)
+    let totalRetired = 0; // all retired missiles (crossings + expired/notarget)
 
     for (let i = 0; i < ticks; i++) {
       const stats = window.__combatStats ? window.__combatStats() : null;
@@ -96,6 +99,17 @@ try {
         // flight on impact). Approximate total launched by tracking the max
         // cumulative seen.
       }
+      // Drain the missile outcome ledger each tick so a long run cannot hit
+      // the 2048 cap; accumulate hit/crossing/launch counts. Each row that
+      // reached a depth crossing has lat !== null; `hit` is the fuse result.
+      if (window.__missileDrain) {
+        const rows = window.__missileDrain();
+        for (const r of rows) {
+          totalRetired++;
+          if (r.hit) hits++;
+          if (r.lat !== null && r.lat !== undefined) crossings++;
+        }
+      }
       if (i % 30 === 0 || (ls && ls.locks > 0 && log.length < 40)) {
         log.push({
           t: i,
@@ -108,6 +122,15 @@ try {
         });
       }
     }
+    // Final drain to catch any missiles retired on the last tick.
+    if (window.__missileDrain) {
+      const rows = window.__missileDrain();
+      for (const r of rows) {
+        totalRetired++;
+        if (r.hit) hits++;
+        if (r.lat !== null && r.lat !== undefined) crossings++;
+      }
+    }
     const finalStock = window.__lockState ? window.__lockState().stock : null;
     return {
       firstLockTick,
@@ -115,6 +138,14 @@ try {
       maxLocks,
       lockTickCount,
       acquiringTicks,
+      hits,
+      crossings,
+      totalRetired,
+      // HIT RATE on a locked target: of the missiles that reached their
+      // target's depth (a real engagement), how many detonated inside the
+      // fuse radius. `hitRateAll` divides by every retired missile instead.
+      hitRateCrossings: crossings ? Number((hits / crossings).toFixed(3)) : null,
+      hitRateAll: totalRetired ? Number((hits / totalRetired).toFixed(3)) : null,
       finalStock,
       log,
     };
