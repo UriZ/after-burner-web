@@ -400,12 +400,14 @@ export function drawTitleScreen(ctx, w, h, credit = 0, tick = 0) {
   drawText(ctx, creditText, Math.round(w * (16 / 320)), Math.round(h * (208 / 224)),
     PINK, 1, 1, { face: FACE_BIG });
 
-  // (c) + "SEGA 1987": the circled-c occupies the first measured cell at
-  // x232, the words follow on the face's own 8 px pitch.
-  const copyX = Math.round(w * (232 / 320));
+  // (c) + "MEAT PROXY 1987": R34, the owner's brand replaces SEGA's (same
+  // FACE_BIG + BLUE_COPY). "MEAT PROXY 1987" is longer than "SEGA 1987", so the
+  // circled-c is pulled left from x232 to x176 to keep the line on screen on the
+  // face's own 8 px pitch (c + 15 glyphs ~= 128 px ends at ~304 of 320).
+  const copyX = Math.round(w * (176 / 320));
   const copyY = Math.round(h * (208 / 224));
   drawCopyright(ctx, copyX, copyY, BLUE_COPY);
-  drawText(ctx, 'SEGA 1987', copyX + 8, copyY, BLUE_COPY, 1, 1, { face: FACE_BIG });
+  drawText(ctx, 'MEAT PROXY 1987', copyX + 8, copyY, BLUE_COPY, 1, 1, { face: FACE_BIG });
 }
 
 export const TITLE_WORDMARK_ROWS = TITLE_CAP_H;
