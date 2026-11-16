@@ -27,7 +27,25 @@ function init() {
   _ctx = new AC();
   _master = _ctx.createGain();
   _master.gain.value = 0.7;
-  _master.connect(_ctx.destination);
+  // Output limiter: the SFX layer got a lot punchier in R34 (gun/missile/
+  // explosion all gained a transient + body + sub), and several can stack on
+  // the same frame (a wall of vulcan rounds, an explosion over the music bed).
+  // A fast brickwall-ish compressor on the master sum catches those peaks so
+  // the punch lands without the digital clip it would otherwise cause — it is
+  // transparent on single hits and only grabs the stacked ones. Guarded so a
+  // context without the node type still works.
+  if (_ctx.createDynamicsCompressor) {
+    const limiter = _ctx.createDynamicsCompressor();
+    limiter.threshold.value = -6;
+    limiter.knee.value = 4;
+    limiter.ratio.value = 12;
+    limiter.attack.value = 0.002;
+    limiter.release.value = 0.12;
+    _master.connect(limiter);
+    limiter.connect(_ctx.destination);
+  } else {
+    _master.connect(_ctx.destination);
+  }
 }
 init();
 

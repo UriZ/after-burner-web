@@ -56,22 +56,23 @@ const TOTAL_BARS = PHRASES * PROGRESSION.length;
 // Am/F bars, rising tension on the G/E bars, and a climb-and-hold turnaround
 // on the final E bar that spills back into the loop top.
 const MELODY = [
-  // bar 0 — Am: E5 D5 C5 A4 (descending hook)
-  [[0, 31, 6], [6, 29, 2], [8, 27, 4], [12, 24, 4]],
-  // bar 1 — G: D5 B4 D5 E5 (rising)
-  [[0, 29, 4], [4, 26, 4], [8, 29, 4], [12, 31, 4]],
-  // bar 2 — F: F5 E5 C5 A4 (descending hook, higher peak)
-  [[0, 32, 6], [6, 31, 2], [8, 27, 4], [12, 24, 4]],
-  // bar 3 — E: B4 G# E4 G# (leans on the G# leading tone)
-  [[0, 26, 4], [4, 23, 4], [8, 19, 4], [12, 23, 4]],
+  // bar 0 — Am: E5 D5 C5 A4 B4 C5 D5— (descend, answer back up — the hook)
+  [[0, 31, 3], [3, 29, 1], [4, 27, 2], [6, 24, 2], [8, 26, 2], [10, 27, 2], [12, 29, 4]],
+  // bar 1 — G: G5 E5 D5— E5 D5 B4— (lift to the G5 peak)
+  [[0, 34, 2], [2, 31, 2], [4, 29, 4], [8, 31, 2], [10, 29, 2], [12, 26, 4]],
+  // bar 2 — F: F5 E5 D5 C5 A4 C5 D5— (same hook shape, higher — the answer)
+  [[0, 32, 3], [3, 31, 1], [4, 29, 2], [6, 27, 2], [8, 24, 2], [10, 27, 2], [12, 29, 4]],
+  // bar 3 — E: B4 G#4 E5— G#4 B4 E4— (lean on the G# leading tone, resolve)
+  [[0, 26, 2], [2, 23, 2], [4, 31, 4], [8, 23, 2], [10, 26, 2], [12, 19, 4]],
   // bar 4 — Am: repeat of bar 0
-  [[0, 31, 6], [6, 29, 2], [8, 27, 4], [12, 24, 4]],
+  [[0, 31, 3], [3, 29, 1], [4, 27, 2], [6, 24, 2], [8, 26, 2], [10, 27, 2], [12, 29, 4]],
   // bar 5 — G: repeat of bar 1
-  [[0, 29, 4], [4, 26, 4], [8, 29, 4], [12, 31, 4]],
+  [[0, 34, 2], [2, 31, 2], [4, 29, 4], [8, 31, 2], [10, 29, 2], [12, 26, 4]],
   // bar 6 — F: repeat of bar 2
-  [[0, 32, 6], [6, 31, 2], [8, 27, 4], [12, 24, 4]],
-  // bar 7 — E: G# A B E5 (climb and hold into the loop)
-  [[0, 23, 2], [2, 24, 2], [4, 26, 4], [8, 31, 8]],
+  [[0, 32, 3], [3, 31, 1], [4, 29, 2], [6, 27, 2], [8, 24, 2], [10, 27, 2], [12, 29, 4]],
+  // bar 7 — E: E4 G#4 B4 E5 G#5 E5——— (climb the E chord to the G#5 peak,
+  // then hold E5 — the 5th of Am — so it spills straight into the loop top)
+  [[0, 19, 1], [1, 23, 1], [2, 26, 2], [4, 31, 2], [6, 35, 2], [8, 31, 8]],
 ];
 
 // --- Bass ----------------------------------------------------------------
@@ -85,6 +86,47 @@ const KICK_STEPS = new Set([0, 6, 8, 14]); // rock kick: 1, &-of-2, 3, pickup
 const SNARE_STEPS = new Set([4, 12]); // backbeat on 2 & 4 — the drive
 // Closed hats on all 16ths for relentless speed; offbeat 8ths accented.
 const HAT_ACCENT = new Set([2, 6, 10, 14]);
+
+// --- Rhythm guitar -------------------------------------------------------
+// A driving palm-muted power-chord (root + fifth) chug. This is the single
+// biggest "rock energy" layer: a gritty, staccato 8th-note pulse summed into
+// one amp-style waveshaper, like a down-picked rhythm guitar under the groove.
+// `gain` per step; a slightly syncopated accent map gives it forward push
+// rather than a flat machine-gun of equal hits.
+const RHYTHM_STEPS = {
+  0: 0.9, 2: 0.6, 4: 0.75, 6: 0.6, 7: 0.42, // push on the & of 2
+  8: 0.9, 10: 0.6, 12: 0.75, 14: 0.6, 15: 0.5, // pickup 16th into the bar
+};
+
+// Soft-clip transfer curve for the rhythm-guitar amp (summed bus distortion).
+function makeShaperCurve(amount) {
+  const n = 1024;
+  const curve = new Float32Array(n);
+  const k = amount * 60;
+  for (let i = 0; i < n; i++) {
+    const x = (i / (n - 1)) * 2 - 1;
+    curve[i] = ((1 + k) * x) / (1 + k * Math.abs(x));
+  }
+  return curve;
+}
+
+// Bright cymbal crash at the top of each 8-bar phrase — marks the loop point
+// and gives the groove a lift on the downbeat.
+function crash(c, dest, start, gain = 0.5) {
+  const dur = 0.6;
+  const src = c.createBufferSource();
+  src.buffer = makeNoise(c, dur + 0.05);
+  const hp = c.createBiquadFilter();
+  hp.type = 'highpass';
+  hp.frequency.value = 3200;
+  const g = c.createGain();
+  g.gain.setValueAtTime(0.0001, start);
+  g.gain.exponentialRampToValueAtTime(gain, start + 0.004);
+  g.gain.exponentialRampToValueAtTime(0.0001, start + dur);
+  src.connect(hp).connect(g).connect(dest);
+  src.start(start);
+  src.stop(start + dur + 0.05);
+}
 
 function makeNoise(c, seconds) {
   const len = Math.max(1, Math.floor(c.sampleRate * seconds));
@@ -232,13 +274,26 @@ async function buildLoop(sampleRate) {
   // a dense arrangement (kept gentle so it adds drive, not pumping).
   let sink = oc.destination;
   if (oc.createDynamicsCompressor) {
+    // Final brickwall limiter so the rendered buffer never exceeds ~0.8 even
+    // when the rhythm guitar + lead double + crash all land on a downbeat
+    // (R34 added energy and the old gentle glue comp let peaks reach ~1.18).
+    const limiter = oc.createDynamicsCompressor();
+    limiter.threshold.value = -4;
+    limiter.knee.value = 1;
+    limiter.ratio.value = 20;
+    limiter.attack.value = 0.001;
+    limiter.release.value = 0.1;
+    limiter.connect(oc.destination);
+
+    // Glue compressor across the whole mix for punch and to tame the peaks of
+    // a dense arrangement (kept gentle so it adds drive, not pumping).
     const comp = oc.createDynamicsCompressor();
     comp.threshold.value = -14;
     comp.knee.value = 24;
     comp.ratio.value = 3;
     comp.attack.value = 0.004;
     comp.release.value = 0.14;
-    comp.connect(oc.destination);
+    comp.connect(limiter);
     sink = comp;
   }
 
@@ -251,15 +306,33 @@ async function buildLoop(sampleRate) {
   bassBus.connect(bassLP).connect(sink);
 
   const padBus = oc.createGain();
-  padBus.gain.value = 0.13;
+  padBus.gain.value = 0.1; // softened to leave room for the rhythm guitar
   padBus.connect(sink);
+
+  // Rhythm-guitar bus: gritty power chords summed into one amp-style
+  // waveshaper (so overlapping chords distort together like a real amp), then
+  // a lowpass to tame the fizz into a fat crunch.
+  const rhythmBus = oc.createGain();
+  rhythmBus.gain.value = 0.26;
+  let rhythmTail = rhythmBus;
+  if (oc.createWaveShaper) {
+    const amp = oc.createWaveShaper();
+    amp.curve = makeShaperCurve(0.6);
+    amp.oversample = '2x';
+    rhythmBus.connect(amp);
+    rhythmTail = amp;
+  }
+  const rhythmLP = oc.createBiquadFilter();
+  rhythmLP.type = 'lowpass';
+  rhythmLP.frequency.value = 3400;
+  rhythmTail.connect(rhythmLP).connect(sink);
 
   const stabBus = oc.createGain();
   stabBus.gain.value = 0.28;
   stabBus.connect(sink);
 
   const leadBus = oc.createGain();
-  leadBus.gain.value = 0.34;
+  leadBus.gain.value = 0.38; // lead pushed forward — it carries the hook
   leadBus.connect(sink);
 
   const drumBus = oc.createGain();
@@ -316,6 +389,28 @@ async function buildLoop(sampleRate) {
         });
       }
 
+      // --- Rhythm guitar: gritty palm-muted power fifth (root + fifth), a
+      // driving staccato 8th-note chug. Short notes so the amp distortion
+      // reads as a down-picked crunch, not a sustained drone.
+      const rg = RHYTHM_STEPS[step];
+      if (rg) {
+        [root + 12, root + 19].forEach((semi, vi) => {
+          fmNote(oc, rhythmBus, {
+            freq: semisToHz(ROOT_HZ, semi),
+            start: t,
+            dur: STEP_S * 1.5,
+            carrierType: 'sawtooth',
+            modRatio: 1,
+            modIndex: 6,
+            modEnd: 2,
+            modDecay: STEP_S * 0.6,
+            gain: 0.3 * rg,
+            attack: 0.003,
+            pan: vi === 0 ? -0.12 : 0.12, // widen the chord a touch
+          });
+        });
+      }
+
       // --- Stab: bright FM brass chord on the backbeat (with the snare).
       if (SNARE_STEPS.has(step)) {
         triad.forEach((iv, ci) => {
@@ -340,6 +435,8 @@ async function buildLoop(sampleRate) {
       if (SNARE_STEPS.has(step)) snare(oc, drumBus, t, 0.6);
       // Closed hats every 16th (relentless drive); open hat on the final &.
       hat(oc, drumBus, t, HAT_ACCENT.has(step) ? 1.2 : 0.55, step === 15);
+      // Crash on the downbeat of each 8-bar phrase — lifts the loop top.
+      if (phraseBar === 0 && step === 0) crash(oc, drumBus, t, 0.5);
     }
 
     // --- Lead melody.
@@ -348,8 +445,9 @@ async function buildLoop(sampleRate) {
       const t = barStart + stStep * STEP_S;
       const dur = durSteps * STEP_S;
       const sustained = durSteps >= 3;
+      const f = semisToHz(ROOT_HZ, semi + leadShift);
       fmNote(oc, leadBus, {
-        freq: semisToHz(ROOT_HZ, semi + leadShift),
+        freq: f,
         start: t,
         dur: dur * 0.96,
         carrierType: 'square',
@@ -360,8 +458,26 @@ async function buildLoop(sampleRate) {
         gain: 0.24,
         attack: 0.012,
         vibratoHz: sustained ? 5.5 : 0,
-        vibratoDepth: sustained ? semisToHz(ROOT_HZ, semi) * 0.006 : 0,
-        pan: 0.06,
+        vibratoDepth: sustained ? f * 0.006 : 0,
+        pan: 0.12,
+      });
+      // Detuned double, panned opposite — thickens the hook into a chorused,
+      // present lead instead of a thin single oscillator. Slightly mellower
+      // (lower mod index) so it fills rather than fighting the main voice.
+      fmNote(oc, leadBus, {
+        freq: f * 1.004,
+        start: t,
+        dur: dur * 0.96,
+        carrierType: 'sawtooth',
+        modRatio: 2,
+        modIndex: 40,
+        modEnd: 14,
+        modDecay: Math.min(0.18, dur * 0.4),
+        gain: 0.13,
+        attack: 0.014,
+        vibratoHz: sustained ? 5.5 : 0,
+        vibratoDepth: sustained ? f * 0.006 : 0,
+        pan: -0.12,
       });
     }
 
