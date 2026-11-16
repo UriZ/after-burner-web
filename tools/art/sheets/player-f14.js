@@ -546,29 +546,15 @@ function levelOps(c) {
     poly(podPoly(nx, NAC_Y + 0.3, 1.8, 1.5, 0.8), c.flameCore);
   }
 
-  // ---- BAKED AFTERBURNER (R34) --------------------------------------------
-  // The flame is drawn INTO the planform, at the nozzles, extending aft (down in
-  // the astern view). Every banked/rolled cell is this planform rotated rigidly
-  // about the cell centre (see `drawFrame`/xf), so the flame rotates WITH the
-  // nozzles and CANNOT detach -- the definitive fix after a separate billboard
-  // flame's follow-the-bank formula failed three times (owner: "the jet fire is
-  // still detached from the body, fix it already"). Twin cones: a hot
-  // yellow-white core inside an orange body, flared at the nozzle (y~25) and
-  // tapering to a point below the airframe bottom (y30), into the cell's lower
-  // margin (~y42). Drawn AFTER the nacelles so the plume reads as emerging from
-  // the exhausts. The old billboard flame in entities/player.js is disabled.
-  // R34b — richer 3-layer flame so it reads as a LIVING afterburner, not a flat
-  // orange cone (owner: "make the fire a bit more alive"). A wide orange body
-  // flared at the nozzle and tapering aft, a yellow-hot core inside it, and a
-  // short white-hot centre right at the exhaust; the two cones are given a 1px
-  // length/flare asymmetry so the pair looks like real burning gas rather than
-  // a mirror. Still BAKED into the planform, so it stays glued in every pose.
-  NAC_X.forEach((nx, i) => {
-    const d = i === 0 ? 0 : 1; // tiny L/R asymmetry
-    poly([[nx - 3.7, 24.4], [nx + 3.7, 24.4], [nx + 1.0, 42 + d], [nx - 1.0, 42 + d]], c.flame);
-    poly([[nx - 2.1, 25], [nx + 2.1, 25], [nx + 0.5, 37 - d], [nx - 0.5, 37 - d]], c.flameCore);
-    poly([[nx - 0.9, 25], [nx + 0.9, 25], [nx, 31]], c.specular);
-  });
+  // ---- NO AFTERBURNER PLUME (R35) -----------------------------------------
+  // The owner tried every version of the afterburner flame and rejected it:
+  // "just remove the afterburner fire, it's horrible." So there is NO flame
+  // plume -- the jet keeps only its engine NOZZLES (the black-ringed orange
+  // exhaust discs drawn in the NACELLES block above), the way the arcade's
+  // astern jet mostly reads anyway. The baked-flame draw and the old billboard
+  // flame (entities/player.js, disabled) are both gone. If the owner ever wants
+  // it back, it was: twin 3-layer cones (c.flame/c.flameCore/c.specular) at
+  // NAC_X, y24.4..42.
 
   // ---- PANEL LINES: shaded line-work down the engine bodies ---------------
   // R27: these two vertical engine-body lines were c.rim (#840000 red). They
