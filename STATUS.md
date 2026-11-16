@@ -1,10 +1,12 @@
 # STATUS — where the rebuild stands
 
-**Last updated**: 2026-11-16. **R31: six owner play-feedback fixes shipped — barrel roll rolls the
-HORIZON, afterburner tracks the nozzles (full-follow), enemy insect-face killed, lock is clear+earned,
-sea has banded waves, FM-rock music. All pushed. Across R27-R31 the owner has driven ~20 fixes from
-play; four false gaps were caught by measurement (enemies-too-small, white-ball-is-a-cloud,
-cloud-opacity, dodge-density). Next: R32 judge.** The loop is **"look first, measure second"**
+**Last updated**: 2026-11-16. **R32 fresh judge: 8/10 ("genuinely plays like AB2"). R32 shipped all
+three of its gaps: close-enemy REPLENISHMENT so the dogfight crowds you (fairness byte-identical),
+the banking-pose enemy FACE killed (one central intake, not two eye-discs), and AB2's missing GROUND
+BATTERIES (AA emplacements that fire telegraphed dodgeable rounds up at you, destroyable). R31 shipped
+six owner fixes (barrel-roll-world, afterburner full-follow, enemy insect-face, clear+earned lock, sea
+waves, FM-rock music). ~25 fixes across R27-R32; FIVE false gaps caught by measurement. Next: R33
+judge.** The loop is **"look first, measure second"**
 (CLAUDE.md, "How work happens here"; rationale in `judging/R12/method-retrospective.md`). Every round ships an HTML report
 (`judging/R<n>/report.html`, `python3 tools/round_report.py`). Pre-R12 STATUS is archived at
 `judging/archive/STATUS-through-R11.md`. Repo: github.com/UriZ/after-burner-web.
