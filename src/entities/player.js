@@ -498,7 +498,15 @@ const FLAME_JITTER_AMP = 0.08;
 // when you roll, so the plume should trail aft and only LEAN with the bank.
 // A barrel roll is a real 360deg image-plane spin and keeps the full rotation
 // (handled by the _rollActive branch below).
-const FLAME_BANK_FOLLOW = 0.4; // plume leans ~26deg at a 65deg hard bank
+// R31 — FULL follow (1.0), corrected from the R27 0.4. The pose sheet's banked
+// cells are the level planform ROTATED FULLY about the cell centre (player-f14.js
+// header: "banking rotates the jet in place exactly as material.rotation did"),
+// so the drawn NOZZLES rotate by the full bank angle. 0.4 UNDER-rotated the
+// plume, so it lagged the nozzle and tore off one side on a hard bank — the
+// detachment the owner kept seeing. At 1.0 the plume tracks the nozzle exactly;
+// the only thing that made full-follow look "flung" before was a LONG plume
+// whose tip swung wide, which the shortened stub below (FLAME_BASE_SCALE_Y) fixes.
+const FLAME_BANK_FOLLOW = 1.0;
 
 export class Player {
   constructor({ baseY = 0, baseZ = -5 } = {}) {
