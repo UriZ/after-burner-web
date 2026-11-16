@@ -317,10 +317,16 @@ function noseIntake(c, T, p) {
     [-ENGINE_DX - 2.4, -2], [ENGINE_DX + 2.4, -2],
     [ENGINE_DX + 2.4, 1.4], [-ENGINE_DX - 2.4, 1.4],
   ], p.keyline);
-  for (const side of [-1, 1]) {
-    const [x, y] = T(side * ENGINE_DX, -0.3);
-    c.disc(x, y, 1.3, p.intakeRing);  // dim red intake glow, no bright pupil
-  }
+  // R32 — ONE central red intake slot, not two symmetric discs. The two round
+  // red glints read as a pair of EYES on the banking/toward-camera pose (R32
+  // judge: "two red discs with dark surrounds read as eyes"). A single central
+  // horizontal slot cannot read as two eyes, and it matches the arcade's own
+  // single ~5px red intake (measured, header §R11). Recessed into the dark band
+  // so it reads as intake geometry under the cockpit canopy, not a face.
+  poly(c, T, [
+    [-2.4, -1.1], [2.4, -1.1],
+    [2.4, 0.3], [-2.4, 0.3],
+  ], p.intakeRing);
 }
 
 // Rear: twin afterburners. R31: the two black nozzle bells are now set into one
