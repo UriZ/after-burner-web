@@ -537,6 +537,14 @@ export class Game {
     if (rolling) {
       this.worldRoll = this.player.rollDir * 2 * Math.PI * this.player.rollPhase;
     } else {
+      // R34b — NORMALISE out of the completed roll. A barrel roll drives worldRoll
+      // to +-2pi (a full turn); 2pi is level, but moveTowards() below would see it
+      // as 2pi-from-zero and slew the whole world back through a full rotation
+      // over ~5 s -- a slow spin-back the moment the roll ends. Wrap into
+      // (-pi, pi] first so a finished roll (+-2pi) snaps to 0 and a normal bank
+      // (|worldRoll| < 1.2) is untouched.
+      this.worldRoll =
+        ((this.worldRoll + Math.PI) % (2 * Math.PI) + 2 * Math.PI) % (2 * Math.PI) - Math.PI;
       const targetRoll = flow.input.x * ROLL_MAX_RAD;
       this.worldRoll = moveTowards(this.worldRoll, targetRoll, ROLL_RATE_RAD_PER_S * dt);
     }

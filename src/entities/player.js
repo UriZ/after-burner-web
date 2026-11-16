@@ -955,35 +955,24 @@ export class Player {
 
     if (this._rollActive) {
       this._rollT += dt;
-      const q = Math.min(1, this._rollT / ROLL_DURATION_S);
-      // R6: drawn roll cells when the sheet has decoded. selectRollCell
-      // BAKES the rotation and the span squish into the art, so the two
-      // procedural effects below MUST NOT also run -- doing both applies
-      // each twice (spriteFactory's JET_ROLL_SHEET header says so in
-      // capitals). `_rollDir` is folded in as a phase direction so a
-      // left-slam and a right-slam walk the strip opposite ways; the strip
-      // is a closed 360 deg cycle, so a negative phase wraps cleanly.
-      // R31: the JET still rolls its own art here (sprites are billboards and
-      // do NOT inherit the camera's view-axis roll), while game.js now ALSO
-      // rolls worldRoll through a full turn so the HORIZON rolls with it — the
-      // two in sync give the owner's "the whole view rolls," not just the jet.
-      // R34 — the jet must co-rotate RIGIDLY with the world. A camera view-axis
-      // roll (game.js worldRoll) turns the world the OPPOSITE screen direction
-      // to a sprite's own material.rotation, so rolling both by +q counter-rotated
-      // them: the jet reached inverted while the horizon had barely tilted —
-      // which read to the owner as "the barrel roll is the wrong direction." The
-      // jet's own spin is negated here so it turns the same screen direction as
-      // the rolled world; the two now move as one rigid barrel roll.
-      const jetRollDir = -this._rollDir;
-      const usedRollSheet = selectRollCell(this.sprite, this._rollTexture, q * jetRollDir);
-      if (!usedRollSheet) {
-        const angle = q * Math.PI * 2 * jetRollDir;
-        this.sprite.material.rotation = angle;
-        // Fallback only: fake the "sprite narrows to a line" edge-on moments
-        // (GAME_SPEC.md §1) with a scale-x squish at the 90/270 deg points.
-        const squish = Math.max(0.15, Math.abs(Math.cos(angle)));
-        this.sprite.scale.set(this._origScaleX * squish, this._origScaleY, 1);
-      }
+      // R34b — RIGID WHOLE-VIEW BARREL ROLL, matched to the ACTUAL arcade. In the
+      // longplay (stage 4, t221.4-222.9) the barrel roll rotates the ENTIRE view
+      // as one image: the astern jet is turned in-plane AND the coastline is
+      // tilted by the same angle, together — not the jet spinning on a level
+      // horizon, and not the jet and horizon turning at different rates. game.js
+      // rolls the WORLD (camera view-axis) through a full turn over the roll. A
+      // camera roll does NOT rotate a billboard sprite, so the jet is locked to
+      // the world by driving its own material.rotation to -worldRoll: the exact
+      // negative that makes the sprite track the rolled world pixel-for-pixel.
+      // The jet shows its LEVEL astern drawing (rotated), the baked afterburner
+      // rides it, and jet + horizon are one rigid body. (The earlier roll-sheet
+      // path walked an 8-cell strip at a q-rate that did NOT match worldRoll, so
+      // the jet reached inverted while the horizon had barely tilted -- the
+      // owner's "still broken" / "wrong direction".)
+      const { tex, sheet } = this._activeSheet();
+      selectPoseCell(this.sprite, tex, sheet, 0); // level astern drawing
+      this.sprite.material.rotation = -worldRoll;
+      this.sprite.scale.set(this._origScaleX, this._origScaleY, 1);
       if (this._rollT >= ROLL_DURATION_S) {
         this._rollActive = false;
         this._rollCooldown = ROLL_COOLDOWN_S;
