@@ -353,7 +353,9 @@ export const ENVELOPE_Y_DOWN = 1.1;
 // column for the vertical rate at all, and the vertical envelope rests on 109
 // hand-counted observations (see ENVELOPE_Y_UP). Asymmetric evidence,
 // asymmetric treatment.
-const RATE_X = 2.82; // world units/s at full lateral stick -- see RATE_X note
+const RATE_X = 3.4; // R35: 2.82 -> 3.4, snappier lateral dash for a more dynamic
+// weave (owner); the jet crosses to the envelope edge in ~0.22s instead of 0.26s.
+// world units/s at full lateral stick -- see RATE_X note
 const RATE_Y_UP = 3.0 * ENVELOPE_Y_UP;
 const RATE_Y_DOWN = 3.0 * ENVELOPE_Y_DOWN;
 

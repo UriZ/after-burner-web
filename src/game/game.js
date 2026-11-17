@@ -45,7 +45,14 @@ import {
 // 66.5deg / 74.5deg/s = 0.893s, inside the 0.75-0.9s acceptance band with no
 // separate "time to saturate" tuning needed.
 const ROLL_MAX_DEG = 66.5; // midpoint of the measured 65-68deg saturation range
-const ROLL_RATE_DEG_PER_S = 74.5; // REFERENCE.md median measured roll rate
+// R35 — SNAPPIER so banking feels as DYNAMIC as the arcade (owner: "look at the
+// real game, movement is much more dynamic"). 74.5 was the MEDIAN measured roll
+// rate, which averages in gentle drift banks; at that rate the horizon took ~0.9s
+// to reach the 66.5deg max, so quick weaving never built the steep, constantly-
+// tilting horizon the arcade shows as you jink. 150deg/s reaches full in ~0.44s,
+// so the world rolls hard and fast with the stick -- the signature AB2 punch.
+// (Owner feel outranks the measured median; ROLL_MAX stays the measured 66.5.)
+const ROLL_RATE_DEG_PER_S = 150;
 const ROLL_MAX_RAD = THREE.MathUtils.degToRad(ROLL_MAX_DEG);
 const ROLL_RATE_RAD_PER_S = THREE.MathUtils.degToRad(ROLL_RATE_DEG_PER_S);
 // Only while a barrel roll is running (see update()): levels the horizon from
