@@ -403,10 +403,13 @@ function fuselage(c, T, p, { halfW, top, bot, tail = 0 }) {
 // --- MIG: grey + camo -------------------------------------------------------
 function drawMigHead(c, T, p) {
   // Fin FIRST, so the fuselage block overlaps its root rather than the other
-  // way round. R31: stubbier and wider at the tip (wTip 1.4->1.9, tip -17->-15)
-  // so it reads as a swept TAIL FIN, not the thin pale antenna/mast the needle
-  // taper produced -- the "white mast" the R10 critique first called out.
-  fin(c, T, p, { base: -6, tip: -15, wRoot: 3.5, wTip: 1.9 });
+  // way round. R35: shortened (tip -15 -> -13) and given real lean (1 -> 2) and
+  // a wider root (3.5 -> 4.2), so it reads as a swept, seated TAIL FIN instead
+  // of the thin VERTICAL MAST the owner still saw against the sky -- a tall
+  // thin pale upright on a 23 px aircraft is an antenna, not a tail. Compared
+  // side-by-side with reference/stage1-level-flight-t116.png: the arcade
+  // enemy's fin is a short raked blade seated on the rear fuselage.
+  fin(c, T, p, { base: -5, tip: -13, lean: 2, wRoot: 4.2, wTip: 1.8 });
   wing(c, T, p);
   // 7 wide x 12 tall, compact and AT the wing line. The arcade's is ~8 n x
   // 11.8 n on a 73.8 n span, which is 7 x 10 on our 60 px span.
@@ -416,11 +419,13 @@ function drawMigHead(c, T, p) {
 }
 
 function drawMigRear(c, T, p) {
-  fin(c, T, p, { base: -6, tip: -15, wRoot: 3.5, wTip: 1.9 });
+  fin(c, T, p, { base: -5, tip: -13, lean: 2, wRoot: 4.2, wTip: 1.8 }); // R35: see drawMigHead
   wing(c, T, p);
-  // Wider and shorter than the head-on block: the nozzle housing needs a body
-  // to sit IN, which is exactly what the gull version never had.
-  fuselage(c, T, p, { halfW: 6, top: -6, bot: 7, tail: 2 });
+  // R35: slimmed (halfW 6 -> 5) so the body reads as a fuselage the engines
+  // sit in, not a flat grey CRATE the width of the nacelle block. The arcade
+  // enemy's body is slimmer than its engine cluster; the twin black+orange
+  // mass stays the loudest feature at range (R27/R31 signature, untouched).
+  fuselage(c, T, p, { halfW: 5, top: -5, bot: 7, tail: 3 });
   canopy(c, T, p, { top: -6, bot: -2 });
   nozzle(c, T, p);
 }

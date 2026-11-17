@@ -99,29 +99,42 @@ export const HAZE = [L('#73b5f7'), L('#a5d6ff'), L('#c5e6ff'), L('#d6f7f7'), L('
 // measured on ab2-arcade-desert.png, HUD digit 2, licensed for DAYLIGHT
 // stages. The night sheet keeps its own measured darkest blue-grey as its
 // rim, exactly as the arcade's night palette does -- see PLAYER_NIGHT.
+// ========================= R35: COOL GREY-WHITE, NOT WARM CREAM =========================
+// The owner, several times: "the jet is too red / grimy." Confirmed by
+// measurement, not taste. The R6-R11 airframe ramp (#ffffef/#f7e6b5/#d6d6a4/
+// #ceb59c/#a48484) was read off reference/ab2-arcade-desert.png -- a STAGE-2
+// DESERT frame whose warm lighting makes the jet cream/tan. But the owner
+// judges the shipped build against STAGE 1 (ocean), and that jet is COOL
+// GREY-WHITE. Operator (re-runnable): reference/stage1-hard-bank-t98.png,
+// player-jet box x[235,375] y[185,300], airframe = max(RGB)>120 AND B<R+40 AND
+// sat<0.45 (rejects the blue sky/sea), n=3870:
+//
+//     mean RGB (200, 205, 210)   r-b -9.5   (COOL: blue leads red, green mid)
+//     brightest 20% (239, 248, 252)
+//
+// So the stage-1 jet is a neutral-to-cool grey-white, not cream. This is the
+// "statistics cannot replace artwork" / "same name, different operator" lesson
+// again: the desert census was correct FOR THE DESERT and wrong for the stage
+// the owner looks at. The ramp below is re-authored cool-neutral to bracket
+// that measurement (bright L~248 -> shadow L~131, every band blue-leaning),
+// and the red keyline is retired from the airframe entirely -- see rimline.
+// Owner's eye outranks the desert gate (CLAUDE.md, "check the criterion
+// against the arcade itself"; "owner outranks the judge").
 export const PLAYER = {
   keyline: '#000000', // nozzle throats ONLY now, which is where the arcade's is
-  rimline: L('#840000'), // V0.518 S1.000 -- MEASURED, 49.5 % of the arcade's rim
-  lightTop: L('#ffffef'), // V1.000 -- MEASURED arcade dominant, 31.8% of its airframe
-  lightNeutral: L('#f7e6b5'), // V0.969 -- MEASURED arcade SECOND tone, 23.7%.
-  // R6 left this one out of the 8-role sheet, and that omission is most of
-  // what kept the median a step low: the arcade puts a QUARTER of its
-  // airframe on a tone our sprite did not carry at all. Note S=0.267, which
-  // is just outside VALUE-STAT's S<0.25 gate -- it counts in reading C and
-  // not in A or B, and that asymmetry is why all three readings have to be
-  // published together.
-  warmMid: L('#ceb59c'), // V0.808 -- MEASURED, 5.5% (new to the sheet in R7)
-  midNeutral: L('#d6d6a4'), // V0.839 -- MEASURED arcade mid tone, 7.5%. The
-  // first R6 draft used #e6e6c5 (V0.902) to put the achromatic MEDIAN at the
-  // very top of the judge's 0.78-0.92 band. Cropped and looked, per the
-  // standing rule, and the lead flagged the same thing independently: at
-  // dV 0.098 from #ffffef it is invisible, and the airframe read as one flat
-  // white blob with no modelling at all. #d6d6a4 is a visible step, it is a
-  // colour the arcade's own jet actually carries, and the median lands at
-  // 0.839 -- mid-band and exactly the figure the R5 judge quotes for the
-  // arcade's stage-1 jet. A median one step lower with real form beats a
-  // median at the top of the band with none.
-  coolDark: L('#a48484'), // V0.643 -- MEASURED arcade shadow tone, 12.8%
+  rimline: L('#31313a'), // R35: was #840000 (MEASURED dark-red lower-edge keyline
+  // off the DESERT frame). The owner read the red as grime on the stage-1 jet,
+  // which has no warm cast at all. A dark NEUTRAL slate edge (L 50) keeps the
+  // crisp one-sided lower-edge silhouette the arcade shades in, without any red.
+  lightTop: L('#f7f7ff'), // R35: cool near-white (was warm #ffffef). Dominant
+  // airframe tone; max channel 255 so it matches the arcade bright's value.
+  lightNeutral: L('#dee6ef'), // R35: light cool grey (was cream #f7e6b5).
+  warmMid: L('#a5b0bd'), // R35: mid cool grey (was tan #ceb59c). Role name kept
+  // for the shared drawing program; the value is now neutral-cool.
+  midNeutral: L('#c5ced6'), // R35: mid-light cool grey (was khaki #d6d6a4).
+  coolDark: L('#7b8694'), // R35: cool grey shadow (was mauve #a48484). This tone
+  // carried most of the "grimy" read -- #a48484 is a pinkish-mauve; #7b8694 is
+  // a clean cool shadow that reads as shading, not dirt.
   warmShadow: L('#948463'), // V0.580 -- MEASURED, 0.4% (3 px; too small to author)
   deepWarmShadow: L('#635252'), // V0.388 -- MEASURED; the arcade jet has NO airframe tone
   // darker than this. The old #422921 (V0.259) was darker than anything on
@@ -254,12 +267,12 @@ export const PLAYER_NIGHT = {
 // aircraft for the eight frames it is on screen. (It is still unwired.)
 export const PLAYER_ROLL = {
   keyline: '#000000',
-  rimline: L('#840000'),
-  greyLight: L('#ffffef'),
-  greyCream: L('#f7e6b5'),
-  greyMid: L('#d6d6a4'),
-  greyWarm: L('#ceb59c'),
-  greyDark: L('#a48484'),
+  rimline: L('#31313a'), // R35: matches PLAYER's retired red rim -> neutral slate.
+  greyLight: L('#f7f7ff'), // R35: cool grey-white ventral ramp, tracking PLAYER.
+  greyCream: L('#dee6ef'), // (role name kept; value now cool, not cream)
+  greyMid: L('#c5ced6'),
+  greyWarm: L('#a5b0bd'),
+  greyDark: L('#7b8694'),
   blueLight: L('#8f9fcf'),
   blueDark: L('#525f8b'),
   nozzleCore: L('#ef7308'),

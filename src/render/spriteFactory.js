@@ -306,23 +306,25 @@ const JET_DRAW_Y = (JET_H - JET_LOCAL_H) / 2; // 20.5
 // R6 did not carry at all (#f7e6b5, #ceb59c), and separates the RIM from the
 // KEY. Measured area shares and the three VALUE-STAT readings are on PLAYER
 // in tools/art/palettes.js, which is the authoring copy of this table.
+// R35: COOL GREY-WHITE, mirroring PLAYER in tools/art/palettes.js. The owner
+// read the old warm-cream ramp (measured off the DESERT frame) as "too red /
+// grimy"; the stage-1 jet it is actually compared against is a cool grey-white
+// (reference/stage1-hard-bank-t98.png, airframe mean RGB (200,205,210), r-b
+// -9.5). See the PLAYER header in palettes.js for the full operator.
 const PLAYER_PALETTE_DAY = {
-  lightTop: '#ffffef', // V1.000 -- arcade dominant (31.8% of its airframe)
-  lightNeutral: '#f7e6b5', // V0.969 -- arcade SECOND tone, 23.7%
-  midNeutral: '#d6d6a4', // V0.839 -- arcade mid tone, 7.5%
-  warmMid: '#ceb59c', // V0.808 -- arcade, 5.5%
-  coolDark: '#a48484', // V0.643 -- arcade shadow tone, 12.8%
-  specular: '#ffffff', // R9. MEASURED on the arcade's own daylight jet: 6 px
-  // of #ffffff plus 1 of #f7f7f7 in a 984 px airframe, 0.7 %. See PLAYER in
-  // tools/art/palettes.js for the census and for why it is also what gives
-  // the death hulk its missing highlight.
+  lightTop: '#f7f7ff', // R35: cool near-white dominant (was #ffffef)
+  lightNeutral: '#dee6ef', // R35: light cool grey (was cream #f7e6b5)
+  midNeutral: '#c5ced6', // R35: mid-light cool grey (was khaki #d6d6a4)
+  warmMid: '#a5b0bd', // R35: mid cool grey (was tan #ceb59c)
+  coolDark: '#7b8694', // R35: cool grey shadow (was mauve #a48484)
+  specular: '#ffffff', // MEASURED on the arcade's own daylight jet, 0.7 %.
   canopy: '#e694f7', // REFERENCE.md's own daylight-jet 95% set
   flame: '#ef7300',
   flameCore: '#ffd600',
   key: '#000000', // nozzle throats and the engine notch ONLY
-  rim: '#840000', // V0.518 -- the one-sided shadow edge, 49.5% of the
-  // arcade's own rim pixels, and 222 of its 224 occurrences in the whole
-  // native frame are on the aircraft.
+  rim: '#31313a', // R35: was #840000 -- the airframe red the owner flagged. Now
+  // a neutral slate lower-edge shadow, no red. The arcade shades its lower edge;
+  // a neutral dark line gives the same crisp silhouette without the grime.
 };
 // The measured night set has NO true black -- its darkest step doubles as
 // the keyline, which is why `key` and `deepShadow` are the same value here.
@@ -425,7 +427,7 @@ function drawJetSilhouette(buf, pal) {
          c.lightTop);
     poly([[JET_CX + s * JET_FIN_TOP_IN, 0], [JET_CX + s * (JET_FIN_TOP_IN + 1.3), 0],
           [JET_CX + s * (JET_FIN_ROOT_IN + 1.3), JET_ROOT_Y], [JET_CX + s * JET_FIN_ROOT_IN, JET_ROOT_Y]],
-         c.rim);
+         c.coolDark); // R35 sync: inner fin edge, was c.rim (red) -> shadow.
     poly([[JET_CX + s * JET_FIN_TOP_OUT, 0], [JET_CX + s * (JET_FIN_TOP_OUT - 1.4), 0],
           [JET_CX + s * (JET_FIN_TOP_OUT - 1.4), 2.4], [JET_CX + s * JET_FIN_TOP_OUT, 2.4]],
          c.specular);
@@ -443,9 +445,9 @@ function drawJetSilhouette(buf, pal) {
     // mid shadow band above the trailing edge
     poly([[xin, JET_WING_TE_ROOT_Y - 2.2], [xtip, JET_WING_TE_TIP_Y - 2.0],
           [xtip, JET_WING_TE_TIP_Y - 1.0], [xin, JET_WING_TE_ROOT_Y - 1.0]], c.midNeutral);
-    // dark-red trailing panel line, full length
+    // trailing shadow line, full length (R35 sync: was c.rim red -> shadow)
     poly([[xin, JET_WING_TE_ROOT_Y - 1.0], [xtip, JET_WING_TE_TIP_Y - 1.0],
-          [xtip, JET_WING_TE_TIP_Y], [xin, JET_WING_TE_ROOT_Y]], c.rim);
+          [xtip, JET_WING_TE_TIP_Y], [xin, JET_WING_TE_ROOT_Y]], c.coolDark);
     // specular on the outer leading edge
     poly([[JET_CX + s * 34, JET_WING_LE_TIP_Y + 1.0], [JET_CX + s * 47, JET_WING_LE_TIP_Y + 0.1],
           [JET_CX + s * 47, JET_WING_LE_TIP_Y + 0.9], [JET_CX + s * 34, JET_WING_LE_TIP_Y + 1.8]],
@@ -455,7 +457,7 @@ function drawJetSilhouette(buf, pal) {
   // ---- REAR DECK: seats the tails on structure and bridges to the body ----
   poly([[36, 15.5], [64, 15.5], [60, 12.5], [40, 12.5]], c.lightNeutral);
   poly([[40, 12.5], [60, 12.5], [58, 13.6], [42, 13.6]], c.lightTop);
-  poly([[36, 15.5], [64, 15.5], [63, 16.6], [37, 16.6]], c.rim);
+  poly([[36, 15.5], [64, 15.5], [63, 16.6], [37, 16.6]], c.coolDark); // R35 sync: rear-deck underline, was c.rim.
 
   // ---- FUSELAGE BODY: a solid spindle with real volume --------------------
   poly([[50, 4], [56, 11], [57, 18], [54, 25], [51, 30],
@@ -485,9 +487,11 @@ function drawJetSilhouette(buf, pal) {
     poly(podPoly(nx, JET_NAC_Y + 0.3, 1.8, 1.5, 0.8), c.flameCore);
   }
 
-  // ---- PANEL LINES: dark-red line-work down the engine bodies -------------
-  poly([[43.5, 18], [44.6, 18], [47.2, 29], [46.1, 29]], c.rim);
-  poly([[56.5, 18], [55.4, 18], [52.8, 29], [53.9, 29]], c.rim);
+  // ---- PANEL LINES: shaded line-work down the engine bodies (R35 sync) -----
+  // Was c.rim (#840000); the sheet moved these to coolDark in R27 and this
+  // mirror did not follow, so the far-LOD jet kept the red the sheet dropped.
+  poly([[43.5, 18], [44.6, 18], [47.2, 29], [46.1, 29]], c.coolDark);
+  poly([[56.5, 18], [55.4, 18], [52.8, 29], [53.9, 29]], c.coolDark);
 
   // ---- CANOPY: magenta fleck on the dorsal deck ---------------------------
   rect(48.5, 9.3, 3, 1.7, c.canopy);
