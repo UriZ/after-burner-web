@@ -154,11 +154,25 @@ function drawMissile(ctx, w, h) {
   ctx.beginPath();
   ctx.moveTo(cx - 1.5, h * 0.18); ctx.lineTo(cx, h * 0.04); ctx.lineTo(cx + 1.5, h * 0.18);
   ctx.closePath(); ctx.fill();
-  // Exhaust flame, same warm family as the player's nozzles.
+  // R35 — a real ROCKET ENGINE flame, not a dot (owner: "add some fire to the
+  // missiles, they do have an engine"). A tapering orange plume from the body's
+  // tail down past the canvas bottom, with a hot pale-yellow core, so the missile
+  // reads as a burning rocket in flight (the blue ribbon trail is separate).
   ctx.fillStyle = MISSILE_FLAME;
-  ctx.beginPath(); ctx.arc(cx, h * 0.74, w * 0.2, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath();
+  ctx.moveTo(cx - 2.3, h * 0.66);
+  ctx.lineTo(cx + 2.3, h * 0.66);
+  ctx.lineTo(cx + 0.6, h * 0.99);
+  ctx.lineTo(cx - 0.6, h * 0.99);
+  ctx.closePath();
+  ctx.fill();
   ctx.fillStyle = MISSILE_FLAME_HOT;
-  ctx.beginPath(); ctx.arc(cx, h * 0.74, w * 0.1, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath();
+  ctx.moveTo(cx - 1.2, h * 0.68);
+  ctx.lineTo(cx + 1.2, h * 0.68);
+  ctx.lineTo(cx, h * 0.9);
+  ctx.closePath();
+  ctx.fill();
 }
 
 // --- Muzzle flash ----------------------------------------------------------
