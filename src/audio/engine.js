@@ -20,6 +20,18 @@ export const MUTED = params.has('mute') ? params.get('mute') !== '0' : params.ha
 let _ctx = null;
 let _master = null;
 
+const _unlockCbs = [];
+// Register a callback to run the moment the AudioContext unlocks (the first
+// user gesture resumes it). music.js uses this to (re)start a flight loop that
+// was requested while the context was still SUSPENDED — scheduling a source
+// against a suspended context leaves it in a stale/not-started state, so the
+// music must be re-applied once the context is actually running (Task 1: music
+// reliably starts at stage 1). No-op under MUTED: the resume handler below is
+// never attached, so callbacks never fire and captures stay silent.
+export function onUnlock(cb) {
+  if (typeof cb === 'function') _unlockCbs.push(cb);
+}
+
 function init() {
   if (MUTED || _ctx || typeof window === 'undefined') return;
   const AC = window.AudioContext || window.webkitAudioContext;
@@ -55,8 +67,23 @@ init();
 // has to happen before the player would notice silence.
 if (!MUTED && typeof window !== 'undefined' && _ctx) {
   const events = ['pointerdown', 'keydown', 'touchstart'];
+  const fireUnlock = () => {
+    for (const cb of _unlockCbs) {
+      try {
+        cb();
+      } catch {
+        /* an audio-unlock callback must never throw into a capture run */
+      }
+    }
+  };
   const resume = () => {
-    if (_ctx.state === 'suspended') _ctx.resume().catch(() => {});
+    if (_ctx.state === 'suspended') {
+      _ctx.resume().then(fireUnlock).catch(() => {});
+    } else {
+      // Already running (e.g. autoplay allowed): still re-apply so a loop
+      // requested pre-gesture starts. applyFlight is idempotent.
+      fireUnlock();
+    }
     for (const e of events) window.removeEventListener(e, resume);
   };
   for (const e of events) window.addEventListener(e, resume, { once: true });

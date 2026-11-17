@@ -16,7 +16,7 @@
 // hi-hat + backbeat-snare groove, a pumping low bass, bright FM brass/lead
 // stabs on the offbeats, and a singable high lead with a brass-like bright
 // attack and a touch of vibrato.
-import { ctx, master, now } from './engine.js';
+import { ctx, master, now, onUnlock } from './engine.js';
 
 const BPM = 160; // fast, urgent — arcade flight-rock range
 const BEAT_S = 60 / BPM;
@@ -265,7 +265,17 @@ function hat(c, dest, start, accent, open = false) {
 // Builds the full loop into an OfflineAudioContext at the real context's
 // sample rate (so pitch matches exactly when the rendered buffer is later
 // played through the real-time context) and resolves with the AudioBuffer.
-async function buildLoop(sampleRate) {
+async function buildLoop(sampleRate, variant) {
+  // Per-variant timing/key/timbre SHADOW the module defaults so one render
+  // routine builds every stage theme — the same composition, transposed and
+  // re-tempo'd (how arcade soundtracks did per-stage variants). Variant 0
+  // reproduces the exact owner-approved A-minor / 160 BPM track byte-for-byte.
+  const BAR_S = (60 / variant.bpm) * 4;
+  const STEP_S = BAR_S / 16;
+  const ROOT_HZ = variant.rootHz;
+  const TOTAL_BARS = PHRASES * PROGRESSION.length;
+  const LEAD_MOD = variant.leadMod[0];
+  const LEAD_MOD_END = variant.leadMod[1];
   const length = Math.ceil(TOTAL_BARS * BAR_S * sampleRate) + sampleRate; // +1s tail
   const OAC = window.OfflineAudioContext || window.webkitOfflineAudioContext;
   const oc = new OAC(2, length, sampleRate);
@@ -452,8 +462,8 @@ async function buildLoop(sampleRate) {
         dur: dur * 0.96,
         carrierType: 'square',
         modRatio: 2,
-        modIndex: 70,
-        modEnd: 22, // bright attack settling to a mellower sustain (FM brass)
+        modIndex: LEAD_MOD,
+        modEnd: LEAD_MOD_END, // bright attack settling to a mellower sustain (FM brass)
         modDecay: Math.min(0.18, dur * 0.4),
         gain: 0.24,
         attack: 0.012,
@@ -470,8 +480,8 @@ async function buildLoop(sampleRate) {
         dur: dur * 0.96,
         carrierType: 'sawtooth',
         modRatio: 2,
-        modIndex: 40,
-        modEnd: 14,
+        modIndex: Math.round(LEAD_MOD * 0.571), // keep the double's ratio to the lead
+        modEnd: Math.round(LEAD_MOD_END * 0.636),
         modDecay: Math.min(0.18, dur * 0.4),
         gain: 0.13,
         attack: 0.014,
@@ -492,24 +502,55 @@ async function buildLoop(sampleRate) {
   return oc.startRendering();
 }
 
-let musicBufferPromise = null;
-let musicSource = null;
-let currentState = 'off';
+// --- Flight-music variants -------------------------------------------------
+// The SAME FM-rock composition, re-keyed + re-tempo'd + lead-timbre-shifted per
+// stage, so each level feels fresh without redesigning the owner-approved track.
+// Selected by stage: variant = stage % VARIANTS.length, so the game cycles
+// through them as stages advance. Variant 0 (stage 1 -> index 0) is the exact
+// A-minor / 160 BPM track the owner approved; the rest are transposed siblings.
+const SEMI = (s) => ROOT_HZ * Math.pow(2, s / 12);
+const VARIANTS = [
+  { label: 'Am-160', rootHz: SEMI(0), bpm: 160, leadMod: [70, 22] }, // original (owner-approved)
+  { label: 'Cm-168', rootHz: SEMI(3), bpm: 168, leadMod: [92, 30] }, // up a minor 3rd, brighter + faster
+  { label: 'Gm-150', rootHz: SEMI(-2), bpm: 150, leadMod: [50, 16] }, // down a tone, darker + slower + mellower lead
+  { label: 'Dm-156', rootHz: SEMI(5), bpm: 156, leadMod: [78, 26] }, // up a fourth, higher key
+];
+export const __variantCount = VARIANTS.length;
+export const __variantLabels = VARIANTS.map((v) => v.label);
 
-function renderMusicBuffer() {
-  const c = ctx();
-  if (!c) return Promise.resolve(null);
-  if (!musicBufferPromise) {
-    musicBufferPromise = buildLoop(c.sampleRate).catch(() => null);
-  }
-  return musicBufferPromise;
+function variantForStage(stage) {
+  const n = VARIANTS.length;
+  return (((stage | 0) % n) + n) % n;
 }
 
-// Test-only: render the loop and hand back the AudioBuffer so an offline
-// verifier can inspect duration/peak/RMS/clipping. Returns the same cached
-// buffer the game plays; resolves null when muted/headless. Not used in play.
-export function __renderLoopForTest() {
-  return renderMusicBuffer();
+const musicBuffers = new Map(); // variantIndex -> Promise<AudioBuffer|null>
+let musicSource = null;
+let currentState = 'off';
+let currentVariant = 0;
+
+// Lazy per-variant render + cache: only the variant a stage actually needs is
+// ever built, so boot and the first stage never stall rendering four themes.
+function renderMusicBuffer(variantIndex = 0) {
+  const c = ctx();
+  if (!c) return Promise.resolve(null);
+  if (!musicBuffers.has(variantIndex)) {
+    musicBuffers.set(variantIndex, buildLoop(c.sampleRate, VARIANTS[variantIndex]).catch(() => null));
+  }
+  return musicBuffers.get(variantIndex);
+}
+
+// Test-only: render a variant's loop (default 0) and hand back the AudioBuffer
+// so an offline verifier can inspect duration/peak/RMS/clipping and diff the
+// variants against each other. Returns the same cached buffer the game plays;
+// resolves null when muted/headless. Not used in play.
+export function __renderLoopForTest(variantIndex = 0) {
+  return renderMusicBuffer(variantIndex);
+}
+
+// Test-only: snapshot of the music state machine so a smoke test can assert the
+// stage->variant selection and that a loop actually starts. Not used in play.
+export function __musicDebug() {
+  return { currentState, currentVariant, playing: !!musicSource, variantForStage };
 }
 
 function stopLoop() {
@@ -536,6 +577,30 @@ function startLoop(buffer) {
   src.start();
   musicSource = src;
 }
+
+// (Re)start the flight loop for the current variant, but ONLY once the context
+// is actually RUNNING. A 'flight' set while the context is still suspended
+// (before the first user gesture) would schedule a source that never audibly
+// starts; onUnlock (engine.js) calls this again the instant the context
+// resumes, so the music begins cleanly from the unlock point. Idempotent: it
+// no-ops unless we're in 'flight', and won't restart an already-playing loop.
+function applyFlight() {
+  const c = ctx();
+  if (!c || currentState !== 'flight') return;
+  if (musicSource && c.state === 'running') return; // already playing cleanly
+  const want = currentVariant;
+  renderMusicBuffer(want).then((buf) => {
+    if (currentState !== 'flight' || currentVariant !== want) return; // moved on while rendering
+    const cc = ctx();
+    if (!cc || cc.state !== 'running') return; // still locked — wait for onUnlock
+    if (musicSource) return; // started meanwhile
+    startLoop(buf);
+  });
+}
+
+// Task 1: when the context unlocks on the first gesture, re-apply flight music
+// so a loop requested while suspended actually begins playing.
+onUnlock(applyFlight);
 
 // Short title-screen sting: a fanfare rising FM figure over a held low fifth,
 // synthesized live (short enough that the cost doesn't matter, and it needs
@@ -583,27 +648,39 @@ export function playTitleSting() {
   snare(c, master(), t + 0.34 * 2, 0.4);
 }
 
-// `state`: 'flight' | 'title' | 'off'. 'flight' renders (once, cached) and
-// loops the FM track; 'title' fires the sting once (and pre-warms the flight
-// render in the background so there's no stall when flight starts); 'off'
-// stops whatever is playing.
-export function setState(state) {
+// `state`: 'flight' | 'title' | 'off'. `opts.stage` (a stage index, default 0)
+// selects the flight VARIANT: variant = stage % VARIANTS.length. 'flight'
+// renders the stage's variant (lazily, cached) and loops it — starting now if
+// the context is running, else the moment it unlocks (onUnlock). Entering
+// 'flight' on a NEW stage swaps to that stage's variant. 'title' fires the
+// sting once (and pre-warms the flight render); 'off' stops whatever is playing.
+export function setState(state, opts) {
+  const stage = opts && typeof opts.stage === 'number' ? opts.stage : 0;
+  const variant = variantForStage(stage);
   const c = ctx();
   if (!c) {
+    // muted/headless: track the requested state/variant, play nothing
     currentState = state;
-    return; // muted/headless: track the requested state, play nothing
+    if (state === 'flight') currentVariant = variant;
+    return;
   }
+
+  if (state === 'flight') {
+    // Already flying this exact variant with a live loop -> leave it running.
+    if (currentState === 'flight' && currentVariant === variant && musicSource) return;
+    currentState = 'flight';
+    currentVariant = variant;
+    stopLoop(); // fresh start / variant switch
+    applyFlight(); // starts now if running, else waits for onUnlock
+    return;
+  }
+
   if (state === currentState) return;
   currentState = state;
   stopLoop();
-
-  if (state === 'flight') {
-    renderMusicBuffer().then((buf) => {
-      if (currentState !== 'flight') return; // state moved on while rendering
-      startLoop(buf);
-    });
-  } else if (state === 'title') {
+  if (state === 'title') {
     playTitleSting();
-    renderMusicBuffer(); // pre-warm; not played yet
+    renderMusicBuffer(currentVariant); // pre-warm the stage's flight variant
   }
+  // 'off' => loop stopped; nothing else to do.
 }

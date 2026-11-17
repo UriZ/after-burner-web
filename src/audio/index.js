@@ -35,8 +35,10 @@ export const AudioBus = {
     _setInboundWarning(intensity);
   },
   // state: 'flight' | 'title' | 'off'
-  music(state) {
-    _setMusicState(state);
+  // opts: { stage } — stage index; flight music picks a per-stage variant
+  //   (variant = stage % N) so each level sounds fresh. Omit for 'title'/'off'.
+  music(state, opts) {
+    _setMusicState(state, opts);
   },
   setMasterVolume(v) {
     _setMasterVolume(v);

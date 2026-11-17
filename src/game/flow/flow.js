@@ -745,7 +745,7 @@ export class GameFlow {
     this._enterStage(0);
     this.launchSeq.start();
     AudioBus.play('menuStart');
-    AudioBus.music('flight');
+    AudioBus.music('flight', { stage: this.stageIndex });
   }
 
   // The attract demo: real systems, scripted stick. It flies demoTimeline.js
@@ -925,7 +925,7 @@ export class GameFlow {
     if (this.player && this.player.sprite) this.player.sprite.visible = true;
     if (this.tanker) this.tanker.visible = true;
     this.reloadOverlay.visible = false;
-    AudioBus.music('flight');
+    AudioBus.music('flight', { stage: this.stageIndex });
   }
 
   // The tanker pass itself. Combat off, player flying the stick, tanker eased
@@ -1045,7 +1045,7 @@ export class GameFlow {
       if (this.lives > 0) {
         this.state = 'flight';
         this.invincibleTimer = RESPAWN_INVINCIBLE_S;
-        AudioBus.music('flight');
+        AudioBus.music('flight', { stage: this.stageIndex });
       } else {
         this.state = 'continue';
         this.continueCountdown = CONTINUE_COUNTDOWN_S;
@@ -1086,7 +1086,7 @@ export class GameFlow {
       // respawn grace window): a continue drops the player back into a stage
       // that may already be mid-wave, so the same fairness grace applies.
       this.invincibleTimer = RESPAWN_INVINCIBLE_S;
-      AudioBus.music('flight');
+      AudioBus.music('flight', { stage: this.stageIndex });
       return { input: ZERO_INPUT, combatActive: false, playerControlled: false };
     }
 
