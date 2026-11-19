@@ -21,68 +21,67 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 # ---------------------------------------------------------------- ROUND DATA
 ROUND = {
-    "number": 27,
-    "date": "2026-11-15",
-    "status": "CLOSED",
-    "score": "7 / 10",  # provisional — updated from the R28 re-judge verdict
-    "last_score": "6.5 (R25) → both weapons usable, owner-driven fixes this round",
+    "number": 36,
+    "date": "2026-11-20",
+    "status": "SHIPPED — in tree, awaiting fresh judge + commit",
+    "score": "7 / 10",  # round-open naive playtest; re-judge pending on the shipped tree
+    "last_score": "8 (R35 judge) → this round opened with a NAIVE agent playtest: 7/10 in the hands",
     "tldr": (
-        "R27 was driven entirely by the owner PLAYING the fixed-weapons build and naming what broke the "
-        "illusion — and every call was real. The <em>afterburner</em> had detached from the jet; the "
-        "<em>missile</em> I'd just made 'earned' had over-tightened into 'won't fire' on a hand-flown stick; "
-        "the jet read <em>maroon</em> where the arcade is grey-white; the enemies were <em>pixelated blobs</em>; "
-        "and the <em>barrel roll</em> only triggered on the wrong input. All five are fixed, plus a gun "
-        "<em>hit-flash</em> so rounds visibly land. One judge claim — 'enemies too small' — was overturned by "
-        "measurement (ours already match the arcade). The owner is steering; the game is climbing."
+        "A naive agent played first: 7/10, <em>“it finally plays like a fight.”</em> Its four gaps all "
+        "shipped: a lock you can <em>see</em>, deaths you can <em>see coming</em>, enemies you must "
+        "<em>hunt</em>, and a horizon that's <em>alive</em>. Its weirdest clue — score exactly 84755 at "
+        "first death on both seeds — was a real bug. Fixed."
     ),
     "verdict": (
-        "“Both weapons are usable, the jet and enemies now read as real aircraft, the afterburner sits on the "
-        "tail and the barrel roll answers the arcade double-tap. This is a genuinely playable After Burner "
-        "now — the frontier has moved from ‘does the core work’ to how the combat FEELS.”"
+        "“It finally plays like a fight — I point at planes, hold the trigger, they blow up in big orange "
+        "blooms, and when I bank hard the whole world tips over just like the arcade.”"
     ),
-    "verdict_attr": "R27 — owner playtest (ground truth) + fresh-context naive judge · composite 7/10",
+    "verdict_attr": "R36 round-open playtest — fresh naive agent, 2 seeds, stages 1–3 · 7/10",
     "pairs": [
-        ("judging/R27/report-assets/jet-before-after.png",
-         "The jet reads grey-white now, not maroon",
-         "The owner's exact complaint. #840000 red was on every surface (wings, deck, strakes, fins); the MEASURED red is the OUTLINE only. All interior red moved to the measured grey shadow tone — the jet now matches the arcade's grey stage-1 F-14, red kept as a thin rim."),
-        ("judging/R27/report-assets/afterburner-before-after.png",
-         "The afterburner is back on the airframe",
-         "A regression from the F-14 redraw: the flame was tuned to the old sprite's nozzles and flung off on banks/rolls. Now it follows 0.4× the bank and is a shortened stub that can't visibly separate in any pose."),
-        ("judging/R27/report-assets/enemy-before-after.png",
-         "Enemies are twin-engine jets, not blobs",
-         "The owner's 'too pixelated': ours was a grey dart + one dot. The arcade enemy is two black nacelles cored by an orange afterburner — a high-contrast mass that survives downscaling. Redrawn to match; reads as a jet at game size now."),
+        ("judging/R36/lock-clarity/before_after_lock.png",
+         ("BEFORE", "AFTER"),
+         "You can see who you're locked on.",
+         "Left: the old static cyan box. Middle+right: the bracket now pulses cyan↔white-hot ON the enemy. No lock? The button now fires a straight missile instead of doing nothing."),
+        ("judging/R36/death-legibility/new-round-ascent.png",
+         ("AFTER",),
+         "The shot that kills you is watchable.",
+         "Battery rounds (7 of 9 playtest deaths) were a 6px dot. Now a growing fireball you watch for 0.8 s. Difficulty unchanged."),
+        ("judging/R36/depth-combat/cap-final-deep-s7/frame-0002.png",
+         ("NEW",),
+         "Enemies you have to hunt.",
+         "Measured: ~3/4 of arcade kills happen out at depth. New deep formation crosses the sky and escapes if ignored; the nose-wall funnel demoted to 1-in-3."),
+        ("judging/R36/cruise-sway/before-after-sway.png",
+         ("BEFORE", "AFTER"),
+         "Straight flight is alive.",
+         "Top row: horizon frozen to the pixel. Bottom: subtle tilt+bob. Gameplay byte-identical; off during banks and rolls."),
     ],
     "shipped": [
-        "AFTERBURNER re-attached to the airframe in every pose (bank, hard bank, barrel roll)",
-        "MISSILE lock made usable on a hand-flown stick — 0.25s acquire + a cone that decays on a waver, not a hard reset (still earned, not free)",
-        "PLAYER JET recoloured grey-white (was maroon); red kept only on the outline rim, matching the arcade",
-        "ENEMY JETS redrawn twin-engine (black nacelles + orange afterburner) so they read at small size",
-        "BARREL ROLL now triggers on the arcade double-tap (tap right-right / left-left); holding stays a bank",
-        "GUN HIT-FLASH — a connecting round flashes the struck enemy white + a spark, so hits visibly land",
+        "Missile button always answers — no lock fires a straight shot (0.4 s pacing)",
+        "Lock bracket pulses on the enemy; lock difficulty unchanged",
+        "Killing battery round is a visible growing fireball; deaths/min unchanged",
+        "84755 scripted-death bug dead (battery PRNG now seeded)",
+        "Deep formation wave — hunt it or it escapes; aim advantage 1.2× → 1.45×",
+        "Idle sway, with ?nosway=1 escape hatch; barrel roll still snaps level",
     ],
-    "gaps_label": "Next — R28",
+    "gaps_label": "Next — R37",
     "gaps": [
-        (1, "bug", "Explosions look wrong — red-square confetti + a giant white smoke ball",
-         "The R28 judge's #1 and the single most jarring un-AB2 element on screen: every kill scatters ~30 red pixel-squares across the sky and parks a ~35%W opaque white smoke ball centre-screen. The arcade fireball is a compact, rounded orange burst. Replace the debris confetti + oversized smoke with an arcade-style orange fireball. (effects/explosions.js, effects/smoke.js.)"),
-        (2, "feel", "The gun fires with no visible round-stream from the nose",
-         "The arcade shoots a bold orange round-column out of the nose (reference/stage4-vulcan-stream-t214.png); ours shows nothing leave the jet — only the new target hit-flash — despite ~8 vulcan rounds/tick in telemetry. Make the rounds a visible orange stream (NOT white tracers — the arcade is orange). (weapons/projectileSprites.js, weapons/combat.js.)"),
-        (3, "feel", "Combat reads thin in the demo — the player makes the fight",
-         "The demo pilot kills sparingly (HIT ~2 in 40s; attract stays HIT 0), so combat looks distant. Measured: enemy size/density already match the arcade — the arcade's density is the PLAYER killing close enemies. Candidate: a demo pilot that aims + fires. (game/flow/demoTimeline.js.)"),
-        (4, "tension", "Enemies are NOT too small — a measurement correction, not a gap",
-         "The first R27 judge ranked 'enemies 3× too small' #1. The presence lane MEASURED it and withdrew: our close enemies hit 18–35%W vs the arcade's ~19.5%W peak. Do NOT bump enemy size — that would overshoot the arcade. Logged so it isn't re-litigated."),
+        (1, "feel", "Hands-off play still kills ~26/min",
+         "The gun's kill disc is 2.4× the target's wingspan and a parked stick gets free locks. Re-run the R8 hit-radius sweep; keep aimed fire easy. (weapons/vulcan.js, lockSystem.js.)"),
+        (2, "feel", "Far kills barely exist — arcade ~22%, ours ~0–5%",
+         "Our missiles resolve only after closure. Let them kill at the lock distance. (weapons/missiles.js.)"),
+        (3, "tension", "R32's close-presence figure doesn't reproduce",
+         "Both arms measure ~0.08 vs the published 0.33–0.40. Reconcile before anyone cites it."),
+        (4, "polish", "Audio still unheard by human ears",
+         "Playtests run mute. Five minutes of owner play with sound settles the R34/R35 music + SFX."),
     ],
     "keep": [
-        "Both weapons usable in the hands (point-and-press gun + point-hold-a-beat missile lock)",
-        "The jet + enemies reading as real aircraft; the afterburner on the tail; the arcade double-tap roll",
-        "The RECALIBRATED judging — score naive PLAY, owner outranks the judge, don't inflate on backdrop",
-        "The measurement discipline that overturned 'enemies too small' instead of shipping a wrong size bump",
+        "Every R36 gap came from naive hands — and the weirdest clue was a real bug",
+        "Honest withdrawals shipped as deliverables (no idle sway in the arcade; routing can't beat the hit disc)",
+        "Difficulty held exactly in band while legibility improved",
     ],
     "method_note": (
-        "R27 is the owner-driven loop working as intended: the owner PLAYED and named five illusion-breakers, "
-        "every one was real, and each became a fix or a measured correction. The one judge gap that wasn't real "
-        "('enemies too small') was caught by re-measurement before any code moved — absence outranks error, but "
-        "a wrong measurement outranks neither. Play like the owner; the owner outranks the judge. Evidence in "
-        "judging/R27/."
+        "Three times this round a telemetry number and a player's eyes disagreed; all three were settled by "
+        "checking the instrument before touching code. Evidence in judging/R36/."
     ),
 }
 
@@ -110,13 +109,24 @@ def esc(s):
 
 def build():
     r = ROUND
+    def pair_badges(badges):
+        # badges: tuple of 1 or 2 labels, e.g. ("BEFORE", "AFTER"), ("OURS", "ARCADE"),
+        # or ("NEW",). Two labels render left=burn, right=cyan with an arrow between —
+        # the badge must say what the image actually shows (owner, R36: a before/after
+        # strip labelled "OURS vs ARCADE" is a lie).
+        if len(badges) == 1:
+            return f'<span class="pair-ours">{esc(badges[0])}</span>'
+        return (f'<span class="pair-ours">{esc(badges[0])}</span>'
+                f'<span class="pair-vs">→</span>'
+                f'<span class="pair-arc">{esc(badges[1])}</span>')
+
     pairs_html = "\n".join(
         f'''      <figure class="pair">
-        <img src="{data_uri(src)}" alt="{esc(title)}: ours left, arcade right" loading="lazy" />
-        <figcaption><span class="pair-ours">OURS</span><span class="pair-vs">vs</span><span class="pair-arc">ARCADE</span>
+        <img src="{data_uri(src)}" alt="{esc(title)}" loading="lazy" />
+        <figcaption>{pair_badges(badges)}
           <strong>{esc(title)}</strong> {esc(cap)}</figcaption>
       </figure>'''
-        for src, title, cap in r["pairs"]
+        for src, badges, title, cap in r["pairs"]
     )
 
     gaps_html = "\n".join(

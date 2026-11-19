@@ -1,12 +1,18 @@
 # STATUS — where the rebuild stands
 
-**Last updated**: 2026-11-16. **R32 fresh judge: 8/10 ("genuinely plays like AB2"). R32 shipped all
-three of its gaps: close-enemy REPLENISHMENT so the dogfight crowds you (fairness byte-identical),
-the banking-pose enemy FACE killed (one central intake, not two eye-discs), and AB2's missing GROUND
-BATTERIES (AA emplacements that fire telegraphed dodgeable rounds up at you, destroyable). R31 shipped
-six owner fixes (barrel-roll-world, afterburner full-follow, enemy insect-face, clear+earned lock, sea
-waves, FM-rock music). ~25 fixes across R27-R32; FIVE false gaps caught by measurement. Next: R33
-judge.** The loop is **"look first, measure second"**
+**Last updated**: 2026-11-19. **R35 fresh judge: 8/10 — both weapons verifiably work, full arcade
+loop present, reads as AB2 at native scale. R36 is OPEN (fresh-context playtest + side-by-side look
+running).** Recent rounds were OWNER-DRIVEN: **R34** baked the afterburner into the sprite (4th
+detach report → structural fix), made the barrel roll a RIGID whole-view roll, strengthened
+heat-seeking + aiming, punchy weapon SFX + driving music, enemy-fire whistle, MEAT PROXY branding,
+GitHub Pages deploy. **R35** (all owner asks): afterburner flame REMOVED entirely (owner: "it's
+horrible" — do NOT re-add it, even though the arcade shows one; owner outranks), missiles got a real
+engine flame, snappier world roll + lateral dash, jet cool grey-white + slimmer enemies, music starts
+reliably at stage 1 + four per-stage variants (stage 1 = the exact owner-approved track).
+**R35 judge's leftover gaps:** #1 (bigger afterburner plume) is DEAD — owner removed the flame after
+that verdict. #2 (jet outline too dark/red) addressed by the R35 grey-white redraw. #3 (gun tracer
+faint) looks minor in 60 Hz evidence (`judging/R36/look/gun-burst60`) — pending the R36 playtest's
+word. The loop is **"look first, measure second"**
 (CLAUDE.md, "How work happens here"; rationale in `judging/R12/method-retrospective.md`). Every round ships an HTML report
 (`judging/R<n>/report.html`, `python3 tools/round_report.py`). Pre-R12 STATUS is archived at
 `judging/archive/STATUS-through-R11.md`. Repo: github.com/UriZ/after-burner-web.
