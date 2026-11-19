@@ -997,9 +997,11 @@ const DEAD_SKY_MAX_S = paceTunable('deadmax', 3.5);
 // 60 Hz decode (close enemies present most frames, occasional 2-4 s gaps). A
 // tighter value would push toward continuously-close (overshoot); a looser one
 // leaves the drought the judge flagged. Swept in judging/R32/cadence/: at 3.0 s
-// the active-FIRE readable-present fraction rises from ~0.10 to ~0.33-0.40
-// (into the arcade's band) while the no-fire SUPPLY and the weapon/ death-rate
-// probes stay in band (the clip rarely fires when the player is not clearing).
+// the active-FIRE readable-present fraction rises from ~0.10 to 0.121/0.142
+// (seed 3: 0.24) — still well below the arcade's ~0.45 — while the no-fire
+// SUPPLY and the weapon/death-rate probes stay in band. (An earlier version of
+// this comment claimed "~0.33-0.40, into the arcade's band"; no such sweep
+// artifact exists — corrected R37, judging/R37/r32-reconcile/NOTES.md.)
 //
 // R36 — 3.0 -> 4.5. Under the R35 rotation this clip plus the every-wave walls
 // kept the near field PERPETUALLY restocked for any pilot who held the
