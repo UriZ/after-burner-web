@@ -17,6 +17,7 @@ import {
   FLY_PAST_DEPTH,
   poseCensus,
 } from '../entities/enemy.js';
+import { BATTERY_TELEGRAPH_S, BATTERY_SHOT_PROFILE } from '../entities/groundBattery.js';
 import { AudioBus } from '../audio/index.js';
 
 // Combat facade: one object game.js constructs and ticks. Owns the enemy
@@ -298,6 +299,10 @@ export class Combat {
     this.hits = 0;
     this.salvoCooldown = 0;
     this.gatherTimer = 0; // R25: lock-gather window, see SALVO_GATHER_S
+    // R36 (lock-clarity lane, routed through this file's owner): cooldown for
+    // the no-lock DRY missile — its own clock, NOT salvoCooldown, so a dry
+    // round never delays the acquire beat. See _updateMissiles.
+    this.dryCooldown = 0;
     this.launchQueue = [];
     this.launchTimer = 0;
     this.launchSide = 1;
@@ -730,6 +735,8 @@ export class Combat {
         missCrossings: this.missCrossings ?? 0,
         missBinW: MISS_BIN_W,
         hitRadius: PLAYER_HIT_RADIUS_FRAC,
+        batteryCrossings: this.batteryCrossings ?? 0,
+        batteryHits: this.batteryHits ?? 0,
         playerNdc: { x: this.playerNdc.x, y: this.playerNdc.y },
         // Per-enemy firing state. Needed because the aggregate counters
         // cannot distinguish "trains never start" from "trains start and
@@ -887,7 +894,24 @@ export class Combat {
             // snapshot, i.e. how far a motionless player already was from
             // being hit. Together they decide whether a hit was DODGEABLE,
             // which is the actual fairness question — see _logHit.
-            { bornT: this.t, sweep: Math.hypot(f.fire.aimX - f.fire.snapX, f.fire.aimY - f.fire.snapY) }
+            // `type` (R36): WHO fired — aircraft type or 'battery' — so a
+            // death can be classified without inferring the firer from the
+            // round's start position.
+            // `teleS` is the telegraph duration THIS firer actually ran.
+            // _logHit used to assume ENEMY_TELEGRAPH_S (1.0 s) for every
+            // shot, which overstated a battery kill's warning by 0.6 s —
+            // batteries flare for only BATTERY_TELEGRAPH_S (0.4 s).
+            {
+              bornT: this.t,
+              sweep: Math.hypot(f.fire.aimX - f.fire.snapX, f.fire.aimY - f.fire.snapY),
+              type: f.enemy ? f.enemy.type : 'unknown',
+              teleS: f.enemy && f.enemy.isBattery ? BATTERY_TELEGRAPH_S : ENEMY_TELEGRAPH_S,
+            },
+            // Battery rounds fly the legibility profile (slower + the
+            // arcade's median→p90 drawn size over the flight the player
+            // watches) — see BATTERY_SHOT_PROFILE in groundBattery.js for
+            // the R36 measurement that forced this. Air rounds unchanged.
+            f.enemy && f.enemy.isBattery ? BATTERY_SHOT_PROFILE : null
           );
           this.shotsFired += 1;
         }
@@ -960,7 +984,7 @@ export class Combat {
     if (this.locks.locks.length > this._prevLockCount) AudioBus.play('lockOn');
     this._prevLockCount = this.locks.locks.length;
 
-    this.missiles.update(dt);
+    this.missiles.update(dt, this.spawner.enemies);
     this.smoke.update(dt);
     this.explosions.update(dt);
     this.hitFlash.update(dt);
@@ -972,6 +996,7 @@ export class Combat {
     // there is stock to pay it with.
     const canArm = this.salvoCooldown <= 0 && this.missileStock > 0;
     this._lockHold = holding && canArm;
+    this.dryCooldown -= dt;
 
     if (this.trailHarness) {
       if (holding && !this._wasHolding) {
@@ -1002,6 +1027,23 @@ export class Combat {
         this.launchTimer = LAUNCH_STAGGER_S;
       }
       return;
+    }
+
+    // R36 — FIRE ON PRESS, ALWAYS (GAME_SPEC §3 ADOPTED "Fire on button press,
+    // cooldown 0.4 s"): a press with NO lock launches ONE unguided missile
+    // straight up the sight line instead of dead-clicking (R36 rank-1 gap).
+    // Own cooldown, NOT salvoCooldown, so a dry round never delays the acquire
+    // beat: press -> round leaves now; keep holding -> lock forms in parallel.
+    // NOTE (shared-PRNG class): launch() draws from this.rng, so a dry fire
+    // shifts every later draw on the gameplay stream — fairness comparisons
+    // across this change reflect the stream shift as well as the behaviour.
+    if (holding && !this._wasHolding && this.locks.locks.length === 0 &&
+        this.dryCooldown <= 0 && this.salvoCooldown <= 0 && this.missileStock > 0) {
+      this.missiles.launch(this.playerNdc, null, this.launchSide, this.rng, this.sight);
+      AudioBus.play('missileLaunch');
+      this.launchSide = -this.launchSide;
+      this.missileStock -= 1;
+      this.dryCooldown = SALVO_COOLDOWN_S;
     }
 
     // R25 — FIRE IS DISCOVERABLE FOR EVERY NAIVE HAND. The arcade missile is
@@ -1204,7 +1246,7 @@ export class Combat {
       const f = (1 / pd - s.invAim) / (s.invStart - s.invAim);
       const hx = s.aimNdcX + (s.startNdcX - s.aimNdcX) * f;
       const hy = s.aimNdcY + (s.startNdcY - s.aimNdcY) * f;
-      this._logMiss(hx, hy, playerNdc);
+      this._logMiss(hx, hy, playerNdc, s);
       if (this._playerHit(hx, hy, playerNdc)) {
         this.enemyShots.remove(s);
         // Counted whether or not it was survived, so the HIT RATE can be
@@ -1243,12 +1285,14 @@ export class Combat {
       // what teaches the player the sound means something.
       if (miss > WARN_MISS_FRAC) continue;
       const near = 1 - Math.min(1, miss / WARN_MISS_FRAC);
-      // Depth closes at EnemyShots' own SPEED; 1.2 s out is where the tone
-      // should already be audible. IMPORTED, not copied: this was a literal
-      // 24 and the constant has been 15 since R5 and is 12 since R6, so the
-      // warble had been starting at the wrong range for two rounds -- it
-      // computed an ETA twice the real one and the tone therefore rose late.
-      const eta = Math.max(0, s.depth - this.playerNdc.depth) / ENEMY_SHOT_SPEED;
+      // Depth closes at THIS shot's own speed (battery rounds fly slower
+      // than air rounds since R36); 1.2 s out is where the tone should
+      // already be audible. IMPORTED/read from the shot, not copied: this
+      // was a literal 24 and the constant has been 15 since R5 and is 12
+      // since R6, so the warble had been starting at the wrong range for two
+      // rounds -- it computed an ETA twice the real one and the tone
+      // therefore rose late.
+      const eta = Math.max(0, s.depth - this.playerNdc.depth) / (s.speed ?? ENEMY_SHOT_SPEED);
       const soon = 1 - Math.min(1, eta / 1.2);
       worst = Math.max(worst, near * soon);
     }
@@ -1283,7 +1327,7 @@ export class Combat {
   // second is never logged. Measured frequency of multi-crossing ticks is
   // low and only hits are affected, so this under-counts the >=2nd crossing
   // of a killing tick -- it cannot inflate P(hit).
-  _logMiss(hx, hy, playerNdc) {
+  _logMiss(hx, hy, playerNdc, shot = null) {
     const aspectY = 224 / 320;
     const dx = (hx - playerNdc.x) * 0.5;
     const dy = (hy - playerNdc.y) * 0.5 * aspectY;
@@ -1292,6 +1336,14 @@ export class Combat {
     const b = Math.min(MISS_BINS, Math.floor(d / MISS_BIN_W));
     this.missHist[b] += 1;
     this.missCrossings = (this.missCrossings ?? 0) + 1;
+    // R36: the same crossing census, split for BATTERY rounds only, so the
+    // battery's own per-round hit probability is a direct read (the pooled
+    // histogram cannot attribute a crossing to a firer, and battery deaths
+    // are far too few to tune the legibility/lethality trade on).
+    if (shot && shot.meta && shot.meta.type === 'battery') {
+      this.batteryCrossings = (this.batteryCrossings ?? 0) + 1;
+      if (d <= PLAYER_HIT_RADIUS_FRAC) this.batteryHits = (this.batteryHits ?? 0) + 1;
+    }
   }
 
   // MEASUREMENT ONLY. Records, for every shot that reached the player,
@@ -1315,15 +1367,26 @@ export class Combat {
   _logHit(shot, invincible = false) {
     this.hitLog ??= [];
     const m = shot.meta;
+    // The telegraph duration the killing shot's firer actually ran. Older
+    // metas (and the volume shim) carry no teleS; fall back to the air value.
+    const teleS = m && m.teleS != null ? m.teleS : ENEMY_TELEGRAPH_S;
     this.hitLog.push({
       t: this.t,
+      // R36 death taxonomy: who fired the killing round and from where, so
+      // "the shot that got me" is attributable without pixel forensics.
+      type: m ? m.type ?? null : null,
+      fromX: Number(shot.startNdcX.toFixed(4)),
+      fromY: Number(shot.startNdcY.toFixed(4)),
+      fromD: Number(shot.startDepth.toFixed(2)),
+      aimX: Number(shot.aimNdcX.toFixed(4)),
+      aimY: Number(shot.aimNdcY.toFixed(4)),
       // A hit taken inside the post-respawn grace window is NOT a death and
       // must not be pooled with the ones that are: the grace window exists
       // precisely because those hits were not dodgeable (the player had no
       // control of where they were put down), so averaging them in would
       // make the fairness figure look worse than the game is.
       fatal: !invincible,
-      warning: m ? this.t - m.bornT + ENEMY_TELEGRAPH_S : null,
+      warning: m ? this.t - m.bornT + teleS : null,
       sweep: m ? m.sweep : null,
       radius: PLAYER_HIT_RADIUS_FRAC,
       // THE FAIRNESS STATISTIC ITSELF, as opposed to a proxy for it. No
@@ -1343,14 +1406,14 @@ export class Combat {
       // defect clearShots() exists to make impossible, and this field is how
       // the guarantee is checked rather than asserted — it must read 0 across
       // a run, and a nonzero count localises the leak to a hit with a time.
-      flareLit: m ? Number((m.bornT - ENEMY_TELEGRAPH_S).toFixed(3)) : null,
+      flareLit: m ? Number((m.bornT - teleS).toFixed(3)) : null,
       lifeStart: Number(this._lifeStartT.toFixed(3)),
-      announced: m ? m.bornT - ENEMY_TELEGRAPH_S >= this._lifeStartT - 1e-6 : false,
+      announced: m ? m.bornT - teleS >= this._lifeStartT - 1e-6 : false,
       // Warning actually available WITHIN this life: a flare that lit 0.2 s
       // after a respawn gave 0.2 s less usable warning than its nominal
       // `warning`, and only this form is comparable across lives.
       inLifeWarning: m
-        ? Number((this.t - Math.max(m.bornT - ENEMY_TELEGRAPH_S, this._lifeStartT)).toFixed(3))
+        ? Number((this.t - Math.max(m.bornT - teleS, this._lifeStartT)).toFixed(3))
         : null,
     });
     if (this.hitLog.length > 256) this.hitLog.shift();

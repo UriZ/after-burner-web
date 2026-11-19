@@ -444,7 +444,23 @@ export class Missiles {
     return this.live.length;
   }
 
-  launch(playerNdc, target, side, rng) {
+  // R36 — UNGUIDED LAUNCH: `target` may be null. GAME_SPEC.md §3's own
+  // ADOPTED behaviour is "Fire on button press, cooldown 0.4 s" — the arcade
+  // missile button never dead-clicks — but our launch path only ever fired
+  // out of a completed lock set, so a naive player holding the button with no
+  // lock got NOTHING (R36 playtest, rank-1 gap: ses2 held 4 s, zero launches,
+  // stock pinned at 50; "sometimes the missile button simply does nothing").
+  // A dry launch flies STRAIGHT up the sight line: `aim` is the sight's NDC
+  // at the press, and the splay-recovery steer below converges the round onto
+  // that fixed point as it recedes, so it reads as a straight unguided shot,
+  // ribbon and all. It is not a free kill: it only connects if a live enemy
+  // happens to sit inside the same HIT_RADIUS_FRAC fuse at its depth crossing
+  // (checkDryHits below) — pointing the nose at an enemy and pressing is
+  // exactly the arcade's unguided-shot gamble. Evidence status: ADOPTED from
+  // the spec line; no footage frame proving a no-lock launch was found
+  // (the t176 launch has a bracket on screen; the t84–94 climb-out has no
+  // presses at all) — judging/R36/lock-clarity/NOTES.md.
+  launch(playerNdc, target, side, rng, aim = null) {
     let sprite;
     if (this.spritePool.length) sprite = this.spritePool.pop();
     else {
@@ -481,6 +497,9 @@ export class Missiles {
       // Seeded from the splay velocity so the first puff of a trail is
       // already aligned; overwritten every tick from the actual screen step.
       trailAngle: Math.atan2(SPLAY_NDC_Y_PER_S * FRAC_Y_PER_NDC, side * SPLAY_NDC_X_PER_S * 0.5),
+      // R36 dry (unguided) shot: the fixed NDC point the round straightens
+      // onto. Null for a locked launch. See the launch() note.
+      aim: target ? null : (aim ?? { x: playerNdc.x, y: playerNdc.y }),
     };
     this.live.push(m);
 
@@ -515,8 +534,8 @@ export class Missiles {
     // always has one): fall back to straight up the sight line.
     const pos = new THREE.Vector3();
     const p = this.palette;
-    const axX = ((target?.ndc?.x ?? m.ndcX) - m.ndcX) * 0.5;
-    const axY = ((target?.ndc?.y ?? m.ndcY + 0.4) - m.ndcY) * FRAC_Y_PER_NDC;
+    const axX = ((target?.ndc?.x ?? m.aim?.x ?? m.ndcX) - m.ndcX) * 0.5;
+    const axY = ((target?.ndc?.y ?? m.aim?.y ?? m.ndcY + 0.4) - m.ndcY) * FRAC_Y_PER_NDC;
     const billowRot =
       (Math.hypot(axX, axY) > 1e-6 ? Math.atan2(axY, axX) : Math.PI / 2) - Math.PI / 2;
     // The two lobes are strung ALONG the axis, not jittered laterally. They
@@ -557,7 +576,9 @@ export class Missiles {
     return m;
   }
 
-  update(dt) {
+  // `enemies` (R36) is only consulted by DRY shots' crossing fuse below; a
+  // caller that passes nothing keeps the pre-R36 behaviour exactly.
+  update(dt, enemies = []) {
     const pos = new THREE.Vector3();
     this.t += dt;
     for (let i = this.live.length - 1; i >= 0; i--) {
@@ -586,6 +607,27 @@ export class Missiles {
 
       const target = m.target && m.target.alive && !m.targetLost ? m.target : null;
       m.lastTurnFrac = 0;
+      // R36 dry shot: recover the launch splay onto the fixed aim point so
+      // the round flies visibly STRAIGHT up the sight line. Reuses the same
+      // capped steer as homing, against a pseudo-target pinned at MAX_DEPTH,
+      // so the turn authority and the trail geometry stay one system.
+      if (!target && m.aim && !m.targetLost && m.age > HOMING_DELAY_S) {
+        const remain = Math.max(0.1, MAX_DEPTH - m.depth);
+        const steer = Math.min(1, ((v * dt) / remain) * HOMING_GAIN);
+        let stepX = (m.aim.x - m.ndcX) * steer;
+        let stepY = (m.aim.y - m.ndcY) * steer;
+        const fx = stepX * 0.5;
+        const fy = stepY * FRAC_Y_PER_NDC;
+        const mag = Math.hypot(fx, fy);
+        const cap = MAX_TURN_FRAC_PER_S * dt;
+        if (mag > cap && mag > 0) {
+          const k = cap / mag;
+          stepX *= k;
+          stepY *= k;
+        }
+        m.ndcX += stepX;
+        m.ndcY += stepY;
+      }
       if (target && m.age > HOMING_DELAY_S) {
         // Steer by the fraction of the REMAINING depth gap covered this
         // frame: the lateral error then closes exactly as the depth gap
@@ -698,6 +740,41 @@ export class Missiles {
       // lateral motion and is far below the radius for every pattern the
       // spawner emits.)
       let hit = false;
+      let dryVictim = null;
+      // R36 — DRY-SHOT FUSE: an unguided round connects with whatever live
+      // enemy it PHYSICALLY crosses inside the same HIT_RADIUS_FRAC the
+      // locked fuse uses. Same crossing interpolation, same radius, no
+      // steering toward anything — so a dead-ahead press can reward the aim
+      // the player already made, and a shot past everything visibly sails
+      // out. Only the HIT is recorded (a straight round crosses the whole
+      // field; a miss row per bystander would swamp the ledger — the no-hit
+      // outcome resolves through 'expired' at MAX_DEPTH, so rows still sum
+      // to launches).
+      if (!m.target && m.aim && !m.resolved) {
+        for (const e of enemies) {
+          if (!e || !e.alive || e.retired) continue;
+          if (!(d0 < e.d && m.depth >= e.d)) continue;
+          const span = m.depth - d0;
+          const f = span > 1e-6 ? (e.d - d0) / span : 1;
+          const cx = x0 + (m.ndcX - x0) * f;
+          const cy = y0 + (m.ndcY - y0) * f;
+          const lat = Math.hypot((e.ndc.x - cx) * 0.5, (e.ndc.y - cy) * FRAC_Y_PER_NDC);
+          if (lat <= HIT_RADIUS_FRAC) {
+            hit = true;
+            dryVictim = e;
+            m.resolved = true;
+            this._record({
+              t: Number(this.t.toFixed(3)),
+              age: Number(m.age.toFixed(4)),
+              hit: true,
+              lat: Number(lat.toFixed(5)),
+              dry: true,
+              tgtD: Number(e.d.toFixed(2)),
+            });
+            break;
+          }
+        }
+      }
       if (target && d0 < target.d && m.depth >= target.d) {
         const span = m.depth - d0;
         const f = span > 1e-6 ? (target.d - d0) / span : 1;
@@ -741,7 +818,7 @@ export class Missiles {
             reason: m.age > MAX_LIFE_S || m.depth > MAX_DEPTH ? 'expired' : 'notarget',
           });
         }
-        this._retire(i, hit ? target : null);
+        this._retire(i, hit ? (dryVictim ?? target) : null);
       }
     }
   }

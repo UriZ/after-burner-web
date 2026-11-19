@@ -166,6 +166,27 @@ const LOCK_FLASH_S = 0.12;
 const TINT_TRACK = '#ffffff';
 const TINT_LOCKED = '#31e6ff'; // 49,230,255 — all ladder rungs
 const TINT_FLASH = '#d6ffff'; // 214,255,255 — bright confirm pop
+// R36 — THE LOCKED BRACKET PULSES, two-tone. The R36 playtest's rank-1 gap is
+// "I can never tell when I'm locked": with enemies funnelling onto the nose,
+// a STATIC cyan box sitting at the jet reads as ownship UI, not as "lock on
+// that aircraft". The arcade's own bracket is measured in TWO colour variants
+// in one engagement (GAME_SPEC.md §3 element 3: "Blue #008cd9→#3bbaff
+// variants at t104") — a colour cycle, which is the one animation the R10
+// "the bracket does not animate IN SIZE" clause leaves open. So a completed
+// lock alternates TINT_LOCKED with the bright TINT_FLASH and nothing else on
+// screen pulses — tracked stays static white, acquiring stays the one-way
+// white→cyan ramp.
+//
+// The partner tone was FIRST the arcade's own deeper blue (#008cd9 snapped to
+// the ladder) and it FAILED THE LOOK: against stage 1's #009fff sky the deep
+// phase all but vanishes (judging/R36/lock-clarity/pulse-check/pulse_crops.png,
+// panels 2–3) — a lock cue that disappears half the time is the defect being
+// fixed. TINT_FLASH (#d6ffff) keeps contrast against every stage sky, so the
+// pulse reads cyan↔white-hot everywhere. The RATE is ASSUMED (the arcade's
+// cycle rate is unmeasured; t104 is a 4 Hz sample): 8 frames per phase =
+// 3.75 Hz, slow enough to read as a deliberate blink, fast enough to be seen
+// inside one acquire beat.
+const LOCK_PULSE_PHASE_S = 8 / 60;
 // R15 — COMPLETED-LOCK HOLD, the missile's rank-2 conversion fix. The R15
 // opening playtest fired ONE missile in 27 s of dedicated climbing. The block
 // is NOT acquisition (a perfect-tracker autopilot fires 31-34 salvos/180 s, and
@@ -555,6 +576,8 @@ export class LockSystem {
     _COL_TRACK.set(TINT_TRACK);
     _COL_LOCKED.set(TINT_LOCKED);
     _COL_FLASH.set(TINT_FLASH);
+    // R36 — clock for the locked bracket's two-tone pulse (LOCK_PULSE_PHASE_S).
+    this.pulseT = 0;
     // Scratch for the acquire white->cyan lerp, so the ramp allocates nothing.
     this._colScratch = new THREE.Color();
     // R16 — lock-bait members to draw the "aim here" hint bracket on this
@@ -592,6 +615,7 @@ export class LockSystem {
   // which is a description of the frames WHILE the missiles are flying.
   update(dt, enemies, playerNdc, holding, sight, activeTargets = []) {
     this.activeTargets = activeTargets;
+    this.pulseT += dt;
     // R26 — age the lock-confirm flashes and drop expired/dead ones.
     for (const [e, t] of this.lockFlash) {
       const left = t - dt;
@@ -899,7 +923,12 @@ export class LockSystem {
       const stroke = STROKE_PX + (LOCKED_STROKE_PX - STROKE_PX) * q;
       put(this.acquiring.enemy, 1, ARM_FRAC_TRACK + (ARM_FRAC_OF_BOX - ARM_FRAC_TRACK) * q, scale, col, stroke);
     }
-    const lockedColor = (e) => (this.lockFlash.has(e) ? _COL_FLASH : _COL_LOCKED);
+    // R36 — two-tone pulse (see LOCK_PULSE_PHASE_S): the confirm flash still
+    // holds solid bright for its LOCK_FLASH_S, then the bracket settles into
+    // the cyan↔white-hot alternation that marks a completed lock at a glance.
+    const pulseBright = Math.floor(this.pulseT / LOCK_PULSE_PHASE_S) % 2 === 0;
+    const lockedColor = (e) =>
+      this.lockFlash.has(e) ? _COL_FLASH : pulseBright ? _COL_LOCKED : _COL_FLASH;
     for (const e of this.locks) put(e, 2, ARM_FRAC_OF_BOX, 1, lockedColor(e), LOCKED_STROKE_PX);
     for (const e of this.activeTargets ?? []) {
       if (e && !e.retired) put(e, 2, ARM_FRAC_OF_BOX, 1, lockedColor(e), LOCKED_STROKE_PX);
@@ -921,6 +950,19 @@ export class LockSystem {
         c.material.color.copy(color);
         c.visible = true;
       }
+    }
+
+    // R36 diagnostic hook: the drawn bracket POPULATION, per tick — which
+    // state (rank) put a bracket where, so "the blue box hugs my own jet" is
+    // attributable to a specific population rather than argued about.
+    // Read-only, allocates one small array, touches no RNG.
+    if (typeof window !== 'undefined') {
+      window.__lockPop = wanted.map((w) => ({
+        rank: w.rank,
+        d: Number(w.e.d.toFixed(2)),
+        x: Number(w.e.ndc.x.toFixed(3)),
+        y: Number(w.e.ndc.y.toFixed(3)),
+      }));
     }
   }
 

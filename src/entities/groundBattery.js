@@ -74,7 +74,76 @@ const WORLD_WIDTH = 3.0; // reads ~8%W at depth 25, ~17%W at depth 12 (hittable 
 // still flight distance to the player plane.
 const TELE_DEPTH_MAX = 42; // light the flare once this close
 const FIRE_FLOOR_DEPTH = 12; // never fire from inside this (point-blank = unfair)
-const TELEGRAPH_S = 0.4; // short: the dodge window is carried by the ~2 s flight
+export const BATTERY_TELEGRAPH_S = 0.4; // short: the dodge window is carried by the round's flight
+const TELEGRAPH_S = BATTERY_TELEGRAPH_S;
+
+// R36 DEATH LEGIBILITY — the battery round's own flight profile, consumed by
+// combat.js when it spawns the round (enemyShots.spawn opts).
+//
+// THE MEASURED DEFECT (judging/R36/death-legibility/NOTES.md): 7 of the 9
+// deaths across both R36 playtest sessions were battery rounds, and every one
+// gave ~1.03 s of total warning — a 0.4 s flare on a ground turret in the
+// terrain clutter, then a round that left depth ~11.4 and crossed the player's
+// plane 0.64 s later drawn at 5.8–6.7 native px the whole way (the air rounds'
+// q-ramp only reaches its top at PASS_DEPTH, beyond the player). The player
+// verdict those numbers produced: "I kept dying without ever seeing the shot
+// that got me." The air trains were NOT the problem — their kills carried
+// 3.1–3.3 s of warning with a measured-envelope fireball the whole way.
+//
+// THE FIX IS SIZE FIRST, THEN A MODEST SPEED CUT — NOT VOLUME (R30: arcade
+// fire is sparse, CLOSED):
+//   size 7→9.9px FRAC endpoints 0.022→0.031 of 320, i.e. the arcade's own
+//                measured round-width median→p90 (6.85/8.50, max 10.58 — the
+//                stage-7 t330 census in weapons/enemyShots.js), ramped by
+//                FLIGHT PROGRESS (progressSize) so the growth happens over the
+//                approach the player watches. The default air q-ramp only
+//                reaches its top at PASS_DEPTH = 1.6, PAST the player, so a
+//                killing round was never drawn near full size. THIS is the
+//                load-bearing change: the old round failed on VISIBILITY (a
+//                ~6 px dot in ground clutter), not on dodge distance.
+//   speed 10→8   the round reaches the player plane in ~0.80 s (48 ticks)
+//                instead of 0.64 s (38 ticks): a bigger, longer-lived fireball
+//                to notice. Total warning 0.4 + 0.80 = 1.2 s (was 1.02 s).
+//
+// WHY NOT SLOWER. Dodge distance was never the limiter. The jet traverses
+// ~19 %W in 0.5 s (STATUS 0.379 fracW/s) against a 4 %W-radius hit disc
+// (PLAYER_HIT_RADIUS_FRAC 0.040 in the 0.5·NDC frac unit), so a player who
+// SEES the round clears it with room to spare at 0.64 s, let alone 0.80 s. A
+// slower round (speed 6 = 64 ticks) buys reaction margin a reacting human does
+// not need, and it costs lethality: on the weaving demo pilot the per-round
+// hit probability falls from 0.45 (old) to 0.23 at speed 6 but holds ~0.52 at
+// speed 8 (battery crossing census, judging/R36/death-legibility/sweep-
+// census.json), i.e. speed 8 keeps deaths/min at the de-scripted baseline
+// (1.78/min) while speed 6 drops it ~38 % — the wrong trade given the round is
+// already humanly dodgeable and the owner's standing "too easy" note. The
+// snapshot aim is unchanged, so legibility does not touch the dodge CONTRACT,
+// only how early the player sees the round. Verified before/after on
+// tools/fairness_probe.mjs (deaths/min within noise, 0 unannounced fatal hits).
+//
+// `?battery=speed=6,spread=0.03` — measurement-only overrides (same idiom as
+// combat.js's `?gun=`), so the legibility/lethality sweep can run arms without
+// editing source between captures (an in-place edit is a concurrent writer to
+// every other agent's capture). Unknown keys throw, same reasoning as ?gun=.
+const _batteryOverrides = (() => {
+  const params = new URLSearchParams(typeof location === 'undefined' ? '' : location.search);
+  const raw = params.get('battery');
+  const out = {};
+  if (!raw) return out;
+  for (const pair of raw.split(',')) {
+    const [k, v] = pair.split('=');
+    if (!['speed', 'spread', 'fracfar', 'fracnear'].includes(k))
+      throw new Error(`?battery=: unknown key "${k}"`);
+    out[k] = Number(v);
+  }
+  return out;
+})();
+
+export const BATTERY_SHOT_PROFILE = {
+  speed: _batteryOverrides.speed ?? 8,
+  fracFar: _batteryOverrides.fracfar ?? 0.022,
+  fracNear: _batteryOverrides.fracnear ?? 0.031,
+  progressSize: true,
+};
 const BURST_LEN = 1; // ONE telegraphed AA round per pass — the arcade battery is
 //                      a dodge PROMPT, not a guaranteed kill. A 2-round burst
 //                      shared one snapshot and gave a non-reactive pilot two
@@ -82,15 +151,26 @@ const BURST_LEN = 1; // ONE telegraphed AA round per pass — the arcade battery
 //                      fairness probe 0.33 -> 1.78); one round holds the threat
 //                      read while keeping the added lethality modest.
 const SHOT_SPACING_S = 0.16;
-// Per-shot aim spread (NDC) about the snapshot, so a battery firing at a pilot
-// who has NOT moved still misses a good share of the time — the round is a
-// prompt to dodge, and a stationary pilot taking it ~half the time (plus the
-// vertical dodge when they DO move) is the arcade's "weave over the guns" feel,
-// not a dead-centre guaranteed hit. PLAYER_HIT_RADIUS_FRAC is 0.040, so a ±0.06
-// spread puts most rounds outside the hit disc of a motionless pilot. Drawn from
-// the battery's OWN seeded stream (never the shared gameplay PRNG — the named
-// stream-shift bug class), so it perturbs no wave.
-const SHOT_SPREAD_NDC = 0.06;
+// Per-shot aim spread (NDC) about the snapshot. Drawn from the battery's OWN
+// seeded stream (never the shared gameplay PRNG — the named stream-shift bug
+// class), so it perturbs no wave.
+//
+// R36: 0.06 → 0.025, TIGHTENED so the now-legible round aims HONESTLY. The old
+// wide spread was a crutch for an invisible round: it set the miss rate by a
+// jitter the player never saw decide, rather than by whether they moved. Units
+// show the old ±0.06 NDC spread was no dodge at all — PLAYER_HIT_RADIUS_FRAC
+// 0.040 is in the 0.5·NDC frac unit, so the kill disc is ±0.08 NDC on x, WIDER
+// than ±0.06, i.e. a stationary pilot was hit almost every time regardless.
+//
+// With BATTERY_SHOT_PROFILE's big, slightly slower (8 u/s, ~0.80 s) legible
+// round, the dodge is the player MOVING off the snapshot — the arcade's actual
+// model — so the round aims essentially true and a pilot who SEES it and does
+// not move is fairly hit, one who weaves lives. 0.025 is a mild humanising
+// jitter, not a miss budget. Measured: battery per-round hit probability is
+// flat across spread 0.012–0.035 on the weaving demo pilot
+// (tools/fairness_probe.mjs), so this lever sets stationary-pilot FAIRNESS,
+// not demo lethality — which the speed governs.
+const SHOT_SPREAD_NDC = _batteryOverrides.spread ?? 0.025;
 
 let nextBatteryId = 700000; // high, disjoint from enemy ids
 
@@ -250,17 +330,35 @@ export class GroundBattery {
 export class GroundBatteryManager {
   constructor(scene) {
     this.scene = scene;
-    // Own seeded stream, SEED-INDEPENDENT and disjoint from the shared gameplay
-    // PRNG (exactly like the runway props' fixed-seed layout rng): battery
-    // placement/timing is deterministic and reproducible for ?fixed captures
-    // across every ?seed, and it can never shift the wave stream.
-    this.rng = createPrng(0x8a77e27);
+    // Own seeded stream, disjoint from the shared gameplay PRNG so it can
+    // never shift the wave stream — but MIXED WITH THE URL SEED since R36.
+    //
+    // It was a fixed createPrng(0x8a77e27), "reproducible across every
+    // ?seed" like the runway props' layout rng — but a battery is GAMEPLAY,
+    // not scenery, and the fixed stream made every battery's spawn, aim
+    // spread and fire time a seed-independent TIMETABLE. Measured
+    // consequence (judging/R36/death-legibility/NOTES.md): the R36 playtest
+    // died at tick 1541 with score exactly 84755 on BOTH seed 7 and seed 42
+    // (the first battery round that connects, frozen passive score), and the
+    // fairness probe's six deaths per run landed at the same six wall-times
+    // on seeds 4, 5 and 6. Deaths were literally scripted. XORing the URL
+    // seed in keeps every ?fixed&seed=N run byte-deterministic (same seed →
+    // same run) while making different seeds different games.
+    const params = new URLSearchParams(typeof location === 'undefined' ? '' : location.search);
+    const urlSeed = params.has('seed') ? Number(params.get('seed')) : 1;
+    this.rng = createPrng((0x8a77e27 ^ urlSeed) >>> 0);
     const { tex, aspect } = batteryTexture();
     this.tex = tex;
     this.aspect = aspect;
     this.active = false;
-    // First battery a few seconds in, then on an interval.
-    this.spawnTimer = 4.0;
+    // First battery a few seconds in, then on an interval. The phase is
+    // DRAWN, not the fixed 4.0 it used to be: with a fixed first-spawn time
+    // and only a ±2 s interval band, battery PASSES stayed near-aligned
+    // across seeds even after the stream seed-mix above — the R36 probe
+    // still showed deaths at the identical 94.5/109.2 s on seeds 4/5/6.
+    // Drawing the phase from the battery's own stream de-correlates the
+    // whole timetable per seed while staying byte-deterministic per run.
+    this.spawnTimer = 4.0 + this.rng() * 4.0;
   }
 
   // Combat stages only. Refuel/non-combat beats pass active=false.
@@ -269,7 +367,7 @@ export class GroundBatteryManager {
   }
 
   reset() {
-    this.spawnTimer = 4.0;
+    this.spawnTimer = 4.0 + this.rng() * 4.0; // re-drawn phase, see constructor
   }
 
   _makeSprite() {

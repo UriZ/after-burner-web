@@ -208,7 +208,22 @@ export class EnemyShots {
   // { x, y, depth } NDC this shot flies at — snapshotted when the firing
   // enemy's telegraph lit, NOT the live player position (see enemy.js).
   // `meta` carries measurement-only fields the fairness probe reads back.
-  spawn(from, aim, meta = null) {
+  //
+  // `opts` (R36, death-legibility) — per-shot overrides for GROUND BATTERY
+  // rounds, which have a different legibility problem from the air trains:
+  //   speed         depth units/s (default SPEED). Battery rounds leave from
+  //                 depth ~11 — at the air rounds' 10 u/s that is a 0.64 s
+  //                 flight, which is why 7 of the 9 playtest deaths were
+  //                 battery rounds nobody saw (judging/R36/death-legibility/).
+  //   fracFar/fracNear  drawn-size ramp endpoints (defaults FRAC_FAR/NEAR).
+  //   progressSize  size by FLIGHT PROGRESS toward the aim point instead of
+  //                 by absolute depth. The default q-ramp reaches fracNear
+  //                 only at PASS_DEPTH = 1.6, which is BEYOND the player's
+  //                 plane (~5) — so a killing round is never drawn near its
+  //                 ramp top. A battery round fired from depth 11 spans
+  //                 5.8→6.7 px under it; with progressSize it runs the full
+  //                 ramp over the flight the player actually watches.
+  spawn(from, aim, meta = null, opts = null) {
     let sprite;
     if (this.pool.length) sprite = this.pool.pop();
     else {
@@ -231,6 +246,10 @@ export class EnemyShots {
       invStart: 1 / from.depth,
       invAim: 1 / aim.depth,
       startDepth: from.depth,
+      speed: opts && opts.speed ? opts.speed : SPEED,
+      fracFar: opts && opts.fracFar ? opts.fracFar : FRAC_FAR,
+      fracNear: opts && opts.fracNear ? opts.fracNear : FRAC_NEAR,
+      progressSize: !!(opts && opts.progressSize),
       meta,
     });
   }
@@ -245,7 +264,7 @@ export class EnemyShots {
       // 1.23x the firer-to-aim screen distance wide, so a round aimed well
       // clear of the player still swept over them on the way through.
       s.prevDepth = s.depth;
-      s.depth -= SPEED * dt;
+      s.depth -= s.speed * dt;
       if (s.depth <= PASS_DEPTH) {
         this._retire(i);
         continue;
@@ -261,13 +280,17 @@ export class EnemyShots {
       s.ndcX = ndcX;
       s.ndcY = ndcY;
       this.space.ndcToWorld(ndcX, ndcY, s.depth, s.sprite.position);
-      const q = Math.min(
-        1,
-        Math.max(0, (1 / s.depth - 1 / s.startDepth) / (1 / PASS_DEPTH - 1 / s.startDepth))
-      );
+      // progressSize: 1 - f is exactly "fraction of the flight flown toward
+      // the aim point" in the same 1/d terms the position lerp uses.
+      const q = s.progressSize
+        ? Math.min(1, Math.max(0, 1 - f))
+        : Math.min(
+            1,
+            Math.max(0, (1 / s.depth - 1 / s.startDepth) / (1 / PASS_DEPTH - 1 / s.startDepth))
+          );
       sizeSprite(
         s.sprite,
-        this.space.worldWidthFor(FRAC_FAR + (FRAC_NEAR - FRAC_FAR) * q, s.depth)
+        this.space.worldWidthFor(s.fracFar + (s.fracNear - s.fracFar) * q, s.depth)
       );
     }
   }
