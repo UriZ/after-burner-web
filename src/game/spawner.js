@@ -68,6 +68,9 @@ const PACE_KEYS = new Set([
   'burstmax', // most aircraft in a burst wall
   'burstcap', // transient alive cap while a burst wall is being dispensed
   'bursthold', // centre of the burst wall's close-depth hold time, seconds (+-0.35)
+  // R36 depth-combat levers (see the DEEP FORMATION block below):
+  'deepevery', // 0 = no deep formation passes; n>0 = among non-bait, non-crosser,
+  //              non-wall waves, every nth is a mid-depth crossing formation
 ]);
 let paceOverrides = null;
 function paceTunable(key, fallback) {
@@ -997,7 +1000,16 @@ const DEAD_SKY_MAX_S = paceTunable('deadmax', 3.5);
 // the active-FIRE readable-present fraction rises from ~0.10 to ~0.33-0.40
 // (into the arcade's band) while the no-fire SUPPLY and the weapon/ death-rate
 // probes stay in band (the clip rarely fires when the player is not clearing).
-const CLOSE_DROUGHT_MAX_S = paceTunable('closedrought', 3.0);
+//
+// R36 — 3.0 -> 4.5. Under the R35 rotation this clip plus the every-wave walls
+// kept the near field PERPETUALLY restocked for any pilot who held the
+// trigger, which is half of the playtest's "everything dies on my nose"
+// funnel (the kill_depth_probe baseline: hands-off 30-35 kills/min at p50
+// span 8-10 %W). 4.5 keeps the system — a drought under sustained clearing
+// still refills, the arcade's own 2-4 s close-enemy gaps still read — but the
+// refill stops arriving faster than the arcade's own cadence. The R32 band
+// check is re-run in judging/R36/depth-combat/NOTES.md §4.
+const CLOSE_DROUGHT_MAX_S = paceTunable('closedrought', 4.5);
 // Depth at/below which an enemy counts as "close" for the clip. span %W =
 // 70.6 / depth (enemy.js ENEMY_WORLD_WIDTH geometry), so depth 8.8 = 8 %W, the
 // readable-large threshold the arcade comparison above uses. An enemy nearer
@@ -1125,7 +1137,23 @@ const GUN_DWELL_TIME_MAX = 1.1;
 // REVERSIBLE: `?pace=burstevery=0` takes the exact pre-R15 echelon/crosser
 // rotation with its exact draw sequence, so the before arm of any A/B is a
 // switch on THIS build, not a different build (the MAX_ALIVE block's discipline).
-const BURST_EVERY = paceTunable('burstevery', 1);
+//
+// R36 — 1 -> 3. THE WALL STOPPED BEING AN EVENT AND BECAME THE STANDING RHYTHM,
+// and that is the measured core of the R36 playtest's rank-2 gap ("everything
+// dies point-blank on my nose ... hands-off play still cleared stage 2"). At
+// burstevery=1 EVERY non-crosser ordinary wave froze 6-9 aircraft at
+// 13.6-20.2 %W in front of the player; measured with
+// judging/R36/depth-combat/kill_depth_probe.mjs (seeds 7/42/3 x 120 s), a
+// HANDS-OFF pilot (stick centred, fire held) killed 30.5-35/min — ~85 % of
+// emission — against an aiming pilot's 44-49/min, an aim advantage of only
+// 1.4x. The arcade's own kill mix (60 Hz hand census, stage 1 t=96-104.5,
+// judging/R36/depth-combat/NOTES.md §1) is ~22 % at-the-nose and ~78 % at
+// mid/far depth, with unkilled aircraft crossing and LEAVING. At 3, the wall
+// still happens (R15's wall-then-lull is intact — one ordinary wave in three
+// among the non-crossers) but the other slots return to targets that must be
+// aimed at. `?pace=burstevery=1,deepevery=0,closedrought=3.0` recovers the
+// R35 rotation for A/B.
+const BURST_EVERY = paceTunable('burstevery', 3);
 const BURST_N_MIN = paceTunable('burstmin', 6);
 const BURST_N_MAX = paceTunable('burstmax', 9);
 // A transient cap, above MAX_ALIVE, that applies ONLY while a burst's own
@@ -1140,14 +1168,22 @@ const BURST_MAX_ALIVE = paceTunable('burstcap', 10);
 // ones arrived — no wall.
 const BURST_DISPENSE_MIN_S = 0.05;
 const BURST_DISPENSE_MAX_S = 0.11;
-// The close depth the wall holds at. span %W = 70.6 / depth (enemy.js), so
-// 3.5-5.2 is 13.6-20.2 %W — the gun-kill band (>= 14 %W, combat.js
-// GUN_KILL_SPAN_FRAC) at the near end and solidly readable across it. Below
-// FIRE_DEPTH_MIN = 24, so a holding wall NEVER fires (fair, same as the other
-// loiters). Members draw individual depths in this band so the wall is a ladder
-// of close depths, the arcade's "planes at every depth" at close range.
-const BURST_DWELL_DEPTH_MIN = 3.5;
-const BURST_DWELL_DEPTH_MAX = 5.2;
+// The close depth the wall holds at. span %W = 70.6 / depth (enemy.js).
+//
+// R36 — 3.5-5.2 -> 4.6-6.4 (20.2-13.6 %W -> 15.3-11.0 %W). The R15 values were
+// sized to the gun-kill floor OF THEIR DAY: "the gun-kill band (>= 14 %W,
+// combat.js GUN_KILL_SPAN_FRAC)". R26 cut GUN_KILL_SPAN_FRAC 0.14 -> 0.03
+// (the gun now kills from ~3 %W / depth ~23), so "the wall must stand at
+// >= 14 %W to be gunnable" has been obsolete for ten rounds — the hold depth
+// outlived its derivation, which is this file's own REACH_CEILING_NDC_Y
+// failure class. 4.6-6.4 keeps the wall solidly readable (11-15 %W — the R32
+// close-presence band's >= 8 %W with margin) while it stops parking at the
+// player's nose; the playtest's point-blank complaint named exactly this hold.
+// Still below FIRE_DEPTH_MIN = 24, so a holding wall NEVER fires (fair, same
+// as the other loiters). Members draw individual depths in this band so the
+// wall is a ladder of close depths.
+const BURST_DWELL_DEPTH_MIN = 4.6;
+const BURST_DWELL_DEPTH_MAX = 6.4;
 // Fraction of a wall's members that HOLD (the rest fly straight through at mixed
 // depths, so the wall has depth variety and is not a flat picket line).
 const BURST_DWELL_FRAC = 0.7;
@@ -1160,10 +1196,64 @@ const BURST_HOLD_CENTRE_S = paceTunable('bursthold', 1.3);
 // gap-2 supply asymmetry. The hold x works out to ~1.2x the authored `sx` below
 // (the 1/d screen-path lerp at the ~depth-4 hold, enemy.js note 2), so the step
 // is set against that factor, not the raw hold position. Measured center-heavy
-// at 0.05 (wall holds piled inside |x| 0.12, feeding a blind net); 0.072 pushes
-// most of an 8-ship wall past |x| 0.12 — OFF-CENTRE supply the aimer rakes and a
-// blind centred stick mostly misses, while the outermost stay within reach.
-const BURST_SPREAD_STEP = 0.072;
+// at 0.05-with-no-gap (wall holds piled inside |x| 0.12, feeding a blind net);
+// R15 shipped 0.072. R36 moved the no-central-member job to BURST_CENTER_GAP
+// below (0.072 alone still left the middle 2-3 members of every wall inside a
+// parked cone) and returned the step to 0.05 so the gap+step ladder's
+// outermost member keeps the R15 reach bound. The two constants now do one
+// job each: the GAP clears the centre, the STEP sets the ladder's extent.
+const BURST_SPREAD_STEP = 0.05;
+
+// R36 — THE WALL'S CENTER GAP, authored |x| units (on-screen hold x ~1.2x
+// this, see BURST_SPREAD_STEP's note). No wall member's hold position may sit
+// inside the central band a parked sight's assist cone covers: at the old
+// centred ladder the middle 2-3 members of every wall stood inside a
+// dead-centre stick's reach, which the kill_depth_probe baseline measured as
+// the hands-off pilot killing at p50 span 8.2-9.9 %W (kills delivered to the
+// nose) at 30-35/min. The gap pushes the innermost holds to ~|x| 0.15
+// on-screen — past the centred assist cone (+-0.18 NDC about a sight that
+// rests off-centre of them) — while the aimer still rakes the whole ladder.
+// The step shrank 0.072 -> 0.05 with the gap added so the OUTERMOST member
+// stays inside an aiming pilot's lateral reach (authored 0.10 + 4*0.05 = 0.30
+// -> ~0.36 on-screen for a 9-ship wall, versus 0.35 before).
+const BURST_CENTER_GAP = 0.10;
+
+// ---------------------------------------------------------------------------
+// R36 — THE DEEP FORMATION PASS (this round's missing-system item: the
+// arcade's attack patterns AT RANGE). The 60 Hz arcade census
+// (judging/R36/depth-combat/NOTES.md §1) found ~3/4 of arcade kills happen at
+// mid/far depth on targets the player visibly HUNTS — banked turns onto
+// bracketed specks (longplay f0629) — and that unkilled aircraft cross the
+// frame and LEAVE (f0407, f0457). Ours had no pattern with either property:
+// every wave either terminated at the player (echelon/wall/crosser fly-past)
+// or held for the lock (bait). This wave is a 3-5 ship formation that enters
+// at mid depth off one side, tracks across the UPPER sky — above the resting
+// sight's assist cone, so a dead-centre stick never touches it — and exits
+// the far side at ~5-6 %W without ever converging on the player. It is
+// lockable for its whole crossing (depth 54..12 vs the 16-88 lock band) and
+// gunnable only near its exit (span >= 3 %W below depth ~23) by a pilot who
+// climbs onto it: a target you hunt, that escapes if ignored.
+//
+//   depthA 42-54, depthB 12-15, crosser rate (fighter 0.7089 * 0.5): the
+//   crossing takes ln(48/13.5)/0.354 ~= 3.6 s per member, staggered by the
+//   per-member depthA draw and the dispenser into a ~5 s event.
+//   Y 0.45-0.62: above the parked cone's top (+0.445 — rest sight +0.188
+//   plus the 0.257 NDC y-reach of ASSIST_RADIUS_FRAC 0.09), below the
+//   lock-bait band (0.5275+), inside REACH_CEILING_NDC_Y 0.64.
+const DEEP_EVERY = paceTunable('deepevery', 3);
+const DEEP_DEPTH_A_MIN = 42;
+const DEEP_DEPTH_A_MAX = 54;
+const DEEP_DEPTH_B_MIN = 12;
+const DEEP_DEPTH_B_MAX = 15;
+// R36 second pass: the first cut (0.45-0.62 with a +-0.07/step ladder and a
+// -0.08 exit dip) let the formation's LOWER members transit the parked cone
+// (top +0.445) at killable depth — measured as the hands-off pilot's
+// 'crosser'-pattern kills (14-19/120 s) and auto-lock missile salvos. The
+// whole pass now stays above DEEP_Y_FLOOR at every point: a parked stick can
+// never touch it; a climbing one takes it whenever it likes.
+const DEEP_Y_MIN = 0.50;
+const DEEP_Y_MAX = 0.62;
+const DEEP_Y_FLOOR = 0.47;
 
 export class Spawner {
   constructor(scene, space, rng) {
@@ -1179,6 +1269,9 @@ export class Spawner {
     // is independent of how often the bait cadence pre-empts a wave. See
     // _nextWave.
     this.ordinaryIndex = 0;
+    // R36: counts only the non-bait, non-crosser waves — the wall/deep/echelon
+    // cycle runs on this so its cadence cannot alias against the crosser's % 3.
+    this.nonCrosserIndex = 0;
     this.openerDone = false;
 
     // `?combatsolo=1` — measurement-only: emit exactly ONE head-on fighter
@@ -1262,6 +1355,7 @@ export class Spawner {
         burstmax: BURST_N_MAX,
         burstcap: BURST_MAX_ALIVE,
         bursthold: BURST_HOLD_CENTRE_S,
+        deepevery: DEEP_EVERY,
         overridden: [...(paceOverrides ?? new Map()).keys()],
       });
     }
@@ -1543,20 +1637,28 @@ export class Spawner {
     if (BAIT_EVERY > 0 && this.waveIndex % BAIT_EVERY === 0) {
       specs = this._lockBaitWave();
     } else if (BURST_EVERY > 0) {
-      // R15 rotation on the non-bait waves. `ordinaryIndex` counts only these,
-      // so the burst/crosser/echelon cadence is independent of the bait pre-empt.
+      // R15 rotation on the non-bait waves, R36-revised. `ordinaryIndex` counts
+      // only these, so the cadence is independent of the bait pre-empt.
       // Crossers stay "occasional" (every 3rd ordinary wave, the near-field
-      // lateral pass); of the rest, every `BURST_EVERY`th is a close-dwell WALL
-      // and the others are ordinary echelons. burstevery=1 makes every non-
-      // crosser ordinary wave a wall (the default rhythm); burstevery=2 alternates
-      // wall/echelon, for sweeping the wall frequency down.
+      // lateral pass). The rest cycle on their OWN counter (`nonCrosserIndex`
+      // — at BURST_EVERY = 3 the old `ordinaryIndex % BURST_EVERY` test would
+      // collide with the crosser's % 3 and no wall would ever spawn): every
+      // `BURST_EVERY`th is a close-dwell WALL, every `DEEP_EVERY`th-plus-one a
+      // mid-depth DEEP FORMATION pass (R36), the others ordinary echelons.
+      // Shipped 3/3 makes the non-crosser cycle deep/echelon/wall. burstevery=1
+      // restores the R35 every-wall rhythm; deepevery=0 removes the new wave.
       this.ordinaryIndex += 1;
       if (this.ordinaryIndex % 3 === 0) {
         specs = this._crosserWave();
-      } else if (this.ordinaryIndex % BURST_EVERY === 0) {
-        specs = this._burstWave();
       } else {
-        specs = this._echelonWave();
+        this.nonCrosserIndex = (this.nonCrosserIndex ?? 0) + 1;
+        if (this.nonCrosserIndex % BURST_EVERY === 0) {
+          specs = this._burstWave();
+        } else if (DEEP_EVERY > 0 && this.nonCrosserIndex % DEEP_EVERY === 1) {
+          specs = this._deepFormationWave();
+        } else {
+          specs = this._echelonWave();
+        }
       }
     } else if (this.waveIndex % 3 === 0) {
       // Pre-R15 rotation, preserved byte-identical for the ?pace=burstevery=0
@@ -1891,9 +1993,12 @@ export class Spawner {
       const fireDelayU = this.rng();
       const dwell = dwellRoll < BURST_DWELL_FRAC;
       // The authored lateral position; the on-screen HOLD x lands at ~1.2x this
-      // (the 1/d lerp at the ~depth-4 hold), inside an aimer's reach but spread
-      // past a blind centred net — the gap-2 supply asymmetry.
-      const sx = baseB + k * BURST_SPREAD_STEP;
+      // (the 1/d lerp at the ~depth-5 hold), inside an aimer's reach but spread
+      // past a blind centred net — the gap-2 supply asymmetry. R36: the ladder
+      // keeps BURST_CENTER_GAP clear about its centre (sign(k||1) so an odd
+      // wall's middle member goes to one side rather than the nose), which is
+      // what stops a parked stick collecting the wall's core for free.
+      const sx = baseB + Math.sign(k || 1) * BURST_CENTER_GAP + k * BURST_SPREAD_STEP;
       const holdDepth =
         BURST_DWELL_DEPTH_MIN + holdDepthU * (BURST_DWELL_DEPTH_MAX - BURST_DWELL_DEPTH_MIN);
       const wy = clampReach(baseWallY + k * vrake + (yJitterU - 0.5) * 0.08);
@@ -2018,9 +2123,20 @@ export class Spawner {
       depthA: 26 + this.rng() * 8,
       depthB: 2.9,
       // From one side, through the near-centre, out the other — passing large
-      // across the player's own column at its closest.
-      ndcA: [dir * (-0.7 - this.rng() * 0.15), -0.02 + (this.rng() - 0.5) * 0.18],
-      ndcB: [dir * (0.85 + this.rng() * 0.2), clampReach(-0.18 + (this.rng() - 0.5) * 0.3)],
+      // across the player's own column at its closest. R36: the entry used to
+      // sit at -0.02 +- 0.09, whose top half is inside a parked sight's assist
+      // cone (bottom edge -0.07) — a 1.35x-span bomber handed to a dead-centre
+      // stick on every close-drought refill. Capped at -0.08 like the crosser:
+      // it crosses AT the player's altitude (the arcade's "right over the
+      // player"), under the parked cone.
+      ndcA: [
+        dir * (-0.7 - this.rng() * 0.15),
+        Math.min(-0.08, -0.1 + (this.rng() - 0.5) * 0.18),
+      ],
+      ndcB: [
+        dir * (0.85 + this.rng() * 0.2),
+        Math.min(-0.08, clampReach(-0.18 + (this.rng() - 0.5) * 0.3)),
+      ],
       weaveAmp: 0.02,
       weaveRate: 1.4,
       weavePhase: this.rng() * Math.PI * 2,
@@ -2028,6 +2144,70 @@ export class Spawner {
       // geometry matches the ordinary crosser's: it does not meaningfully fire.
       fireDelay: 0.6 + this.rng() * 0.6,
     };
+  }
+
+  // --- R36 DEEP FORMATION PASS: the mid-depth target you hunt ---------------
+  // See the DEEP_EVERY block near the top of this file. A 3-5 ship formation
+  // that enters at mid depth off one side, tracks across the UPPER sky above
+  // the resting assist cone, and exits the far side at ~5-6 %W without ever
+  // converging on the player — the arcade's crossing-and-LEAVING formation
+  // (NOTES.md §1 finding 3). Lockable for the whole pass (depth 54..12 inside
+  // the 16-88 lock band); gunnable only below depth ~23 (span >= 3 %W), i.e.
+  // near its exit, by a pilot who climbs onto it. It does NOT fire — see the
+  // fireDelay note below for the measured reason (its early-band trains held
+  // the concurrency budget on maximum-lag snapshots and dropped the fairness
+  // death rate out of band).
+  _deepFormationWave() {
+    const n = 3 + Math.floor(this.rng() * 3); // 3-5
+    const dir = this.rng() < 0.5 ? -1 : 1;
+    const baseY = DEEP_Y_MIN + this.rng() * (DEEP_Y_MAX - DEEP_Y_MIN);
+    // A gentle ladder so the formation reads as a formation, not a file.
+    // +-0.03 per slot (was 0.07): with DEEP_Y_FLOOR below, no member of a
+    // 5-ship ladder can dip into the parked cone.
+    const rake = (this.rng() - 0.5) * 0.06;
+    const out = [];
+    for (let i = 0; i < n; i++) {
+      const k = i - (n - 1) / 2;
+      const roleRoll = this.rng();
+      const depthAU = this.rng();
+      const depthBU = this.rng();
+      const yJitterU = this.rng();
+      const fireDelayU = this.rng();
+      out.push({
+        pattern: 'crosser',
+        type: 'fighter',
+        role: this._roleFor(roleRoll),
+        depthA: DEEP_DEPTH_A_MIN + depthAU * (DEEP_DEPTH_A_MAX - DEEP_DEPTH_A_MIN),
+        depthB: DEEP_DEPTH_B_MIN + depthBU * (DEEP_DEPTH_B_MAX - DEEP_DEPTH_B_MIN),
+        // Enter just inside one edge, exit past the other: the 1/d screen
+        // path does most of its lateral travel late, so the formation hangs
+        // in the mid sky as growing specks and then sweeps out and away —
+        // retiring at depthB with its exit point authored off-frame, so an
+        // ignored formation is GONE, not delivered.
+        ndcA: [dir * (-0.85 + k * 0.07), Math.max(DEEP_Y_FLOOR, clampReach(baseY + k * rake))],
+        ndcB: [
+          dir * (1.05 + this.rng() * 0.15) + k * 0.07,
+          Math.max(
+            DEEP_Y_FLOOR,
+            clampReach(baseY - 0.03 + k * rake + (yJitterU - 0.5) * 0.06),
+          ),
+        ],
+        weaveAmp: 0.015,
+        weaveRate: 1.1,
+        weavePhase: this.rng() * Math.PI * 2,
+        // R36 second pass: 1e9 — the deep pass does NOT fire, measured, not
+        // assumed. With fireDelay 0.3-1.1 its members (eligible from depth
+        // 42-54 the moment they spawn) opened telegraphs early and held the
+        // 3-slot train budget on maximum-lag snapshots (ToF 1.9-3.1 s + 1 s
+        // telegraph, pHit ~0.05), starving the echelon band's shooters:
+        // fairness deaths/min fell to 1.0-1.33 on seeds 5/6 against the
+        // committed build's 2.0 — outside the ±10 % band this round is held
+        // to. Draw kept unconditionally (shared-PRNG rule). The pass is a
+        // pure hunt target, same contract as the crosser and the lock-bait.
+        fireDelay: 1e9,
+      });
+    }
+    return out;
   }
 
   // --- Occasional near-depth lateral crossers -------------------------------
@@ -2038,11 +2218,28 @@ export class Spawner {
     // construction and belongs to the >=10 %W population -- it draws its
     // endpoints from NEAR_BAND at both ends, and the two draws being
     // independent is what makes a crosser climb across the frame or dive
-    // across it rather than slide along one line. The old pair
-    // (-0.1 +- 0.09 in, -0.40..-0.10 out) was a shallow downward slide at
-    // the player's own altitude, every time.
-    const crossAy = clampReach(bandSample(NEAR_BAND, this.rng()));
-    const crossBy = clampReach(bandSample(NEAR_BAND, this.rng()));
+    // across it rather than slide along one line.
+    //
+    // R36 — THE DRAW IS RESTRICTED TO NEAR_BAND'S LOWER TAIL AND CAPPED BELOW
+    // THE PARKED CONE. The arcade's own crosser citation (GAME_SPEC §4,
+    // t118-119) is "near-depth lateral crossers RIGHT OVER THE PLAYER" — at
+    // the player's altitude, not the sight's. Ours drew from the full near
+    // band (median +0.28), which is the resting SIGHT line, so every third
+    // ordinary wave handed a 23 %W fly-past straight through a parked assist
+    // cone — measured as part of the hands-off pilot's 30-35 kills/min
+    // (kill_depth_probe baseline); a half-band first cut still left the top
+    // of the pass inside the cone's lower edge (-0.07). u in [0.75, 1] plus
+    // the per-member CROSSER_Y_CAP below puts the whole pass at/below the
+    // player's own column (player median ndcY -0.096): close-pass drama the
+    // arcade shows, reachable by a pilot who dips onto it, not a free feed
+    // to a dead-centre stick. Same single draw, transformed — the PRNG
+    // stream count is unchanged. The cap piles a thin tail at -0.08; that is
+    // a deliberate distortion of the sampled band, stated rather than hidden
+    // (the crosser is ~1/9 of waves; the quantile-matched population the
+    // bands exist for is the approach traffic, untouched).
+    const crossAy = clampReach(bandSample(NEAR_BAND, 0.75 + 0.25 * this.rng()));
+    const crossBy = clampReach(bandSample(NEAR_BAND, 0.75 + 0.25 * this.rng()));
+    const CROSSER_Y_CAP = -0.08;
     const out = [];
     for (let i = 0; i < n; i++) {
       const roleRoll = this.rng();
@@ -2059,8 +2256,14 @@ export class Spawner {
         // aircraft right over the player was contributing 3.2 enemy-seconds
         // of readable size out of 36 across a 33 s run. 0.80..1.00 keeps the
         // fly-past inside the frame and still exits the side afterwards.
-        ndcA: [dir * (-0.45 - this.rng() * 0.2), clampReach(crossAy + (this.rng() - 0.5) * 0.18)],
-        ndcB: [dir * (0.55 + this.rng() * 0.20), clampReach(crossBy + (this.rng() - 0.5) * 0.3)],
+        ndcA: [
+          dir * (-0.45 - this.rng() * 0.2),
+          Math.min(CROSSER_Y_CAP, clampReach(crossAy + (this.rng() - 0.5) * 0.18)),
+        ],
+        ndcB: [
+          dir * (0.55 + this.rng() * 0.20),
+          Math.min(CROSSER_Y_CAP, clampReach(crossBy + (this.rng() - 0.5) * 0.3)),
+        ],
         weaveAmp: 0.03,
         weaveRate: 1.8,
         weavePhase: this.rng() * Math.PI * 2,
@@ -2098,6 +2301,7 @@ export class Spawner {
     // R15: the non-bait rotation counter resets with the sky, so a fresh
     // stage/life opens its ordinary rotation the same way every time.
     this.ordinaryIndex = 0;
+    this.nonCrosserIndex = 0;
     // R13: a fresh stage/life should not instantly force-spawn or drop a flyby
     // on top of the opener. Reset the empty tracker (the opener fills the sky
     // next tick) and re-seed the flyby delay the same way the constructor does.
