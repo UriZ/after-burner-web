@@ -164,6 +164,54 @@ const CANYON_PITCH = -0.36770009497078837; // rad (-21.07deg); horizonFracFor ->
 // enemy band (see the WHY COMBAT STILL WORKS note).
 const CANYON_PLAYER_BASE_Y = worldYForScreenFrac(PLAYER_CRUISE_SCREEN_FRAC, PLAYER_BASE_Z, CANYON_PITCH, FOV_DEG);
 
+// R36 cruise-sway (gap #4, playtest: "flying straight is a flat screensaver").
+// MEASURED BASELINE (judging/R36/cruise-sway/NOTES.md): our centered-stick
+// horizon is pixel-frozen — y exactly 62.500%H, tilt exactly 0.000 deg over
+// 480 consecutive frames. The arcade's two measured anchors (60 Hz consecutive
+// decode, validated operators):
+//   - ACTIVE cruise (longplay t=204-216, t=262-270): the player weaves
+//     continuously — tilt p2p 38-56 deg over any 2 s window, quasi-period
+//     2-5 s. That is stick motion, not an idle system.
+//   - HANDS-OFF beats (tanker dock t=162-170, runway refuel t=246-254): tilt
+//     exactly 0 (the scaler is quantized level), world lateral wander
+//     +-0.3%W, the jet drifting 3-6%H over ~2 s with second-long frozen holds.
+// So the arcade has no large idle-sway system; its cruise life is weave. The
+// sway below is therefore an ADOPTED perceptual minimum, NOT an arcade
+// measurement: periods sit in the arcade weave's measured 2-5 s band, and
+// amplitudes are an order of magnitude BELOW the arcade's smallest active
+// weave (tilt p2p ~3.5 deg vs 38; horizon bob ~1.5%H vs 30-55) and above our
+// frozen baseline — enough that straight flight reads alive, small enough
+// that it can never read as autopilot fighting the stick.
+//
+// Each channel is two incommensurate sines; phases come from a PRIVATE prng
+// stream (CLAUDE.md shared-PRNG-stream rule: never insert draws into an
+// existing stream). The sway is a RENDER-side attitude offset composed in
+// _applyCameraOrientation() — this.worldRoll (player state, R34b barrel-roll
+// logic included) is never touched, so the roll still ends snapped level and
+// the mod-2pi normalization sees exactly the values it saw before.
+const SWAY_ROLL_AMP1_RAD = THREE.MathUtils.degToRad(1.3);
+const SWAY_ROLL_AMP2_RAD = THREE.MathUtils.degToRad(0.6);
+const SWAY_ROLL_T1_S = 3.6; // inside the measured 2-5 s weave band
+const SWAY_ROLL_T2_S = 8.3; // slow secondary drift, breaks pure periodicity
+const SWAY_PITCH_AMP1_RAD = 0.006; // horizon moves ~0.977 %H per 0.01 rad
+const SWAY_PITCH_AMP2_RAD = 0.0025;
+const SWAY_PITCH_T1_S = 4.7;
+const SWAY_PITCH_T2_S = 11.0;
+// Jet bob: the one hands-off arcade motion actually measured (the docked jet
+// drifts a few %H over ~2 s between holds). Applied as a screen-fraction
+// offset to the cruise baseY only — resupply/airrefuel/canyon placements are
+// untouched (the canyon's lock geometry is tuned to the exact cruise frac).
+const SWAY_JET_AMP1_FRAC = 0.004;
+const SWAY_JET_AMP2_FRAC = 0.002;
+const SWAY_JET_T1_S = 3.1;
+const SWAY_JET_T2_S = 6.7;
+// Gain gating: full sway only in level flight. Fades out by ~8.6 deg of bank
+// (|worldRoll| 0.15 rad) so it never fights a deliberate bank, is forced to 0
+// during a barrel roll and outside the 'flight' state (launch/death/title own
+// the camera look), and slews at 3/s (~0.33 s crossfade) so it never pops.
+const SWAY_FADE_ROLL_RAD = 0.15;
+const SWAY_GAIN_RATE_PER_S = 3.0;
+
 // Zeroed input fed to combat.update() during 'death' (R5 feel fix, see
 // update() below) so a dead jet never fires/launches while the world
 // around the tumbling hulk keeps ticking.
@@ -230,6 +278,16 @@ export class Game {
     this._jetOffset = new THREE.Vector3(); // scratch, reused each tick
     this.worldRoll = 0; // radians; see interface note below
     this._lastInput = { x: 0, y: 0 }; // measurement-only, see __flowState
+    // R36 cruise-sway state (see the constants block above). _swayRoll/
+    // _swayPitch/_swayJetFrac are the CURRENT gain-scaled offsets, zero until
+    // the first flight tick, so construction-time camera orientation and
+    // every non-flight state are byte-identical to HEAD. The quaternion is a
+    // reused scratch, rebuilt only when sway is non-zero.
+    this._swayGain = 0;
+    this._swayRoll = 0;
+    this._swayPitch = 0;
+    this._swayJetFrac = 0;
+    this._swayQuat = new THREE.Quaternion();
     this._applyCameraOrientation();
     this.scene.add(this.camera);
 
@@ -279,6 +337,17 @@ export class Game {
     // rewind the spawner's stream between construction and the first tick.
     // Same seed, separate instance, no coupling.
     this._rng = createPrng(seed);
+
+    // R36 cruise-sway phases: a PRIVATE stream (xor'd tag so it never equals
+    // the gameplay stream for any seed), drawn exactly six times here and
+    // never again — adding sway cannot shift any draw in this._rng or any
+    // other stream (CLAUDE.md recurring bug class). `?nosway=1` is the
+    // isolation escape hatch in the ?hidejet/?nocombat family: horizon-fit
+    // and mask-derivation harnesses (tools/hud_mask.py) assume a dead-level
+    // horizon and must be able to keep one.
+    const swayRng = createPrng((seed ^ 0x53574159) >>> 0); // 'SWAY'
+    this._swayPhases = Array.from({ length: 6 }, () => swayRng() * 2 * Math.PI);
+    this._swayEnabled = !params.has('nosway');
 
     // `?nocombat=1`: suppress every combat sprite. This exists for the OTHER
     // agents' measurement captures — ground flow correlation, jet isolation
@@ -469,6 +538,14 @@ export class Game {
         // this field (lane-flow.md §4).
         stickX: this._lastInput.x,
         stickY: this._lastInput.y,
+        // R36 cruise-sway, same measurement-only family: the sway offsets are
+        // render-side and deliberately NOT part of worldRollDeg (player
+        // state), so a probe checking "the roll ended snapped level" reads
+        // worldRollDeg while one measuring idle life reads these.
+        swayGain: this._swayGain,
+        swayRollDeg: (this._swayRoll * 180) / Math.PI,
+        swayPitchRad: this._swayPitch,
+        swayJetFrac: this._swayJetFrac,
         ...this._playerNdc(),
       });
     }
@@ -495,8 +572,22 @@ export class Game {
     // descending to the LEFT under positive (rightward) input — backwards.
     // Positive local-Z camera rotation is the correct sign for the required
     // clockwise-on-screen / descends-to-the-right result.
-    const rollQuat = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 0, 1), this.worldRoll);
-    this.camera.quaternion.copy(this._pitchQuat).multiply(rollQuat);
+    // R36 cruise-sway: the sway is a small render-side attitude offset —
+    // pitch bob composed after the base pitch (same local-x axis), roll sway
+    // added to the roll ANGLE (same local-z axis, so it commutes with the
+    // player's roll and cannot reorder the quaternion composition).
+    // this.worldRoll itself is never modified; at zero sway this reduces to
+    // exactly the pre-R36 expression.
+    const rollQuat = new THREE.Quaternion().setFromAxisAngle(
+      new THREE.Vector3(0, 0, 1),
+      this.worldRoll + this._swayRoll,
+    );
+    this.camera.quaternion.copy(this._pitchQuat);
+    if (this._swayPitch !== 0) {
+      this._swayQuat.setFromAxisAngle(new THREE.Vector3(1, 0, 0), this._swayPitch);
+      this.camera.quaternion.multiply(this._swayQuat);
+    }
+    this.camera.quaternion.multiply(rollQuat);
   }
 
   update(dt, simTime) {
@@ -554,6 +645,40 @@ export class Game {
         ((this.worldRoll + Math.PI) % (2 * Math.PI) + 2 * Math.PI) % (2 * Math.PI) - Math.PI;
       const targetRoll = flow.input.x * ROLL_MAX_RAD;
       this.worldRoll = moveTowards(this.worldRoll, targetRoll, ROLL_RATE_RAD_PER_S * dt);
+    }
+
+    // R36 cruise-sway (constants block above). Gain target: 1 in level
+    // flight, fading out by ~8.6 deg of commanded bank, hard 0 during a
+    // barrel roll and in every non-flight state. The offsets are pure
+    // functions of simTime (deterministic under ?fixed=1&seed=N), scaled by
+    // the slewed gain; at gain 0 all three offsets are exactly 0 and every
+    // downstream value equals its pre-R36 construction value.
+    {
+      const swayTarget =
+        this._swayEnabled && this.flow.state === 'flight' && !rolling
+          ? Math.max(0, 1 - Math.abs(this.worldRoll) / SWAY_FADE_ROLL_RAD)
+          : 0;
+      this._swayGain = moveTowards(this._swayGain, swayTarget, SWAY_GAIN_RATE_PER_S * dt);
+      if (this._swayGain > 0) {
+        const TAU = 2 * Math.PI;
+        const p = this._swayPhases;
+        this._swayRoll =
+          this._swayGain *
+          (SWAY_ROLL_AMP1_RAD * Math.sin((TAU * simTime) / SWAY_ROLL_T1_S + p[0]) +
+            SWAY_ROLL_AMP2_RAD * Math.sin((TAU * simTime) / SWAY_ROLL_T2_S + p[1]));
+        this._swayPitch =
+          this._swayGain *
+          (SWAY_PITCH_AMP1_RAD * Math.sin((TAU * simTime) / SWAY_PITCH_T1_S + p[2]) +
+            SWAY_PITCH_AMP2_RAD * Math.sin((TAU * simTime) / SWAY_PITCH_T2_S + p[3]));
+        this._swayJetFrac =
+          this._swayGain *
+          (SWAY_JET_AMP1_FRAC * Math.sin((TAU * simTime) / SWAY_JET_T1_S + p[4]) +
+            SWAY_JET_AMP2_FRAC * Math.sin((TAU * simTime) / SWAY_JET_T2_S + p[5]));
+      } else {
+        this._swayRoll = 0;
+        this._swayPitch = 0;
+        this._swayJetFrac = 0;
+      }
     }
 
     // R17 refuel low-swoop (framing2 lane). Gate STRICTLY on flow.state ===
@@ -683,6 +808,28 @@ export class Game {
         this.combat.update(dt, DEATH_COMBAT_INPUT, this.player.sprite.position);
       }
       this._syncHud();
+    }
+
+    // R36 cruise-sway jet bob — RENDER-ONLY, by position in this method:
+    // combat.update() above has already consumed the CLEAN player position
+    // for this tick, and player.update() recomputes the position from
+    // scratch next tick (player.js line ~896), so this nudge is visible to
+    // the renderer alone and cannot change a combat outcome. (The first
+    // draft fed the bob through player.baseY — upstream of combat — making
+    // a +-0.6%H REAL position change that enemy-shot geometry could in
+    // principle act on; reworked to this form and verified by telemetry
+    // diff, ?nosway=1 vs sway over 1200 ticks: combat streams byte-match.
+    // See judging/R36/cruise-sway/NOTES.md §4-5.) Non-zero only when the
+    // sway gain is up, which already implies flow.state === 'flight' and
+    // no barrel roll.
+    if (this._swayJetFrac !== 0 && flow.playerControlled) {
+      this.player.sprite.position.y +=
+        worldYForScreenFrac(
+          PLAYER_CRUISE_SCREEN_FRAC + this._swayJetFrac,
+          PLAYER_BASE_Z,
+          CAMERA_PITCH,
+          FOV_DEG,
+        ) - CRUISE_PLAYER_BASE_Y;
     }
   }
 
