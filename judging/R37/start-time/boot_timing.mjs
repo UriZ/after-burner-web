@@ -1,0 +1,15 @@
+import { createServer } from 'vite';
+import puppeteer from 'puppeteer';
+const server = await createServer({ root: process.cwd(), server: { host: '127.0.0.1', port: 5199, strictPort: true, hmr: false } });
+await server.listen();
+const browser = await puppeteer.launch({ headless: 'new' });
+const page = await browser.newPage();
+const t0 = Date.now();
+await page.goto('http://127.0.0.1:5199/?fixed=1&seed=7&demo=1', { waitUntil: 'load', timeout: 300000 });
+console.log('load event:', Date.now() - t0, 'ms');
+const t1 = Date.now();
+await page.waitForFunction('window.__frameReady === true', { timeout: 300000 });
+console.log('frameReady:', Date.now() - t1, 'ms after load');
+const probe = await page.evaluate('window.__startupProbe ? window.__startupProbe() : null');
+console.log('startupProbe:', JSON.stringify(probe));
+await browser.close(); await server.close();

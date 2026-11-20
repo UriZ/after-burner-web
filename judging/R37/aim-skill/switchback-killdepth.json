@@ -1,0 +1,139 @@
+{
+ "args": {
+  "seeds": [
+   7,
+   42
+  ],
+  "secs": 120,
+  "urlParams": "lockaim=0&gun=hitmult=1.2"
+ },
+ "results": [
+  {
+   "seed": 7,
+   "mode": "aimed",
+   "secs": 120,
+   "kills": 78,
+   "killsPerMin": 39,
+   "deaths": 3,
+   "maxStage": 2,
+   "bins": {
+    "near": 11,
+    "mid": 64,
+    "far": 3
+   },
+   "binsFrac": {
+    "near": 0.141,
+    "mid": 0.821,
+    "far": 0.038
+   },
+   "spanP50": 0.04922,
+   "spanP90": 0.14043,
+   "bySrc": {
+    "vulcan": 61,
+    "missile": 17
+   },
+   "byPattern": {
+    "approach": 48,
+    "overtake": 8,
+    "crosser": 15,
+    "battery": 7
+   },
+   "errors": []
+  },
+  {
+   "seed": 7,
+   "mode": "handsoff",
+   "secs": 120,
+   "kills": 47,
+   "killsPerMin": 23.5,
+   "deaths": 9,
+   "maxStage": 1,
+   "bins": {
+    "near": 13,
+    "mid": 33,
+    "far": 1
+   },
+   "binsFrac": {
+    "near": 0.277,
+    "mid": 0.702,
+    "far": 0.021
+   },
+   "spanP50": 0.08299,
+   "spanP90": 0.16107,
+   "bySrc": {
+    "vulcan": 27,
+    "missile": 20
+   },
+   "byPattern": {
+    "overtake": 11,
+    "approach": 24,
+    "crosser": 12
+   },
+   "errors": []
+  },
+  {
+   "seed": 42,
+   "mode": "aimed",
+   "secs": 120,
+   "kills": 79,
+   "killsPerMin": 39.5,
+   "deaths": 2,
+   "maxStage": 3,
+   "bins": {
+    "near": 6,
+    "mid": 68,
+    "far": 5
+   },
+   "binsFrac": {
+    "near": 0.076,
+    "mid": 0.861,
+    "far": 0.063
+   },
+   "spanP50": 0.04996,
+   "spanP90": 0.11233,
+   "bySrc": {
+    "vulcan": 59,
+    "missile": 20
+   },
+   "byPattern": {
+    "approach": 42,
+    "overtake": 11,
+    "crosser": 20,
+    "battery": 6
+   },
+   "errors": []
+  },
+  {
+   "seed": 42,
+   "mode": "handsoff",
+   "secs": 120,
+   "kills": 51,
+   "killsPerMin": 25.5,
+   "deaths": 7,
+   "maxStage": 2,
+   "bins": {
+    "near": 5,
+    "mid": 43,
+    "far": 3
+   },
+   "binsFrac": {
+    "near": 0.098,
+    "mid": 0.843,
+    "far": 0.059
+   },
+   "spanP50": 0.06091,
+   "spanP90": 0.11801,
+   "bySrc": {
+    "vulcan": 32,
+    "missile": 19
+   },
+   "byPattern": {
+    "approach": 27,
+    "overtake": 10,
+    "crosser": 13,
+    "battery": 1
+   },
+   "errors": []
+  }
+ ]
+}

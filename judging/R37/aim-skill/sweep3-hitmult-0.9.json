@@ -1,0 +1,139 @@
+{
+ "args": {
+  "seeds": [
+   7,
+   42
+  ],
+  "secs": 120,
+  "urlParams": "gun=hitmult=0.9"
+ },
+ "results": [
+  {
+   "seed": 7,
+   "mode": "aimed",
+   "secs": 120,
+   "kills": 72,
+   "killsPerMin": 36,
+   "deaths": 4,
+   "maxStage": 2,
+   "bins": {
+    "near": 8,
+    "mid": 59,
+    "far": 5
+   },
+   "binsFrac": {
+    "near": 0.111,
+    "mid": 0.819,
+    "far": 0.069
+   },
+   "spanP50": 0.04394,
+   "spanP90": 0.11818,
+   "bySrc": {
+    "vulcan": 49,
+    "missile": 23
+   },
+   "byPattern": {
+    "approach": 42,
+    "overtake": 10,
+    "crosser": 19,
+    "battery": 1
+   },
+   "errors": []
+  },
+  {
+   "seed": 7,
+   "mode": "handsoff",
+   "secs": 120,
+   "kills": 47,
+   "killsPerMin": 23.5,
+   "deaths": 8,
+   "maxStage": 1,
+   "bins": {
+    "near": 12,
+    "mid": 35,
+    "far": 0
+   },
+   "binsFrac": {
+    "near": 0.255,
+    "mid": 0.745,
+    "far": 0
+   },
+   "spanP50": 0.07732,
+   "spanP90": 0.16208,
+   "bySrc": {
+    "vulcan": 25,
+    "missile": 22
+   },
+   "byPattern": {
+    "overtake": 8,
+    "approach": 24,
+    "crosser": 15
+   },
+   "errors": []
+  },
+  {
+   "seed": 42,
+   "mode": "aimed",
+   "secs": 120,
+   "kills": 67,
+   "killsPerMin": 33.5,
+   "deaths": 4,
+   "maxStage": 2,
+   "bins": {
+    "near": 7,
+    "mid": 59,
+    "far": 1
+   },
+   "binsFrac": {
+    "near": 0.104,
+    "mid": 0.881,
+    "far": 0.015
+   },
+   "spanP50": 0.04846,
+   "spanP90": 0.11392,
+   "bySrc": {
+    "vulcan": 50,
+    "missile": 17
+   },
+   "byPattern": {
+    "approach": 34,
+    "overtake": 9,
+    "crosser": 19,
+    "battery": 5
+   },
+   "errors": []
+  },
+  {
+   "seed": 42,
+   "mode": "handsoff",
+   "secs": 120,
+   "kills": 49,
+   "killsPerMin": 24.5,
+   "deaths": 8,
+   "maxStage": 1,
+   "bins": {
+    "near": 11,
+    "mid": 34,
+    "far": 4
+   },
+   "binsFrac": {
+    "near": 0.224,
+    "mid": 0.694,
+    "far": 0.082
+   },
+   "spanP50": 0.05513,
+   "spanP90": 0.13649,
+   "bySrc": {
+    "vulcan": 29,
+    "missile": 20
+   },
+   "byPattern": {
+    "approach": 28,
+    "overtake": 10,
+    "crosser": 9,
+    "battery": 2
+   },
+   "errors": []
+  }
+ ]
+}

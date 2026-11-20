@@ -1,0 +1,11 @@
+variant 0 [Am-160]: {"v":0,"label":"Am-160","durationS":61,"sampleRate":48000,"dominantHz":98.4,"channels":[{"peak":0.9317,"rms":0.1575,"clipped":0},{"peak":0.9235,"rms":0.159,"clipped":0}],"renderMs":200012}
+variant 1 [Cm-168]: {"v":1,"label":"Cm-168","durationS":58.14,"sampleRate":48000,"dominantHz":116.5,"channels":[{"peak":0.9213,"rms":0.1576,"clipped":0},{"peak":0.9284,"rms":0.1593,"clipped":0}],"renderMs":234976}
+variant 2 [Gm-150]: {"v":2,"label":"Gm-150","durationS":65,"sampleRate":48000,"dominantHz":87,"channels":[{"peak":0.9468,"rms":0.1523,"clipped":0},{"peak":0.9354,"rms":0.1531,"clipped":0}],"renderMs":243925}
+variant 3 [Dm-156]: {"v":3,"label":"Dm-156","durationS":62.54,"sampleRate":48000,"dominantHz":130.4,"channels":[{"peak":0.9443,"rms":0.1563,"clipped":0},{"peak":0.9352,"rms":0.1577,"clipped":0}],"renderMs":256595}
+PAGE ERRORS: [
+  'The AudioContext encountered an error from the audio device or the WebAudio renderer.'
+]
+
+checks: {"anyErr":false,"clipOrSilent":false,"allDistinct":true,"pageErrors":1}
+
+RESULT: investigate (see checks / errors above).

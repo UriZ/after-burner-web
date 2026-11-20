@@ -1,0 +1,199 @@
+{
+ "args": {
+  "seeds": [
+   7,
+   42,
+   3
+  ],
+  "secs": 120,
+  "urlParams": ""
+ },
+ "results": [
+  {
+   "seed": 7,
+   "mode": "aimed",
+   "secs": 120,
+   "kills": 104,
+   "killsPerMin": 52,
+   "deaths": 1,
+   "maxStage": 3,
+   "bins": {
+    "near": 15,
+    "mid": 87,
+    "far": 2
+   },
+   "binsFrac": {
+    "near": 0.144,
+    "mid": 0.837,
+    "far": 0.019
+   },
+   "spanP50": 0.07929,
+   "spanP90": 0.14701,
+   "bySrc": {
+    "vulcan": 82,
+    "missile": 22
+   },
+   "byPattern": {
+    "approach": 49,
+    "overtake": 11,
+    "crosser": 42,
+    "battery": 2
+   },
+   "errors": []
+  },
+  {
+   "seed": 7,
+   "mode": "handsoff",
+   "secs": 120,
+   "kills": 9,
+   "killsPerMin": 4.5,
+   "deaths": 3,
+   "maxStage": 1,
+   "bins": {
+    "near": 3,
+    "mid": 6,
+    "far": 0
+   },
+   "binsFrac": {
+    "near": 0.333,
+    "mid": 0.667,
+    "far": 0
+   },
+   "spanP50": 0.11551,
+   "spanP90": 0.22585,
+   "bySrc": {
+    "vulcan": 9
+   },
+   "byPattern": {
+    "overtake": 2,
+    "approach": 7
+   },
+   "errors": []
+  },
+  {
+   "seed": 42,
+   "mode": "aimed",
+   "secs": 120,
+   "kills": 30,
+   "killsPerMin": 15,
+   "deaths": 3,
+   "maxStage": 1,
+   "bins": {
+    "near": 6,
+    "mid": 23,
+    "far": 1
+   },
+   "binsFrac": {
+    "near": 0.2,
+    "mid": 0.767,
+    "far": 0.033
+   },
+   "spanP50": 0.06293,
+   "spanP90": 0.14324,
+   "bySrc": {
+    "vulcan": 24,
+    "missile": 6
+   },
+   "byPattern": {
+    "approach": 19,
+    "overtake": 4,
+    "crosser": 6,
+    "battery": 1
+   },
+   "errors": []
+  },
+  {
+   "seed": 42,
+   "mode": "handsoff",
+   "secs": 120,
+   "kills": 19,
+   "killsPerMin": 9.5,
+   "deaths": 3,
+   "maxStage": 1,
+   "bins": {
+    "near": 5,
+    "mid": 13,
+    "far": 1
+   },
+   "binsFrac": {
+    "near": 0.263,
+    "mid": 0.684,
+    "far": 0.053
+   },
+   "spanP50": 0.07997,
+   "spanP90": 0.14708,
+   "bySrc": {
+    "vulcan": 17,
+    "missile": 2
+   },
+   "byPattern": {
+    "approach": 10,
+    "overtake": 5,
+    "crosser": 4
+   },
+   "errors": []
+  },
+  {
+   "seed": 3,
+   "mode": "aimed",
+   "secs": 120,
+   "kills": 89,
+   "killsPerMin": 44.5,
+   "deaths": 2,
+   "maxStage": 3,
+   "bins": {
+    "near": 11,
+    "mid": 75,
+    "far": 3
+   },
+   "binsFrac": {
+    "near": 0.124,
+    "mid": 0.843,
+    "far": 0.034
+   },
+   "spanP50": 0.07435,
+   "spanP90": 0.12142,
+   "bySrc": {
+    "vulcan": 73,
+    "missile": 16
+   },
+   "byPattern": {
+    "approach": 39,
+    "overtake": 8,
+    "battery": 5,
+    "crosser": 37
+   },
+   "errors": []
+  },
+  {
+   "seed": 3,
+   "mode": "handsoff",
+   "secs": 120,
+   "kills": 10,
+   "killsPerMin": 5,
+   "deaths": 3,
+   "maxStage": 1,
+   "bins": {
+    "near": 2,
+    "mid": 8,
+    "far": 0
+   },
+   "binsFrac": {
+    "near": 0.2,
+    "mid": 0.8,
+    "far": 0
+   },
+   "spanP50": 0.10692,
+   "spanP90": 0.19376,
+   "bySrc": {
+    "vulcan": 10
+   },
+   "byPattern": {
+    "overtake": 2,
+    "approach": 5,
+    "crosser": 3
+   },
+   "errors": []
+  }
+ ]
+}

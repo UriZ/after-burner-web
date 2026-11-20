@@ -10,3 +10,13 @@ assets/reference/motion/
 
 # compiled bytecode, anywhere -- anchored entries missed judging/ and tools/out/
 __pycache__/
+
+# R39: raw capture/probe frame sequences under judging/ are regenerable
+# (~1.9 GB, 12k files). Keep the durable record — NOTES.md, verdicts, reports,
+# probes, and the lane-level comparison images — not the frame dumps.
+judging/**/frame-[0-9]*.png
+judging/**/f[0-9][0-9][0-9]*.png
+judging/**/t[0-9][0-9][0-9][0-9]*.png
+judging/**/*/*/*.png
+scratch_r24/
+scratch_tanker/

@@ -1,0 +1,50 @@
+{"arm":"speed=10,spread=0.06","deaths":8,"deathsPerMin":1.333,"fatalBattery":6,"fatalAir":2,"batteryCrossings":20,"batteryHits":7,"batteryPHit":0.35,"flightShare":0.751}
+{"arm":"speed=8,spread=0.03","deaths":8,"deathsPerMin":1.333,"fatalBattery":6,"fatalAir":2,"batteryCrossings":20,"batteryHits":7,"batteryPHit":0.35,"flightShare":0.75}
+{"arm":"speed=7,spread=0.03","deaths":8,"deathsPerMin":1.333,"fatalBattery":6,"fatalAir":2,"batteryCrossings":20,"batteryHits":6,"batteryPHit":0.3,"flightShare":0.75}
+{"arm":"speed=6,spread=0.02","deaths":8,"deathsPerMin":1.333,"fatalBattery":6,"fatalAir":2,"batteryCrossings":20,"batteryHits":6,"batteryPHit":0.3,"flightShare":0.751}
+[
+  {
+    "arm": "speed=10,spread=0.06",
+    "deaths": 8,
+    "deathsPerMin": 1.333,
+    "fatalBattery": 6,
+    "fatalAir": 2,
+    "batteryCrossings": 20,
+    "batteryHits": 7,
+    "batteryPHit": 0.35,
+    "flightShare": 0.751
+  },
+  {
+    "arm": "speed=8,spread=0.03",
+    "deaths": 8,
+    "deathsPerMin": 1.333,
+    "fatalBattery": 6,
+    "fatalAir": 2,
+    "batteryCrossings": 20,
+    "batteryHits": 7,
+    "batteryPHit": 0.35,
+    "flightShare": 0.75
+  },
+  {
+    "arm": "speed=7,spread=0.03",
+    "deaths": 8,
+    "deathsPerMin": 1.333,
+    "fatalBattery": 6,
+    "fatalAir": 2,
+    "batteryCrossings": 20,
+    "batteryHits": 6,
+    "batteryPHit": 0.3,
+    "flightShare": 0.75
+  },
+  {
+    "arm": "speed=6,spread=0.02",
+    "deaths": 8,
+    "deathsPerMin": 1.333,
+    "fatalBattery": 6,
+    "fatalAir": 2,
+    "batteryCrossings": 20,
+    "batteryHits": 6,
+    "batteryPHit": 0.3,
+    "flightShare": 0.751
+  }
+]

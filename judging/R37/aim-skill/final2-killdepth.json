@@ -1,0 +1,138 @@
+{
+ "args": {
+  "seeds": [
+   7,
+   42
+  ],
+  "secs": 120,
+  "urlParams": ""
+ },
+ "results": [
+  {
+   "seed": 7,
+   "mode": "aimed",
+   "secs": 120,
+   "kills": 80,
+   "killsPerMin": 40,
+   "deaths": 2,
+   "maxStage": 3,
+   "bins": {
+    "near": 5,
+    "mid": 72,
+    "far": 3
+   },
+   "binsFrac": {
+    "near": 0.063,
+    "mid": 0.9,
+    "far": 0.037
+   },
+   "spanP50": 0.04817,
+   "spanP90": 0.11294,
+   "bySrc": {
+    "vulcan": 64,
+    "missile": 16
+   },
+   "byPattern": {
+    "approach": 52,
+    "overtake": 10,
+    "crosser": 17,
+    "battery": 1
+   },
+   "errors": []
+  },
+  {
+   "seed": 7,
+   "mode": "handsoff",
+   "secs": 120,
+   "kills": 21,
+   "killsPerMin": 10.5,
+   "deaths": 9,
+   "maxStage": 1,
+   "bins": {
+    "near": 7,
+    "mid": 14,
+    "far": 0
+   },
+   "binsFrac": {
+    "near": 0.333,
+    "mid": 0.667,
+    "far": 0
+   },
+   "spanP50": 0.10351,
+   "spanP90": 0.13728,
+   "bySrc": {
+    "vulcan": 18,
+    "missile": 3
+   },
+   "byPattern": {
+    "overtake": 6,
+    "approach": 12,
+    "crosser": 3
+   },
+   "errors": []
+  },
+  {
+   "seed": 42,
+   "mode": "aimed",
+   "secs": 120,
+   "kills": 61,
+   "killsPerMin": 30.5,
+   "deaths": 4,
+   "maxStage": 2,
+   "bins": {
+    "near": 5,
+    "mid": 50,
+    "far": 6
+   },
+   "binsFrac": {
+    "near": 0.082,
+    "mid": 0.82,
+    "far": 0.098
+   },
+   "spanP50": 0.04547,
+   "spanP90": 0.11205,
+   "bySrc": {
+    "vulcan": 35,
+    "missile": 26
+   },
+   "byPattern": {
+    "approach": 34,
+    "overtake": 10,
+    "crosser": 16,
+    "battery": 1
+   },
+   "errors": []
+  },
+  {
+   "seed": 42,
+   "mode": "handsoff",
+   "secs": 120,
+   "kills": 28,
+   "killsPerMin": 14,
+   "deaths": 8,
+   "maxStage": 1,
+   "bins": {
+    "near": 8,
+    "mid": 17,
+    "far": 3
+   },
+   "binsFrac": {
+    "near": 0.286,
+    "mid": 0.607,
+    "far": 0.107
+   },
+   "spanP50": 0.05323,
+   "spanP90": 0.14985,
+   "bySrc": {
+    "vulcan": 24,
+    "missile": 4
+   },
+   "byPattern": {
+    "approach": 17,
+    "overtake": 5,
+    "crosser": 6
+   },
+   "errors": []
+  }
+ ]
+}

@@ -1,0 +1,27 @@
+{
+ "args": {
+  "seed": 7,
+  "afterTick": 1200,
+  "post": 90,
+  "pre": 15,
+  "out": "judging/R38/kill-placement/cap-before-s7-mid",
+  "pattern": "approach",
+  "minD": 12,
+  "src": "vulcan"
+ },
+ "found": {
+  "tick": 3521,
+  "kill": {
+   "t": 36.6,
+   "src": "vulcan",
+   "d": 16.09,
+   "span": 0.04388,
+   "ndcX": -0.0688,
+   "ndcY": 0.2024,
+   "sightX": 0.0605,
+   "sightY": 0.3254,
+   "pattern": "approach"
+  }
+ },
+ "note": "frame-0000 = killTick - pre"
+}

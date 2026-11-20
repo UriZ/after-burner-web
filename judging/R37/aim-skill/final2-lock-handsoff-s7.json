@@ -1,0 +1,19 @@
+{
+  "seed": 7,
+  "secs": 120,
+  "urlParams": "",
+  "jitter": 0,
+  "mode": "handsoff",
+  "firstLockTick": 907,
+  "firstLaunchTick": 0,
+  "maxLocks": 1,
+  "lockTickCount": 154,
+  "acquiringTicks": 2433,
+  "lockCompletions": 7,
+  "hits": 4,
+  "crossings": 4,
+  "totalRetired": 16,
+  "hitRateCrossings": 1,
+  "finalStock": 44,
+  "errors": []
+}

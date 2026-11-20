@@ -1,0 +1,112 @@
+{
+  "seed": 7,
+  "log": "judging/R36/playtest-evidence/ses1-commands.jsonl",
+  "deaths": [
+    {
+      "tick": 1641,
+      "score": 90255,
+      "hit": {
+        "t": 27.333333333333062,
+        "type": "battery",
+        "fromX": -0.3529,
+        "fromY": -0.412,
+        "fromD": 11.36,
+        "aimX": -0.1878,
+        "aimY": 0.4685,
+        "fatal": true,
+        "warning": 1.166666666666623,
+        "sweep": 0.008978892014585455,
+        "radius": 0.04,
+        "flareLit": 26.167,
+        "lifeStart": 0,
+        "announced": true,
+        "inLifeWarning": 1.167
+      }
+    },
+    {
+      "tick": 2693,
+      "score": 522595,
+      "hit": {
+        "t": 44.84999999999874,
+        "type": "battery",
+        "fromX": 0.4832,
+        "fromY": -0.412,
+        "fromD": 11.36,
+        "aimX": 0.0407,
+        "aimY": 0.5481,
+        "fatal": true,
+        "warning": 1.166666666666623,
+        "sweep": 0.027364185435202144,
+        "radius": 0.04,
+        "flareLit": 43.683,
+        "lifeStart": 35.067,
+        "announced": true,
+        "inLifeWarning": 1.167
+      }
+    },
+    {
+      "tick": 3836,
+      "score": 559940,
+      "hit": {
+        "t": 63.88333333333099,
+        "type": "battery",
+        "fromX": 0.5841,
+        "fromY": -0.412,
+        "fromD": 11.36,
+        "aimX": -0.0146,
+        "aimY": -0.1026,
+        "fatal": true,
+        "warning": 1.1833333333332887,
+        "sweep": 0.017358206866413668,
+        "radius": 0.04,
+        "flareLit": 62.7,
+        "lifeStart": 52.583,
+        "announced": true,
+        "inLifeWarning": 1.183
+      }
+    },
+    {
+      "tick": 4666,
+      "score": 580015,
+      "hit": {
+        "t": 77.68333333333021,
+        "type": "battery",
+        "fromX": 0.7716,
+        "fromY": -0.412,
+        "fromD": 11.36,
+        "aimX": -0.0145,
+        "aimY": -0.1213,
+        "fatal": true,
+        "warning": 1.1833333333332887,
+        "sweep": 0.017196129330428613,
+        "radius": 0.04,
+        "flareLit": 76.5,
+        "lifeStart": 71.617,
+        "announced": true,
+        "inLifeWarning": 1.183
+      }
+    },
+    {
+      "tick": 6403,
+      "score": 910030,
+      "hit": {
+        "t": 101.08333333332888,
+        "type": "battery",
+        "fromX": -0.4586,
+        "fromY": -0.412,
+        "fromD": 11.36,
+        "aimX": -0.023,
+        "aimY": -0.1149,
+        "fatal": true,
+        "warning": 1.1833333333332887,
+        "sweep": 0.023178288904563915,
+        "radius": 0.04,
+        "flareLit": 99.9,
+        "lifeStart": 85.417,
+        "announced": true,
+        "inLifeWarning": 1.183
+      }
+    }
+  ],
+  "errors": []
+}

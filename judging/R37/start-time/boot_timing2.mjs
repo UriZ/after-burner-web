@@ -1,0 +1,20 @@
+import { createServer } from 'vite';
+import puppeteer from 'puppeteer';
+const server = await createServer({ root: process.cwd(), server: { host: '127.0.0.1', port: 5199, strictPort: true, hmr: false } });
+await server.listen();
+const browser = await puppeteer.launch({ headless: 'new' });
+const page = await browser.newPage();
+const pending = new Map();
+const t0 = Date.now();
+page.on('request', r => pending.set(r.url(), Date.now()));
+page.on('requestfinished', r => pending.delete(r.url()));
+page.on('requestfailed', r => { console.log('FAILED', ((Date.now()-t0)/1000).toFixed(1)+'s', r.failure()?.errorText, r.url()); pending.delete(r.url()); });
+const dump = setInterval(() => {
+  const now = Date.now();
+  const slow = [...pending.entries()].filter(([,ts]) => now - ts > 8000);
+  if (slow.length) console.log('PENDING >8s @'+((now-t0)/1000).toFixed(0)+'s:', slow.map(([u,ts]) => `${((now-ts)/1000).toFixed(0)}s ${u}`).join(' | '));
+}, 10000);
+await page.goto('http://127.0.0.1:5199/?fixed=1&seed=7&demo=1', { waitUntil: 'load', timeout: 300000 });
+console.log('load event:', ((Date.now() - t0)/1000).toFixed(1), 's');
+clearInterval(dump);
+await browser.close(); await server.close();

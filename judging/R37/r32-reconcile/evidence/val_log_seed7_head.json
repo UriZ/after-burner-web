@@ -1,0 +1,767 @@
+[
+ {
+  "tick": 30,
+  "state": "flight",
+  "maxSpan": 3.45,
+  "spans": [
+   3.45
+  ],
+  "present8": false
+ },
+ {
+  "tick": 60,
+  "state": "flight",
+  "maxSpan": 2.95,
+  "spans": [
+   2.95
+  ],
+  "present8": false
+ },
+ {
+  "tick": 90,
+  "state": "flight",
+  "maxSpan": 4.21,
+  "spans": [
+   4.21
+  ],
+  "present8": false
+ },
+ {
+  "tick": 120,
+  "state": "flight",
+  "maxSpan": 1.47,
+  "spans": [
+   1.47
+  ],
+  "present8": false
+ },
+ {
+  "tick": 150,
+  "state": "flight",
+  "maxSpan": 1.76,
+  "spans": [
+   1.76,
+   1.73
+  ],
+  "present8": false
+ },
+ {
+  "tick": 180,
+  "state": "flight",
+  "maxSpan": 2.1,
+  "spans": [
+   2.1,
+   2.06,
+   1.61
+  ],
+  "present8": false
+ },
+ {
+  "tick": 210,
+  "state": "flight",
+  "maxSpan": 2.51,
+  "spans": [
+   2.51,
+   2.46,
+   1.92,
+   1.7
+  ],
+  "present8": false
+ },
+ {
+  "tick": 240,
+  "state": "flight",
+  "maxSpan": 2.99,
+  "spans": [
+   2.99,
+   2.94,
+   2.3,
+   2.03
+  ],
+  "present8": false
+ },
+ {
+  "tick": 270,
+  "state": "flight",
+  "maxSpan": 3.58,
+  "spans": [
+   3.58,
+   3.51,
+   2.74,
+   2.42
+  ],
+  "present8": false
+ },
+ {
+  "tick": 300,
+  "state": "flight",
+  "maxSpan": 4.19,
+  "spans": [
+   4.19,
+   3.27,
+   2.89,
+   2.24
+  ],
+  "present8": false
+ },
+ {
+  "tick": 330,
+  "state": "flight",
+  "maxSpan": 3.91,
+  "spans": [
+   3.91,
+   3.45,
+   3.62
+  ],
+  "present8": false
+ },
+ {
+  "tick": 360,
+  "state": "flight",
+  "maxSpan": 9.33,
+  "spans": [
+   4.12,
+   9.33
+  ],
+  "present8": true
+ },
+ {
+  "tick": 390,
+  "state": "flight",
+  "maxSpan": 4.91,
+  "spans": [
+   4.91,
+   3.35
+  ],
+  "present8": false
+ },
+ {
+  "tick": 420,
+  "state": "flight",
+  "maxSpan": 3.88,
+  "spans": [
+   3.88
+  ],
+  "present8": false
+ },
+ {
+  "tick": 450,
+  "state": "flight",
+  "maxSpan": 4.5,
+  "spans": [
+   4.5
+  ],
+  "present8": false
+ },
+ {
+  "tick": 480,
+  "state": "flight",
+  "maxSpan": 5.22,
+  "spans": [
+   5.22
+  ],
+  "present8": false
+ },
+ {
+  "tick": 510,
+  "state": "flight",
+  "maxSpan": 6.05,
+  "spans": [
+   6.05,
+   3.3
+  ],
+  "present8": false
+ },
+ {
+  "tick": 540,
+  "state": "flight",
+  "maxSpan": 7.01,
+  "spans": [
+   7.01,
+   3.83
+  ],
+  "present8": false
+ },
+ {
+  "tick": 570,
+  "state": "flight",
+  "maxSpan": 8.13,
+  "spans": [
+   8.13,
+   4.44
+  ],
+  "present8": true
+ },
+ {
+  "tick": 600,
+  "state": "flight",
+  "maxSpan": 5.14,
+  "spans": [
+   5.14
+  ],
+  "present8": false
+ },
+ {
+  "tick": 630,
+  "state": "flight",
+  "maxSpan": 5.96,
+  "spans": [
+   5.96
+  ],
+  "present8": false
+ },
+ {
+  "tick": 660,
+  "state": "flight",
+  "maxSpan": 6.91,
+  "spans": [
+   6.91
+  ],
+  "present8": false
+ },
+ {
+  "tick": 690,
+  "state": "flight",
+  "maxSpan": 8.01,
+  "spans": [
+   8.01
+  ],
+  "present8": true
+ },
+ {
+  "tick": 720,
+  "state": "flight",
+  "maxSpan": 0,
+  "spans": [],
+  "present8": false
+ },
+ {
+  "tick": 750,
+  "state": "flight",
+  "maxSpan": 0.86,
+  "spans": [
+   0.86
+  ],
+  "present8": false
+ },
+ {
+  "tick": 780,
+  "state": "flight",
+  "maxSpan": 1.23,
+  "spans": [
+   1.23,
+   0.87
+  ],
+  "present8": false
+ },
+ {
+  "tick": 810,
+  "state": "flight",
+  "maxSpan": 1.75,
+  "spans": [
+   1.75,
+   1.24,
+   0.97
+  ],
+  "present8": false
+ },
+ {
+  "tick": 840,
+  "state": "flight",
+  "maxSpan": 2.5,
+  "spans": [
+   2.5,
+   1.77,
+   1.38
+  ],
+  "present8": false
+ },
+ {
+  "tick": 870,
+  "state": "flight",
+  "maxSpan": 2.53,
+  "spans": [
+   2.53,
+   1.97
+  ],
+  "present8": false
+ },
+ {
+  "tick": 900,
+  "state": "flight",
+  "maxSpan": 3.6,
+  "spans": [
+   3.6,
+   2.81
+  ],
+  "present8": false
+ },
+ {
+  "tick": 930,
+  "state": "flight",
+  "maxSpan": 3.7,
+  "spans": [
+   3.7
+  ],
+  "present8": false
+ },
+ {
+  "tick": 960,
+  "state": "flight",
+  "maxSpan": 3.6,
+  "spans": [
+   3.6,
+   2.9
+  ],
+  "present8": false
+ },
+ {
+  "tick": 990,
+  "state": "flight",
+  "maxSpan": 5.72,
+  "spans": [
+   4.17,
+   5.72
+  ],
+  "present8": false
+ },
+ {
+  "tick": 1020,
+  "state": "flight",
+  "maxSpan": 4.84,
+  "spans": [
+   4.84
+  ],
+  "present8": false
+ },
+ {
+  "tick": 1050,
+  "state": "flight",
+  "maxSpan": 5.61,
+  "spans": [
+   5.61
+  ],
+  "present8": false
+ },
+ {
+  "tick": 1080,
+  "state": "death",
+  "maxSpan": 6.5,
+  "spans": [
+   6.5
+  ],
+  "present8": false
+ },
+ {
+  "tick": 1110,
+  "state": "death",
+  "maxSpan": 7.54,
+  "spans": [
+   7.54
+  ],
+  "present8": false
+ },
+ {
+  "tick": 1140,
+  "state": "death",
+  "maxSpan": 8.74,
+  "spans": [
+   8.74
+  ],
+  "present8": false
+ },
+ {
+  "tick": 1170,
+  "state": "death",
+  "maxSpan": 10.13,
+  "spans": [
+   10.13
+  ],
+  "present8": false
+ },
+ {
+  "tick": 1200,
+  "state": "death",
+  "maxSpan": 11.74,
+  "spans": [
+   11.74
+  ],
+  "present8": false
+ },
+ {
+  "tick": 1230,
+  "state": "death",
+  "maxSpan": 13.61,
+  "spans": [
+   13.61
+  ],
+  "present8": false
+ },
+ {
+  "tick": 1260,
+  "state": "death",
+  "maxSpan": 15.77,
+  "spans": [
+   15.77
+  ],
+  "present8": false
+ },
+ {
+  "tick": 1290,
+  "state": "death",
+  "maxSpan": 18.28,
+  "spans": [
+   18.28
+  ],
+  "present8": false
+ },
+ {
+  "tick": 1320,
+  "state": "death",
+  "maxSpan": 21.19,
+  "spans": [
+   21.19
+  ],
+  "present8": false
+ },
+ {
+  "tick": 1350,
+  "state": "death",
+  "maxSpan": 24.56,
+  "spans": [
+   24.56
+  ],
+  "present8": false
+ },
+ {
+  "tick": 1380,
+  "state": "death",
+  "maxSpan": 28.47,
+  "spans": [
+   28.47
+  ],
+  "present8": false
+ },
+ {
+  "tick": 1410,
+  "state": "death",
+  "maxSpan": 0,
+  "spans": [],
+  "present8": false
+ },
+ {
+  "tick": 1440,
+  "state": "death",
+  "maxSpan": 0,
+  "spans": [],
+  "present8": false
+ },
+ {
+  "tick": 1470,
+  "state": "death",
+  "maxSpan": 0,
+  "spans": [],
+  "present8": false
+ },
+ {
+  "tick": 1500,
+  "state": "death",
+  "maxSpan": 0,
+  "spans": [],
+  "present8": false
+ },
+ {
+  "tick": 1530,
+  "state": "flight",
+  "maxSpan": 1.46,
+  "spans": [
+   1.46
+  ],
+  "present8": false
+ },
+ {
+  "tick": 1560,
+  "state": "flight",
+  "maxSpan": 2.08,
+  "spans": [
+   2.08,
+   1.49,
+   0.92
+  ],
+  "present8": false
+ },
+ {
+  "tick": 1590,
+  "state": "flight",
+  "maxSpan": 2.97,
+  "spans": [
+   2.97,
+   2.13,
+   1.44,
+   1.35,
+   1.02,
+   2.27
+  ],
+  "present8": false
+ },
+ {
+  "tick": 1620,
+  "state": "flight",
+  "maxSpan": 4.23,
+  "spans": [
+   4.23,
+   3.03,
+   2.24,
+   1.92,
+   1.38,
+   3.69
+  ],
+  "present8": false
+ },
+ {
+  "tick": 1650,
+  "state": "flight",
+  "maxSpan": 9.85,
+  "spans": [
+   4.32,
+   2.74,
+   1.85,
+   9.85
+  ],
+  "present8": true
+ },
+ {
+  "tick": 1680,
+  "state": "flight",
+  "maxSpan": 3.9,
+  "spans": [
+   3.9,
+   2.48
+  ],
+  "present8": false
+ },
+ {
+  "tick": 1710,
+  "state": "flight",
+  "maxSpan": 5.56,
+  "spans": [
+   5.56,
+   3.34,
+   3.24,
+   3.89
+  ],
+  "present8": false
+ },
+ {
+  "tick": 1740,
+  "state": "flight",
+  "maxSpan": 4.51,
+  "spans": [
+   3.75,
+   4.51
+  ],
+  "present8": false
+ },
+ {
+  "tick": 1770,
+  "state": "flight",
+  "maxSpan": 5.22,
+  "spans": [
+   4.35,
+   5.22
+  ],
+  "present8": false
+ },
+ {
+  "tick": 1800,
+  "state": "flight",
+  "maxSpan": 6.06,
+  "spans": [
+   5.05,
+   6.06
+  ],
+  "present8": false
+ },
+ {
+  "tick": 1830,
+  "state": "flight",
+  "maxSpan": 7.02,
+  "spans": [
+   5.85,
+   7.02
+  ],
+  "present8": false
+ },
+ {
+  "tick": 1860,
+  "state": "flight",
+  "maxSpan": 8.14,
+  "spans": [
+   8.14
+  ],
+  "present8": true
+ },
+ {
+  "tick": 1890,
+  "state": "flight",
+  "maxSpan": 0,
+  "spans": [],
+  "present8": false
+ },
+ {
+  "tick": 1920,
+  "state": "flight",
+  "maxSpan": 0,
+  "spans": [],
+  "present8": false
+ },
+ {
+  "tick": 1950,
+  "state": "flight",
+  "maxSpan": 0,
+  "spans": [],
+  "present8": false
+ },
+ {
+  "tick": 1980,
+  "state": "flight",
+  "maxSpan": 0,
+  "spans": [],
+  "present8": false
+ },
+ {
+  "tick": 2010,
+  "state": "flight",
+  "maxSpan": 0,
+  "spans": [],
+  "present8": false
+ },
+ {
+  "tick": 2040,
+  "state": "flight",
+  "maxSpan": 0,
+  "spans": [],
+  "present8": false
+ },
+ {
+  "tick": 2070,
+  "state": "flight",
+  "maxSpan": 0,
+  "spans": [],
+  "present8": false
+ },
+ {
+  "tick": 2100,
+  "state": "flight",
+  "maxSpan": 2.64,
+  "spans": [
+   0.97,
+   2.64
+  ],
+  "present8": false
+ },
+ {
+  "tick": 2130,
+  "state": "flight",
+  "maxSpan": 4.79,
+  "spans": [
+   1.38,
+   4.79,
+   1.07
+  ],
+  "present8": false
+ },
+ {
+  "tick": 2160,
+  "state": "flight",
+  "maxSpan": 1.97,
+  "spans": [
+   1.97,
+   1.52,
+   1.07,
+   0.82
+  ],
+  "present8": false
+ },
+ {
+  "tick": 2190,
+  "state": "flight",
+  "maxSpan": 2.81,
+  "spans": [
+   2.81,
+   2.17,
+   1.52,
+   1.17
+  ],
+  "present8": false
+ },
+ {
+  "tick": 2220,
+  "state": "flight",
+  "maxSpan": 3.09,
+  "spans": [
+   3.09,
+   2.17,
+   1.67
+  ],
+  "present8": false
+ },
+ {
+  "tick": 2250,
+  "state": "flight",
+  "maxSpan": 3.47,
+  "spans": [
+   3.47,
+   3.09,
+   2.38
+  ],
+  "present8": false
+ },
+ {
+  "tick": 2280,
+  "state": "flight",
+  "maxSpan": 3.39,
+  "spans": [
+   3.39,
+   3.34
+  ],
+  "present8": false
+ },
+ {
+  "tick": 2310,
+  "state": "flight",
+  "maxSpan": 3.87,
+  "spans": [
+   3.87
+  ],
+  "present8": false
+ },
+ {
+  "tick": 2340,
+  "state": "flight",
+  "maxSpan": 4.49,
+  "spans": [
+   4.49
+  ],
+  "present8": false
+ },
+ {
+  "tick": 2370,
+  "state": "flight",
+  "maxSpan": 5.2,
+  "spans": [
+   5.2
+  ],
+  "present8": false
+ },
+ {
+  "tick": 2400,
+  "state": "flight",
+  "maxSpan": 6.03,
+  "spans": [
+   6.03,
+   4.05
+  ],
+  "present8": false
+ }
+]

@@ -1,0 +1,25 @@
+{
+ "args": {
+  "seed": 7,
+  "afterTick": 1200,
+  "post": 75,
+  "pre": 15,
+  "out": "judging/R38/kill-placement/cap-after2-s7-approach",
+  "pattern": "approach"
+ },
+ "found": {
+  "tick": 1531,
+  "kill": {
+   "t": 25.483,
+   "src": "vulcan",
+   "d": 3.843,
+   "span": 0.18369,
+   "ndcX": -0.0433,
+   "ndcY": -0.0869,
+   "sightX": 0.002,
+   "sightY": 0.188,
+   "pattern": "approach"
+  }
+ },
+ "note": "frame-0000 = killTick - pre"
+}

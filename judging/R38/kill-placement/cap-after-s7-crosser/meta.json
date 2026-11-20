@@ -1,0 +1,25 @@
+{
+ "args": {
+  "seed": 7,
+  "afterTick": 3600,
+  "post": 75,
+  "pre": 15,
+  "out": "judging/R38/kill-placement/cap-after-s7-crosser",
+  "pattern": "crosser"
+ },
+ "found": {
+  "tick": 4151,
+  "kill": {
+   "t": 47.1,
+   "src": "vulcan",
+   "d": 6.127,
+   "span": 0.15555,
+   "ndcX": -0.0472,
+   "ndcY": -0.1043,
+   "sightX": -0.0044,
+   "sightY": 0.3064,
+   "pattern": "crosser"
+  }
+ },
+ "note": "frame-0000 = killTick - pre"
+}

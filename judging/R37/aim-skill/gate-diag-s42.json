@@ -1,0 +1,222 @@
+{
+ "seed": 42,
+ "secs": 120,
+ "spans": [
+  {
+   "t0": 525,
+   "t1": 645,
+   "states": {
+    "death": 121
+   },
+   "maxRecent": 2
+  },
+  {
+   "t0": 649,
+   "t1": 885,
+   "states": {
+    "death": 237
+   },
+   "maxRecent": 2
+  },
+  {
+   "t0": 887,
+   "t1": 1477,
+   "states": {
+    "death": 463,
+    "flight": 128
+   },
+   "maxRecent": 2
+  },
+  {
+   "t0": 1479,
+   "t1": 2511,
+   "states": {
+    "death": 429,
+    "flight": 604
+   },
+   "maxRecent": 2
+  },
+  {
+   "t0": 2547,
+   "t1": 2650,
+   "states": {
+    "death": 102,
+    "continue": 1,
+    "flight": 1
+   },
+   "maxRecent": 2
+  },
+  {
+   "t0": 3116,
+   "t1": 3476,
+   "states": {
+    "death": 361
+   },
+   "maxRecent": 2
+  },
+  {
+   "t0": 3478,
+   "t1": 4107,
+   "states": {
+    "death": 434,
+    "flight": 196
+   },
+   "maxRecent": 2
+  },
+  {
+   "t0": 4138,
+   "t1": 5193,
+   "states": {
+    "death": 429,
+    "flight": 627
+   },
+   "maxRecent": 2
+  },
+  {
+   "t0": 5229,
+   "t1": 5332,
+   "states": {
+    "death": 102,
+    "continue": 1,
+    "flight": 1
+   },
+   "maxRecent": 2
+  },
+  {
+   "t0": 5740,
+   "t1": 5860,
+   "states": {
+    "death": 121
+   },
+   "maxRecent": 2
+  },
+  {
+   "t0": 5863,
+   "t1": 6100,
+   "states": {
+    "death": 238
+   },
+   "maxRecent": 2
+  },
+  {
+   "t0": 6102,
+   "t1": 7154,
+   "states": {
+    "death": 426,
+    "flight": 627
+   },
+   "maxRecent": 2
+  },
+  {
+   "t0": 7193,
+   "t1": 7199,
+   "states": {
+    "death": 7
+   },
+   "maxRecent": 2
+  }
+ ],
+ "lockEvents": [
+  {
+   "t": 1016,
+   "state": "flight",
+   "locks": 1
+  },
+  {
+   "t": 1107,
+   "state": "flight",
+   "locks": 1
+  },
+  {
+   "t": 1608,
+   "state": "flight",
+   "locks": 1
+  },
+  {
+   "t": 1702,
+   "state": "flight",
+   "locks": 1
+  },
+  {
+   "t": 1775,
+   "state": "flight",
+   "locks": 1
+  },
+  {
+   "t": 1897,
+   "state": "flight",
+   "locks": 1
+  },
+  {
+   "t": 2096,
+   "state": "flight",
+   "locks": 1
+  },
+  {
+   "t": 2169,
+   "state": "flight",
+   "locks": 1
+  },
+  {
+   "t": 3607,
+   "state": "flight",
+   "locks": 1
+  },
+  {
+   "t": 3700,
+   "state": "flight",
+   "locks": 1
+  },
+  {
+   "t": 4267,
+   "state": "flight",
+   "locks": 1
+  },
+  {
+   "t": 4340,
+   "state": "flight",
+   "locks": 1
+  },
+  {
+   "t": 4435,
+   "state": "flight",
+   "locks": 1
+  },
+  {
+   "t": 4576,
+   "state": "flight",
+   "locks": 1
+  },
+  {
+   "t": 4649,
+   "state": "flight",
+   "locks": 1
+  },
+  {
+   "t": 4740,
+   "state": "flight",
+   "locks": 1
+  },
+  {
+   "t": 4835,
+   "state": "flight",
+   "locks": 1
+  },
+  {
+   "t": 6629,
+   "state": "flight",
+   "locks": 1
+  },
+  {
+   "t": 6727,
+   "state": "flight",
+   "locks": 1
+  },
+  {
+   "t": 6760,
+   "state": "flight",
+   "locks": 1
+  }
+ ],
+ "errors": []
+}

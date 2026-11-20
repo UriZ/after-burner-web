@@ -1,4 +1,4 @@
-# R19 judge report — fresh context, look first, then re-measure
+no mi# R19 judge report — fresh context, look first, then re-measure
 
 **Judge**: fresh-context agent, R19 gate. **Tree judged**: HEAD (clean, committed). The two
 R19 lanes hit the session limit before writing lane reports, so there are **no self-reports** —

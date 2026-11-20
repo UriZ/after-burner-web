@@ -1,0 +1,136 @@
+{
+ "A_fireHeld_countdownExpires": [
+  {
+   "state": "flight",
+   "stage": 1,
+   "lives": 1,
+   "score": 8800
+  },
+  {
+   "state": "continue",
+   "stage": 1,
+   "lives": 0,
+   "score": 10010
+  },
+  {
+   "state": "continue",
+   "stage": 1,
+   "lives": 0,
+   "score": 10010
+  },
+  {
+   "state": "continue",
+   "stage": 1,
+   "lives": 0,
+   "score": 10010
+  },
+  {
+   "state": "continue",
+   "stage": 1,
+   "lives": 0,
+   "score": 10010
+  },
+  {
+   "state": "continue",
+   "stage": 1,
+   "lives": 0,
+   "score": 10010
+  },
+  {
+   "state": "continue",
+   "stage": 1,
+   "lives": 0,
+   "score": 10010
+  },
+  {
+   "state": "continue",
+   "stage": 1,
+   "lives": 0,
+   "score": 10010
+  },
+  {
+   "state": "continue",
+   "stage": 1,
+   "lives": 0,
+   "score": 10010
+  },
+  {
+   "state": "continue",
+   "stage": 1,
+   "lives": 0,
+   "score": 10010
+  },
+  {
+   "state": "gameover",
+   "stage": 1,
+   "lives": 0,
+   "score": 10010
+  },
+  {
+   "state": "gameover",
+   "stage": 1,
+   "lives": 0,
+   "score": 10010
+  },
+  {
+   "state": "gameover",
+   "stage": 1,
+   "lives": 0,
+   "score": 10010
+  },
+  {
+   "state": "title",
+   "stage": 1,
+   "lives": 0,
+   "score": 10010
+  }
+ ],
+ "D_titleHeldThenPress": {
+  "heldAtTitle": {
+   "state": "title",
+   "stage": 1,
+   "lives": 0,
+   "score": 10010
+  },
+  "afterPress": {
+   "state": "launch",
+   "stage": 1,
+   "lives": 3,
+   "score": 0
+  }
+ },
+ "B_releaseThenPress": {
+  "atContinue": {
+   "state": "continue",
+   "stage": 1,
+   "lives": 0,
+   "score": 10010
+  },
+  "midHeld": {
+   "state": "continue",
+   "stage": 1,
+   "lives": 0,
+   "score": 10010
+  },
+  "afterCoin": {
+   "state": "flight",
+   "stage": 1,
+   "lives": 3,
+   "score": 10230
+  }
+ },
+ "C_stageBoundaryKeepsLives": {
+  "s1": {
+   "state": "flight",
+   "stage": 1,
+   "lives": 2,
+   "score": 1100
+  },
+  "s2": {
+   "state": "flight",
+   "stage": 2,
+   "lives": 2,
+   "score": 116600
+  }
+ }
+}

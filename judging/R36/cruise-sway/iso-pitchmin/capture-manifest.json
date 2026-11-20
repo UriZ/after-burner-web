@@ -1,0 +1,40 @@
+{
+  "url": "http://127.0.0.1:5173/?nocombat=1&hidejet=1&noclouds=1&fixed=1&seed=1",
+  "page": "/",
+  "every": 1,
+  "frames": [
+    {
+      "frame": "frame-0000.png",
+      "tick": 590,
+      "state": {
+        "state": "flight",
+        "stageIndex": 0,
+        "stageNumber": 1,
+        "contentStageIndex": 0,
+        "lives": 3,
+        "score": 32450,
+        "deathPhase": null,
+        "throttleIndex": 1,
+        "throttleFraction": 0.6896551724137931,
+        "rolling": false,
+        "scrollSpeed": 68.93,
+        "throttleLetter": "M",
+        "poseDeg": 0,
+        "bankDeg": 0,
+        "rollPhase": null,
+        "poseSource": "sheet-day",
+        "spriteRotationDeg": 0,
+        "worldRollDeg": 0,
+        "graceFlashHidden": false,
+        "stickX": 0,
+        "stickY": 0,
+        "swayGain": 1,
+        "swayRollDeg": 1.7615107796146723,
+        "swayPitchRad": -0.008135761113231122,
+        "swayJetFrac": -0.001974873712618186,
+        "jetNdcX": -0.0019877669355244853,
+        "jetNdcY": -0.09233532604366372
+      }
+    }
+  ]
+}

@@ -1,0 +1,143 @@
+{
+ "args": {
+  "seeds": [
+   7,
+   42
+  ],
+  "secs": 120
+ },
+ "results": [
+  {
+   "seed": 7,
+   "mode": "aimed",
+   "secs": 120,
+   "kills": 83,
+   "killsPerMin": 41.5,
+   "deaths": 1,
+   "maxStage": 3,
+   "bins": {
+    "near": 5,
+    "mid": 71,
+    "far": 7
+   },
+   "binsFrac": {
+    "near": 0.06,
+    "mid": 0.855,
+    "far": 0.084
+   },
+   "spanP50": 0.04543,
+   "spanP90": 0.10244,
+   "bySrc": {
+    "vulcan": 61,
+    "missile": 22
+   },
+   "missileRows": 43,
+   "lockedHits": 22,
+   "flightAgeP10": 0.483,
+   "flightAgeP50": 0.6,
+   "flightAgeP90": 0.833,
+   "flightAgeMin": 0.367,
+   "flightAgeMax": 0.883,
+   "errors": []
+  },
+  {
+   "seed": 7,
+   "mode": "handsoff",
+   "secs": 120,
+   "kills": 28,
+   "killsPerMin": 14,
+   "deaths": 8,
+   "maxStage": 1,
+   "bins": {
+    "near": 7,
+    "mid": 19,
+    "far": 2
+   },
+   "binsFrac": {
+    "near": 0.25,
+    "mid": 0.679,
+    "far": 0.071
+   },
+   "spanP50": 0.0686,
+   "spanP90": 0.14807,
+   "bySrc": {
+    "vulcan": 17,
+    "missile": 11
+   },
+   "missileRows": 26,
+   "lockedHits": 10,
+   "flightAgeP10": 0.467,
+   "flightAgeP50": 0.733,
+   "flightAgeP90": 0.833,
+   "flightAgeMin": 0.467,
+   "flightAgeMax": 0.833,
+   "errors": []
+  },
+  {
+   "seed": 42,
+   "mode": "aimed",
+   "secs": 120,
+   "kills": 61,
+   "killsPerMin": 30.5,
+   "deaths": 4,
+   "maxStage": 2,
+   "bins": {
+    "near": 3,
+    "mid": 53,
+    "far": 5
+   },
+   "binsFrac": {
+    "near": 0.049,
+    "mid": 0.869,
+    "far": 0.082
+   },
+   "spanP50": 0.04687,
+   "spanP90": 0.09852,
+   "bySrc": {
+    "vulcan": 35,
+    "missile": 26
+   },
+   "missileRows": 42,
+   "lockedHits": 25,
+   "flightAgeP10": 0.45,
+   "flightAgeP50": 0.633,
+   "flightAgeP90": 0.833,
+   "flightAgeMin": 0.333,
+   "flightAgeMax": 0.883,
+   "errors": []
+  },
+  {
+   "seed": 42,
+   "mode": "handsoff",
+   "secs": 120,
+   "kills": 38,
+   "killsPerMin": 19,
+   "deaths": 8,
+   "maxStage": 1,
+   "bins": {
+    "near": 5,
+    "mid": 32,
+    "far": 1
+   },
+   "binsFrac": {
+    "near": 0.132,
+    "mid": 0.842,
+    "far": 0.026
+   },
+   "spanP50": 0.05219,
+   "spanP90": 0.12714,
+   "bySrc": {
+    "vulcan": 26,
+    "missile": 12
+   },
+   "missileRows": 26,
+   "lockedHits": 12,
+   "flightAgeP10": 0.383,
+   "flightAgeP50": 0.717,
+   "flightAgeP90": 0.783,
+   "flightAgeMin": 0.383,
+   "flightAgeMax": 0.833,
+   "errors": []
+  }
+ ]
+}

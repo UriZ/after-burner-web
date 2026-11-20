@@ -1,0 +1,3 @@
+BOOT {"wallToProbe":9267,"gameCtorMs":3174.5,"firstFrameMs":8674.300000011921,"state":"title","now":9255,"musicTiming":{"0":{"graphMs":1931.199999988079,"renderMs":null}},"music":{"currentState":"title","currentVariant":0,"playing":false,"variantForStage":{}}}
+TRANSITIONS [{"from":"title","to":"attract","afterPressMs":11253}]
+MUSIC {"neverPlayedWithin":"360s","music":{"currentState":"title","currentVariant":0,"playing":false,"variantForStage":{}},"timing":{"0":{"graphMs":1931.199999988079,"renderMs":null}}}

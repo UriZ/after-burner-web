@@ -1,0 +1,28 @@
+{
+  "seed": 3,
+  "log": "/private/tmp/claude-501/-Users-urizonens-dev-afterburner-three/b41228a0-594b-4891-9d20-7b35150ada55/scratchpad/r38/s3/commands.jsonl",
+  "deaths": [
+    {
+      "tick": 443,
+      "score": 24365,
+      "hit": {
+        "t": 7.366666666666646,
+        "type": "battery",
+        "fromX": -0.5933,
+        "fromY": -0.412,
+        "fromD": 11.36,
+        "aimX": 0.2935,
+        "aimY": -0.4643,
+        "fatal": true,
+        "warning": 1.199999999999997,
+        "sweep": 0.008240561559292356,
+        "radius": 0.04,
+        "flareLit": 6.167,
+        "lifeStart": 0,
+        "announced": true,
+        "inLifeWarning": 1.2
+      }
+    }
+  ],
+  "errors": []
+}

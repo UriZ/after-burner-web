@@ -1,0 +1,70 @@
+{
+  "seed": 7,
+  "log": "/private/tmp/claude-501/-Users-urizonens-dev-afterburner-three/b41228a0-594b-4891-9d20-7b35150ada55/scratchpad/r38/s1/commands.jsonl",
+  "deaths": [
+    {
+      "tick": 417,
+      "score": 22935,
+      "hit": {
+        "t": 6.933333333333314,
+        "type": "battery",
+        "fromX": -0.4127,
+        "fromY": -0.412,
+        "fromD": 11.36,
+        "aimX": 0.0089,
+        "aimY": 0.2375,
+        "fatal": true,
+        "warning": 1.1833333333333305,
+        "sweep": 0.022551583443789124,
+        "radius": 0.04,
+        "flareLit": 5.75,
+        "lifeStart": 0,
+        "announced": true,
+        "inLifeWarning": 1.183
+      }
+    },
+    {
+      "tick": 1787,
+      "score": 72765,
+      "hit": {
+        "t": 29.74999999999959,
+        "type": "interceptor",
+        "fromX": -0.0345,
+        "fromY": -0.2731,
+        "fromD": 31.75,
+        "aimX": -0.1363,
+        "aimY": 0.0799,
+        "fatal": true,
+        "warning": 3.666666666666515,
+        "sweep": 0.02998368261301414,
+        "radius": 0.04,
+        "flareLit": 26.083,
+        "lifeStart": 14.667,
+        "announced": true,
+        "inLifeWarning": 3.667
+      }
+    },
+    {
+      "tick": 2724,
+      "score": 98780,
+      "hit": {
+        "t": 45.34999999999871,
+        "type": "battery",
+        "fromX": 0.8011,
+        "fromY": -0.412,
+        "fromD": 11.36,
+        "aimX": 0.0104,
+        "aimY": -0.1128,
+        "fatal": true,
+        "warning": 1.1833333333332887,
+        "sweep": 0.010476432277705899,
+        "radius": 0.04,
+        "flareLit": 44.167,
+        "lifeStart": 37.483,
+        "announced": true,
+        "inLifeWarning": 1.183
+      }
+    }
+  ],
+  "errors": []
+}

@@ -1,0 +1,136 @@
+{
+ "args": {
+  "seeds": [
+   7,
+   42
+  ],
+  "secs": 120,
+  "urlParams": ""
+ },
+ "results": [
+  {
+   "seed": 7,
+   "mode": "aimed",
+   "secs": 120,
+   "kills": 80,
+   "killsPerMin": 40,
+   "deaths": 2,
+   "maxStage": 3,
+   "bins": {
+    "near": 5,
+    "mid": 72,
+    "far": 3
+   },
+   "binsFrac": {
+    "near": 0.063,
+    "mid": 0.9,
+    "far": 0.037
+   },
+   "spanP50": 0.04817,
+   "spanP90": 0.11294,
+   "bySrc": {
+    "vulcan": 64,
+    "missile": 16
+   },
+   "byPattern": {
+    "approach": 52,
+    "overtake": 10,
+    "crosser": 17,
+    "battery": 1
+   },
+   "errors": []
+  },
+  {
+   "seed": 7,
+   "mode": "handsoff",
+   "secs": 120,
+   "kills": 26,
+   "killsPerMin": 13,
+   "deaths": 9,
+   "maxStage": 1,
+   "bins": {
+    "near": 8,
+    "mid": 18,
+    "far": 0
+   },
+   "binsFrac": {
+    "near": 0.308,
+    "mid": 0.692,
+    "far": 0
+   },
+   "spanP50": 0.09239,
+   "spanP90": 0.15219,
+   "bySrc": {
+    "vulcan": 26
+   },
+   "byPattern": {
+    "overtake": 7,
+    "approach": 15,
+    "crosser": 4
+   },
+   "errors": []
+  },
+  {
+   "seed": 42,
+   "mode": "aimed",
+   "secs": 120,
+   "kills": 73,
+   "killsPerMin": 36.5,
+   "deaths": 2,
+   "maxStage": 3,
+   "bins": {
+    "near": 7,
+    "mid": 62,
+    "far": 4
+   },
+   "binsFrac": {
+    "near": 0.096,
+    "mid": 0.849,
+    "far": 0.055
+   },
+   "spanP50": 0.05111,
+   "spanP90": 0.11138,
+   "bySrc": {
+    "vulcan": 53,
+    "missile": 20
+   },
+   "byPattern": {
+    "approach": 41,
+    "overtake": 9,
+    "crosser": 17,
+    "battery": 6
+   },
+   "errors": []
+  },
+  {
+   "seed": 42,
+   "mode": "handsoff",
+   "secs": 120,
+   "kills": 25,
+   "killsPerMin": 12.5,
+   "deaths": 8,
+   "maxStage": 1,
+   "bins": {
+    "near": 10,
+    "mid": 15,
+    "far": 0
+   },
+   "binsFrac": {
+    "near": 0.4,
+    "mid": 0.6,
+    "far": 0
+   },
+   "spanP50": 0.11099,
+   "spanP90": 0.14901,
+   "bySrc": {
+    "vulcan": 25
+   },
+   "byPattern": {
+    "approach": 15,
+    "overtake": 6,
+    "crosser": 4
+   },
+   "errors": []
+  }
+ ]
+}

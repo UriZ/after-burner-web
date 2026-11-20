@@ -1,0 +1,70 @@
+{
+  "seed": 42,
+  "log": "judging/R36/playtest-evidence/ses2-commands.jsonl",
+  "deaths": [
+    {
+      "tick": 1541,
+      "score": 84755,
+      "hit": {
+        "t": 25.66666666666649,
+        "type": "battery",
+        "fromX": 0.7417,
+        "fromY": -0.412,
+        "fromD": 11.36,
+        "aimX": -0.132,
+        "aimY": 0.4328,
+        "fatal": true,
+        "warning": 0.9999999999999659,
+        "sweep": 0.0633776799547625,
+        "radius": 0.04,
+        "flareLit": 24.667,
+        "lifeStart": 0,
+        "announced": true,
+        "inLifeWarning": 1
+      }
+    },
+    {
+      "tick": 2558,
+      "score": 535170,
+      "hit": {
+        "t": 42.599999999998865,
+        "type": "battery",
+        "fromX": 0.3412,
+        "fromY": -0.412,
+        "fromD": 11.36,
+        "aimX": -0.2222,
+        "aimY": -0.5992,
+        "fatal": true,
+        "warning": 1.0333333333332972,
+        "sweep": 0.056482726124485995,
+        "radius": 0.04,
+        "flareLit": 41.567,
+        "lifeStart": 33.4,
+        "announced": true,
+        "inLifeWarning": 1.033
+      }
+    },
+    {
+      "tick": 3766,
+      "score": 576090,
+      "hit": {
+        "t": 62.71666666666439,
+        "type": "fighter",
+        "fromX": 0.0562,
+        "fromY": -0.1233,
+        "fromD": 26.05,
+        "aimX": -0.0412,
+        "aimY": -0.1072,
+        "fatal": true,
+        "warning": 3.0999999999998806,
+        "sweep": 0.041511745959885056,
+        "radius": 0.04,
+        "flareLit": 59.617,
+        "lifeStart": 50.333,
+        "announced": true,
+        "inLifeWarning": 3.1
+      }
+    }
+  ],
+  "errors": []
+}

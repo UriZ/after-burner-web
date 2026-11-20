@@ -1,0 +1,55 @@
+{
+  "id": 4,
+  "stick": {
+    "x": 0,
+    "y": 0,
+    "fire": true,
+    "missile": true,
+    "throttleIndex": 1
+  },
+  "tickStart": 110,
+  "tickEnd": 160,
+  "flow": {
+    "state": "flight",
+    "stageIndex": 0,
+    "stageNumber": 1,
+    "contentStageIndex": 0,
+    "lives": 3,
+    "score": 8800,
+    "deathPhase": null,
+    "throttleIndex": 1,
+    "throttleFraction": 0.6896551724137931,
+    "rolling": false,
+    "scrollSpeed": 68.93,
+    "throttleLetter": "M",
+    "poseDeg": 0,
+    "bankDeg": 0,
+    "rollPhase": null,
+    "poseSource": "sheet-day",
+    "spriteRotationDeg": 0,
+    "worldRollDeg": 0,
+    "graceFlashHidden": false,
+    "stickX": 0,
+    "stickY": 0,
+    "jetNdcX": -0.05068781021322345,
+    "jetNdcY": -0.16202958041303916
+  },
+  "sight": {
+    "ndcX": -0.050687810213223466,
+    "ndcY": 0.13797041958696082,
+    "n": 8
+  },
+  "combat": {
+    "simTime": 2.666666666666662,
+    "alive": 8,
+    "hits": 5,
+    "missileStock": 50,
+    "locks": 1,
+    "missilesInFlight": 0,
+    "vulcanRounds": 8,
+    "enemyShots": 0,
+    "onScreen": 8,
+    "nearestSpanFrac": 0.014931754782110517
+  },
+  "pageErrors": 0
+}
