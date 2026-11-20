@@ -936,6 +936,94 @@ function hotCores() {
 const PEAK_FRAC = 0.30;
 
 // ---------------------------------------------------------------------------
+// R38 — THE KILL EXPLOSION IS ANCHORED TO ITS VICTIM (kill-placement lane).
+// Read judging/R38/kill-placement/NOTES.md §1-2 before retuning these.
+//
+// THE DEFECT. The fireball was sized `worldWidthFor(PEAK_FRAC…, depth)` —
+// a fixed 30 %W SCREEN fraction at ANY depth — and parked at a fixed world
+// point for its whole life. So a mid-depth kill on a 5 %W enemy threw the
+// same 30 %W fireball as a point-blank one, centred ~0.10 fracW above the
+// jet (the sight leads the nose by only SIGHT_FRAC 0.105), with a ~36 %W
+// flank-smoke pair and a parked 0.9 s residue on top: measured, 65-85 % of
+// gun kills across aimed AND hands-off arms resolved within 0.12 fracW of
+// the jet centre and every one of them drew the jet inside fire/smoke —
+// the R38 playtest's "almost every gun kill explodes directly on my own
+// nose … my jet spends whole seconds buried inside someone else's fireball".
+//
+// THE ARCADE (60 Hz consecutive, stage-1 t=94-105, sheets in the NOTES dir):
+//   * eruption size IS the victim's size, ~1.3x its span. One rule
+//     reconciles every fireball REFERENCE ever measured: t357 ~23 %W on a
+//     close ~20-23 %W victim, t100.75 10.1 %W on a mid ~7-8 %W victim.
+//     PEAK_FRAC 0.30 is untouched: it is exactly what 1.3x yields for the
+//     archetypal near kill and stays as the eruption cap.
+//   * the mass then BALLOONS PAST THE CAMERA as dead smoke — screen position
+//     slides away from the vanishing point while the projection grows 1/d,
+//     screen-filling for ~0.1-0.2 s at the end, then GONE within one frame
+//     (f0587 full fire -> f0590 clean sky). The player jet is never
+//     invisible for more than ~0.2 s anywhere in 11 s of combat.
+//   * the near kill (f0209-f0232) erupts at the player's WING, slides off
+//     the bottom in ~0.35 s, and leaves NO parked smoke at the jet.
+//   * timing fits a LINEAR depth closure (~7 u/s in our depth units) from
+//     both the near kill (~0.35 s) and the mid kill (~2 s): dead aircraft
+//     stop flying and the player's forward speed carries them past.
+//     Exponential at the victim's own depthRate fits neither.
+//
+// MECHANISM. spawn() takes an optional `victim` {spanFrac, ndcX, ndcY}.
+// With a victim, the fireball's WORLD size is fixed at spawn (so its
+// eruption spans clamp(1.3 x span, floor, PEAK_FRAC)) and the whole event
+// advances toward the camera at BALLOON_CLOSURE: depth falls linearly, the
+// ndc scales by d0/d (a fixed world lateral point under screenSpace's
+// perspective — exact, not approximated), and the projection does the
+// ballooning. At BALLOON_RETIRE_DEPTH the event retires INSTANTLY, debris
+// and all — the arcade's gone-in-one-frame read. Callers that pass no
+// victim (the death sequence, ?combatexpl) get the legacy parked behaviour
+// bit-for-bit, which keeps the death starburst parked ON the jet — the
+// discriminator between "my kill" and "my death" the playtest asked for.
+const FIREBALL_SPAN_MULT = 1.3;
+// Floor so a far-speck kill still reads as a burst (19 native px of 320);
+// arcade far kills are small flashes inside the lock brackets (R36 f0393).
+const FIREBALL_FRAC_MIN = 0.06;
+const BALLOON_CLOSURE = 7; // depth units/s, linear — see the derivation above
+const BALLOON_RETIRE_DEPTH = 1.3;
+// The dead mass FALLS, in world units/s — NEAR KILLS ONLY. Pure radial
+// ballooning is imperceptible for a kill near the vanishing point (a d=6
+// nose kill slides ~2 %W over the fire's whole life — measured on the first
+// cut's capture, cap-after-s7-crosser), while the arcade's near-kill ball
+// visibly DROPS from the wing to off the bottom edge in ~0.35 s
+// (arc-near-kill sheet). 4.0 world u/s projects to roughly that drop at the
+// near depths where the separation matters.
+//
+// FADED OUT BY MID DEPTH, measured reason: applied uniformly, the fall
+// dragged a sight-high mid kill's mass and residue DOWN INTO the jet's own
+// column (residue spawn point ndcY +0.23 -> +0.05 on the d=16 kill in
+// cap-after2-s7-mid) — recreating a mild version of the very gap this lane
+// is closing. A mid kill's event is brief (CHUNK_LIFE_S) and its residue
+// belongs AT the kill point, above the jet, where the arcade's own salvo
+// kills leave their smoke (arc f0339+).
+const BALLOON_FALL = 4.0;
+const BALLOON_FALL_FULL_D = 6; // full fall at/below this kill depth…
+const BALLOON_FALL_ZERO_D = 10; // …fading to none by this kill depth
+// Kill-depth at/below which the flank dressing is skipped: the arcade near
+// kill is eruption -> balloon -> gone, with no flanking parked mass (§2.1).
+// 6 covers the crosser/flyby/wall band (fly-past 2.9-3.0, wall hold 4.6-6.4).
+const FLANK_SKIP_DEPTH = 6;
+// If the balloon has already closed to here by fire-out, it is about to
+// pass the camera — leave no parked residue behind it.
+const RESIDUE_SKIP_DEPTH = 4;
+// NEAR-bin kills (victim span >= 12 %W, the R36 census operator) leave NO
+// parked dressing at all, whatever their exact depth: the first cut skipped
+// by depth alone and a d=6.13, 15.6 %W crosser kill still parked ~1 s of
+// flank+residue smoke ON the jet (cap-after-s7-crosser). Expressed on
+// baseFrac so it needs no extra stored field: baseFrac >= 1.3 x 0.12 iff
+// span >= 0.12 (the 0.30 cap and 0.06 floor cannot false-positive here).
+const NEAR_KILL_FRAC = FIREBALL_SPAN_MULT * 0.12;
+// Flank smoke / cores / residue scale with the victim (they are dressing ON
+// the fireball; R19 solved their sizes against a PEAK_FRAC 0.30 fire, so the
+// RELATIVE geometry is what that measurement pinned). Floored so a mid kill
+// still leaves a visible mass. Debris chunks scale by the raw ratio.
+const DRESS_RATIO_MIN = 0.4;
+
+// ---------------------------------------------------------------------------
 // THE ENVELOPE IN TIME. R10. READ THIS BEFORE LENGTHENING ANYTHING HERE.
 //
 // Every palette, core-fraction, saturation and silhouette gate in this
@@ -1144,13 +1232,27 @@ export class ExplosionField {
 
   // `scale` lets a big target (bomber) throw a bigger fireball. `depth` is
   // camera-space view depth; the camera is static in this build so it is
-  // fixed for the explosion's life.
-  spawn(position, depth, rng, scale = 1) {
+  // fixed for the explosion's life — EXCEPT on the R38 victim path, where
+  // the event balloons toward the camera (see the block above
+  // FIREBALL_SPAN_MULT).
+  //
+  // `victim` (R38, optional): {spanFrac, ndcX, ndcY} of the aircraft this
+  // kill is for, supplied by combat.js. Omitted by the death sequence and
+  // the harnesses, which keep the legacy parked behaviour exactly.
+  spawn(position, depth, rng, scale = 1, victim = null) {
     const sprite = this._acquire();
     sprite.position.copy(position);
     sprite.material.opacity = 1;
     sprite.material.rotation = rng() * Math.PI * 2;
     this.scene.add(sprite);
+
+    // Eruption diameter, screen-width fraction AT THE KILL DEPTH. The world
+    // size is derived from it once (sizing in update() uses depth0, never
+    // the advancing depth), so the projection grows 1/d as the mass closes.
+    const baseFrac = victim
+      ? Math.min(PEAK_FRAC, Math.max(FIREBALL_FRAC_MIN, FIREBALL_SPAN_MULT * victim.spanFrac))
+      : PEAK_FRAC * scale;
+    const sizeRatio = victim ? baseFrac / PEAK_FRAC : 1;
 
     const debris = [];
     const n = 5 + Math.floor(rng() * 4);
@@ -1196,17 +1298,38 @@ export class ExplosionField {
     // `rot` and `pos` are stored rather than read back off the sprite: by
     // the time the residue is spawned the burst sprite has been returned to
     // the pool, and reading a pooled object's fields is how a reuse bug gets
-    // written later.
+    // written later. On the victim path `pos` is advanced every tick to the
+    // ballooned position (so the residue spawns where the mass IS, not where
+    // the kill was) and `depth` advances with it; depth0 is the kill depth
+    // every world size is derived from.
     this.live.push({
-      sprite, age: 0, depth, scale, chunks: debris, fireOut: false,
+      sprite, age: 0, depth, depth0: depth, scale, chunks: debris, fireOut: false,
       rot: sprite.material.rotation, pos: position.clone(),
+      balloon: !!victim,
+      ndc0: victim ? { x: victim.ndcX, y: victim.ndcY } : null,
+      fallRate: victim
+        ? BALLOON_FALL *
+          Math.max(0, Math.min(1,
+            (BALLOON_FALL_ZERO_D - depth) / (BALLOON_FALL_ZERO_D - BALLOON_FALL_FULL_D)))
+        : 0,
+      baseFrac,
+      sizeRatio,
+      dressRatio: victim ? Math.max(DRESS_RATIO_MIN, sizeRatio) : 1,
     });
 
     // R19: the flank smoke is thrown NOW, concurrent with the fire (the arcade
     // blast's flanking puffs sit beside the fireball, not after it — they are
     // what makes the kill read ~2x wide). Derived from the burst rotation, no
     // PRNG draw — same rule as _spawnSmoke.
-    this._spawnFlankSmoke(position, depth, scale, sprite.material.rotation);
+    // R38: skipped for near-field kills — the arcade near kill is eruption ->
+    // balloon -> gone, no flanking parked mass at the jet (NOTES §2.1). The
+    // skip draws nothing from the PRNG (the dressing never did).
+    if (!(victim && (depth <= FLANK_SKIP_DEPTH || baseFrac >= NEAR_KILL_FRAC))) {
+      this._spawnFlankSmoke(
+        position, depth, scale, sprite.material.rotation,
+        victim ? Math.max(DRESS_RATIO_MIN, sizeRatio) : 1
+      );
+    }
   }
 
   // Two orange/peach smoke puffs thrown LEFT and RIGHT of the fire, so the
@@ -1217,8 +1340,11 @@ export class ExplosionField {
   // stream combat.js spawns from must not move, so the per-puff variation is a
   // pure function of the burst rotation, exactly as _spawnSmoke derives its
   // jitter.
-  _spawnFlankSmoke(position, depth, scale, rot) {
-    const sScale = Math.min(scale, 1.6);
+  // `ratio` (R38): victim-relative scale on the whole flank layout — offset
+  // and puff sizes alike, so the R19 geometry (solved against a PEAK_FRAC
+  // 0.30 fire) stays similar on a smaller, victim-sized fireball.
+  _spawnFlankSmoke(position, depth, scale, rot, ratio = 1) {
+    const sScale = Math.min(scale, 1.6) * ratio;
     const off = this.space.worldWidthFor(FLANK_OFFSET * sScale, depth);
     const dy = this.space.worldWidthFor(0.02 * sScale, depth);
     for (const side of [-1, 1]) {
@@ -1275,7 +1401,12 @@ export class ExplosionField {
     // factor of seven in area, and at that magnification the 32-texel canvas
     // reads as a slab rather than as pixel art. Capped at the largest thing
     // this lane actually measured.
-    const sScale = Math.min(e.scale, 1.6);
+    // R38: no parked residue behind a balloon that is about to pass the
+    // camera — the arcade leaves a CLEAN sky one frame after the pass
+    // (NOTES §2.3). e.depth/e.pos are the ballooned values by now, so a
+    // residue that does spawn sits where the mass is, not where the kill was.
+    if (e.balloon && (e.depth <= RESIDUE_SKIP_DEPTH || e.baseFrac >= NEAR_KILL_FRAC)) return;
+    const sScale = Math.min(e.scale, 1.6) * e.dressRatio;
     const spread = this.space.worldWidthFor(0.030 * sScale, e.depth);
     const a = e.rot;
     for (let i = 0; i < SMOKE_PUFFS; i++) {
@@ -1320,6 +1451,50 @@ export class ExplosionField {
     for (let i = this.live.length - 1; i >= 0; i--) {
       const e = this.live[i];
       e.age += dt;
+      // R38 — THE BALLOON. Victim-anchored events close on the camera at a
+      // constant rate; the ndc scales by depth0/d (a fixed world lateral
+      // point under this perspective — screenSpace.ndcToWorld is a plain
+      // ray), so the mass slides away from the vanishing point while the
+      // projection grows 1/d. Every world size below is derived from depth0,
+      // so the growth comes from the camera, not from re-sizing.
+      if (e.balloon) {
+        const d = e.depth0 - BALLOON_CLOSURE * e.age;
+        if (d <= BALLOON_RETIRE_DEPTH) {
+          // Past the camera: the whole event ends THIS tick, debris and all,
+          // with no residue — the arcade's gone-in-one-frame read (f0587
+          // screen-filling fire -> f0590 clean sky).
+          if (!e.fireOut) {
+            this.scene.remove(e.sprite);
+            this.pool.push(e.sprite);
+          }
+          for (const c of e.chunks) {
+            this.scene.remove(c.sprite);
+            this.chunkPool.push(c.sprite);
+          }
+          this.live.splice(i, 1);
+          continue;
+        }
+        e.depth = d;
+        const f = e.depth0 / d;
+        const ox = e.pos.x;
+        const oy = e.pos.y;
+        const oz = e.pos.z;
+        this.space.ndcToWorld(e.ndc0.x * f, e.ndc0.y * f, d, e.pos);
+        // The fall: a constant world-space sink, so its SCREEN rate is
+        // 1/d-amplified exactly like everything else about the pass.
+        e.pos.y -= e.fallRate * e.age;
+        if (!e.fireOut) e.sprite.position.copy(e.pos);
+        // Debris rides the balloon: the entry's own displacement this tick
+        // on top of each chunk's radial drift.
+        const dx = e.pos.x - ox;
+        const dy = e.pos.y - oy;
+        const dz = e.pos.z - oz;
+        for (const c of e.chunks) {
+          c.sprite.position.x += dx;
+          c.sprite.position.y += dy;
+          c.sprite.position.z += dz;
+        }
+      }
       // Two clocks now, because the chunks outlive the fire. The burst sprite
       // leaves the scene at LIFE_S and the entry stays until the debris is
       // done; a single clock would either hold the fireball for the chunks'
@@ -1340,11 +1515,14 @@ export class ExplosionField {
       }
       const t = Math.min(1, e.age / LIFE_S);
       if (e.fireOut) {
-        // Fire gone; only the debris is still being driven.
+        // Fire gone; only the debris is still being driven. World size from
+        // depth0 and sizeRatio (R38): a chunk is a fixed world object scaled
+        // to its own fireball, so the balloon's 1/d growth comes from the
+        // projection rather than from this call.
         for (const c of e.chunks) {
           c.sprite.position.x += c.vx * dt;
           c.sprite.position.y += c.vy * dt;
-          sizeSprite(c.sprite, this.space.worldWidthFor(CHUNK_FRAC, e.depth));
+          sizeSprite(c.sprite, this.space.worldWidthFor(CHUNK_FRAC * e.sizeRatio, e.depth0));
           c.sprite.material.map = chunkTex[1];
           c.sprite.material.opacity = 1;
         }
@@ -1405,7 +1583,11 @@ export class ExplosionField {
       // grey smoke judging/R6/art-critique.md asked for.
       const phase = t < DECAY_FROM ? 0 : (t < DECAY_MID ? 1 : 2);
       e.sprite.material.map = texs[phase][Math.floor(e.age * BOIL_HZ) % ARRANGEMENTS.length];
-      sizeSprite(e.sprite, this.space.worldWidthFor(PEAK_FRAC * e.scale * grow, e.depth));
+      // baseFrac at depth0 (R38): PEAK_FRAC * scale for legacy callers —
+      // identical to the old expression — and the victim-anchored eruption
+      // size for kills. Sized against depth0 so the victim path's on-screen
+      // growth is the projection's 1/d, not a re-size.
+      sizeSprite(e.sprite, this.space.worldWidthFor(e.baseFrac * grow, e.depth0));
       // OPAQUE FOR ITS WHOLE LIFE. The arcade's explosions are sprite
       // animations that END; they do not dissolve into the sky. The old
       // `t < 0.8 ? 1 : 1 - (t - 0.8) / 0.2` is the single largest contributor
@@ -1420,7 +1602,7 @@ export class ExplosionField {
       for (const c of e.chunks) {
         c.sprite.position.x += c.vx * dt;
         c.sprite.position.y += c.vy * dt;
-        sizeSprite(c.sprite, this.space.worldWidthFor(CHUNK_FRAC, e.depth));
+        sizeSprite(c.sprite, this.space.worldWidthFor(CHUNK_FRAC * e.sizeRatio, e.depth0));
         // Same rule, two colours instead of a ramp: the chunk cools to dark
         // red rather than fading out. 4x4 texels each, so this is a handful
         // of pixels — and a handful of pixels is exactly what a set-cardinality

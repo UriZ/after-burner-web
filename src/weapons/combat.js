@@ -1522,7 +1522,19 @@ export class Combat {
     this.killCounts[source] = (this.killCounts[source] ?? 0) + 1;
     const pos = new THREE.Vector3();
     this.space.ndcToWorld(enemy.ndc.x, enemy.ndc.y, enemy.d, pos);
-    this.explosions.spawn(pos, enemy.d, this.rng, enemy.type === 'bomber' ? 1.4 : 1);
+    // R38 (kill-placement): the KILL explosion is anchored to its VICTIM —
+    // eruption sized to the aircraft's own projected span, then ballooning
+    // 1/d past the camera like the arcade's dead smoke, instead of a fixed
+    // 30 %W fireball parked at the kill point (which made every kill read as
+    // an explosion ON the player's jet — judging/R38/kill-placement/NOTES.md
+    // §1-2). The death sequence's own spawns pass no victim and keep the
+    // parked starburst, which is what visually separates "I killed that"
+    // from "I died".
+    this.explosions.spawn(pos, enemy.d, this.rng, enemy.type === 'bomber' ? 1.4 : 1, {
+      spanFrac: enemy.spanFrac(this.space),
+      ndcX: enemy.ndc.x,
+      ndcY: enemy.ndc.y,
+    });
     AudioBus.play('explosion', { big: enemy.type === 'bomber' });
     this.hits += 1;
     // Removed on the same tick it dies so the tracking bracket jumps to the
