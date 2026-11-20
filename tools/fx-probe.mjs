@@ -37,6 +37,7 @@ import {
   vulcanTexture, enemyShotTextures, missileTexture, muzzleFlashTexture, lockBarTexture,
 } from '../src/weapons/projectileSprites.js';
 import { telegraphTextures } from '../src/weapons/telegraph.js';
+import { batteryShotTexturesForProbe } from '../src/weapons/enemyShots.js';
 import { burstTexturesForProbe, chunkTexturesForProbe } from '../src/effects/explosions.js';
 import {
   smokePuffTexture, trailPuffTexture, billowTexture, SMOKE_VALUES, killSmokeTexturesForProbe,
@@ -51,6 +52,9 @@ function elements() {
     // Both boil frames of the R37 enemy round (enemyShots.js flickers them).
     { name: 'enemyShot[A]', kind: 'effect', tex: enemyShotTextures()[0] },
     { name: 'enemyShot[B]', kind: 'effect', tex: enemyShotTextures()[1] },
+    // R38 battery strobe pair (enemyShots.js BAT_ROWS_* — same SHOT_PALETTE).
+    { name: 'batteryShot[A]', kind: 'effect', tex: batteryShotTexturesForProbe()[0] },
+    { name: 'batteryShot[B]', kind: 'effect', tex: batteryShotTexturesForProbe()[1] },
     { name: 'missile', kind: 'vehicle', tex: missileTexture() },
     { name: 'muzzleFlash', kind: 'effect', tex: muzzleFlashTexture() },
     { name: 'lockBar', kind: 'effect', tex: lockBarTexture() },

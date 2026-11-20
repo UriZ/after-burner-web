@@ -119,6 +119,19 @@ export function telegraphTextures() {
 const FLARE_PX_MIN = 10;
 const FLARE_PX_MAX = 18;
 
+// R38 (death-legibility-2) — the BATTERY's flare is a third larger. The R38
+// death replay (judging/R38/death-legibility2/) attributes 6 of the 7
+// playtest deaths to ground-battery rounds, and the battery's whole visual
+// warning chain is 0.4 s of this star + 0.79 s of round flight. Unlike an
+// air firer — an aircraft against open sky — the battery sits at the BOTTOM
+// of the frame inside terrain clutter (the 60 Hz approach strips show the
+// turret amid desert mottle and the low HUD row), so the same star at the
+// same size buys less legibility there. Size only: the pulse rhythm, the
+// 0.4 s duration (groundBattery.js — a FAIRNESS constant, since the aim
+// snapshots when the flare lights) and the aim geometry are untouched.
+const BATTERY_FLARE_PX_MIN = 14;
+const BATTERY_FLARE_PX_MAX = 26;
+
 // The flare PULSES rather than fading in, and the pulse accelerates: 3 beats
 // over the 0.45 s window, so the player gets a rhythm that reads as "about
 // to happen" rather than a smooth ramp that reads as ambience. The last beat
@@ -160,7 +173,9 @@ export class Telegraphs {
       // Triangle-wave pulse. Math.abs of a sine would give equal beats; the
       // t-weighting makes each beat brighter and larger than the last.
       const beat = Math.abs(Math.sin(t * Math.PI * PULSES));
-      const px = FLARE_PX_MIN + (FLARE_PX_MAX - FLARE_PX_MIN) * beat * (0.4 + 0.6 * t);
+      const pxMin = e.isBattery ? BATTERY_FLARE_PX_MIN : FLARE_PX_MIN;
+      const pxMax = e.isBattery ? BATTERY_FLARE_PX_MAX : FLARE_PX_MAX;
+      const px = pxMin + (pxMax - pxMin) * beat * (0.4 + 0.6 * t);
       this.space.ndcToWorld(e.ndc.x, e.ndc.y, e.d, s.position);
       // Map BEFORE sizeSprite: sizeSprite reads the aspect off the live map.
       // Both variants are 9x9 so it makes no difference today, and it would

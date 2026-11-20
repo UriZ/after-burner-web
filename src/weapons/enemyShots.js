@@ -1,6 +1,6 @@
-import { makeBillboard } from '../effects/pixelTexture.js';
+import { makeBillboard, makePixelTexture } from '../effects/pixelTexture.js';
 import { sizeSprite } from '../effects/smoke.js';
-import { enemyShotTextures } from './projectileSprites.js';
+import { enemyShotTextures, SHOT_PALETTE } from './projectileSprites.js';
 import { AudioBus } from '../audio/index.js';
 
 // Enemy fire.
@@ -204,6 +204,104 @@ const FRAC_NEAR = 0.031; // 9.9 px of 320 — near the arcade's p90/max near-end
 // only — the palette-swap idiom (telegraph.js), never an opacity ramp.
 const FLICKER_HZ = 30;
 
+// R38 (death-legibility-2) — THE BATTERY ROUND GETS ITS OWN BOIL FRAMES, and
+// the air round stays byte-identical. The R38 playtest died 7 times and named
+// the killer "one slow orange puff among dozens of identical drifting puffs";
+// the tick-exact replay of all three sessions (judging/R38/death-legibility2/)
+// attributes 6 of the 7 to BATTERY rounds — 0.79 s of visible flight, drawn
+// 7–9.9 px, exactly as R36 sized them. The 60 Hz track-crops of two of those
+// deaths (s2b-death1-round-track-3x.png, s1-death3-round-track-3x.png) show
+// WHY the size fix wasn't enough:
+//
+//   * the round's pale-peach body (#f7b584 — measured on the stage-7 t330
+//     train, a NIGHT sky) camouflages against stage 2's orange sunset sky,
+//     against the cream clouds it crosses, and against stage 1's bright sea;
+//     only the red cap carries contrast there;
+//   * the authored 1-texel outline is 0.6 screen px at the 9.9 px the round
+//     draws (16-wide canvas) — the arcade's own "thin near-black outline" is
+//     ~1 native px of a 10.6–11.8 px round, i.e. proportionally TWICE ours,
+//     and it is the only element that reads on every background;
+//   * at arrival the round sits among STEADY warm blobs of its own size
+//     family — the player's gold vulcan puffs (4.5–5.4 px, 12/s), kill-smoke
+//     residue balls, the nose-kill fireballs. Nothing marks it as the live
+//     threat.
+//
+// So battery rounds — the killer class — flicker between two frames authored
+// HERE, from the same measured SHOT_PALETTE (no new colours, fx-probe audits
+// both): frame A is the layered red-cap oval with the outline thickened to
+// the arcade's own proportion; frame B flashes the body HOT (#fff7ce family)
+// under the same cap and outline. At the existing FLICKER_HZ = 30 the round
+// STROBES red<->hot — the only strobing object on screen — where every
+// confusable ambient class holds a steady colour. The air train keeps the
+// R37 measured boil untouched; its warning is 2.7–3.7 s and was never the
+// hole. Sizes, ballistics and the hit test are untouched, so the R36
+// SIZE-aware announced guarantee is unchanged by construction.
+//
+// (The R37 whistle/roar already covers the AUDIO channel for hearing players
+// — the playtest instrument is deaf, which is part of why it saw nothing.)
+//
+// Grid chars map to SHOT_PALETTE indices: o=outline r=cap s=shadow-orange
+// p=pale-peach c=cream h=hot (see projectileSprites.js SHOT_ROWS_*).
+const BAT_ROWS_A = [
+  '....oorrrroo....',
+  '..oorrrrrrrroo..',
+  '.oorrrrrrrrrroo.',
+  '.oorrrrrrrrrroo.',
+  '.oosppppppppsoo.',
+  'oopchhhhhhhhcpoo',
+  'oophhhhhhhhhhpoo',
+  'oopccccccccccpoo',
+  '.ooppppppppppoo.',
+  '.oosppppppppsoo.',
+  '..oosppppppsoo..',
+  '...oossssssoo...',
+];
+const BAT_ROWS_B = [
+  '...oorrrrrroo...',
+  '..oorrrrrrrroo..',
+  '..oohhhhhhhhoo..',
+  '.oohhhhhhhhhhoo.',
+  'oohhhhhhhhhhhhoo',
+  'oohhhhhhhhhhhhoo',
+  'oohhhhhhhhhhhhoo',
+  'oochhhhhhhhhhcoo',
+  '.oochhhhhhhhcoo.',
+  '.oocchhhhhhccoo.',
+  '..ooccccccccoo..',
+  '...ooccccccoo...',
+];
+// SHOT_PALETTE order: [outline, rim, body, pale, core, hot].
+const BAT_ROLES = {
+  o: SHOT_PALETTE[0],
+  r: SHOT_PALETTE[1],
+  s: SHOT_PALETTE[2],
+  p: SHOT_PALETTE[3],
+  c: SHOT_PALETTE[4],
+  h: SHOT_PALETTE[5],
+};
+function drawBatteryRows(rows) {
+  return (ctx, w, h) => {
+    const pw = w / 16;
+    const ph = h / 12;
+    for (let y = 0; y < 12; y++) {
+      for (let x = 0; x < 16; x++) {
+        const ch = rows[y][x];
+        if (ch === '.') continue;
+        ctx.fillStyle = BAT_ROLES[ch];
+        ctx.fillRect(x * pw, y * ph, pw, ph);
+      }
+    }
+  };
+}
+let batTexes = null;
+function batteryShotTextures() {
+  batTexes ??= [BAT_ROWS_A, BAT_ROWS_B].map((rows, i) =>
+    makePixelTexture(drawBatteryRows(rows), 16, 12, { palette: SHOT_PALETTE }));
+  return batTexes;
+}
+// Measurement-only accessor: tools/fx-probe.mjs audits the authored canvases.
+export const batteryShotTexturesForProbe = () => batteryShotTextures();
+
 // Player plane depth, for the incoming-round AUDIO's time-to-crossing only.
 // The hit test itself uses combat.js's live playerNdc.depth; this constant is
 // the same ~5 every combat/groundBattery derivation quotes. An error here
@@ -278,6 +376,8 @@ export class EnemyShots {
       fracFar: opts && opts.fracFar ? opts.fracFar : FRAC_FAR,
       fracNear: opts && opts.fracNear ? opts.fracNear : FRAC_NEAR,
       progressSize: !!(opts && opts.progressSize),
+      // Battery rounds draw the R38 strobe frames (see the block above).
+      battery: !!(opts && opts.battery),
       audioId,
       age: 0,
       // Per-shot boil phase: spawn-order parity, so a train's rounds flicker
@@ -327,8 +427,10 @@ export class EnemyShots {
       // The measured boil: alternate the two authored frames at FLICKER_HZ,
       // offset per shot. Map BEFORE sizeSprite (it reads aspect off the live
       // map — telegraph.js's note; both frames are 16x12 today, and this keeps
-      // it correct the day one is redrawn).
-      s.sprite.material.map = texes[(Math.floor(s.age * FLICKER_HZ) + s.flickerPhase) & 1];
+      // it correct the day one is redrawn). Battery rounds use the R38
+      // high-contrast strobe pair instead (same palette, same cadence).
+      const pair = s.battery ? batteryShotTextures() : texes;
+      s.sprite.material.map = pair[(Math.floor(s.age * FLICKER_HZ) + s.flickerPhase) & 1];
       sizeSprite(
         s.sprite,
         this.space.worldWidthFor(s.fracFar + (s.fracNear - s.fracFar) * q, s.depth)
