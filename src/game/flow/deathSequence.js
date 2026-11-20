@@ -68,8 +68,20 @@ import { assertOnLadder, rgbToHex } from '../../ui/ladder.js';
 const FIREBALL_S = 0.7;
 const STARBURST_S = 1.3;
 const TUMBLE_S = 4.0;
-const RESPAWN_S = 1.7;
-export const DEATH_TOTAL_S = FIREBALL_S + STARBURST_S + TUMBLE_S + RESPAWN_S; // 7.7s
+// R40 TAKES THE 0.72 s DIVERGENCE R7 NAMED AND DECLINED (see the block at
+// "THE 0.72 s WE KNOWINGLY DIVERGE BY" below, which R7 wrote and which already
+// contained this fix). The arcade's slide-in is 0.98 s and the player has the
+// stick from there, with READY still blinking over LIVE flight for 0.72 s more;
+// we held control for the whole 1.7 s card. The R39 playtest filed it as
+// "~6.5 s death control lockout felt long" — it was 7.7 s against the arcade's
+// 6.98 s, and the gap is exactly this card. Splitting the constant in two gives
+// the stick back on the arcade's own frame without shortening ANY animation:
+// the slide-in still plays, the card still lives its full 1.70 s, and the tumble
+// is untouched because the formula below subtracts the slide, and 6.98 − 0.98 is
+// the same 6.00 s budget that 7.70 − 1.70 was.
+const RESPAWN_SLIDE_S = 0.98; // t206.57 -> t207.55: oversized entry to normal scale
+export const RESPAWN_CARD_S = 1.7; // t206.57 -> t208.267: the READY card's full life
+export const DEATH_TOTAL_S = FIREBALL_S + STARBURST_S + TUMBLE_S + RESPAWN_SLIDE_S; // 6.98s
 
 // --- R11: 0.200 s OF EMPTY SKY, AND WHY THE STALE THING IS NOT THIS CONSTANT
 //
@@ -146,16 +158,25 @@ const STARBURST_MAX_S = 1.5;
 // than this would read as a cut rather than a fall.
 const TUMBLE_MIN_S = 3.0;
 
-// THE 0.72 s WE KNOWINGLY DIVERGE BY, stated rather than buried. The arcade's
-// slide-in is 0.98 s (t206.57 -> t207.55) and the player has the stick from
-// there, with the READY card still blinking over LIVE FLIGHT for another
-// 0.72 s. Ours holds control for the whole `respawn` phase, so RESPAWN_S = 1.7
-// buys the card the arcade's full on-screen life at the cost of 0.72 s of
-// control. Fixing it properly means decoupling the card from the phase —
-// `readyPhase` below is `t / RESPAWN_S` and that same ratio drives cards.js's
-// measured yellow->cyan colour phase, so it needs a second parameter, not a
-// moved boundary. Same reason the card's START is not moved: the arcade first
-// shows it at t205.25, during the tumble, ~2.3 s before control returns.
+// THE 0.72 s WE KNOWINGLY DIVERGE BY — CLOSED R40, by doing exactly what this
+// paragraph said it would take. R7's text, kept because it is the measurement:
+//
+//   "The arcade's slide-in is 0.98 s (t206.57 -> t207.55) and the player has the
+//   stick from there, with the READY card still blinking over LIVE FLIGHT for
+//   another 0.72 s. Ours holds control for the whole `respawn` phase, so
+//   RESPAWN_S = 1.7 buys the card the arcade's full on-screen life at the cost
+//   of 0.72 s of control. Fixing it properly means decoupling the card from the
+//   phase — `readyPhase` is `t / RESPAWN_S` and that same ratio drives cards.js's
+//   measured yellow->cyan colour phase, so it needs a second parameter, not a
+//   moved boundary."
+//
+// R40 split it: RESPAWN_SLIDE_S (0.98, the non-interactive slide-in) and
+// RESPAWN_CARD_S (1.70, the card's life), with `readyPhase` measured against the
+// CARD so the colour ramp still spans the full 1.70 s, and flow.js carrying the
+// clock across the death->flight handover. Three R39/R40 reads of the arcade put
+// hit->control at 6.98-7.2 s against our 7.6 s measured on a deterministic
+// capture — the whole excess was this card. The card's START is still not moved:
+// the arcade first shows it at t205.25, during the tumble, ~2.3 s before control.
 //
 // AND A GAME_SPEC CORRECTION THIS DECODE FORCED. §2 says "No visible
 // invincibility flash after respawn in any of the four instances". There is
@@ -426,9 +447,13 @@ export class DeathSequence {
   }
 
   // READY card colour phase (GAME_SPEC.md §2: "yellow, then cyan"), null
-  // outside the respawn phase. Consumed by game.js to drive cards.js.
+  // outside the respawn phase. R40: the card now OUTLIVES this sequence by
+  // 0.72 s (see RESPAWN_CARD_S), so the phase is measured against the card's own
+  // life, not the slide-in's — otherwise the measured yellow->cyan ramp would
+  // finish at 0.98 s and the tail would be a flat cyan. flow.js carries the same
+  // clock forward once control returns.
   get readyPhase() {
-    return this.phase === 'respawn' ? this.t / RESPAWN_S : null;
+    return this.phase === 'respawn' ? this.t / RESPAWN_CARD_S : null;
   }
 
   // Returns true the tick the sequence completes (control resumes).
@@ -463,7 +488,7 @@ export class DeathSequence {
           // The tumble absorbs whatever the starburst gave back, so
           // DEATH_TOTAL_S and the respawn boundary do not move. See the
           // EMPTY SKY block above.
-          this._tumbleS = Math.max(TUMBLE_MIN_S, DEATH_TOTAL_S - RESPAWN_S - this._elapsed);
+          this._tumbleS = Math.max(TUMBLE_MIN_S, DEATH_TOTAL_S - RESPAWN_SLIDE_S - this._elapsed);
           this.t = 0;
           s.visible = true;
           this._setBurnt(true);
@@ -488,12 +513,12 @@ export class DeathSequence {
       }
 
       case 'respawn': {
-        const q = Math.min(1, this.t / RESPAWN_S);
+        const q = Math.min(1, this.t / RESPAWN_SLIDE_S);
         const ease = 1 - (1 - q) * (1 - q); // ease-out: fast rise, gentle settle
         s.position.set(0, this.player.baseY - RESPAWN_DROP * (1 - ease), this.player.baseZ);
         const scaleMul = RESPAWN_OVERSIZE - (RESPAWN_OVERSIZE - 1) * ease;
         s.scale.set(this._origScaleX * scaleMul, this._origScaleY * scaleMul, 1);
-        if (this.t >= RESPAWN_S) {
+        if (this.t >= RESPAWN_SLIDE_S) {
           this.active = false;
           s.scale.set(this._origScaleX, this._origScaleY, 1);
           s.position.set(0, this.player.baseY, this.player.baseZ);

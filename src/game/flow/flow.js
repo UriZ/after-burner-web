@@ -1,5 +1,6 @@
+import * as THREE from 'three';
 import { Score, HIT_VALUE } from '../score.js';
-import { DeathSequence } from './deathSequence.js';
+import { DeathSequence, RESPAWN_CARD_S } from './deathSequence.js';
 import { LaunchSequence } from './launchSequence.js';
 import { createCarrierSprite } from './carrier.js';
 import { createTankerSprite, placeTanker } from '../../render/tanker.js';
@@ -195,6 +196,75 @@ const RELOAD_BLINK_PERIOD_S = 0.5;
 const TITLE_TIMEOUT_S = 8; // unattended fallback: title -> attract demo
 const ATTRACT_DEMO_S = 24;
 const TALLY_HITS_PER_S = 7; // REFERENCE.md: tally counts "~7 hits/s"
+// R40 re-measured the pay rate frame-exactly on ab2-longplay-60fps.mp4 at the
+// stage 1->2 boundary: the SCORE digits step by 20,000 at t=123.033, 123.167 and
+// 123.300, i.e. one hit every 0.133 s = 7.5 hits/s. 7 is 6.7% under that, inside
+// the project's 10% perceptual band, so it stays. (judging/R40/flow-timing/NOTES.md §1)
+
+// --- Stage transition timing, MEASURED R40 (judging/R40/flow-timing/NOTES.md §1).
+//
+// The R39 playtest filed "the stage transition is instant — the tally overlays
+// live combat with no pause, where the arcade gives a breath". Half of that is
+// wrong and half is right, and the arcade says which half.
+//
+// WRONG: there is no pause. 60 Hz consecutive decode across all three readable
+// boundaries (stage 1->2 at t=122.9, 2->3 at t=159.8, 3->4 at t=200.9) shows
+// enemies alive, shots in the air and the jet banking under player input for the
+// whole card. The class-header design note above is upheld, not overturned.
+//
+// RIGHT: the arcade does give the eye a beat — it CROSS-FADES THE BACKGROUND
+// PALETTE while combat continues, and we hard-cut it.
+//
+//   card on 122.900 -> sky starts 123.000 (+0.100) -> settled 123.767 (0.767 s)
+//   card on 159.833 -> sky starts 159.967 (+0.134) -> settled 160.867 (0.900 s)
+//   card on 200.900 -> sky starts 201.083 (+0.183) -> settled 201.717 (0.633 s)
+//
+// It is a LERP OF THE PALETTE, not a dissolve between two pictures: stage 1's
+// #009fff to stage 2's #f17600 passes through a neutral grey-violet ~(121,122,128),
+// which is exactly the washed-out frame at b12 f375/f379. Sprites and the HUD are
+// NOT faded (b34 f366 carries a full-brightness jet over a near-black background),
+// so this drives sky/ground/clouds and nothing else.
+const STAGE_FADE_DELAY_S = 0.14; // mean of +0.100 / +0.134 / +0.183
+const STAGE_FADE_S = 0.77; // mean of 0.767 / 0.900 / 0.633
+// The TILE swap inside the fade is a hard cut, not a dissolve, and it lands at
+// the MIDPOINT: on b12 the sky is already washed to the neutral mid-tone at f375
+// (t=123.233) while the terrain is still stage 1's coastline, and the terrain is
+// stage 2's desert by f391 (t=123.500) — q = (123.4-123.0)/0.767 ~ 0.52. Only b12
+// can answer this (stage 3's night ground is too dark to date the swap), so one
+// boundary is the whole evidence; it is also the only arrangement available to
+// this file, because ground.setStage() re-lays-out its pooled prop/tree sprites
+// on every call and cannot be driven per frame without scrambling them.
+const STAGE_FADE_SWAP_Q = 0.5;
+
+// sRGB-space lerp between two stage sky colours. The arcade's fade is a hardware
+// PALETTE interpolation over 8-bit display-referred values, so the lerp belongs in
+// sRGB; done in three's linear working space the stage 1->2 midpoint comes out far
+// darker than the measured grey-violet. Both ends go through an explicit
+// colorSpace argument for the reason stage.js's srgb() helper exists (R1: a bare
+// THREE.Color float triple is NOT sRGB-decoded under three's colour management).
+const _fadeFrom = { r: 0, g: 0, b: 0 };
+const _fadeTo = { r: 0, g: 0, b: 0 };
+function lerpSkyColor(out, from, to, q) {
+  from.getRGB(_fadeFrom, THREE.SRGBColorSpace);
+  to.getRGB(_fadeTo, THREE.SRGBColorSpace);
+  return out.setRGB(
+    _fadeFrom.r + (_fadeTo.r - _fadeFrom.r) * q,
+    _fadeFrom.g + (_fadeTo.g - _fadeFrom.g) * q,
+    _fadeFrom.b + (_fadeTo.b - _fadeFrom.b) * q,
+    THREE.SRGBColorSpace
+  );
+}
+
+// "STAGE n" banner BLINK, MEASURED R40 at all three boundaries — identical at
+// each, which is why it is treated as the authored cadence and not as noise:
+//   1->2  122.800-123.050  123.333-123.583  123.867-124.117  124.400-124.650
+//   2->3  159.767-160.017  160.300-160.550  160.833-161.083  161.367-161.617
+//   3->4  200.800-201.050  201.333-201.583  201.867-202.117  202.400-202.650
+// 0.25 s on / 0.283 s off, and the first ON edge leads the tally card by
+// 0.067-0.100 s — so the banner is already lit on the frame the card appears.
+const STAGE_BANNER_PERIOD_S = 0.533;
+const STAGE_BANNER_ON_S = 0.25;
+const STAGE_BANNER_LEAD_S = 0.09;
 const CONTINUE_COUNTDOWN_S = 10; // gp t261: "CONTINUE PLAY / 10 / INSERT COIN"
 // GAME OVER dwell before the cabinet falls back to the attract loop. The
 // arcade reaches GAME OVER when a credit's continue countdown expires with no
@@ -297,7 +367,19 @@ export class GameFlow {
     this.lives = START_LIVES;
     this.throttleIndex = THROTTLE_DEFAULT_INDEX;
     this.stageTimer = 0;
-    this.tally = null; // { t, duration, hits, pointsStart }
+    this.tally = null; // { t, duration, hits, paid }
+    // R40 background cross-fade state: { t, from, to, swapped } while a stage
+    // boundary is washing over, null otherwise. `_worldStage` is the stage the
+    // sky/ground/clouds are currently SHOWING, which is the old one for the first
+    // half of a fade and is what the next fade interpolates FROM.
+    this.stageFade = null;
+    this._worldStage = null;
+    // Seconds into the READY card's life, or null when no card is running. Lives
+    // on the flow, not the death sequence, because the card outlives it — see
+    // _updateReadyCardTail.
+    this._readyCardT = null;
+    this._fadeTopColor = new THREE.Color();
+    this._fadeHorizonColor = new THREE.Color();
     this.continueCountdown = 0;
     this.gameOverTimer = 0;
     this.titleTimer = 0;
@@ -542,23 +624,23 @@ export class GameFlow {
     return isResupplyStage(this.stageNumber) ? STAGE_5 : STAGES[this.stageIndex % STAGES.length];
   }
 
-  _enterStage(index) {
+  // `fade` (R40) asks for the arcade's measured background cross-fade instead of
+  // a hard cut — see STAGE_FADE_S above. Only the normal stage ADVANCE passes it;
+  // every other entry (first stage, ?stage=N warm start, attract restart) wants
+  // the world to be correct on the very first rendered frame, because a judge or
+  // a capture can and does read tick 0.
+  _enterStage(index, { fade = false } = {}) {
     this.stageIndex = index;
     this.stageTimer = 0;
     const stage = this._renderStage();
-    // scaffold-dev's R4 interface (src/render/sky.js / ground.js): each
-    // mesh carries its own setStage(), updating every stage-dependent
-    // uniform in place — no mesh/material recreation for a live transition.
-    this.sky.setStage(stage);
-    this.ground.setStage(stage);
-    // World lane's ask W4. Clouds were the one backdrop layer not switched
-    // here, so stage-1 white banks rendered over stage 2's orange sky and
-    // stage 3's night sky — and the banks got much larger this round, so it
-    // was a large wrong-coloured object, not a small one. Guarded because
-    // game.js leaves `clouds` undefined under ?noclouds=1. Called ONLY from
-    // here, never per frame: setStage re-authors the four bank textures
-    // (it disposes and rebuilds each map), so it is cheap but not free.
-    if (this.clouds) this.clouds.setStage(stage);
+    if (fade && this._worldStage && this._worldStage !== stage) {
+      // Hold the OLD world on screen and start the fade; _updateStageFade drives
+      // sky every tick and hands ground/clouds over once, at the midpoint.
+      this.stageFade = { t: 0, from: this._worldStage, to: stage, swapped: false };
+    } else {
+      this.stageFade = null;
+      this._applyWorldStage(stage);
+    }
     // R5 (R4 judge gap 10 / team-lead's next-tier ask): `this.stageIndex` is
     // a TRUE ever-incrementing arcade-stage counter (stage 4, 5, 6... keep
     // existing beyond STAGES.length, e.g. for resupply triggers keyed to
@@ -596,6 +678,55 @@ export class GameFlow {
       // runway resupply ADOPTED — asked in judging/R16/breadth-asks.md.)
       this.combat.missileStock = MISSILE_START_STOCK;
     }
+  }
+
+  // scaffold-dev's R4 interface (src/render/sky.js / ground.js): each mesh
+  // carries its own setStage(), updating every stage-dependent uniform in place
+  // — no mesh/material recreation for a live transition.
+  //
+  // World lane's ask W4. Clouds were the one backdrop layer not switched here,
+  // so stage-1 white banks rendered over stage 2's orange sky and stage 3's
+  // night sky. Guarded because game.js leaves `clouds` undefined under
+  // ?noclouds=1. Called at a stage boundary and at the fade midpoint, never per
+  // frame: clouds.setStage re-authors the four bank textures (it disposes and
+  // rebuilds each map), and ground.setStage re-lays-out its pooled prop/tree
+  // sprites, which would visibly scramble them if it ran every tick.
+  _applyWorldStage(stage) {
+    this.sky.setStage(stage);
+    this.ground.setStage(stage);
+    if (this.clouds) this.clouds.setStage(stage);
+    this._worldStage = stage;
+  }
+
+  // The arcade's measured background cross-fade (STAGE_FADE_S above). Ticked from
+  // update()'s tail rather than from a per-state branch, because the fade is
+  // purely visual and must keep running if the player dies into it — the arcade
+  // does exactly that at gp t283.4, where a stage tally fires while the player is
+  // still dead.
+  _updateStageFade(dt) {
+    const f = this.stageFade;
+    if (!f) return;
+    f.t += dt;
+    const q = Math.min(1, Math.max(0, (f.t - STAGE_FADE_DELAY_S) / STAGE_FADE_S));
+    if (!f.swapped && q >= STAGE_FADE_SWAP_Q) {
+      f.swapped = true;
+      this.ground.setStage(f.to);
+      if (this.clouds) this.clouds.setStage(f.to);
+    }
+    if (q >= 1) {
+      this._applyWorldStage(f.to);
+      this.stageFade = null;
+      return;
+    }
+    // Everything about the sky EXCEPT its two colours (the glow elevation, the
+    // ladder/step structure) belongs to one stage or the other, not to a blend —
+    // so those switch with the tiles at the midpoint and only the colours lerp.
+    const base = q < STAGE_FADE_SWAP_Q ? f.from : f.to;
+    this.sky.setStage({
+      ...base,
+      skyTop: lerpSkyColor(this._fadeTopColor, f.from.skyTop, f.to.skyTop, q),
+      skyHorizon: lerpSkyColor(this._fadeHorizonColor, f.from.skyHorizon, f.to.skyHorizon, q),
+    });
   }
 
   get scrollSpeed() {
@@ -705,6 +836,8 @@ export class GameFlow {
         result = this._updateFlight(dt, rawInput, simTime, rng);
         break;
     }
+    this._updateStageFade(dt); // visual only, and must survive dying into a boundary
+    this._updateReadyCardTail(dt); // READY blinks on over live flight — see the method
     this.hudState.score = Math.floor(this.score.value);
     // R5 feel fix (feel-critique.md §6 / §10 rank 6): the HUD's drawLives()
     // has always existed but nothing ever wrote `lives` into it, so it drew
@@ -1023,6 +1156,7 @@ export class GameFlow {
     this.state = 'death';
     this.cardOverlay.visible = false;
     this._readyAudioPlayed = false;
+    this._readyCardT = null; // a tail from a previous life must not survive into this one
     // A death landing mid-barrel-roll used to freeze the roll for the whole
     // 5.2s sequence and resume it after the respawn — see Player.cancelRoll.
     // Must happen BEFORE deathSequence.start() takes over the sprite.
@@ -1055,6 +1189,9 @@ export class GameFlow {
     AudioBus.setEngine(DEATH_ENGINE_IDLE_FRAC);
     const readyPhase = this.deathSeq ? this.deathSeq.readyPhase : null;
     if (readyPhase !== null) {
+      // R40: remember where in its life the card is, so _updateReadyCardTail can
+      // carry it over LIVE flight for the remaining 0.72 s the arcade shows it.
+      this._readyCardT = readyPhase * RESPAWN_CARD_S;
       this.cardOverlay.visible = true;
       this.cardOverlay.redraw((ctx, w, h) => drawReadyCard(ctx, w, h, readyPhase));
       if (!this._readyAudioPlayed) {
@@ -1065,7 +1202,6 @@ export class GameFlow {
       this.cardOverlay.visible = false;
     }
     if (done) {
-      this.cardOverlay.visible = false;
       if (this.lives > 0) {
         this.state = 'flight';
         this.invincibleTimer = RESPAWN_INVINCIBLE_S;
@@ -1073,6 +1209,10 @@ export class GameFlow {
       } else {
         this.state = 'continue';
         this.continueCountdown = CONTINUE_COUNTDOWN_S;
+        // No READY tail on the last life — the CONTINUE card owns the overlay
+        // from here (the arcade shows CONTINUE PLAY, never READY, at gp t260.6).
+        this._readyCardT = null;
+        this.cardOverlay.visible = false;
         // R38: the player very likely died with fire held — disarm so the
         // held button cannot buy the continue on its first tick (the
         // "lives refilled 0->3" playtest bug; see _pressArmed).
@@ -1080,6 +1220,29 @@ export class GameFlow {
       }
     }
     return { input: ZERO_INPUT, combatActive: false, playerControlled: false };
+  }
+
+  // R40: the READY card OUTLIVES the death sequence by 0.72 s, blinking over
+  // flight the player is already steering (deathSequence.js, "THE 0.72 s WE
+  // KNOWINGLY DIVERGE BY"). Ticked from update()'s tail so it spans the
+  // death->flight handover; `_updateDeath` owns the card while still dead.
+  //
+  // Yields the overlay to a stage tally rather than fighting it: cardOverlay is
+  // one canvas, and a boundary landing inside the tail would otherwise have the
+  // two cards alternate by call order. The arcade shows the tally in that
+  // collision (gp t283.4, a tally card drawn while the player is still dead).
+  _updateReadyCardTail(dt) {
+    if (this._readyCardT === null || this.state === 'death') return;
+    this._readyCardT += dt;
+    if (this._readyCardT >= RESPAWN_CARD_S || this.state !== 'flight') {
+      this._readyCardT = null;
+      if (!this.tally) this.cardOverlay.visible = false;
+      return;
+    }
+    if (this.tally) return;
+    const phase = this._readyCardT / RESPAWN_CARD_S;
+    this.cardOverlay.visible = true;
+    this.cardOverlay.redraw((ctx, w, h) => drawReadyCard(ctx, w, h, phase));
   }
 
   _updateContinue(dt, rawInput) {
@@ -1188,16 +1351,22 @@ export class GameFlow {
       t: 0,
       duration: Math.max(1, hits / TALLY_HITS_PER_S),
       hits,
-      pointsStart: this.score.value,
+      paid: 0, // bonus already banked into score.value, in HIT_VALUE steps
       lastHitShown: 0,
     };
-    this.score.add(hits * HIT_VALUE);
+    // R40: the bonus is NOT banked in one lump any more. The arcade's SCORE
+    // digits climb in lockstep with the card — 113180 -> 133620 -> 154060 as the
+    // card reads 0 -> 1 -> 2 (b12, t=122.900/123.033/123.167) — so the payment is
+    // made in HIT_VALUE steps by _updateTally as each hit is counted off.
     // R19: capture the real pre-boundary missile stock BEFORE _enterStage's
     // every-boundary refill tops it up, so an air-tanker open ramps the pips up
     // from what the player actually had (the arcade's visible refill) rather than
     // from an already-full load. Harmless for every other transition.
     const preRefillStock = this.combat ? this.combat.missileStock : this._airRefuelStartStock;
-    this._enterStage(this.stageIndex + 1); // palette + HIT reset happen immediately; see class header
+    // Stage number + HIT reset happen immediately (the arcade's card names the
+    // INCOMING stage from its first frame); the BACKGROUND cross-fades, see
+    // _updateStageFade.
+    this._enterStage(this.stageIndex + 1, { fade: true });
     // R37: re-key the flight music to the NEW stage, so the per-stage variants
     // (R35) actually switch on a normal stage advance. Before this, the only
     // music('flight') call sites were launch/respawn/continue/tanker — a clean
@@ -1227,19 +1396,39 @@ export class GameFlow {
     this.tally.t += dt;
     const q = Math.min(1, this.tally.t / this.tally.duration);
     const hitShown = Math.round(this.tally.hits * q);
-    const pointsShown = Math.round(this.tally.pointsStart + this.tally.hits * HIT_VALUE * q);
+    // R40: the card's POINTS field is the BONUS ALONE, not the running score.
+    // reference/stage2-start-bonus-tally-t124.png reads "HIT COUNTS 8 / POINTS
+    // 160000" = 8 x 20,000 with the SCORE field showing something else entirely,
+    // and b12 walks it 1/20000, 2/40000, 12/240000 while SCORE reads
+    // 133620/154060/358460. This used to add `pointsStart` (the live score), so
+    // the card showed score+bonus; it was never caught because ?debugtally=1 —
+    // the only thing that has ever captured this card — hands drawTallyCard a
+    // hardcoded 160000 and never runs this line.
+    const pointsShown = hitShown * HIT_VALUE;
+    // Bank each counted-off hit as it lands, so the SCORE digits climb with the
+    // card the way the arcade's do. Stepwise, not `hits * HIT_VALUE * q`, so the
+    // two fields can never disagree; q >= 1 forces hitShown === hits, which makes
+    // the full bonus paid by the time the card closes.
+    if (pointsShown > this.tally.paid) {
+      this.score.add(pointsShown - this.tally.paid);
+      this.tally.paid = pointsShown;
+    }
     // One tick per HIT increment (audio-dev's ask), not once for the whole
     // card — a tick can jump by more than 1 at low hit counts/high dt, so
     // loop rather than assume +1.
     for (let i = this.tally.lastHitShown; i < hitShown; i++) AudioBus.play('tallyTick');
     this.tally.lastHitShown = hitShown;
+    // The "STAGE n" banner BLINKS (STAGE_BANNER_PERIOD_S above): 0.25 s on,
+    // 0.283 s off, already lit on the frame the card appears.
+    const bannerPhase = (this.tally.t + STAGE_BANNER_LEAD_S) % STAGE_BANNER_PERIOD_S;
+    const stageVisible = bannerPhase < STAGE_BANNER_ON_S;
     this.cardOverlay.visible = true;
     this.cardOverlay.redraw((ctx, w, h) =>
       // `_startTally` already called `_enterStage(stageIndex + 1)`, so
       // `stageNumber` IS the incoming stage the card names. R8: was
       // `contentStageIndex + 1`, which told the player "STAGE 1" on the way
       // into stage 4 — see STAGE_COUNT.
-      drawTallyCard(ctx, w, h, { hitShown, pointsShown, nextStage: this.stageNumber })
+      drawTallyCard(ctx, w, h, { hitShown, pointsShown, nextStage: this.stageNumber, stageVisible })
     );
     if (q >= 1) {
       this.tally = null;

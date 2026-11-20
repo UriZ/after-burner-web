@@ -146,7 +146,11 @@ export function drawReadyCard(ctx, w, h, phase) {
 //      native px advance; line 1 y[0.150,0.207]H, line 2 y[0.221,0.286]H
 //   both NUMBERS end at x 0.446W (right-aligned), cyan
 //   "STAGE 2" x[0.375,0.692]W y[0.794,0.847]H, lavender
-export function drawTallyCard(ctx, w, h, { hitShown, pointsShown, nextStage }) {
+// `stageVisible` (R40) blanks the lower-centre "STAGE n" banner for the off half
+// of its measured blink — flow.js owns the cadence (STAGE_BANNER_PERIOD_S there,
+// read off all three arcade boundaries). Defaults true so the ?debugtally=1
+// layout probe and any other caller still get a solid banner.
+export function drawTallyCard(ctx, w, h, { hitShown, pointsShown, nextStage, stageVisible = true }) {
   const px = CARD_PX;
   const py = CARD_PY;
   // t124, re-measured at the glyph grid rather than off a threshold edge:
@@ -168,7 +172,13 @@ export function drawTallyCard(ctx, w, h, { hitShown, pointsShown, nextStage }) {
   drawText(ctx, n1, numRight - textWidth(n1, px, FACE_BIG_CARD), y1, CARD_CYAN, px, py, OUTLINED);
 
   drawText(ctx, 'POINTS', labelX, y2, CARD_RED, px, py, OUTLINED);
-  const n2 = String(pointsShown);
+  // Zero-padded to FIVE digits, a minimum and not a width: the arcade's card
+  // opens on "POINTS 00000" and walks 20000 / 40000 / 240000 (b12 at
+  // t=122.900 / 123.033 / 123.167 / 124.500), so six-digit totals simply run
+  // one cell wider off the same right-aligned edge. Only visible since R40 made
+  // the field the bonus alone — before that it carried the running score and
+  // was never short enough to pad.
+  const n2 = String(pointsShown).padStart(5, '0');
   drawText(ctx, n2, numRight - textWidth(n2, px, FACE_BIG_CARD), y2, CARD_CYAN, px, py, OUTLINED);
 
   // Lower-centre, clear of the bottom HUD strip (which starts at native
@@ -183,8 +193,10 @@ export function drawTallyCard(ctx, w, h, { hitShown, pointsShown, nextStage }) {
   // did, cannot produce that gap at any scale, and needed pxX 2.3 to reach
   // the right-hand end — which is how the label ended up 2.3x too wide.
   const row = Math.round(h * 0.7946); // native 178
-  drawText(ctx, 'STAGE', Math.round(w * 0.375), row, STAGE_LAVENDER, px, py, OUTLINED);
-  drawStageNumber(ctx, nextStage, w * 0.5891, row, STAGE_LAVENDER, px, py);
+  if (stageVisible) {
+    drawText(ctx, 'STAGE', Math.round(w * 0.375), row, STAGE_LAVENDER, px, py, OUTLINED);
+    drawStageNumber(ctx, nextStage, w * 0.5891, row, STAGE_LAVENDER, px, py);
+  }
 }
 
 // The stage number is RIGHT-ALIGNED ON ITS UNITS CELL, and each digit is
