@@ -1,0 +1,30 @@
+{
+  "_what": "Eye-verified census of arcade enemy-aircraft APPEARANCES. An appearance is counted when the aircraft is absent in one sampled frame and present <=0.167 s later (6 Hz census sheets; one entry resolved at 60 Hz). Fields: [t_seconds, entry_region, first_visible_DRAWN_width_pctW, note]. entry_region is where the sprite first appears: TOP/LEFT/RIGHT/BOTTOM = touching that screen edge; INTERIOR = fully inside the frame.",
+  "_operator": "DRAWN width = sprite bbox width / 1028 px, read off the 2 %W grid baked into the native-resolution frame (judging/R40/density-truth/gridframe.py) or off the blob bbox where the aircraft is over clean sky. Widths of edge-clipped arrivals are the VISIBLE width and are therefore lower bounds on the true span.",
+  "_bias": "Built by resolving appearances on 0.46-scale 6 Hz sheets. Specks below ~2 %W are ~5 px in a tile and are UNDER-counted here; the speck population is characterised instead by the 2 Hz full-frame read in handread.json (sky is 'specks only' 8.5 % of the time). Read the >=8 %W share as: of the appearances a player would register, this fraction is ALREADY large on arrival.",
+  "_rejected_instrument": "track.py's 60 Hz tracker produced candidate arrivals automatically, but filmstrip inspection showed two of its longest 'growth' tracks (s4 id1176, id2469) had drifted onto the HUD SCORE/HIT plates, and another (id265) was an expanding explosion. No tracker-derived arrival figure is published.",
+  "census": [
+    [98.17, "TOP", 28, "s1 f~250; long edge-on wing entering top-left, hard bank"],
+    [98.17, "RIGHT", 24, "s1 f~250; rear aspect, clipped at right edge"],
+    [98.33, "INTERIOR", 8, "s1 f260; lock-bracket target above the player"],
+    [100.50, "LEFT", 29, "s1 f390; absent f380, present f390; clipped, verified on native grid g00390"],
+    [101.17, "TOP", 13, "s1 f430"],
+    [101.83, "TOP", 12, "s1 f470"],
+    [114.97, "TOP", 30, "s1 f1258; 60 Hz EXACT - absent f1256, present f1258. Verified native grid g01258/g01262"],
+    [115.67, "LEFT", 13, "s1 f1300; second camo beside the first"],
+    [116.17, "LEFT", 25, "s1 f1330"],
+    [116.67, "BOTTOM", 17, "s1 f1360; enters lower-right"],
+    [117.67, "INTERIOR", 12, "s1 f1420"],
+    [118.33, "TOP", 17, "s1 f1460; top-right, grows to 27 %W by f1470"],
+    [117.67, "INTERIOR", 3, "s1 f1420; far speck at left, stays small"],
+    [113.90, "INTERIOR", 14, "s1 f1200; bomber in lock bracket"],
+    [204.82, "LEFT", 22, "s4 f49; absent f42, present f49"],
+    [207.33, "INTERIOR", 6, "s4 f200"],
+    [207.67, "LEFT", 12, "s4 f220"],
+    [210.73, "INTERIOR", 2.5, "s4 f444; SPECK-GROWER, eye-verified filmstrip (track id816): 2.5 %W at f444 -> 14.6 %W at f469 = 0.42 s"],
+    [211.67, "INTERIOR", 12, "s4 f460"],
+    [211.83, "RIGHT", 10, "s4 f470"],
+    [212.17, "TOP", 11, "s4 f490; top-right"],
+    [212.67, "LEFT", 16, "s4 f520"]
+  ]
+}
