@@ -65,12 +65,6 @@ ROUND = {
         (4, "polish", "Mid-kill residue smoke is parked, arcade's balloons for ~2 s",
          "Needs a velocity option on SmokeField.spawn (cross-file request logged)."),
     ],
-    "keep": [
-        "Your death starburst parks on the jet; enemy kills do not — that contrast is what tells them apart",
-        "A held fire button must never buy a continue (rising-edge only, verify_continue.mjs 4/4)",
-        "Hands-off play stays ≤0.4× aimed, 0 unannounced fatal hits, warning floor ≥1.167 s",
-        "Air rounds stay as they are — only battery rounds strobe, or the strobe stops meaning 'this one kills you'",
-    ],
 }
 
 
@@ -119,7 +113,6 @@ def build():
         for n, kind, title, desc in r["gaps"]
     )
 
-    keep_html = "".join(f"<li>{esc(k)}</li>" for k in r["keep"])
 
     shipped = r.get("shipped")
     shipped_html = ""
@@ -235,12 +228,6 @@ def build():
   .shipped li::before {{ content: "✓"; position: absolute; left: 14px; top: 12px; color: var(--cyan);
     font-weight: 700; }}
 
-  .keep {{ list-style: none; margin: 0; padding: 0; display: grid; gap: 8px;
-    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); }}
-  .keep li {{ padding: 12px 14px 12px 32px; position: relative; background: var(--surface-2);
-    border-radius: 8px; font-size: 14px; }}
-  .keep li::before {{ content: "+"; position: absolute; left: 13px; top: 11px; color: var(--cyan);
-    font-family: "IBM Plex Mono", monospace; font-weight: 600; }}
 
   a {{ color: var(--cyan); }}
 </style>
@@ -270,11 +257,6 @@ def build():
     <ol class="gaps">
 {gaps_html}
     </ol>
-  </section>
-
-  <section>
-    <div class="sec-head"><h2>Keep — do not regress</h2></div>
-    <ul class="keep">{keep_html}</ul>
   </section>
 
 </div>
