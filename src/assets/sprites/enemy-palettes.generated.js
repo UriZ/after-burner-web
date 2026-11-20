@@ -15,6 +15,8 @@ export const ENEMY_LIVERIES = {
     "intakeCore": "#f7efa4",
     "nozzleCore": "#ef7300",
     "nozzleHot": "#ffd600",
+    "nozzleRim": "#a41000",
+    "band": "#005231",
     "night": {
       "rim": "#2131a4",
       "shadow": "#101963",
@@ -36,6 +38,8 @@ export const ENEMY_LIVERIES = {
     "intakeCore": "#f7efa4",
     "nozzleCore": "#ef7300",
     "nozzleHot": "#ffd600",
+    "nozzleRim": "#a41000",
+    "band": "#102910",
     "night": {
       "rim": "#102142",
       "shadow": "#001021",
@@ -57,6 +61,8 @@ export const ENEMY_LIVERIES = {
     "intakeCore": "#f7efa4",
     "nozzleCore": "#ef7300",
     "nozzleHot": "#ffd600",
+    "nozzleRim": "#a41000",
+    "band": "#8c2910",
     "night": {
       "rim": "#6b1931",
       "shadow": "#210010",
@@ -78,6 +84,8 @@ export const ENEMY_LIVERIES = {
     "intakeCore": "#f7efa4",
     "nozzleCore": "#ef7300",
     "nozzleHot": "#ffd600",
+    "nozzleRim": "#a41000",
+    "band": "#313a4a",
     "night": {
       "rim": "#21293a",
       "shadow": "#101929",

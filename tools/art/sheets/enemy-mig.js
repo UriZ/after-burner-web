@@ -142,7 +142,30 @@ import { hexToRgb } from '../ladder.js';
 
 const CELL_W = 64;
 const CELL_H = 32;
-const BANK_ANGLES = [-30, -15, 0, 15, 30];
+// =========================== R37 POSE LADDER ================================
+// Nine poses, not five. |deg| <= 30 keeps the rigid image-plane roll of the
+// straight-on drawing; |deg| >= 45 is a genuinely DIFFERENT drawing — an
+// OBLIQUE quarter view built from a 3D control-point projection (see
+// drawOblique below). The reason is the R37 arcade pose sheet
+// (judging/R37/enemy-art/arcade-poses/): at every readable size the arcade
+// enemy that banks or crosses shows its PLANFORM — fuselage length on a
+// diagonal, swept wings as top surfaces, fin leaning into the turn — while
+// ours showed the same frontal silhouette rotated like a sticker all the way
+// to the 57-degree bank clamp. The 45/57 rungs put the quarter views exactly
+// where entities/enemy.js's bank signal already reaches (BANK_MAX_RAD 57 deg;
+// crossers ride the clamp, gentle approaches never leave the frontal cells).
+// The player sheet has used a 9-angle ladder since R7 (player-f14.js).
+const BANK_ANGLES = [-57, -45, -30, -15, 0, 15, 30, 45, 57];
+// Poses at or past this angle are drawn as oblique quarter views.
+const OBLIQUE_MIN_DEG = 40;
+// Rear-aspect sheets carry every pose TWICE: cells [0..8] with the nozzle
+// glow at rest, cells [9..17] with it FLARED. Measured at 60 Hz
+// (judging/R37/enemy-art/arcade-poses/flicker-tile2-t100.2.png, s1a
+// f0073-f0082): the arcade afterburner glow shimmers continuously, its hot
+// centre moving and resizing every 1-3 frames. Baked into the sheet rather
+// than overlaid at runtime — an overlay is the R34 detached-afterburner bug
+// class; the player's flame was baked into its sheet for the same reason.
+const REAR_FLARE_STATES = 2;
 const CX = 32;
 const CY = 16;
 
@@ -235,7 +258,7 @@ const HALF_SPAN = 30;
 // a pixel. The bands are stacked DOWN from the straight top edge, so each one
 // automatically stops where the chord runs out.
 function wing(c, T, p, { span = HALF_SPAN, root = 4, chord = 6, tipChord = 2,
-  anhedral = 0, dihedral = 0 } = {}) {
+  anhedral = 0, dihedral = 0, bandHex = null } = {}) {
   for (const side of [1, -1]) {
     const xr = side * root;
     const xt = side * span;
@@ -276,6 +299,20 @@ function wing(c, T, p, { span = HALF_SPAN, root = 4, chord = 6, tipChord = 2,
     // tracks the real trailing edge as the chord tapers.
     band(c, T, xr, xt, tr + chord - 1, tr + chord, tt + tipChord - 1, tt + tipChord, p.shadow);
     strip(0.22, chord - 1, chord, p.shadow);
+    // R37: camo band dashes along the bar (rear aspect only — callers pass
+    // bandHex there). The stage-1 arcade enemy's wing tops carry GREEN bands
+    // over the white-grey airframe, read edge-on from astern as green/white
+    // alternation along the span (judging/R37/enemy-art/arcade-poses/
+    // pose-planform-t115.25.png; four stage-1 frames corroborate). Inboard
+    // 70 % only: past that the chord has tapered to the 2 px tip where a
+    // dash would eat the highlight edge that keeps the blade reading.
+    if (bandHex) {
+      for (const f0 of [0.10, 0.34, 0.58]) {
+        const [xa, ta] = at(f0);
+        const [xb, tb] = at(f0 + 0.14);
+        band(c, T, xa, xb, ta + 1, ta + 3, tb + 1, tb + 3, bandHex);
+      }
+    }
   }
 }
 
@@ -329,29 +366,40 @@ function noseIntake(c, T, p) {
   ], p.intakeRing);
 }
 
-// Rear: twin afterburners. R31: the two black nozzle bells are now set into one
-// solid dark engine BLOCK spanning the pair, so the cluster reads as a single
-// bold BLACK mass with two hot orange cores -- the arcade enemy's scale-proof
-// signature from behind (the aspect you chase it in) -- instead of two grey
-// discs with sky leaking between them, which downscaled to the "grey blob" the
-// owner saw. Sizes set by eye against judging/R27/crop_arcade_enemy.png: the
-// dark cluster spans ~12 px and the two orange cores ~2 px each on our 60 px
-// span, the proportion the reference shows. The afterburner colours
-// (keyline/nozzleCore/nozzleHot) are NOT overridden at night, so the twin glows
-// stay hot against the night sky, as the arcade's do.
-function nozzle(c, T, p) {
-  // One solid dark engine block across both nacelles -- a continuous bold mass,
-  // mapped through T so it rolls and leans with the bank (no pixel-rotate).
-  poly(c, T, [
-    [-ENGINE_DX - 3, -1.5], [ENGINE_DX + 3, -1.5],
-    [ENGINE_DX + 3, 3.5], [-ENGINE_DX - 3, 3.5],
-  ], p.keyline);
-  for (const side of [-1, 1]) {
-    const [x, y] = T(side * ENGINE_DX, 1);
-    c.disc(x, y, 2.6, p.keyline);     // rounds the block ends into two bells
-    c.disc(x, y, 1.9, p.nozzleCore);  // orange afterburner
-    c.disc(x, y, 0.9, p.nozzleHot);   // hot yellow-white centre
-  }
+// Rear: ONE afterburner. R37 REVERSES R31/R27's twin bells, on footage.
+//
+// R27 wrote "the arcade is two black nacelles cored by orange" and this file
+// drew twin bells from it. The R37 pose sheet (judging/R37/enemy-art/
+// arcade-poses/, stage identity via the HUD digit IN the frames) shows the
+// opposite in every readable rear/oblique pose: pose-planform-t115.25 (dead
+// astern), pose-profile-t116.0 (banking pair), pose-rearclose-t116.75 (close
+// fly-past, where the bell even shows its feather segments) all carry ONE
+// black bell with ONE orange core — which is exactly STATUS.md's standing
+// identity rule, "the player is the twin-nozzle F-14; every enemy has one
+// nozzle". The twin-orange aircraft in the frames IS the player (see
+// judging/R36/look/arcade-s1/t108.png). Two side-by-side glows are also the
+// bilateral two-eyes geometry behind the "face/insect" read the owner has
+// rejected in four rounds — one bell kills both defects at once.
+//
+// Proportions from pose-planform-t115.25: dark bell mass ~0.22-0.28 of span,
+// orange core ~0.11-0.13 of span, on our 60 px span -> bell r ~5.6, core
+// r ~3.4. Colour from pose-rearclose-t116.75 (sampled): the core is
+// RED-RIMMED orange (#a00000 ring around #f09000), not orange-on-black.
+// The afterburner colours are NOT overridden at night, so the glow stays hot
+// against the night sky, as the arcade's does.
+//
+// `flare` is the second half of the 60 Hz shimmer (REAR_FLARE_STATES above):
+// the flared cell grows the core one ring and swells + recentres the hot
+// pip, so alternating the two states reads as a live engine, not a lamp.
+function nozzle(c, T, p, flare = false) {
+  const [x, y] = T(0, 1);
+  c.disc(x, y, 5.6, p.keyline);                      // the single black bell
+  c.disc(x, y, flare ? 4.6 : 4.2, p.nozzleRim);      // deep-red ring
+  c.disc(x, y, flare ? 3.8 : 3.2, p.nozzleCore);     // orange afterburner
+  // Hot centre: small and low at rest, bigger and central when flared — the
+  // pip's drift between the two states is the shimmer the footage shows.
+  if (flare) c.disc(x + 0.4, y, 1.9, p.nozzleHot);
+  else c.disc(x - 0.6, y + 0.5, 1.2, p.nozzleHot);
 }
 
 // A cockpit canopy on the upper fuselage spine. R31: the cue that reads the
@@ -418,16 +466,16 @@ function drawMigHead(c, T, p) {
   canopy(c, T, p, { top: -6, bot: -2 });
 }
 
-function drawMigRear(c, T, p) {
+function drawMigRear(c, T, p, flare = false) {
   fin(c, T, p, { base: -5, tip: -13, lean: 2, wRoot: 4.2, wTip: 1.8 }); // R35: see drawMigHead
-  wing(c, T, p);
+  wing(c, T, p, { bandHex: p.band }); // R37: green band dashes, see wing()
   // R35: slimmed (halfW 6 -> 5) so the body reads as a fuselage the engines
   // sit in, not a flat grey CRATE the width of the nacelle block. The arcade
-  // enemy's body is slimmer than its engine cluster; the twin black+orange
-  // mass stays the loudest feature at range (R27/R31 signature, untouched).
+  // enemy's body is slimmer than its engine cluster; the single black+orange
+  // bell stays the loudest feature at range (R37 single-nozzle correction).
   fuselage(c, T, p, { halfW: 5, top: -5, bot: 7, tail: 3 });
   canopy(c, T, p, { top: -6, bot: -2 });
-  nozzle(c, T, p);
+  nozzle(c, T, p, flare);
 }
 
 // --- SWEPT: interceptor -----------------------------------------------------
@@ -444,12 +492,12 @@ function drawSweptHead(c, T, p) {
   canopy(c, T, p, { top: -6, bot: -2 });
 }
 
-function drawSweptRear(c, T, p) {
+function drawSweptRear(c, T, p, flare = false) {
   fin(c, T, p, { base: -6, tip: -18, lean: 2, wRoot: 3, wTip: 1.8 });
-  wing(c, T, p, { span: 29, root: 3, anhedral: 4 });
+  wing(c, T, p, { span: 29, root: 3, anhedral: 4, bandHex: p.band });
   fuselage(c, T, p, { halfW: 6, top: -6, bot: 8, tail: 3 });
   canopy(c, T, p, { top: -6, bot: -2 });
-  nozzle(c, T, p);
+  nozzle(c, T, p, flare);
 }
 
 // --- PROP: prop -------------------------------------------------------------
@@ -502,6 +550,189 @@ function drawPropRear(c, T, p) {
   propDisc(c, T, p);
 }
 
+// ======================= R37 OBLIQUE QUARTER VIEWS ==========================
+// The |deg| >= 45 cells. NOT a roll of the frontal drawing: a small 3D
+// control-point model (x right wing, y belly-down, z nose-forward) rolled
+// about its own axis, pitched, yawed, and projected orthographically to the
+// cell — then scan-converted with the same hard-pixel primitives as
+// everything else (no resampling, no blending; polygon()/disc() only).
+//
+// What it reproduces, from the R37 arcade pose sheet:
+//   * fuselage LENGTH on a diagonal — the depth cue every readable arcade
+//     pose carries and no frontal cell can (pose-profile-t116.0);
+//   * wing PLANFORM with camo band dashes on the top surface
+//     (pose-rearoblique-t115.75: green tops while fleeing nose-up);
+//   * rear aspect: the single bell + red-rimmed orange core at the tail,
+//     facing the camera; head aspect: a dark nose, NO glow (the crosser at
+//     the right edge of pose-s1a-t100.5 shows a dark nose and no tailpipe);
+//   * the fin leaning INTO the turn.
+//
+// The pitch sign gives each aspect the right surface: rear poses fly
+// nose-up-and-away (we see wing TOPS, as the green in the footage proves);
+// head poses dive toward the player (same projection, z mirrored).
+function proj3(yawDeg, pitchDeg, rollDeg, scale = 1) {
+  const ya = (yawDeg * Math.PI) / 180;
+  const pa = (pitchDeg * Math.PI) / 180;
+  const ra = (rollDeg * Math.PI) / 180;
+  const cy = Math.cos(ya), sy = Math.sin(ya);
+  const cp = Math.cos(pa), sp = Math.sin(pa);
+  const cr = Math.cos(ra), sr = Math.sin(ra);
+  // roll about +z (body axis), then pitch about +x, then yaw about +y.
+  return (x, y, z) => {
+    const x1 = x * cr - y * sr;
+    const y1 = x * sr + y * cr;
+    const y2 = y1 * cp - z * sp;
+    const z2 = y1 * sp + z * cp;
+    const x3 = x1 * cy + z2 * sy;
+    const z3 = -x1 * sy + z2 * cy;
+    return [CX + x3 * scale, CY + y2 * scale, z3];
+  };
+}
+
+function poly3(c, P, pts, hex) {
+  c.polygon(pts.map(([x, y, z]) => {
+    const [sx, sy] = P(x, y, z);
+    return [sx, sy];
+  }), hex);
+}
+
+/** Tapering blade between two PROJECTED endpoints (fin, tailplane). */
+function blade3(c, P, a, b, wRoot, wTip, hex) {
+  const [ax, ay] = P(...a);
+  const [bx, by] = P(...b);
+  const dx = bx - ax, dy = by - ay;
+  const len = Math.hypot(dx, dy) || 1;
+  const nx = -dy / len, ny = dx / len;
+  c.polygon([
+    [ax + nx * wRoot * 0.5, ay + ny * wRoot * 0.5],
+    [ax - nx * wRoot * 0.5, ay - ny * wRoot * 0.5],
+    [bx - nx * wTip * 0.5, by - ny * wTip * 0.5],
+    [bx + nx * wTip * 0.5, by + ny * wTip * 0.5],
+  ], hex);
+}
+
+const mix3 = (a, b, t) => [
+  a[0] + (b[0] - a[0]) * t,
+  a[1] + (b[1] - a[1]) * t,
+  a[2] + (b[2] - a[2]) * t,
+];
+
+// One swept wing in planform, with band dashes on the top surface.
+// `geom` lets the three families keep their silhouette cues in the oblique
+// cells too: sweep (tip z offset), span, tipChord fraction.
+function wing3(c, P, side, p, { span = 28, sweepZ = -9, rootLe = 12, rootTe = 5,
+  tipY = 0.5, tipChordF = 0.4, bandHex = null } = {}) {
+  const rLe = [side * 2.5, 0, rootLe];
+  const rTe = [side * 2.5, 0, rootTe];
+  const chord = rootLe - rootTe;
+  const tLe = [side * span, tipY, rootLe + sweepZ];
+  const tTe = [side * span, tipY, rootLe + sweepZ - chord * tipChordF];
+  poly3(c, P, [rLe, tLe, tTe, rTe], p.mid);
+  // Lit leading edge, trailing shadow — the same one-rung-per-side modelling
+  // the frontal wing bar carries.
+  poly3(c, P, [rLe, tLe, mix3(tLe, tTe, 0.3), mix3(rLe, rTe, 0.3)], p.highlight);
+  poly3(c, P, [mix3(rLe, rTe, 0.78), mix3(tLe, tTe, 0.78), tTe, rTe], p.shadow);
+  if (bandHex) {
+    for (const f0 of [0.18, 0.48, 0.78]) {
+      const aLe = mix3(rLe, tLe, f0), aTe = mix3(rTe, tTe, f0);
+      const bLe = mix3(rLe, tLe, f0 + 0.16), bTe = mix3(rTe, tTe, f0 + 0.16);
+      poly3(c, P, [mix3(aLe, aTe, 0.25), mix3(bLe, bTe, 0.25),
+        mix3(bLe, bTe, 0.75), mix3(aLe, aTe, 0.75)], bandHex);
+    }
+  }
+}
+
+// `family` tweaks, so the three silhouettes stay distinguishable in the
+// quarter views exactly as they are in the frontal cells: the mig is the
+// baseline; swept = longer belly, farther-back sweep, taller fin; prop =
+// short blunt unswept wings, no afterburner, the propeller arc at the nose.
+const OBLIQUE_GEOM = {
+  mig: { span: 28, sweepZ: -9, tipChordF: 0.4, finTip: -10.5, nose: 26 },
+  swept: { span: 27, sweepZ: -12, tipChordF: 0.3, finTip: -12.5, nose: 28 },
+  prop: { span: 23, sweepZ: -1, tipChordF: 0.9, finTip: -8.5, nose: 23 },
+};
+
+function drawOblique(c, deg, p, { aspect, family, flare = false }) {
+  const g = OBLIQUE_GEOM[family] ?? OBLIQUE_GEOM.mig;
+  const dir = Math.sign(deg) || 1;
+  const hard = Math.abs(deg) >= 55;
+  const rear = aspect === 'rear';
+  // z sign: rear poses fly nose AWAY (+z into the screen), head poses nose
+  // TOWARD the viewer. The yaw magnitude turns the nose INTO the on-screen
+  // drift for both (worked through: rear needs +dir, head needs -dir on the
+  // mirrored z — one zs factor covers both).
+  const zs = rear ? 1 : -1;
+  // 0.86 on the hard pose: the near wingtip's projected half-height at
+  // roll 42 / pitch 14 is 17.8 units against a 16-px half-cell (computed,
+  // not eyeballed); 0.86 brings it to 15.3 so the raised tip renders whole
+  // instead of clipping flat at the cell edge.
+  const P = proj3(dir * (hard ? 38 : 24) * zs, hard ? 14 : 9,
+    dir * (hard ? 42 : 30), hard ? 0.86 : 1);
+  const Z = (x, y, z) => [x, y, z * zs];
+  const bandHex = rear || hard ? p.band : null;
+
+  // Far wing first (with yaw `dir`, the -dir side recedes), then fuselage,
+  // then near wing over it — the occlusion order a quarter view implies.
+  const wingGeom = { ...g, bandHex };
+  wing3(c, (x, y, z) => P(...Z(x, y, z)), -dir, p, wingGeom);
+  blade3(c, P, Z(-dir * 8.5, 0, -4), Z(-dir * 1, 0, -2), 2.5, 1.5, p.dominant);
+
+  // Fuselage: three long faces, lit top / plain near side / shaded belly,
+  // tapering to the nose; dark panel dashes down the spine (the close
+  // fly-past shows them clearly).
+  const nose = g.nose;
+  poly3(c, P, [Z(-2.8, -2.2, -6), Z(2.8, -2.2, -6), Z(1.3, -1.0, nose), Z(-1.3, -1.0, nose)], p.highlight);
+  poly3(c, P, [Z(-2.8, -2.2, -6), Z(-2.8, 2.6, -6), Z(-1.3, 1.3, nose), Z(-1.3, -1.0, nose)], p.mid);
+  poly3(c, P, [Z(2.8, -2.2, -6), Z(2.8, 2.6, -6), Z(1.3, 1.3, nose), Z(1.3, -1.0, nose)], p.mid);
+  poly3(c, P, [Z(-2.8, 2.6, -6), Z(2.8, 2.6, -6), Z(1.3, 1.3, nose), Z(-1.3, 1.3, nose)], p.shadow);
+  for (const zd of [-2, 6, 14]) {
+    poly3(c, P, [Z(-2.0, -2.1, zd), Z(2.0, -2.1, zd), Z(1.8, -1.9, zd + 1.8), Z(-1.8, -1.9, zd + 1.8)], p.dominant);
+  }
+
+  // Near wing and near tailplane over the body.
+  wing3(c, (x, y, z) => P(...Z(x, y, z)), dir, p, wingGeom);
+  blade3(c, P, Z(dir * 8.5, 0, -4), Z(dir * 1, 0, -2), 2.5, 1.5, p.dominant);
+
+  // Fin, leaning into the turn (it inherits the roll through P).
+  blade3(c, P, Z(0, -2.0, -3), Z(0, g.finTip, -8), 3.5, 1.6, p.mid);
+  blade3(c, P, Z(0.8, -2.0, -3), Z(0.6, g.finTip + 0.5, -7.7), 1, 1, p.highlight);
+
+  if (rear) {
+    if (family === 'prop') {
+      // Exhaust stubs only — a prop has no afterburner (same rule as the
+      // frontal prop rear cell), plus the propeller arc at the far nose.
+      const [sx, sy] = P(...Z(0, 1.2, -5));
+      c.disc(sx, sy, 1.6, p.keyline);
+      c.disc(sx, sy, 0.9, p.nozzleCore);
+      const [nx2, ny2] = P(...Z(0, 0, nose));
+      c.ring(nx2, ny2, 5.2, 4.5, p.shadow);
+    } else {
+      // The bell at the tail, facing the camera. Slightly smaller than the
+      // dead-astern bell: seen at an angle. Same flare contract as nozzle().
+      const [bx, by] = P(...Z(0, 0.6, -6.5));
+      c.disc(bx, by, 4.8, p.keyline);
+      c.disc(bx, by, flare ? 4.0 : 3.6, p.nozzleRim);
+      c.disc(bx, by, flare ? 3.2 : 2.7, p.nozzleCore);
+      if (flare) c.disc(bx + 0.4, by, 1.6, p.nozzleHot);
+      else c.disc(bx - 0.5, by + 0.4, 1.0, p.nozzleHot);
+    }
+  } else {
+    // Head aspect: dark nose, no glow. The canopy glint sits behind it on
+    // the spine — the cue that reads "fighter" at a glance.
+    const [nx2, ny2] = P(...Z(0, 0.2, nose));
+    if (family === 'prop') {
+      c.ring(nx2, ny2, 5.2, 4.5, p.shadow);
+      c.disc(nx2, ny2, 1.8, p.keyline);
+    } else {
+      c.disc(nx2, ny2, 2.8, p.keyline);
+      c.disc(nx2, ny2, 1.4, p.intakeRing);
+    }
+    const [cx2, cy2] = P(...Z(0, -2.0, 14));
+    c.disc(cx2, cy2, 1.6, p.keyline);
+    c.disc(cx2, cy2, 0.9, p.specular);
+  }
+}
+
 const DRAW = {
   mig: { headOn: drawMigHead, rear: drawMigRear },
   swept: { headOn: drawSweptHead, rear: drawSweptRear },
@@ -511,7 +742,11 @@ const DRAW = {
 function paletteFor(livery, night) {
   const p = ENEMY_LIVERIES[livery];
   if (!night) return p;
-  return { ...p, ...p.night };
+  // Night: the camo band falls back to the night ramp's own shadow tone —
+  // no stage-3 band colour has ever been measured (the night jets read as
+  // flat blue), and reusing a ramp tone keeps the night sheets inside the
+  // colour budget instead of carrying a daylight green into a night sky.
+  return { ...p, ...p.night, band: p.night.shadow };
 }
 
 // --- The ramp-order invariant ----------------------------------------------
@@ -553,11 +788,17 @@ export function buildEnemySheet(livery, aspect, night = false) {
   const p = paletteFor(livery, night);
   const label = `enemy-${livery}-${aspect}${night ? '-night' : ''}`;
   assertRampOrder(livery, p, label);
-  const draw = DRAW[ENEMY_FAMILY[livery]][aspect];
+  const family = ENEMY_FAMILY[livery];
+  const draw = DRAW[family][aspect];
+  // R37: rear sheets carry each pose twice (rest / flared glow, see
+  // REAR_FLARE_STATES above): cells [0..N-1] rest, [N..2N-1] flared. Head
+  // sheets have no visible tailpipe, so no flare row.
+  const nPoses = BANK_ANGLES.length;
+  const nCells = aspect === 'rear' ? nPoses * REAR_FLARE_STATES : nPoses;
   return buildStrip(
     CELL_W,
     CELL_H,
-    BANK_ANGLES.length,
+    nCells,
     // R8's finding is KEPT and its implementation is RETIRED, which is not
     // the same thing. The finding -- the arcade does not ring its aircraft in
     // black, it SHADES the lower edge -- survived re-measurement here
@@ -571,8 +812,20 @@ export function buildEnemySheet(livery, aspect, night = false) {
     // which is what shading an edge means. Shading moved inboard; no ring,
     // no added row. `rim` stays in the palette table for the procedural
     // far-LOD path in src/entities/enemySprite.js, which still uses it.
-    (cell, i) => draw(cell, roll(BANK_ANGLES[i]), p),
-    { maxColours: 8, label }
+    (cell, i) => {
+      const deg = BANK_ANGLES[i % nPoses];
+      const flare = aspect === 'rear' && i >= nPoses;
+      if (Math.abs(deg) >= OBLIQUE_MIN_DEG) {
+        drawOblique(cell, deg, p, { aspect, family, flare });
+      } else {
+        draw(cell, roll(deg), p, flare);
+      }
+    },
+    // 10, not 8, for the rear sheets: the R37 footage adds two measured
+    // colours there (the deep-red core rim and the green wing band — see
+    // palettes.js liveryOf). Still well inside the hardware's 16-colour
+    // sprite lines; the head sheets stay at the original 8.
+    { maxColours: aspect === 'rear' ? 10 : 8, label }
   );
 }
 
@@ -584,4 +837,4 @@ export const buildEnemyMigHeadSheet = () => buildEnemySheet('grey', 'headOn');
 export const buildEnemyMigRearSheet = () => buildEnemySheet('grey', 'rear');
 export const ENEMY_SHEET_NIGHT = [false, true];
 
-export { BANK_ANGLES, CELL_W, CELL_H, HALF_SPAN };
+export { BANK_ANGLES, CELL_W, CELL_H, HALF_SPAN, REAR_FLARE_STATES };

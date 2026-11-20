@@ -37,7 +37,12 @@ word. The loop is **"look first, measure second"**
     (wings/deck/strakes/fins); the MEASURED red is the OUTLINE only (palettes.js R7). Moved all
     interior red to the measured grey shadow tone; red kept on the outline rim. Verified vs the stage-1
     arcade grey jet.
-  - **Enemy jets twin-engine.** Owner's "too pixelated": ours was a grey dart + one dot; the arcade is
+  - **Enemy jets twin-engine. [REVERSED R37 — this was a misread of the PLAYER F-14. The arcade
+    ENEMY has ONE nozzle (single black bell, orange core, green wing camo), confirmed in every
+    readable pose of the 60 Hz stage-1 footage (judging/R37/enemy-art/arcade-poses/). The twin
+    side-by-side glows this shipped WERE the owner's recurring "insect face". The identity rule
+    ("every enemy has one nozzle", Hard warnings below) was right all along.]** Original text:
+    Owner's "too pixelated": ours was a grey dart + one dot; the arcade is
     two black nacelles cored by orange afterburner. Redrew nozzle()/noseIntake() in enemy-mig.js — twin
     bells, scale-proof; reads as a jet at game size now.
   - **Barrel roll = arcade double-tap.** The roll existed but triggered on a sign CHANGE (left-then-

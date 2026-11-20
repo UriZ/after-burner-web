@@ -89,8 +89,8 @@ function liveryFor(stageIndex, role, pattern) {
 // rather than throwing, so a key typo in LIVERY_BY_STAGE above shows up as a
 // silently un-swapped sprite, not an error. Check a stage capture after
 // editing that table, not just that the page loads.
-function textureFor(aspect, livery, detail, bankDeg = 0) {
-  return enemySprite.enemyTexture(aspect, livery.key, detail, livery.night, bankDeg);
+function textureFor(aspect, livery, detail, bankDeg = 0, flare = false) {
+  return enemySprite.enemyTexture(aspect, livery.key, detail, livery.night, bankDeg, flare);
 }
 
 // --- R8: the authored bank poses were unreachable ------------------------
@@ -110,15 +110,15 @@ function textureFor(aspect, livery, detail, bankDeg = 0) {
 // and keeps the bank continuous past the sheet's +-30 limit, where the
 // enemy's own BANK_MAX_RAD of 57 degrees still reaches.
 //
-// THIS LADDER IS A MIRROR OF enemySprite.js's PRIVATE `SHEET_BANK_ANGLES`
-// ([-30, -15, 0, 15, 30]) AND THAT IS A KNOWN RISK, stated rather than
-// hidden: enemySprite.js belongs to the art lane and exports neither the
-// table nor its nearest-index function, so the residual cannot be computed
-// from the selector itself. If the art lane re-authors the sheet at a
-// different ladder this mirror goes stale and the symptom is an enemy banked
-// by the wrong few degrees — a visual defect, not an error. The owed fix is
-// a one-line export from enemySprite.js; requested in
-// judging/R8/lane-combat.md rather than reached into.
+// R37: THE MIRROR IS RETIRED. enemySprite.js now exports SHEET_BANK_ANGLES
+// and nearestPoseDeg() (the one-line export R8 logged as owed in
+// judging/R8/lane-combat.md), so the residual below is computed from the
+// art lane's own selector and can no longer go stale. The ladder is nine
+// poses now, [-57..57]: the +-45/+-57 cells are genuine oblique quarter
+// views (planform, fuselage diagonal), which is what puts the arcade's
+// "banks INTO its turn / shows its planform when crossing" read on screen —
+// the hardest crossers ride BANK_MAX_RAD (57 deg, below) and therefore land
+// exactly on the last cell; gentle trackers never leave the frontal cells.
 //
 // WHAT IS NOT ASSUMED is whether a posed cell was actually selected. The
 // sheet path is near-LOD only and silently falls back to the procedural
@@ -127,13 +127,37 @@ function textureFor(aspect, livery, detail, bankDeg = 0) {
 // `enemyTexture(.., 0)` exactly when no posed cell was available. Comparing
 // the two is a direct read of "did we get a pose", so with no sheet loaded
 // this code is byte-identical in behaviour to the level-only build.
-const SHEET_BANK_STEP_DEG = 15;
-const SHEET_BANK_MAX_DEG = 30;
+const poseDegFor = enemySprite.nearestPoseDeg;
 
-function poseDegFor(bankDeg) {
-  const q = Math.round(bankDeg / SHEET_BANK_STEP_DEG) * SHEET_BANK_STEP_DEG;
-  return THREE.MathUtils.clamp(q, -SHEET_BANK_MAX_DEG, SHEET_BANK_MAX_DEG);
-}
+// R37: the rear-aspect afterburner shimmer. The arcade glow's hot centre
+// moves and resizes every 1-3 frames at 60 Hz (measured by eye on tiled
+// consecutive frames, judging/R37/enemy-art/arcade-poses/
+// flicker-tile2-t100.2.png; a fixed-box pixel count was tried first and
+// withdrawn — the box caught scrolling terrain). The sheet bakes two glow
+// states per rear pose (an overlay would be the R34 detached-afterburner
+// bug class) and this clock alternates them every ~2.5 ticks. Driven off
+// the enemy's own age — deterministic, no PRNG draw, zero flight effect.
+const FLARE_FLIPS_PER_S = 24;
+
+// R37: the pose encodes CRAB, not just roll. The first capture of a full
+// crossing fly-past (judging/R37/enemy-art/strip-crosser-trans.png) showed
+// the quarter-view cells going UNREACHED — the R8 unreachable-poses defect
+// arriving by a new route: a crosser's achieved bank peaks near 0.45 NDC/s
+// x 1.40 x the 0.65-1.0 oscillation = 20-32 deg, under the 37.5 deg rung
+// where the oblique cells start, so the fly-past stayed a frontal sprite
+// SLIDING sideways. The arcade's crossing enemy shows its planform
+// regardless of simulated roll — its sprite set encodes the VELOCITY
+// DIRECTION (pose-profile-t116.0, and the near-profile crosser in
+// pose-s1a-t100.5). So the pose angle adds a yaw read of the on-screen
+// velocity: 60 deg per NDC/s of lateral travel, capped at 28 deg, slewed at
+// 90 deg/s so weave jitter cannot flap the cell. At a crosser's exit speed
+// that lifts the combined angle into the 45/57 cells; a distant tracker's
+// 0.02-0.05 NDC/s adds 1-3 deg and never leaves the frontal cells.
+// VISUAL ONLY: feeds poseDeg/material.rotation and nothing else — the
+// telemetry-identity check (telem-before/after-seed*.json) covers this path.
+const POSE_YAW_DEG_PER_NDC_VEL = 60;
+const POSE_YAW_MAX_DEG = 28;
+const POSE_YAW_SLEW_DEG_PER_S = 90;
 
 // Cumulative census of which poses the game actually selected, so "the art
 // is now reachable" is a read rather than a claim. Measurement-only.
@@ -722,6 +746,8 @@ export class Enemy {
     // cell is actually selected.
     this._poseDeg = null;
     this._posedCell = false;
+    this._flare = false;
+    this._poseYawDeg = 0;
   }
 
   // Fraction of frame width this enemy currently spans. Used by the lock
@@ -874,13 +900,31 @@ export class Enemy {
 
     // --- Pose selection + residual rotation (R8). See poseDegFor above. ---
     const bankDeg = (this.bank * 180) / Math.PI;
-    const poseDeg = poseDegFor(bankDeg);
-    if (wantDetail !== this._detail || poseDeg !== this._poseDeg) {
+    // Crab term (R37, POSE_YAW_* above): the on-screen velocity's own read,
+    // smoothed, added to the roll before quantising so a fast crossing
+    // reaches the quarter-view cells the way the arcade's does.
+    const yawTarget = THREE.MathUtils.clamp(
+      ndcVelX * POSE_YAW_DEG_PER_NDC_VEL, -POSE_YAW_MAX_DEG, POSE_YAW_MAX_DEG);
+    const ystep = POSE_YAW_SLEW_DEG_PER_S * dt;
+    this._poseYawDeg += THREE.MathUtils.clamp(yawTarget - this._poseYawDeg, -ystep, ystep);
+    // Clamped to the ladder's ends so the residual rotation below stays the
+    // small quantisation remainder (<= 7.5 deg) instead of re-growing into
+    // the sticker-rotation this ladder exists to remove.
+    const poseAngleDeg = THREE.MathUtils.clamp(bankDeg + this._poseYawDeg, -57, 57);
+    const poseDeg = poseDegFor(poseAngleDeg);
+    // R37: the rear aspect alternates its two baked glow states (see
+    // FLARE_FLIPS_PER_S). Age-clocked, so two enemies spawned at different
+    // ticks shimmer out of phase, as the arcade's do.
+    const flare =
+      this.pattern === 'overtake' &&
+      (Math.floor(this.age * FLARE_FLIPS_PER_S) & 1) === 1;
+    if (wantDetail !== this._detail || poseDeg !== this._poseDeg || flare !== this._flare) {
       this._detail = wantDetail;
       this._poseDeg = poseDeg;
+      this._flare = flare;
       if (wantDetail) {
         const aspect = this.pattern === 'overtake' ? 'rear' : 'headOn';
-        const posed = textureFor(aspect, this.livery, true, poseDeg);
+        const posed = textureFor(aspect, this.livery, true, poseDeg, flare);
         const level = textureFor(aspect, this.livery, true, 0);
         // Identity comparison, not a flag: equal means no posed cell was
         // available (the sheet has not decoded, or failed), so the level
@@ -901,7 +945,7 @@ export class Enemy {
       }
     }
     this.sprite.material.rotation = this._posedCell
-      ? ((bankDeg - poseDeg) * Math.PI) / 180
+      ? ((poseAngleDeg - poseDeg) * Math.PI) / 180
       : this.bank;
     if (this._posedCell) poseCensus.posedTicks += 1;
     else poseCensus.levelOnlyTicks += 1;

@@ -524,9 +524,35 @@ const cache = new Map();
 // real art's features (nose, wings, nozzles) are spread across both axes
 // widely enough. Script: tools/out/_scratch-jet-harness (dev-report-only,
 // not committed) -- re-run it if the sheet art changes shape again.
-const SHEET_BANK_ANGLES = [-30, -15, 0, 15, 30];
+// R37: nine poses. |deg| <= 30 are the rigid-roll straight-on cells;
+// +-45/+-57 are genuine OBLIQUE quarter views (fuselage on a diagonal, wing
+// planform, fin leaning into the turn) authored in
+// tools/art/sheets/enemy-mig.js — see its R37 POSE LADDER note and the
+// arcade pose sheet in judging/R37/enemy-art/. 57 is entities/enemy.js's own
+// BANK_MAX_RAD, so the hardest crossers land exactly on the last cell.
+//
+// EXPORTED now (with nearestPoseDeg below): enemy.js carried a hand-copied
+// mirror of this ladder since R8 and flagged it as a stale-mirror risk in
+// its own header. This export is the owed fix.
+export const SHEET_BANK_ANGLES = [-57, -45, -30, -15, 0, 15, 30, 45, 57];
+// Rear sheets hold each pose twice: cells [0..8] glow at rest, [9..17]
+// FLARED (the arcade afterburner shimmers continuously at 60 Hz — measured,
+// judging/R37/enemy-art/arcade-poses/flicker-tile2-t100.2.png). Head sheets
+// have no visible tailpipe and stay at 9 cells.
+const REAR_FLARE_STATES = 2;
 const SHEET_CELL_W = 64;
 const SHEET_CELL_H = 32;
+
+// Nearest authored pose for a continuous bank angle. The ladder is not
+// uniform (15-degree steps inboard, wider outboard), so callers must not
+// quantise by rounding to a step — use this.
+export function nearestPoseDeg(bankDeg) {
+  let best = SHEET_BANK_ANGLES[0];
+  for (const a of SHEET_BANK_ANGLES) {
+    if (Math.abs(a - bankDeg) < Math.abs(best - bankDeg)) best = a;
+  }
+  return best;
+}
 // Keyed `${livery}|${aspect}` -- one authored sheet per combination.
 const SHEET_URLS = {
   'grey|headOn|day': enemyGreyHeadSheetUrl,
@@ -706,12 +732,18 @@ function nearestBankIndex(bankDeg) {
 //
 // Memoised per (aspect, livery, detail, night) for the procedural path; the
 // sheet path has its own per-cell cache.
-export function enemyTexture(aspect, livery = 'grey', detail = true, night = false, bankDeg = 0) {
+export function enemyTexture(aspect, livery = 'grey', detail = true, night = false, bankDeg = 0, flare = false) {
   // Authored art for EVERY near combination: four liveries x two aspects x
   // day and night. R5's gate was `if (detail && !night)`, which is the whole
   // of judge gap 2.
   if (detail) {
-    const cellTex = sheetCellTexture(livery, aspect, night, nearestBankIndex(bankDeg));
+    // R37: the rear sheet's flared row lives at cellIndex + 9 (see
+    // SHEET_BANK_ANGLES / REAR_FLARE_STATES above). `flare` is ignored for
+    // head sheets, which have no second row.
+    const flareOffset =
+      aspect === 'rear' && flare ? SHEET_BANK_ANGLES.length : 0;
+    const cellTex = sheetCellTexture(
+      livery, aspect, night, nearestBankIndex(bankDeg) + flareOffset);
     if (cellTex) return cellTex;
     noteProceduralUse(
       `${aspect}|${livery}|detail|${night ? 'night' : 'day'}`,

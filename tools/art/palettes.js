@@ -413,7 +413,7 @@ export const HUD = {
 // readability loss and a worse number at the same time, which is the signal
 // that it is wrong rather than a trade. `nightRim` therefore names rung 2.
 // A rim role costs no colour: it always aliases a rung the sheet already has.
-function liveryOf(shadow, dominant, mid, highlight, specular, night, rims = []) {
+function liveryOf(shadow, dominant, mid, highlight, specular, night, rims = [], band = null) {
   const [dayRim = shadow, nightRim = night[0]] = rims;
   return {
     keyline: '#000000',
@@ -427,6 +427,18 @@ function liveryOf(shadow, dominant, mid, highlight, specular, night, rims = []) 
     intakeCore: L('#f7efa5'),
     nozzleCore: L('#ef7308'),
     nozzleHot: L('#ffd600'),
+    // R37: the deep-red rim between the black bell and the orange core.
+    // MEASURED on the stage-1 close fly-past (ab2-longplay-60fps t=116.75,
+    // s1b-f0106, HUD digit 1 in frame): core modes #a00000/#b00000 around
+    // #f09000 — the arcade core is red-rimmed orange, not orange-on-black.
+    nozzleRim: L('#a51000'),
+    // R37: camo band dashes on the upper wing surface. The stage-1 enemy's
+    // wing tops carry GREEN bands over the white-grey airframe — corroborated
+    // across four independent stage-1 frames (t115.25 / t115.75 / t116.0 /
+    // t116.75, all with the HUD stage digit readable; dark-green mode
+    // (0,80,48) sampled on the t116.75 wing). Liveries that are already dark
+    // reuse an existing ramp tone here so their sheets gain no new colour.
+    band: band ? L(band) : L(dominant),
     night: {
       rim: L(nightRim),
       shadow: L(night[0]),
@@ -570,7 +582,9 @@ export const ENEMY_LIVERIES = {
   // ordering so it cannot silently invert again.
   grey: liveryOf('#101010', '#4a4a4a', '#848484', '#b5b5b5', '#efefef',
     ['#101963', '#2131a4', '#3a5bc5', '#6b8ce6', '#adc5ff'],
-    ['#4a4a4a', '#2131a4']),
+    ['#4a4a4a', '#2131a4'],
+    // R37: the measured stage-1 green wing band (see liveryOf's band note).
+    '#005230'),
   // stage 2 (desert, orange sky). Dark green camo — MEASURED dominant
   // #102910 at V0.16 on ab2-arcade-closeup-enemies.jpg, which IS a stage-2
   // frame and so is the right source for this livery. Left dark on purpose.
