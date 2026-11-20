@@ -39,11 +39,17 @@ ROUND = {
         "over and over on purpose.”"
     ),
     "verdict_attr": "R38 round-open playtest — fresh naive agent, 3 seeds, stages 1–3 · 7/10",
+    "pairs_label": "Where we actually are",
+    "pairs_sub": "every row is labelled inside the image — blue = arcade, orange = ours",
     "pairs": [
-        ("judging/R38/kill-placement/evidence-ba-crosser-before-top-after-bottom.png",
-         ("BEFORE (top)", "AFTER (bottom)"),
+        ("judging/R38/report-assets/arcade-vs-ours-stage1.png",
+         ("ARCADE", "OURS"),
+         "The reference, and our build, side by side.",
+         "Top row is the 1987 arcade; bottom row is ours at the same stage. Sky, sea, jet and HUD hold up. The honest gap this exposes: the arcade's sky is CROWDED — several enemies at readable size at once — while ours runs thinner. That density is the top item on the R39 list."),
+        ("judging/R38/report-assets/kill-before-after.png",
+         ("BEFORE", "AFTER"),
          "Kills stop burying your jet.",
-         "Same kill, same tick. Before: a fixed-size fireball parks on the jet for seconds (84% peak coverage). After: a brief wing eruption, then the jet flies clean — eruption sized to the victim, ballooning past the camera like the arcade's dead smoke. Your own death starburst still parks on the jet, so a kill never looks like your death."),
+         "Same kill, same tick, ours both rows. Before: a fixed-size fireball parks on the jet (84% peak coverage). After: a brief wing eruption, then the jet flies clean — sized to the victim, ballooning past the camera like the arcade's dead smoke. Your own death starburst still parks on the jet, so a kill never looks like your death."),
         ("judging/R38/death-legibility2/before-after-fatal-round.png",
          ("BEFORE", "AFTER"),
          "The killing shot strobes on every background.",
@@ -303,7 +309,7 @@ def build():
   </div>
 
   <section>
-    <div class="sec-head"><h2>Ours vs the arcade</h2><span class="count">stage 1 · 60&#8202;Hz capture vs mapped longplay</span></div>
+    <div class="sec-head"><h2>{esc(r.get("pairs_label", "The pictures"))}</h2><span class="count">{esc(r.get("pairs_sub", "every panel is labelled in the image itself"))}</span></div>
     <div class="pairs">
 {pairs_html}
     </div>
