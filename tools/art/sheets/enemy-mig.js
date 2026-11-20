@@ -276,8 +276,16 @@ function wing(c, T, p, { span = HALF_SPAN, root = 4, chord = 6, tipChord = 2,
     };
     // Planform.
     band(c, T, xr, xt, tr, tr + chord, tt, tt + tipChord, p.mid);
-    // Lit upper edge, 1 px, tip to tip -- the arcade's topmost airframe row.
-    strip(1, 0, 1, p.highlight);
+    // R40: the LIT HALF of the planform is two rows, not one. The arcade's
+    // stage-1 enemy is a PALE aircraft — census of one large arcade stage-1
+    // enemy (judging/R40/enemy-look/arc-nat-f1200-left.png, native-equivalent)
+    // puts 35-47 % of it above L 150 against 12-18 % on our sheet, with our
+    // dark at 51 %. The ramp itself is measured and is NOT the problem (R11
+    // re-derived it from an unmasked census); what was wrong is which role
+    // draws how many pixels, which is the exact failure R11's own header
+    // describes. Moving the upper half of the chord from `mid` to
+    // `highlight` lifts the pale share without introducing a tone.
+    strip(1, 0, 2, p.highlight);
     // ... and the outer 45 % of that edge one rung brighter. The arcade's
     // near-aspect enemy carries a 1 px highlight along ONE edge of every
     // blade, and the thinnest part of a blade is also its palest (the same
@@ -306,11 +314,18 @@ function wing(c, T, p, { span = HALF_SPAN, root = 4, chord = 6, tipChord = 2,
     // pose-planform-t115.25.png; four stage-1 frames corroborate). Inboard
     // 70 % only: past that the chord has tapered to the 2 px tip where a
     // dash would eat the highlight edge that keeps the blade reading.
+    // R40: BOLDER, and fewer. The arcade's stage-1 wing carries two or three
+    // wide emerald chevrons across a white wing
+    // (judging/R40/enemy-look/arc-nat-f1200-left.png); three 14 %-wide
+    // two-row dashes mixed with the grey into a dark olive MUSH at 12-28
+    // native px, which is where the player reads the aircraft. Two 22 %-wide
+    // bands over three rows of the six-row chord read as camo instead of as
+    // noise, and they sit on `highlight` now rather than on `mid`.
     if (bandHex) {
-      for (const f0 of [0.10, 0.34, 0.58]) {
+      for (const f0 of [0.08, 0.44]) {
         const [xa, ta] = at(f0);
-        const [xb, tb] = at(f0 + 0.14);
-        band(c, T, xa, xb, ta + 1, ta + 3, tb + 1, tb + 3, bandHex);
+        const [xb, tb] = at(f0 + 0.22);
+        band(c, T, xa, xb, ta, ta + 3, tb, tb + 3, bandHex);
       }
     }
   }
@@ -347,22 +362,23 @@ const ENGINE_DX = 2.8; // half the nacelle spacing, aircraft frame
 // "top", which is what finally kills the face -- a jet has a canopy over its
 // intakes, a face does not.
 function noseIntake(c, T, p) {
-  // Solid dark intake band across the nose -- one continuous mass, so the two
-  // glints read as slots in a nose, not as two floating eyes. Mapped through T,
-  // so it rolls with the airframe (no pixel-rotate, no soft edges).
+  // R40 — THE SLOT WAS A MOUTH. R32's single central red slot killed the
+  // two-eyes read and replaced it with a letterbox: a WIDE dark band with a
+  // WIDE red slit across it, which at 46-70 native px reads as a mouth on a
+  // grey face (judging/R40/enemy-look/ba-046.png, panels 2-3). The arcade's
+  // approaching enemy is a compact dark NOSE with a small saturated centre —
+  // the 9 px locked enemy in reference/ab2-arcade-desert.png (TRUE NATIVE) is
+  // a near-black body about as tall as it is wide with a 3 px red core and
+  // short black wing stubs, not a horizontal bar.
+  //
+  // So the intake is a BLOCK taller than it is wide with a small square core.
+  // A shape that is not a wide horizontal pair and not a wide horizontal slit
+  // cannot read as either a face or a mouth, and it keeps R32's finding.
   poly(c, T, [
-    [-ENGINE_DX - 2.4, -2], [ENGINE_DX + 2.4, -2],
-    [ENGINE_DX + 2.4, 1.4], [-ENGINE_DX - 2.4, 1.4],
+    [-3.2, -3], [3.2, -3], [3.2, 2.2], [-3.2, 2.2],
   ], p.keyline);
-  // R32 — ONE central red intake slot, not two symmetric discs. The two round
-  // red glints read as a pair of EYES on the banking/toward-camera pose (R32
-  // judge: "two red discs with dark surrounds read as eyes"). A single central
-  // horizontal slot cannot read as two eyes, and it matches the arcade's own
-  // single ~5px red intake (measured, header §R11). Recessed into the dark band
-  // so it reads as intake geometry under the cockpit canopy, not a face.
   poly(c, T, [
-    [-2.4, -1.1], [2.4, -1.1],
-    [2.4, 0.3], [-2.4, 0.3],
+    [-1.4, -1.6], [1.4, -1.6], [1.4, 1.0], [-1.4, 1.0],
   ], p.intakeRing);
 }
 
@@ -389,17 +405,73 @@ function noseIntake(c, T, p) {
 // against the night sky, as the arcade's does.
 //
 // `flare` is the second half of the 60 Hz shimmer (REAR_FLARE_STATES above):
-// the flared cell grows the core one ring and swells + recentres the hot
-// pip, so alternating the two states reads as a live engine, not a lamp.
+// the flared cell grows the core one ring and adds the hot pip, so
+// alternating the two states reads as a live engine, not a lamp.
+//
+// ====================== R40: THE GLOW WAS THE AIRCRAFT =====================
+// The owner's sixth rejection of this sprite, and the R39 playtest's "reads
+// as an orange asterisk", are the same defect and it is measurable. Census
+// (judging/R40/enemy-look/census.py, operator in that file) of the WARM share
+// of one aircraft's pixels:
+//
+//     arcade, TRUE NATIVE (reference/ab2-arcade-desert.png), 10 px    4.3 %
+//     arcade, TRUE NATIVE, 17 px                                      4.3 %
+//     arcade stage 1, large, native-equiv (f1200 t=116, HUD digit 1)  1.5-6 %
+//     OURS, enemy-grey-rear, the three readable cells             14.1-17.0 %
+//
+// Three to four times the arcade's spend, as a soft radial gradient with a
+// near-white pip at the exact centre of mass. At 12 native px and up the
+// orange is the only thing that survives the downscale, so the airframe
+// reads as four dark spikes around a glowing ball — an asterisk.
+//
+// What the arcade actually draws (judging/R40/enemy-look/arc-nat-f1200-left.png,
+// native-equivalent, stage identity read off the HUD digit in the frame; the
+// close fly-past pose-rearclose-t116.75 from R37 shows the same thing bigger):
+// a CHUNKY NEAR-BLACK SQUARED HOUSING with grey feather segments inside it,
+// and the orange core sits INSIDE and SMALLER than that housing, LOW in it,
+// as a flat amber with a dark-red rim. Black beats orange roughly 2-3:1 by
+// area. So: housing first and biggest, core small and low, no hot pip at rest.
+//
+// Squared, not a disc, for the same reason the arcade's is: at 6-10 screen px
+// a circle is a blob while a squared housing keeps a readable edge. Drawn as
+// a corner-cut polygon through T, so it still rolls with the airframe and
+// still has no resampling anywhere.
+// Sized against the side-by-side (judging/R40/enemy-look/cmp-large-arcade-vs-ours.png,
+// arcade native-equivalent over ours at the same span): the arcade's housing
+// is about an eighth of the span and the aircraft's white BODY is clearly
+// visible above it. A first pass at 4.9 covered the whole body and read as a
+// boxy appliance with a dot in it.
+const BELL_HW = 4.2;   // half-width of the housing, aircraft frame
+const BELL_CUT = 1.5;  // corner cut, so it reads squared-but-not-square
+const BELL_CY = 2.2;   // sits LOW on the body, as the arcade's does
+function bellBlock(c, T, p, cy, hw, cut, hex) {
+  poly(c, T, [
+    [-hw + cut, cy - hw], [hw - cut, cy - hw],
+    [hw, cy - hw + cut], [hw, cy + hw - cut],
+    [hw - cut, cy + hw], [-hw + cut, cy + hw],
+    [-hw, cy + hw - cut], [-hw, cy - hw + cut],
+  ], hex);
+}
+
 function nozzle(c, T, p, flare = false) {
-  const [x, y] = T(0, 1);
-  c.disc(x, y, 5.6, p.keyline);                      // the single black bell
-  c.disc(x, y, flare ? 4.6 : 4.2, p.nozzleRim);      // deep-red ring
-  c.disc(x, y, flare ? 3.8 : 3.2, p.nozzleCore);     // orange afterburner
-  // Hot centre: small and low at rest, bigger and central when flared — the
-  // pip's drift between the two states is the shimmer the footage shows.
-  if (flare) c.disc(x + 0.4, y, 1.9, p.nozzleHot);
-  else c.disc(x - 0.6, y + 0.5, 1.2, p.nozzleHot);
+  const cy = BELL_CY;
+  bellBlock(c, T, p, cy, BELL_HW, BELL_CUT, p.keyline);
+  // Feather segments: grey marks along the TOP of the black housing, where
+  // the close fly-past shows them (R37 pose-rearclose-t116.75: #707070-
+  // #808080 lines inside the bell). `mid` is the ramp member that lands
+  // there and adds no new colour. NOT a symmetric pair down both sides —
+  // that drew a frame around the core and the bell read as an appliance.
+  poly(c, T, [[-BELL_HW + 0.8, cy - BELL_HW + 0.4], [BELL_HW - 0.8, cy - BELL_HW + 0.4],
+    [BELL_HW - 0.8, cy - BELL_HW + 1.4], [-BELL_HW + 0.8, cy - BELL_HW + 1.4]], p.mid);
+  // The core: low in the housing, dark-red rimmed, flat. r 2.5 puts the warm
+  // share at ~6 % of the aircraft against the arcade's 1.5-6 % — inside the
+  // band, where the old r 4.2 was 2.5x outside it.
+  const [x, y] = T(0, cy + 0.6);
+  c.disc(x, y, flare ? 2.8 : 2.5, p.nozzleRim);
+  c.disc(x, y, flare ? 2.2 : 1.9, p.nozzleCore);
+  // Hot pip on the FLARED half only. At rest the arcade core is flat amber;
+  // a permanent near-white centre is what made the glow read as a lamp.
+  if (flare) c.disc(x, y - 0.3, 0.9, p.nozzleHot);
 }
 
 // A cockpit canopy on the upper fuselage spine. R31: the cue that reads the
@@ -437,14 +509,47 @@ function fin(c, T, p, { base = -5, tip = -16, lean = 1, wRoot = 4, wTip = 2 }) {
  *  (tools/out/enemy-art-r11/s1near-B-3x.png, t = 94.8 s, HUD digit 1). The
  *  camo and prop ramps make the same program paint a dark body, which is what
  *  their stage shows. */
-function fuselage(c, T, p, { halfW, top, bot, tail = 0 }) {
-  poly(c, T, [[-halfW, top], [halfW, top], [halfW, bot], [-halfW, bot]], p.mid);
-  poly(c, T, [[1, top], [halfW, top], [halfW, bot - 1], [1, bot - 1]], p.highlight);
-  poly(c, T, [[-halfW, top], [-halfW + 1, top], [-halfW + 1, bot], [-halfW, bot]], p.dominant);
-  poly(c, T, [[-halfW, bot - 2], [halfW, bot - 2], [halfW, bot], [-halfW, bot]], p.dominant);
-  poly(c, T, [[-halfW, bot - 1], [halfW, bot - 1], [halfW, bot], [-halfW, bot]], p.shadow);
+//  R40: the body's base tone is `highlight`, not `mid`. Same reason as the
+//  wing's lit half — the arcade's stage-1 enemy body is WHITE with dark panel
+//  dashes, and the census put only 12-18 % of our aircraft above L 150 against
+//  the arcade's 35-47 %, with our dark at 51 %. The dark is not removed, it is
+//  CONCENTRATED where the arcade puts it (the engine housing, the shaded left
+//  side, the belly band and the panel dashes) instead of spread over the whole
+//  body — which is the gap between R10 rank 1 ("a white bird", no dark at all)
+//  and R11's over-correction ("a correct measurement of the wrong population").
+//  The old sunlit-panel role (a HALF-body block of `highlight` over a `mid`
+//  body) becomes a 1 px `specular` edge: a half-body block of the brightest
+//  rung is affordable on `grey` and is not on `camo`, whose specular is its
+//  one bright green accent.
+//  R40, second pass: the body TAPERS. A `highlight` rectangle with a bright
+//  edge and two dashes across it read as a white cabinet with a door — see the
+//  first version in cmp-large-arcade-vs-ours.png. The arcade's body is a
+//  narrow wedge that widens into the wing root, so the top half is drawn at
+//  `narrow` of the root half-width and every feature follows the taper.
+function fuselage(c, T, p, { halfW, top, bot, tail = 0, narrow = 0.55 }) {
+  const wTop = halfW * narrow;
+  const hw = (y) => wTop + (halfW - wTop) * Math.min(1, Math.max(0, (y - top) / (bot - top)));
+  const quad = (y0, y1, inset, hex) => poly(c, T, [
+    [-hw(y0) + inset, y0], [hw(y0) - inset, y0],
+    [hw(y1) - inset, y1], [-hw(y1) + inset, y1],
+  ], hex);
+  quad(top, bot, 0, p.highlight);
+  // Lit right side and shaded left side, both 1 px and both tracking the
+  // taper, so the body is modelled without a block of the brightest rung
+  // (affordable on `grey`, not on `camo`, whose specular is its bright green).
+  poly(c, T, [[hw(top) - 1, top], [hw(top), top],
+    [hw(bot - 1), bot - 1], [hw(bot - 1) - 1, bot - 1]], p.specular);
+  poly(c, T, [[-hw(top), top], [-hw(top) + 1, top],
+    [-hw(bot) + 1, bot], [-hw(bot), bot]], p.dominant);
+  quad(bot - 2, bot, 0, p.dominant);
+  quad(bot - 1, bot, 0, p.shadow);
+  // One panel dash across the spine. On the arcade's close fly-past the pale
+  // body is broken by short dark marks; without one a `highlight` body is a
+  // blank slab at every size above ~25 native px. Two of them turned the
+  // body into a louvred panel, so there is one.
+  quad(top + 2.4, top + 3.4, 1.0, p.dominant);
   if (tail) {
-    poly(c, T, [[-halfW + 1, bot], [halfW - 1, bot], [1, bot + tail], [-1, bot + tail]], p.dominant);
+    poly(c, T, [[-hw(bot) + 1, bot], [hw(bot) - 1, bot], [1, bot + tail], [-1, bot + tail]], p.dominant);
   }
 }
 
@@ -458,7 +563,12 @@ function drawMigHead(c, T, p) {
   // side-by-side with reference/stage1-level-flight-t116.png: the arcade
   // enemy's fin is a short raked blade seated on the rear fuselage.
   fin(c, T, p, { base: -5, tip: -13, lean: 2, wRoot: 4.2, wTip: 1.8 });
-  wing(c, T, p);
+  // R40: the head aspect carries the camo bands too. It is the SAME aircraft
+  // as the rear sheet, and shipping a green-banded rear and a plain grey head
+  // means the player sees two different aeroplanes depending on which way the
+  // enemy happens to be flying — which is also why the head cells measured
+  // "colourless" in the in-game look (judging/R40/enemy-look/ba-046.png).
+  wing(c, T, p, { bandHex: p.band });
   // 7 wide x 12 tall, compact and AT the wing line. The arcade's is ~8 n x
   // 11.8 n on a 73.8 n span, which is 7 x 10 on our 60 px span.
   fuselage(c, T, p, { halfW: 4, top: -6, bot: 7, tail: 2 });
@@ -467,14 +577,21 @@ function drawMigHead(c, T, p) {
 }
 
 function drawMigRear(c, T, p, flare = false) {
-  fin(c, T, p, { base: -5, tip: -13, lean: 2, wRoot: 4.2, wTip: 1.8 }); // R35: see drawMigHead
+  // R40: the fin is seated on the TALLER body below, so its root moves up
+  // with it; the blade above the spine keeps the same ~7 px it had.
+  fin(c, T, p, { base: -8, tip: -15, lean: 2, wRoot: 4.2, wTip: 1.8 });
   wing(c, T, p, { bandHex: p.band }); // R37: green band dashes, see wing()
   // R35: slimmed (halfW 6 -> 5) so the body reads as a fuselage the engines
   // sit in, not a flat grey CRATE the width of the nacelle block. The arcade
   // enemy's body is slimmer than its engine cluster; the single black+orange
   // bell stays the loudest feature at range (R37 single-nozzle correction).
-  fuselage(c, T, p, { halfW: 5, top: -5, bot: 7, tail: 3 });
-  canopy(c, T, p, { top: -6, bot: -2 });
+  // R40: the body runs HIGHER than the bell (top -5 -> -8) so a pale
+  // fuselage mass with its canopy shows ABOVE the engine housing, which is
+  // what the arcade's large rear-quarter enemy shows
+  // (judging/R40/enemy-look/cmp-large-arcade-vs-ours.png, top half). With
+  // the body ending where the bell began, the bell WAS the aircraft.
+  fuselage(c, T, p, { halfW: 5, top: -8, bot: 7, tail: 3 });
+  canopy(c, T, p, { top: -8, bot: -4 });
   nozzle(c, T, p, flare);
 }
 
@@ -486,7 +603,7 @@ function drawSweptHead(c, T, p) {
   // Taller, narrower fin than the mig keeps the interceptor distinct; R31 lifts
   // its tip width off the needle (1.6->1.8) without touching its height.
   fin(c, T, p, { base: -5, tip: -18, lean: 2, wRoot: 3, wTip: 1.8 });
-  wing(c, T, p, { span: 29, root: 3, anhedral: 4 });
+  wing(c, T, p, { span: 29, root: 3, anhedral: 4, bandHex: p.band });
   fuselage(c, T, p, { halfW: 4, top: -6, bot: 10, tail: 2 });
   noseIntake(c, T, p);
   canopy(c, T, p, { top: -6, bot: -2 });
@@ -669,7 +786,7 @@ function drawOblique(c, deg, p, { aspect, family, flare = false }) {
   const P = proj3(dir * (hard ? 38 : 24) * zs, hard ? 14 : 9,
     dir * (hard ? 42 : 30), hard ? 0.86 : 1);
   const Z = (x, y, z) => [x, y, z * zs];
-  const bandHex = rear || hard ? p.band : null;
+  const bandHex = p.band; // R40: every aspect wears the same camo, see drawMigHead
 
   // Far wing first (with yaw `dir`, the -dir side recedes), then fuselage,
   // then near wing over it — the occlusion order a quarter view implies.
@@ -708,13 +825,17 @@ function drawOblique(c, deg, p, { aspect, family, flare = false }) {
       c.ring(nx2, ny2, 5.2, 4.5, p.shadow);
     } else {
       // The bell at the tail, facing the camera. Slightly smaller than the
-      // dead-astern bell: seen at an angle. Same flare contract as nozzle().
+      // dead-astern bell: seen at an angle. Same flare contract and the same
+      // R40 proportions as nozzle() — the housing is the big dark mass and
+      // the warm core is small and inside it. These cells measured the WORST
+      // warm share on the old sheet (17.0 % at -57 deg, against the arcade's
+      // 1.5-6 %) because the airframe shrinks under the projection while the
+      // glow did not.
       const [bx, by] = P(...Z(0, 0.6, -6.5));
-      c.disc(bx, by, 4.8, p.keyline);
-      c.disc(bx, by, flare ? 4.0 : 3.6, p.nozzleRim);
-      c.disc(bx, by, flare ? 3.2 : 2.7, p.nozzleCore);
-      if (flare) c.disc(bx + 0.4, by, 1.6, p.nozzleHot);
-      else c.disc(bx - 0.5, by + 0.4, 1.0, p.nozzleHot);
+      c.disc(bx, by, 4.6, p.keyline);
+      c.disc(bx, by + 0.6, flare ? 2.6 : 2.3, p.nozzleRim);
+      c.disc(bx, by + 0.6, flare ? 2.1 : 1.8, p.nozzleCore);
+      if (flare) c.disc(bx, by + 0.3, 0.9, p.nozzleHot);
     }
   } else {
     // Head aspect: dark nose, no glow. The canopy glint sits behind it on
@@ -724,8 +845,10 @@ function drawOblique(c, deg, p, { aspect, family, flare = false }) {
       c.ring(nx2, ny2, 5.2, 4.5, p.shadow);
       c.disc(nx2, ny2, 1.8, p.keyline);
     } else {
+      // R40: the red core is a PIP inside a dark nose, not a disc that fills
+      // it — same reason as noseIntake()'s block above.
       c.disc(nx2, ny2, 2.8, p.keyline);
-      c.disc(nx2, ny2, 1.4, p.intakeRing);
+      c.disc(nx2, ny2, 1.1, p.intakeRing);
     }
     const [cx2, cy2] = P(...Z(0, -2.0, 14));
     c.disc(cx2, cy2, 1.6, p.keyline);
@@ -821,11 +944,13 @@ export function buildEnemySheet(livery, aspect, night = false) {
         draw(cell, roll(deg), p, flare);
       }
     },
-    // 10, not 8, for the rear sheets: the R37 footage adds two measured
-    // colours there (the deep-red core rim and the green wing band — see
-    // palettes.js liveryOf). Still well inside the hardware's 16-colour
-    // sprite lines; the head sheets stay at the original 8.
-    { maxColours: aspect === 'rear' ? 10 : 8, label }
+    // 10 for the rear sheets: the R37 footage adds two measured colours there
+    // (the deep-red core rim and the green wing band — see palettes.js
+    // liveryOf). R40 raises the head sheets from 8 to 9: they now wear the
+    // same measured green camo band as the rear sheets, because they are the
+    // same aeroplane and a grey head with a green tail reads as two types.
+    // Both are well inside the hardware's 16-colour sprite lines.
+    { maxColours: aspect === 'rear' ? 10 : 9, label }
   );
 }
 

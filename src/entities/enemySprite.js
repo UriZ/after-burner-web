@@ -433,41 +433,50 @@ function farRow(buf, y, spans) {
   for (const [x, w, hex] of spans) fillRectHard(buf, x, y, w, 1, hex);
 }
 
-function drawHeadOnFar(buf, pal) {
-  // Full-width wing rows: dark tips, mid panels, bright fuselage. The dart
-  // is carried by value across these three rows and by shape outside them.
-  for (const y of FAR_FULL_ROWS) {
+// R40 — THE FAR CELL WAS STILL A BRICK, and the look says so. Captured in
+// game at 7-11 native px (judging/R40/enemy-look/ours-sizes-B4/look-007.png,
+// and dbg-t28.png where a far-LOD aircraft sits next to a detail-sheet one at
+// the same size) it reads as a grey box with black bars: eight rows of fill
+// with a value ramp inside and no sky anywhere in the bbox. The arcade at the
+// same size (reference/ab2-arcade-desert.png, TRUE NATIVE 320x224 — its two
+// camo enemies are 10 px and 17 px, and the locked one in the reticle is 9 px)
+// is a compact dart with OPEN SKY above and below a pale wing line, a dark
+// core, and a fin stripe clear of the wing.
+//
+// The opacity constraint is untouched: FAR_FULL_ROWS (2,3,4) are still
+// full-width, which is what makes the measured span identically the quad
+// width at every size. Rows 0, 7 are now EMPTY and rows 1, 5, 6 carry only
+// short runs, so the cell's fill drops from ~100 % to ~47 % and the aircraft
+// has a silhouette for the first time. Every colour still comes from the
+// livery's own generated ramp — no new tone, no stage-2 value applied to a
+// stage-1 aircraft (the mistake this file's R6 note records).
+function drawFarCommon(buf, pal) {
+  // Pale wing line with dark tips and a dark core, two rows thick.
+  for (const y of [2, 3]) {
     farRow(buf, y, [
-      [0, 3, pal.shadow], [3, 3, pal.mid], [6, 4, pal.dominant],
-      [10, 3, pal.mid], [13, 3, pal.shadow],
+      [0, 2, pal.shadow], [2, 5, pal.highlight], [7, 2, pal.dominant],
+      [9, 5, pal.highlight], [14, 2, pal.shadow],
     ]);
   }
-  farRow(buf, 0, [[7, 2, pal.mid]]);                    // fin tips
-  farRow(buf, 1, [[6, 4, pal.highlight]]);              // fin pair
-  farRow(buf, 5, [[4, 8, pal.mid]]);                    // lower fuselage
-  farRow(buf, 6, [[5, 6, pal.shadow]]);                 // stabilisers
-  farRow(buf, 7, [[6, 4, pal.shadow]]);
-  fillRectHard(buf, 7, 3, 2, 2, pal.key);               // nose intake
+  farRow(buf, 4, [[0, 16, pal.shadow]]);  // dark trailing edge, full width
+  farRow(buf, 1, [[7, 2, pal.mid]]);      // fin stripe, clear of the wing
+  farRow(buf, 6, [[5, 6, pal.shadow]]);   // stabilisers
+}
+
+function drawHeadOnFar(buf, pal) {
+  drawFarCommon(buf, pal);
+  farRow(buf, 5, [[6, 4, pal.key]]);      // dark nose block, no glow
+  fillRectHard(buf, 7, 2, 2, 2, pal.key); // intake, dead centre
 }
 
 function drawRearFar(buf, pal) {
-  for (const y of FAR_FULL_ROWS) {
-    farRow(buf, y, [
-      [0, 3, pal.shadow], [3, 3, pal.mid], [6, 4, pal.dominant],
-      [10, 3, pal.mid], [13, 3, pal.shadow],
-    ]);
-  }
-  farRow(buf, 0, [[7, 2, pal.mid]]);
-  farRow(buf, 1, [[6, 4, pal.highlight]]);
-  farRow(buf, 5, [[4, 8, pal.shadow]]);                 // nacelle band
-  farRow(buf, 6, [[5, 6, pal.shadow]]);
-  farRow(buf, 7, [[6, 4, pal.shadow]]);
+  drawFarCommon(buf, pal);
+  farRow(buf, 5, [[6, 4, pal.key]]);      // the engine housing
   // Two hot nozzle pixels -- at this size the glow is the only thing that
   // distinguishes a receding enemy from an approaching one, and the stage
-  // opener depends on reading as receding. Moved down onto the nacelle band
-  // so they sit on dark rather than on the bright fuselage.
-  fillRectHard(buf, 6, 4, 1, 2, pal.hot);
-  fillRectHard(buf, 9, 4, 1, 2, pal.hot);
+  // opener depends on reading as receding. They sit INSIDE the dark housing,
+  // as the near sheet's core sits inside its bell.
+  fillRectHard(buf, 7, 5, 2, 1, pal.hot);
 }
 
 // R8: the near-aspect PROCEDURAL fallback carried the same pure-black
@@ -481,9 +490,32 @@ function drawRearFar(buf, pal) {
 // otherwise an enemy spawned in the few frames before the sheets decode is
 // drawn in the treatment this round exists to remove, and nothing would say
 // so. See tools/art/palettes.js ENEMY_LIVERIES for the operator.
-function buildTexture(drawFn, w, h, pal, { keyline = true } = {}) {
+// R40: the far cell is no longer opaque edge to edge (it has a silhouette
+// now), so the full-width rows are the ONLY thing standing between this file
+// and the R3 disappearing-aircraft bug. Until this round the draw functions
+// filled the whole cell and FAR_FULL_ROWS was documentation; now it is load
+// bearing, and a documented invariant that nothing checks is the class of
+// defect this project has had to fix three times. Checked on the BUILT
+// buffer, not on the source, so a future re-draw cannot quietly break it.
+function assertFarRowsOpaque(buf, label) {
+  for (const y of FAR_FULL_ROWS) {
+    for (let x = 0; x < buf.width; x++) {
+      if (buf.data[(y * buf.width + x) * 4 + 3] !== 255) {
+        throw new Error(
+          `[far-LOD] ${label}: texel (${x},${y}) is transparent, but row ${y} ` +
+          'is one of FAR_FULL_ROWS and must span the full cell width. A far ' +
+          'sprite can now render with a short or zero span at some size — the ' +
+          'R3 disappearing-aircraft bug (27 of 80 frames at zero pixels).'
+        );
+      }
+    }
+  }
+}
+
+function buildTexture(drawFn, w, h, pal, { keyline = true, far = false } = {}) {
   const buf = createPixelBuffer(w, h);
   drawFn(buf, pal);
+  if (far) assertFarRowsOpaque(buf, drawFn.name || 'far cell');
   if (keyline) addUnderKeyline(buf, pal.rim ?? pal.shadow ?? pal.key);
   const tex = bufferToTexture(buf);
   // Asserted rather than inherited: the filtering choice is the subject of
@@ -765,7 +797,7 @@ export function enemyTexture(aspect, livery = 'grey', detail = true, night = fal
     const drawFn = aspect === 'rear' ? drawRearFar : drawHeadOnFar;
     // No keyline on the far LOD: every texel is already opaque (the
     // invariant above), so there is no boundary to outline.
-    tex = buildTexture(drawFn, FW, FH, pal, { keyline: false });
+    tex = buildTexture(drawFn, FW, FH, pal, { keyline: false, far: true });
   }
   cache.set(key, tex);
   return tex;
