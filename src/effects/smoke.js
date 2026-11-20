@@ -169,14 +169,24 @@ function drawSmokePuff(value) {
 // tools/out/combat-r6/base/trail-sheet.png shows: a round cumulus above the
 // jet with no visible direction of travel.
 //
-// So this one is an ELLIPSE, authored 32x20 (aspect 0.625) with its long axis
-// along the canvas x. The caller rotates it to the trail's local screen
-// tangent, so the long axis lies ALONG the path and the short axis sets the
-// plume's visible width. Three consequences, all of them the point:
+// So this one is an ELLIPSE, authored with its long axis along the canvas x.
+// The caller rotates it to the trail's local screen tangent, so the long axis
+// lies ALONG the path and the short axis sets the plume's visible width.
+// Three consequences, all of them the point:
 //   * the chain has an axis even before any size ramp;
 //   * neighbouring puffs overlap along the direction of travel, so the same
 //     emission interval buys more column occupancy than a disc did;
 //   * it cannot be mistaken for a cloud bank, which is round.
+// R41 — 32x20 (aspect 0.625) -> 30x24 (aspect 0.80), ROUNDER. At matched
+// scale against the arcade (judging/R41/trail-look/cmp-arc.png, 60 Hz t105.55)
+// its ribbon is plainly a chain of ROUND masses overlapping by about half: the
+// bead period is roughly one ribbon width, and every lobe is circular. A 1.6:1
+// ellipse laid end to end needs the emitter to keep up with its own long axis
+// or it breaks into dashes, which is what the owner saw twice. Rounder lobes
+// at closer spacing are the arcade's own construction, and they cannot form a
+// dash. The axis the R5 critique asked for now comes from the SPACING and the
+// size profile rather than from one sprite's aspect.
+//
 // Same five-step near-white ladder as the round puff (see the note above for
 // why the ladder is authored at the brightest stage and darkened by the
 // caller, never the reverse).
@@ -371,7 +381,7 @@ function drawKillSmoke(phase) {
 
 const KINDS = {
   puff: { draw: drawSmokePuff, w: 24, h: 24 },
-  trail: { draw: drawTrailPuff, w: 32, h: 20 },
+  trail: { draw: drawTrailPuff, w: 30, h: 24 },
   billow: { draw: drawBillow, w: 32, h: 42 },
   // `phases` marks a kind whose textures are indexed by AGE PHASE rather than
   // by SMOKE_VALUES step, and whose palette is its own.
@@ -399,6 +409,14 @@ export const smokePuffTexture = (step = 0) => texturesFor('puff')[step];
 export const trailPuffTexture = (step = 0) => texturesFor('trail')[step];
 export const billowTexture = (step = 0) => texturesFor('billow')[step];
 export { SMOKE_RAMP, SMOKE_VALUES };
+
+// Where a spindle's crest sits in a sprite's life, and the exponent that puts
+// a half-period sine's peak there. Same construction and the same 0.4 as the
+// ribbon's SPINDLE_PEAK_U in weapons/missiles.js — the arcade's measured crest
+// is 0.22-0.60 of the way back from the missile (R40 NOTES §2) and 0.4 is its
+// central value.
+const SPINDLE_PEAK_T = 0.4;
+const SPINDLE_T_K = Math.log(0.5) / Math.log(SPINDLE_PEAK_T);
 
 // Pooled smoke sprites. Both kinds are sized in SCREEN fractions (they are
 // drawn at a size that reads the same whether the missile is near or far —
@@ -438,11 +456,23 @@ export class SmokeField {
   // already left behind, so it keeps the heading it was laid down at while
   // the missile turns away from it, which is what makes a curving trail look
   // curved rather than swept.
+  // `fracPeak` (R41, optional) turns the size ramp from a straight line into
+  // the arcade's SPINDLE. A trail puff's age is its position along the trail —
+  // fresh at the missile head, oldest at the launch point — so a linear
+  // fracStart -> fracEnd ramp can only make the trail monotonically fatter or
+  // thinner from end to end, and the shipped one (0.07 -> 0.105) made it
+  // fattest at the launch point, i.e. ON THE JET. The arcade is thin at BOTH
+  // ends with its crest 0.22-0.60 of the way back (R40 NOTES §2). With
+  // `fracPeak` the sprite runs fracStart -> fracPeak -> fracEnd over its life
+  // on the same sine the ribbon uses, so the chain draws that spindle without
+  // any caller needing to know where in the trail a given puff sits.
+  // Omitted, the ramp is the old straight line — the billow and the kill
+  // residue are unchanged.
   spawn(
     kind,
     position,
     depth,
-    { life, fracStart, fracEnd, valueStart = 1, valueEnd = valueStart, rotation = 0 }
+    { life, fracStart, fracEnd, fracPeak, valueStart = 1, valueEnd = valueStart, rotation = 0 }
   ) {
     const sprite = this._acquire(kind);
     sprite.position.copy(position);
@@ -454,7 +484,7 @@ export class SmokeField {
     sprite.material.map = texturesFor(kind)[KINDS[kind].phases ? 0 : nearestValueStep(valueStart)];
     this.scene.add(sprite);
     this.live.push({
-      kind, sprite, age: 0, depth, life, fracStart, fracEnd, valueStart, valueEnd,
+      kind, sprite, age: 0, depth, life, fracStart, fracEnd, fracPeak, valueStart, valueEnd,
     });
   }
 
@@ -469,7 +499,16 @@ export class SmokeField {
         continue;
       }
       const t = p.age / p.life;
-      const frac = p.fracStart + (p.fracEnd - p.fracStart) * t;
+      // Spindle when fracPeak is given, straight line otherwise. The crest
+      // sits at SPINDLE_PEAK_T of the life; sin() is 0 at both ends, so the
+      // sprite leaves fracStart and arrives at fracEnd exactly.
+      const frac =
+        p.fracPeak === undefined
+          ? p.fracStart + (p.fracEnd - p.fracStart) * t
+          : p.fracStart +
+            (p.fracEnd - p.fracStart) * t +
+            (p.fracPeak - Math.max(p.fracStart, p.fracEnd)) *
+              Math.sin(Math.PI * Math.pow(t, SPINDLE_T_K));
       // Map before sizeSprite: sizeSprite reads the aspect off the live map.
       const nPhase = KINDS[p.kind].phases;
       p.sprite.material.map = texturesFor(p.kind)[

@@ -31,6 +31,18 @@ import { missileTexture } from './projectileSprites.js';
 //    emission rate needed near the camera is hundreds of live sprites per
 //    missile. A triangle strip is continuous by construction.
 //
+//    R41 — THE SECOND SENTENCE IS MEASURED FALSE, AND THE HEADING WITH IT.
+//    "Hundreds of live sprites" assumed a sprite chain must be emitted on a
+//    CLOCK, where covering the fast end of a flight means oversampling all of
+//    it. Emitted by screen DISTANCE instead (PUFF_STEP_FRAC) the overlap is a
+//    constant of the construction, and the whole field peaks at 38 live trail
+//    sprites — measured over 1800 ticks of the salvo-stress demo, against the
+//    old clock's ~29 PER MISSILE. The arcade settles it anyway: at matched
+//    scale its ribbon is plainly a chain of round masses overlapping by about
+//    half (judging/R41/trail-look/cmp-arc.png), not a strip. So the trail IS
+//    the puff chain, and the ribbon mesh is a thin continuity core inside it.
+//    Reason 2 below still stands and is why that core is built in NDC.
+//
 // 2. A world-space ribbon DEGENERATES here. The usual construction takes
 //    perp = cross(segmentDirection, viewDirection) — but these missiles fly
 //    almost straight into the screen, so segmentDirection is nearly parallel
@@ -238,7 +250,7 @@ const SPLAY_DECAY_PER_S = 3.0;
 // the billow spawn in fire()). The union has to stay inside the arcade
 // plume's measured widest point of ~11.6 %W; at 0.17 the two lobes made a
 // 25 %W x 49 %W column that is nowhere in the footage.
-const BILLOW_LOBE_STEP_NDC = 0.055;
+const BILLOW_LOBE_STEP_NDC = 0.028;
 
 const MISSILE_FRAC_NEAR = 0.028; // R26: 0.022 -> 0.028, a touch more trackable as it chases
 const MISSILE_FRAC_FAR = 0.009;
@@ -248,14 +260,28 @@ const MISSILE_FRAC_FAR = 0.009;
 // chain is not, so every tick of ribbon life is a tick the trail cannot
 // develop a gap in. The R4 judge measured per-component column occupancy at
 // 87% against a >=95% criterion, and the missing 13% is all in the puff
-// chain beyond the ribbon's tail — see PUFF_INTERVAL_S.
+// chain beyond the ribbon's tail — see PUFF_STEP_FRAC.
 // R26 — 1.1 -> 1.7. The missile is slower now (V_MAX 34), so a flight runs
 // ~0.8-2.4 s; at 1.1 s the ribbon's tail evaporated while the missile was still
 // chasing, cutting the visible curving path short. 1.7 s keeps the whole bank
 // on screen so the player SEES the arc it flew (owner: "see the path they
 // chase"). The age-driven width taper is unchanged in shape, just reached over
 // a longer window.
-const RIBBON_LIFE_S = 1.7;
+//
+// R41 — THE RIBBON IS NOW A CORE, NOT THE TRAIL, and 1.7 -> 1.35 follows the
+// puff chain's life down so the thin core cannot outlast the lobes and trail a
+// bare wire behind them. Two things changed around it. It OUTLIVES ITS MISSILE
+// now (see _retire), which is what makes it visible at all — suppression at
+// tick 402 found the shipped ribbon contributing 486 px against the puff
+// chain's 52 317, because it was destroyed on impact while the chain lived on.
+// And its half-thickness dropped to a quarter (HALF_FRAC_* below), because a
+// 3-vertex cross-section every ~25 native px cannot carry a round lobe: at a
+// 2-sample wavelength — the finest it can express — the edge renders as square
+// stair-steps, which is the "white road" R37 already recorded. Round lobes are
+// the puff chain's job; the ribbon's job is to be a continuity floor inside it.
+// R26's "see the arc it flew" is unaffected: measured trail extent is
+// 30.6 %W median against the arcade's 27-43 %W.
+const RIBBON_LIFE_S = 1.35;
 const RIBBON_HZ = 60; // one sample per fixed tick
 const MAX_SAMPLES = Math.ceil(RIBBON_LIFE_S * RIBBON_HZ) + 2;
 // Screen-fraction half-thickness at the youngest and oldest sample.
@@ -295,8 +321,8 @@ const MAX_SAMPLES = Math.ceil(RIBBON_LIFE_S * RIBBON_HZ) + 2;
 // PEAK 0.040 half = 8.0 %W full, the measured peak; MIN 0.009 = 1.8 %W, the
 // measured ends. The scallop multiplier (up to 1.3x) can carry the crest to
 // ~10.4 %W, still under the 11.6 %W widest point measured anywhere.
-const HALF_FRAC_MIN = 0.009;
-const HALF_FRAC_PEAK = 0.04;
+const HALF_FRAC_MIN = 0.004;
+const HALF_FRAC_PEAK = 0.014;
 const SPINDLE_PEAK_U = 0.4;
 const SPINDLE_K = Math.log(0.5) / Math.log(SPINDLE_PEAK_U);
 // R37 — SCALLOPED EDGES. The arcade column is visibly built of round masses:
@@ -311,6 +337,15 @@ const SPINDLE_K = Math.log(0.5) / Math.log(SPINDLE_PEAK_U);
 // with small-scale lumps on top. Phase steps by the golden angle per launch
 // (deterministic under ?fixed=1&seed=N: no rng draw, so no PRNG-stream shift
 // — the shared-stream bug class in CLAUDE.md).
+// R41 — THE LOBES WERE 2.4x TOO LONG TO READ AS LOBES. In the arcade crop
+// (judging/R41/trail-look/cmp-arc.png, 60 Hz t105.55) the ribbon is visibly a
+// chain of round masses overlapping by about half, so its edge beads with a
+// period of roughly ONE ribbon width. Ours ran a 15-sample wavelength: at
+// ~6.7 screen px per sample that is a ~100 px bulge on a ~42 px-wide ribbon,
+// i.e. a slow swell no eye reads as lumps, which is why the narrowed ribbon
+// still came back as a hard-edged white road. 7.5 samples puts the bead
+// period on the ribbon's own width, and the amplitude is raised to carry the
+// arcade's ~0.6-1.3x swing between waist and lobe.
 const LUMP_AMP_1 = 0.20;
 const LUMP_FREQ_1 = 0.42;
 const LUMP_AMP_2 = 0.10;
@@ -489,20 +524,52 @@ class Trail {
   }
 }
 
-// Interval between the discrete aged puffs that continue the trail past the
-// ribbon's tail — REFERENCE.md: "the trail's TAIL ages into a chain of
-// discrete round white puffs (t226, t332, t120)".
+// The chain of aged puffs — REFERENCE.md: "the trail's TAIL ages into a chain
+// of discrete round white puffs (t226, t332, t120)". R41: this is no longer
+// only the tail. It is the trail. See the ribbon note at RIBBON_LIFE_S.
 //
-// 0.055 s, down from 0.13. This is the occupancy fix. A missile accelerates
-// to V_MAX, so late in its flight successive puffs are emitted further apart
-// than one puff diameter and the chain develops visible gaps — which is what
-// a per-component COLUMN OCCUPANCY measurement sees, and why the R4 judge
-// measured 87% against the >=95% criterion while the ribbon itself is
-// continuous by construction. Halving the interval roughly halves the worst
-// gap. It is not free: at a 1.0 s puff life this is ~18 live puffs per
-// missile and up to ~110 across a full 6-missile salvo, so if this number
-// drops further, check the sprite count before assuming it is cheap.
-const PUFF_INTERVAL_S = 0.055;
+// R41 — THE 0.055 s EMISSION CLOCK IS GONE, replaced by PUFF_STEP_FRAC below.
+// It is recorded here because its own comment named the defect it could not
+// fix: "a missile accelerates to V_MAX, so late in its flight successive
+// puffs are emitted further apart than one puff diameter and the chain
+// develops visible gaps". Halving the interval (0.13 -> 0.055, R4's occupancy
+// fix) only halved the worst gap, because a clock cannot bound a distance.
+// Spacing by distance removes the failure mode rather than shrinking it, and
+// the sprite-count warning that used to stand here is answered: measured over
+// 1800 ticks of the salvo-stress demo the whole field peaks at 38 live trail
+// sprites (mean 4.9), against the old note's ~29 per missile.
+
+// R41 — PUFFS ARE SPACED BY SCREEN DISTANCE, NOT BY A CLOCK, and that is what
+// stops the chain breaking into cotton balls.
+//
+// A fixed 0.055 s interval spaces puffs by whatever the missile's screen speed
+// happens to be, and a missile ACCELERATES to V_MAX: measured on the fading
+// ribbon at tick 402 the path advances ~25 native px per tick, so 0.055 s is
+// ~82 px between puffs against a ~100 px sprite — barely 18 % overlap at the
+// fast end of one flight, and a visible gap as soon as it is faster than that.
+// The owner has now twice called the result a gigantic trail; what he was
+// looking at is a line of discrete balls, and the gaps are most of why they
+// read as discrete.
+//
+// Spacing by distance makes the overlap a CONSTANT of the construction instead
+// of a consequence of flight speed. At 0.045 of frame width (~43 native px)
+// against a long axis that peaks near 0.10 the lobes overlap by ~57 % — the
+// arcade's own "overlapping by about half" (cmp-arc.png). It also costs less
+// than the clock did: a flight lays ~16 puffs over its path instead of ~29,
+// because the clock was oversampling the slow early phase to cover the fast
+// late one.
+//
+// Purely geometric: no rng draw, so the shared PRNG stream is untouched
+// (CLAUDE.md's shared-stream bug class).
+const PUFF_STEP_FRAC = 0.028;
+// A missile whose screen position barely moves (flying straight down the view
+// axis at the camera) would otherwise stop laying smoke entirely. This is the
+// floor: lay one anyway after this long.
+const PUFF_MAX_GAP_S = 0.18;
+// How far across the path a lobe may be offset from the centreline, in frame
+// width fractions. ~1/4 of a lobe's widest radius: enough for the ragged
+// wander the arcade ribbon has, too small to break the chain apart.
+const PUFF_LAT_FRAC = 0.008;
 
 export class Missiles {
   constructor(scene, space, smoke) {
@@ -512,6 +579,9 @@ export class Missiles {
     this.live = [];
     this.spritePool = [];
     this.trailPool = [];
+    // Ribbons whose missile has retired but whose smoke has not aged out yet
+    // — see _retire(). They take no new samples; they are only aged.
+    this.fadingTrails = [];
     this.t = 0;
     // One row per RETIREMENT, drained by combat.js's __missileDrain. A miss
     // has to be a NUMBER in a ledger and not an absence in a kill count:
@@ -584,6 +654,10 @@ export class Missiles {
       velX: side * SPLAY_NDC_X_PER_S,
       velY: SPLAY_NDC_Y_PER_S,
       puffTimer: 0,
+      // R41: where the last puff was laid, for the distance-spaced emitter.
+      // Null means "none yet", so the first tick always lays one at the pylon.
+      puffNdcX: null,
+      puffNdcY: null,
       // R10 seeker state. `targetLost` is set by the fuse when the missile
       // crosses its target's depth outside HIT_RADIUS_FRAC -- the shot is
       // spent and the round goes ballistic from that moment.
@@ -678,12 +752,12 @@ export class Missiles {
       const jitterY = stepY * i + (rng() - 0.5) * 0.011;
       this.space.ndcToWorld(m.ndcX + jitterX, m.ndcY + jitterY, m.depth * 1.05, pos);
       this.smoke.spawn('billow', pos, m.depth * 1.05, {
-        life: 0.42 + rng() * 0.14,
+        life: 0.22 + rng() * 0.10,
         rotation: billowRot,
         // `frac` is the SHORT (across-plume) axis; the 32x42 canvas puts the
         // sprite's long axis at frac * 1.3125.
-        fracStart: 0.035,
-        fracEnd: 0.07 + rng() * 0.025,
+        fracStart: 0.012,
+        fracEnd: 0.028 + rng() * 0.012,
         valueStart: p.billowStart,
         valueEnd: p.billowEnd,
         // R7: no `fadeFrom`. effects/smoke.js no longer alpha-fades anything
@@ -809,9 +883,17 @@ export class Missiles {
       m.trail.push(m.ndcX, m.ndcY, m.depth);
       m.trail.update(dt);
 
-      m.puffTimer -= dt;
-      if (m.puffTimer <= 0) {
-        m.puffTimer += PUFF_INTERVAL_S;
+      // Distance-spaced emission (R41, see PUFF_STEP_FRAC). The step is
+      // measured in isotropic width-fraction coordinates, the same units the
+      // ribbon's tangent uses, so a vertical step and a horizontal one of the
+      // same screen length count the same.
+      m.puffTimer += dt;
+      const stepX = m.puffNdcX === null ? Infinity : (m.ndcX - m.puffNdcX) * 0.5;
+      const stepY = m.puffNdcY === null ? 0 : (m.ndcY - m.puffNdcY) * FRAC_Y_PER_NDC;
+      if (Math.hypot(stepX, stepY) >= PUFF_STEP_FRAC || m.puffTimer >= PUFF_MAX_GAP_S) {
+        m.puffTimer = 0;
+        m.puffNdcX = m.ndcX;
+        m.puffNdcY = m.ndcY;
         m.puffCount = (m.puffCount ?? 0) + 1;
         // R37: per-puff life scatter (deterministic — counter-driven, no rng
         // draw, so the shared PRNG stream is untouched). Neighbouring puffs
@@ -827,29 +909,56 @@ export class Missiles {
         // >= 1.2 s segment persistence to within a frame at the floor and
         // passes it at the top, and the chain now ends just after the ribbon
         // instead of half a second later.
-        const puffLife = 1.15 + 0.45 * (((m.puffCount * 7) % 10) / 9);
-        this.space.ndcToWorld(m.ndcX, m.ndcY, m.depth, pos);
+        const puffLife = 0.95 + 0.30 * (((m.puffCount * 7) % 10) / 9);
+        // R41 — PER-LOBE SIZE AND LATERAL SCATTER. With the chain spaced by
+        // distance it is continuous, but every lobe is then the same size as
+        // its neighbour and sits exactly on the path, so the union comes back
+        // as a SMOOTH ribbon — the arcade's is visibly beaded, with notches
+        // where consecutive round masses meet and a centreline that wanders
+        // (cmp-arc.png). Two incommensurable sinusoids over the PUFF COUNTER
+        // give each lobe its own radius and its own small offset across the
+        // path; the mean of both is unchanged, so this is texture, not size.
+        // Counter-driven like the life scatter above: no rng draw, so the
+        // shared PRNG stream is untouched.
+        const k = m.puffCount;
+        const sizeJit = 1 + 0.18 * Math.sin(k * 1.9) + 0.09 * Math.sin(k * 0.73);
+        const latJit = PUFF_LAT_FRAC * (Math.sin(k * 2.3) + 0.5 * Math.sin(k * 0.61));
+        // Across the path, in the same isotropic frac units as the step.
+        const latX = -Math.sin(m.trailAngle) * latJit * 2;
+        const latY = Math.cos(m.trailAngle) * latJit * NDC_Y_PER_FRAC;
+        this.space.ndcToWorld(m.ndcX + latX, m.ndcY + latY, m.depth, pos);
         this.smoke.spawn('trail', pos, m.depth, {
-          // Scattered 1.15-1.6 s — see puffLife above. Sprite count is now
-          // ~1.6 / 0.055 = ~29 live puffs per missile (was ~40), ~174 across
-          // a 6-missile salvo; pooled billboards, inside the
-          // PUFF_INTERVAL_S warning.
+          // Scattered 0.95-1.25 s — see puffLife above. R41 cut it from
+          // 1.15-1.6 s: a puff drifts with the world for its whole life, so
+          // life is one of the two things that set the trail's screen EXTENT,
+          // and at 1.15-1.6 s the measured extent ran past the arcade's band.
+          // Counted over 1800 ticks of the salvo-stress demo the whole field
+          // peaks at 38 live trail sprites, mean 4.9.
           life: puffLife,
           // The chain carries the ribbon's own taper (R6: a chain that barely
           // tapers, laid along a path that compresses toward the vanishing
           // point, reads as a disc).
           //
-          // These are the LONG axis of an ellipse whose canvas aspect is
-          // 0.625, so the puff's visible WIDTH is 0.625x these.
-          // R40 — 0.10/0.14 (6.3 -> 8.8 %W) -> 0.07/0.105 (4.4 -> 6.6 %W),
-          // following the ribbon down. The arcade's aged puffs measure
-          // 4.4-5.4 %W and its trail BODY 4.0-8.0 %W full thickness
-          // (judging/R40/missile-smoke/NOTES.md §1), so at 8.8 %W the chain
-          // was wider than the arcade's body everywhere and, now that the
-          // ribbon is 5-9.6 %W, would have been the widest thing in the
-          // trail — the chain has to sit inside the ribbon, not spill past it.
-          fracStart: 0.07,
-          fracEnd: 0.105,
+          // LONG axis of an ellipse whose canvas aspect is 0.80, so the
+          // puff's visible WIDTH across the trail is 0.80x these.
+          //
+          // R41 — A SPINDLE, NOT A RAMP, AND IT RUNS THE OTHER WAY AT THE OLD
+          // END. The shipped 0.07 -> 0.105 grew monotonically with age, and a
+          // puff's age IS its position along the trail, so the fattest lobe in
+          // every trail was the oldest one — sitting at the launch point, on
+          // the jet. That is the white mass parked on the airframe, and it is
+          // the one place the arcade has no thick smoke at all (R40's
+          // arc-launch.png; the jet is never occluded).
+          //
+          // Now: 0.028 at the missile head -> 0.058 at the crest -> 0.022 at
+          // the launch end. Visible width 2.2 -> 4.6 -> 1.8 %W against the
+          // arcade's measured ends 0.5-2.5 %W, body 4.0-8.0 %W and widest
+          // point 8.1 %W on the t105.55 trail re-measured this round
+          // (median 4.89, p75 5.72, max 8.08 — trailmeas.py on
+          // judging/R41/trail-look/arc60/f0033.png).
+          fracStart: 0.028 * sizeJit,
+          fracPeak: 0.058 * sizeJit,
+          fracEnd: 0.022 * sizeJit,
           // Held at the screen tangent the missile had when this puff was
           // laid down (effects/smoke.js `rotation`).
           rotation: m.trailAngle,
@@ -961,6 +1070,20 @@ export class Missiles {
         this._retire(i, hit ? (dryVictim ?? target) : null);
       }
     }
+
+    // Ribbons left behind by retired missiles: aged, never extended. A ribbon
+    // is done when update() has dropped it below the two samples a segment
+    // needs, which happens RIBBON_LIFE_S after its last sample was laid.
+    for (let i = this.fadingTrails.length - 1; i >= 0; i--) {
+      const t = this.fadingTrails[i];
+      t.update(dt);
+      if (t.samples.length < 2) {
+        t.reset();
+        t.mesh.visible = false;
+        this.trailPool.push(t);
+        this.fadingTrails.splice(i, 1);
+      }
+    }
   }
 
   _record(row) {
@@ -968,21 +1091,45 @@ export class Missiles {
     else this.outcomesDropped += 1;
   }
 
-  _retire(i, hitTarget) {
+  // `drop` skips the fade and recycles the ribbon at once — for clear(), where
+  // the whole field is being torn down (death, stage change) and nothing may
+  // outlive it.
+  _retire(i, hitTarget, drop = false) {
     const m = this.live[i];
     this.scene.remove(m.sprite);
     this.spritePool.push(m.sprite);
-    // The ribbon is dropped immediately on impact: in the reference frames
-    // the explosion replaces the trail head rather than the trail hanging in
-    // the air. The aged PUFF chain already emitted stays and dissipates.
-    m.trail.reset();
-    m.trail.mesh.visible = false;
-    this.trailPool.push(m.trail);
+    // R41 — THE RIBBON OUTLIVES THE MISSILE NOW. It used to be reset and
+    // pooled the instant the missile retired, on the note "the explosion
+    // replaces the trail head rather than the trail hanging in the air",
+    // while the aged puff chain stayed up for another 1.15-1.6 s. Suppression
+    // isolation at tick 402 (judging/R41/trail-look/NOTES.md §1) says that is
+    // what made the trail read as cotton balls: killing the ribbon left
+    // 52 317 px of discrete puffs on screen against the ribbon's 486 px, so
+    // the ONE continuous object was never the one the player saw. Arcade
+    // trails do hang after the kill — the ribbons in arc-trail-crop.png's
+    // lower row sit in empty sky with no missile and no fireball.
+    //
+    // A fading ribbon takes no new samples; update() only ages it, so it
+    // shortens from its oldest end and thins as its whole profile slides
+    // toward the spindle's far tail. It returns to the pool when empty.
+    if (drop) {
+      m.trail.reset();
+      m.trail.mesh.visible = false;
+      this.trailPool.push(m.trail);
+    } else {
+      this.fadingTrails.push(m.trail);
+    }
     this.live.splice(i, 1);
     if (hitTarget && this.onImpact) this.onImpact(hitTarget, m);
   }
 
   clear() {
-    while (this.live.length) this._retire(this.live.length - 1, null);
+    while (this.live.length) this._retire(this.live.length - 1, null, true);
+    for (const t of this.fadingTrails) {
+      t.reset();
+      t.mesh.visible = false;
+      this.trailPool.push(t);
+    }
+    this.fadingTrails.length = 0;
   }
 }
