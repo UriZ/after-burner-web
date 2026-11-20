@@ -974,7 +974,12 @@ export class Combat {
       // (it did, on the first pass: a 9 px "enemy" that was actually the
       // sight's corner arm).
       this._on('sight') && !this.trailHarness ? this.sight : null,
-      this.missiles.live.map((m) => m.target)
+      this.missiles.live.map((m) => m.target),
+      // R37 aim-skill: the raw stick, so the lock gate can tell STEERING from
+      // the post-death autopilot recentering (flow zeroes input during death/
+      // uncontrolled states — exactly the semantics the gate needs). Inert
+      // until lockSystem reads it.
+      input
     );
     this.locks.bracketsVisible = this._on('brackets') && !this.trailHarness;
     // Lock-acquired tone: detected by watching the lock count rise rather

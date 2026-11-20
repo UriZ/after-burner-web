@@ -44,6 +44,7 @@ const KNOWN = new Set([
   'lockrad', // missile lock cone radius around the sight, frame-width fractions
   'lockhold', // R15: seconds a COMPLETED lock survives its target leaving the field before firing (0 = pre-R15 instant drop)
   'closure', // throttle closure excursion: 0 = inert, 1 = full [0.85,1,1.20]
+  'lockaim', // R37: 0 disables the steering requirement on lock acquisition (measurement lever; lockSystem.js reads ?lockaim= directly this round)
 ]);
 
 let overrides = null;

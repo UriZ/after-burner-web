@@ -95,5 +95,6 @@ export function combatDemoTimeline(simTime) {
     else break;
   }
   const { x, y } = weave(simTime);
-  return { x, y, fire: entry[1], missile: entry[2] };
+  // R37 `scripted`: cinematic input — lock gate exempt (see demoTimeline.js).
+  return { x, y, fire: entry[1], missile: entry[2], scripted: true };
 }

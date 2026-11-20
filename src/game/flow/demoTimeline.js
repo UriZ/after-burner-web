@@ -548,7 +548,10 @@ export function demoTarget(simTime) {
 
   const throttleIndex = THROTTLE_PATTERN[Math.floor(t / THROTTLE_DWELL_S) % THROTTLE_PATTERN.length];
 
-  return { x, y, slamX, bankX, bankY, fire: fireWindow, missile: missileWindow, throttleIndex };
+  // R37 `scripted`: this is a cinematic, not a player — the aim-skill lock
+  // gate exempts scripted input so the attract showcases working locks
+  // instead of pricing its level missile-window stretches as a parked stick.
+  return { x, y, slamX, bankX, bankY, fire: fireWindow, missile: missileWindow, throttleIndex, scripted: true };
 }
 
 // The attract pilot. `player` is the live aircraft (src/entities/player.js) —

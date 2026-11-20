@@ -151,8 +151,33 @@ const DEFAULT_TARGET_DEPTH = 55;
 // test should not be exposed to that division. No kill depends on it any
 // more — a 0.02 floor would bind below a 4 %W span, and the readable gate
 // stops the gun at 10 %W.
-const HIT_RADIUS_SPAN_MULT = 1.2; // R26: was 0.5 -- a generous hit circle around the aim so the gun reliably kills what you point at (owner: "the gun is dead").
-const HIT_RADIUS_FLOOR_FRAC = 0.05; // R26: was 0.02 -- a real minimum hit radius so small/distant enemies in the stream still die.
+// R37 — BACK TO 0.5, AND THE SWEEP WAS RE-RUN ON TODAY'S BUILD BEFORE MOVING
+// IT (judging/R37/aim-skill/NOTES.md §1: kill_depth_probe, seeds 7/42 ×
+// 120 s, aimed vs hands-off arms, frozen-tree snapshot, `?gun=hitmult=`).
+// R26 raised this to 1.2 for "the gun is dead", but that fix was three levers
+// at once (this mult, the 0.05 floor below, and resolveHits' widened
+// depthTol) — the other two STAY, and they are what carry the R26 usability:
+//
+//   hitmult   aimed kills/min (s7/s42)   hands-off GUN kills/120 s (s7/s42)
+//     1.2       39 / 39.5                  27 / 32
+//     0.9       36 / 33.5                  25 / 29
+//     0.7       39 / 28.5                  26 / 25
+//     0.5       37 / 31                    19 / 17
+//
+// At 1.2 the kill disc is 2.4× the target's own wingspan — a 20 %W crosser
+// carries a half-frame-wide kill circle, and the R36 depth lane measured that
+// no spawner routing can keep a PARKED stick out of a disc that size (its
+// NOTES §5: hands-off still killed ~26-28/min, the game part-playing
+// itself). 0.5 is the R8 sweep's own principled stopping point — the circle
+// IS the silhouette's footprint, so a visibly centred aimed hit still
+// registers — and on today's build it is the only value that collapses the
+// parked-stick gun (−39 % vs 1.2) while pooled aimed play stays inside the
+// ~15 % band (−13.4 %; s7 −5 %, s42 −21 % — seed scatter noted honestly).
+// 0.9 and 0.7 shave the aimed arm as much or more than the parked one and
+// buy nothing (the generous disc mostly serves a sight that is NEAR a
+// target, which is the parked stick's whole income).
+const HIT_RADIUS_SPAN_MULT = 0.5; // R26 1.2 -> R37 0.5: the hit circle is the aircraft again
+const HIT_RADIUS_FLOOR_FRAC = 0.05; // R26: was 0.02 -- a real minimum hit radius so small/distant enemies in the stream still die. KEPT at R26's value: this is the "point at it and it dies" guard for small/mid targets.
 
 // --- R8: AIM SCATTER ------------------------------------------------------
 //

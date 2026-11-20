@@ -439,6 +439,65 @@ const LOCK_BREAK_DEPTH = 6;
 // tracking bracket (ADOPTED).
 const TRACK_HYSTERESIS = 0.85;
 
+// ---------------------------------------------------------------------------
+// R37 — A PARKED STICK NO LONGER ACCUMULATES LOCK PROGRESS.
+//
+// The R36 depth lane measured the residual its spawner routing could not fix
+// (judging/R36/depth-combat/NOTES.md §5): a hands-off run — stick centered,
+// missile button held — got 20-25 missile KILLS per 120 s, nearly the aimed
+// arm's number, because whatever transits the rest cone self-locks for a held
+// button. The acquire beat (LOCK_ACQUIRE_S) prices how long an AIMING player
+// holds on a target; it never asked whether anyone was aiming at all.
+//
+// THE GATE: `acquiring.t` builds only while the player is STEERING — the
+// sight (the lock's own aim point) has moved, in the combat frame, within the
+// last AIM_RECENT_WINDOW_S, or is held deliberately deflected away from its
+// slow-average resting point (a railed climb onto the deep band holds station
+// without per-tick motion). The sight is caged to the nose and the R36
+// cruise-sway is render-side only (game.js: combat streams verified
+// byte-identical under ?nosway=1), so in this frame sight motion IS player
+// input: a parked stick leaves the sight frozen to the last bit, and any
+// stick touch moves it at up to the railed 0.379 fracW/s — two orders above
+// AIM_MOVE_MIN_FRACW_PER_S. A player who points at an enemy notices nothing:
+// cone, acquire time, decay, brackets are all untouched, and any input in the
+// last two seconds keeps the gate open. The only behaviour that changes is a
+// stick NOBODY IS HOLDING collecting locks from traffic that crosses the
+// rest cone. Verified both ways (judging/R37/aim-skill/NOTES.md): the R27
+// wavering-pilot probe (seed 7, jitter 0.5, 18 s) is unchanged, and the
+// hands-off arm's locks drop to zero.
+//
+// What the gate deliberately does NOT do: it does not decay earned progress
+// (a mid-acquire freeze holds `t`, it does not bleed it — the waver-decay
+// path is separate and unchanged), it does not gate the tracking bracket or
+// the R16 hint (those tell the player a lock is AVAILABLE, which is exactly
+// what a parked player should still see), and it does not touch the
+// completed-lock hold. `?lockaim=0` disables it for A/B (measurement-only,
+// same family as `?gun=`; not in tunables.js because that file is another
+// lane's this round — fold in later).
+//
+// TWO MODES, because the motion heuristic has one measured leak. When the
+// caller passes the STICK (update()'s 7th argument — combat.js's own `input`,
+// which flow.js already zeroes during death/uncontrolled states), steering is
+// read EXACTLY: any deflection past a small deadzone. Without it, steering is
+// inferred from aim-point motion — and judging/R37/aim-skill/gate-diag-s42
+// measured the inference's failure: after a death the jet EASES back to rest
+// for ~10 s under a zero stick, the caged sight rides the ease, and every
+// aiming-open span in a 120 s hands-off run starts in 'death' and bleeds into
+// post-respawn flight (18 leaked lock completions). Autopilot recentering and
+// steering are indistinguishable from the sight alone; the stick tells them
+// apart by construction. The heuristic stays as the fallback so harnesses
+// calling the 6-arg form keep working.
+const AIM_STICK_DEADZONE = 0.05; // |x| or |y| past this = steering (keyboard is 0/±1)
+const AIM_MOVE_MIN_FRACW_PER_S = 0.01; // sight speed that counts as steering (railed = 0.379)
+const AIM_RECENT_WINDOW_S = 2.0; // one steer keeps the gate open this long
+const AIM_DISPLACE_MIN_FRACW = 0.02; // held deflection from the slow average that counts as aiming
+const AIM_EMA_TAU_S = 5.0; // the slow average's time constant
+// A per-tick sight jump this large is a teleport (respawn/state change), not
+// steering: the stick cannot move the sight faster than the railed 0.379
+// fracW/s = 0.0063 fracW/tick. Don't open the gate on it, and re-home the
+// slow average so the displacement term cannot ride a respawn either.
+const AIM_DISCONTINUITY_FRACW = 0.05;
+
 // --- Bracket geometry, all MEASURED off the arcade -------------------------
 //
 // Source frames and operator are in weapons/projectileSprites.js's bar note.
@@ -589,6 +648,17 @@ export class LockSystem {
     // the smoke trail, so they have to be removable to measure the trail.
     this.bracketsVisible = true;
 
+    // R37 aim-gate state (see the AIM_* block above). `_aimPrev`/`_aimEma`
+    // are null until the first tick that supplies an aim point, so the first
+    // frame can never read as a giant "movement".
+    this._aimPrev = null;
+    this._aimEma = null;
+    this._aimRecentS = 0;
+    this.aiming = false;
+    this._aimGateOn =
+      typeof location === 'undefined' ||
+      new URLSearchParams(location.search).get('lockaim') !== '0';
+
     // Instance field so the R8 isolation can sweep it (`?gun=lockrad=...`,
     // measurement-only) without a second constant appearing in the tree —
     // which is exactly how this quantity came to have three values.
@@ -613,7 +683,7 @@ export class LockSystem {
   // that (6 brackets -> 1 in one tick at t=5.43), against GAME_SPEC.md §3's
   // "during a salvo, MULTIPLE brackets show simultaneously (t100: ~6)",
   // which is a description of the frames WHILE the missiles are flying.
-  update(dt, enemies, playerNdc, holding, sight, activeTargets = []) {
+  update(dt, enemies, playerNdc, holding, sight, activeTargets = [], stick = null) {
     this.activeTargets = activeTargets;
     this.pulseT += dt;
     // R26 — age the lock-confirm flashes and drop expired/dead ones.
@@ -622,6 +692,7 @@ export class LockSystem {
       if (left <= 0 || !e.alive) this.lockFlash.delete(e);
       else this.lockFlash.set(e, left);
     }
+    this._updateAimGate(dt, sight ?? playerNdc, stick);
     this._updateTracking(enemies, sight ?? playerNdc);
 
     // Drop locks whose target died, left the field, or has closed inside
@@ -693,7 +764,11 @@ export class LockSystem {
         // staying off bleeds the beat to zero in ~LOCK_ACQUIRE_S/DECAY_MULT.
         if (this.acquiring) {
           if (this._lockable(this.acquiring.enemy, aim)) {
-            this.acquiring.t += dt;
+            // R37 — the beat builds only for a player who is steering (see
+            // the AIM_* block). A parked stick HOLDS whatever it has earned
+            // (no decay — the target is still under the sight); it earns
+            // nothing new until the stick moves again.
+            if (this.aiming) this.acquiring.t += dt;
           } else {
             const next = this._nearestLockable(enemies, aim);
             if (next && next !== this.acquiring.enemy) {
@@ -841,6 +916,105 @@ export class LockSystem {
     }
   }
 
+  // R37 — is the player steering? Sets `this.aiming` from the aim point's
+  // own motion; see the AIM_* constants block for the design and why sight
+  // motion in the combat frame is exactly player input. `aimPt` is the same
+  // `sight ?? playerNdc` the acquisition tests against, so the gate watches
+  // the very point the cone is centred on. Distances are in frame-width
+  // fractions (the project's isotropic hit-test unit, same conversions as
+  // `_lockable`).
+  _updateAimGate(dt, aimPt, stick = null) {
+    if (!this._aimGateOn) {
+      this.aiming = true;
+      return;
+    }
+    // STICK MODE — exact (see the AIM_STICK_DEADZONE note above). flow.js
+    // zeroes the input during death/uncontrolled states, so the post-death
+    // ease-back that defeats the motion heuristic reads, correctly, as
+    // not-steering here.
+    //
+    // ANY object counts as stick mode; only a null/omitted argument falls to
+    // the heuristic. This is load-bearing and was a measured bug: game.js's
+    // DEATH_COMBAT_INPUT is `{fire:false, missile:false}` with NO x/y, so a
+    // field-presence test fell through to the motion heuristic during the
+    // death tumble and re-opened the 2 s window into every respawn — a
+    // hands-off run still completed 7 locks/120 s, all in those windows
+    // (final2-lock-handsoff-s7 pre-fix). An input with no x/y is a stick
+    // nobody is deflecting: not steering.
+    if (stick) {
+      // SCRIPTED input is gate-exempt, as a DESIGN GUARD: the attract/demo
+      // pilots are cinematic autopilots and must showcase working locks even
+      // if a future curve holds the stick level past the 2 s window. On
+      // today's curve the exemption is MEASURED INERT — a fairness
+      // decomposition (judging/R37/aim-skill/NOTES.md §3) ran gate-on vs
+      // gate-off on the demo and got byte-identical deaths AND kills (the
+      // demo's weave keeps the window open on its own); the demo kill drop
+      // seen that round was entirely vulcan.js's hitmult repricing, NOT this
+      // gate. demoTimeline tags its returns `scripted: true`; human paths
+      // (keyboard input.state, __setStick) never carry it.
+      if (stick.scripted === true) {
+        this.aiming = true;
+        this._aimRecentS = AIM_RECENT_WINDOW_S;
+        this._aimPrev = null;
+        this._aimEma = null;
+        return;
+      }
+      const steering =
+        typeof stick.x === 'number' && typeof stick.y === 'number' &&
+        (Math.abs(stick.x) > AIM_STICK_DEADZONE || Math.abs(stick.y) > AIM_STICK_DEADZONE);
+      if (steering) this._aimRecentS = AIM_RECENT_WINDOW_S;
+      else this._aimRecentS = Math.max(0, this._aimRecentS - dt);
+      this.aiming = this._aimRecentS > 0;
+      // Keep the heuristic's history coherent in case the caller ever stops
+      // passing the stick mid-session (harness state swaps).
+      this._aimPrev = null;
+      this._aimEma = null;
+      return;
+    }
+    if (!aimPt || dt <= 0) {
+      // No aim point this tick (harness states): close the gate and forget
+      // the history so re-entry starts clean rather than reading the state
+      // swap as a huge movement.
+      this._aimPrev = null;
+      this._aimEma = null;
+      this._aimRecentS = 0;
+      this.aiming = false;
+      return;
+    }
+    const aspectY = 224 / 320;
+    if (!this._aimPrev) {
+      this._aimPrev = { x: aimPt.x, y: aimPt.y };
+      this._aimEma = { x: aimPt.x, y: aimPt.y };
+      this._aimRecentS = 0;
+      this.aiming = false;
+      return;
+    }
+    const mx = (aimPt.x - this._aimPrev.x) * 0.5;
+    const my = (aimPt.y - this._aimPrev.y) * 0.5 * aspectY;
+    const move = Math.hypot(mx, my);
+    this._aimPrev.x = aimPt.x;
+    this._aimPrev.y = aimPt.y;
+    if (move >= AIM_DISCONTINUITY_FRACW) {
+      // Teleport (respawn / aim-source swap): neither steering nor a
+      // deflection to credit. Re-home the average.
+      this._aimEma.x = aimPt.x;
+      this._aimEma.y = aimPt.y;
+      this._aimRecentS = Math.max(0, this._aimRecentS - dt);
+    } else if (move > AIM_MOVE_MIN_FRACW_PER_S * dt) {
+      this._aimRecentS = AIM_RECENT_WINDOW_S;
+    } else {
+      this._aimRecentS = Math.max(0, this._aimRecentS - dt);
+    }
+    const a = Math.min(1, dt / AIM_EMA_TAU_S);
+    this._aimEma.x += (aimPt.x - this._aimEma.x) * a;
+    this._aimEma.y += (aimPt.y - this._aimEma.y) * a;
+    const ex = (aimPt.x - this._aimEma.x) * 0.5;
+    const ey = (aimPt.y - this._aimEma.y) * 0.5 * aspectY;
+    this.aiming =
+      this._aimRecentS > 0 ||
+      ex * ex + ey * ey > AIM_DISPLACE_MIN_FRACW * AIM_DISPLACE_MIN_FRACW;
+  }
+
   // One enemy's admissibility, factored out of _nearestLockable so the
   // sticky acquisition above asks exactly the same question of the target it
   // is already working on. Two copies of this test drifting apart is how
@@ -957,6 +1131,13 @@ export class LockSystem {
     // attributable to a specific population rather than argued about.
     // Read-only, allocates one small array, touches no RNG.
     if (typeof window !== 'undefined') {
+      // R37 — aim-gate state, same read-only diagnostic style. `recentS` is
+      // the steering window's remaining time; `aiming` is the gate.
+      window.__lockAim = {
+        aiming: this.aiming,
+        recentS: Number(this._aimRecentS.toFixed(3)),
+        gateOn: this._aimGateOn,
+      };
       window.__lockPop = wanted.map((w) => ({
         rank: w.rank,
         d: Number(w.e.d.toFixed(2)),
@@ -1146,6 +1327,12 @@ export class LockSystem {
     this.lockFlash.clear();
     this.acquiring = null;
     this.hintList.length = 0;
+    // R37 — forget the aim-gate history: a respawned player starts with the
+    // gate closed until they steer, same as a fresh boot.
+    this._aimPrev = null;
+    this._aimEma = null;
+    this._aimRecentS = 0;
+    this.aiming = false;
     for (const set of this.brackets) {
       for (const c of set) c.visible = false;
       this.pool.push(set);
