@@ -1157,6 +1157,13 @@ export class GameFlow {
     // from an already-full load. Harmless for every other transition.
     const preRefillStock = this.combat ? this.combat.missileStock : this._airRefuelStartStock;
     this._enterStage(this.stageIndex + 1); // palette + HIT reset happen immediately; see class header
+    // R37: re-key the flight music to the NEW stage, so the per-stage variants
+    // (R35) actually switch on a normal stage advance. Before this, the only
+    // music('flight') call sites were launch/respawn/continue/tanker — a clean
+    // run held stage 1's variant forever. Idempotent when the variant is
+    // unchanged (music.js setState no-ops on same-variant with a live
+    // scheduler), and _enterAirRefuel's own call below becomes that no-op.
+    AudioBus.music('flight', { stage: this.stageIndex });
     // R16/R19: the stage we just advanced INTO decides the next beat. Entering a
     // RUNWAY refuel stage (5/13) switches to the 'resupply' state; entering an
     // air-TANKER stage (3/9) opens with the 'airrefuel' interstitial; every other

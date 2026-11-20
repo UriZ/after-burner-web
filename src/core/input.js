@@ -61,6 +61,12 @@ export class Input {
     }
     this._prevKeys = new Set(k);
 
-    return { x, y, fire: k.has('KeyZ'), missile: k.has('KeyX'), throttleIndex: this.throttleIndex };
+    // R37: Space/Enter alias the gun. A naive player's first press at the
+    // title is Enter or Space, and the title only starts on fire/missile —
+    // without the alias that press did nothing (owner: "takes too long to
+    // start playing"). In flight the alias is harmless (space-as-fire is the
+    // common arcade-keyboard idiom).
+    const fire = k.has('KeyZ') || k.has('Space') || k.has('Enter');
+    return { x, y, fire, missile: k.has('KeyX'), throttleIndex: this.throttleIndex };
   }
 }

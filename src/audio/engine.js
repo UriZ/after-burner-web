@@ -89,6 +89,27 @@ if (!MUTED && typeof window !== 'undefined' && _ctx) {
   for (const e of events) window.addEventListener(e, resume, { once: true });
 }
 
+// R37 measurement-only: lets a LIVE-mode probe verify actual audio SIGNAL is
+// flowing (scheduler state alone can't prove audibility). Attaches one
+// analyser tap to the master sum on first use; returns the current RMS of a
+// time-domain window, or null when muted/absent. Read nowhere in play.
+let _probeAnalyser = null;
+if (typeof window !== 'undefined') {
+  window.__audioLevelProbe = () => {
+    if (!_ctx || !_master) return null;
+    if (!_probeAnalyser) {
+      _probeAnalyser = _ctx.createAnalyser();
+      _probeAnalyser.fftSize = 2048;
+      _master.connect(_probeAnalyser); // tap only — analyser has no output here
+    }
+    const buf = new Float32Array(_probeAnalyser.fftSize);
+    _probeAnalyser.getFloatTimeDomainData(buf);
+    let s = 0;
+    for (let i = 0; i < buf.length; i++) s += buf[i] * buf[i];
+    return Math.sqrt(s / buf.length);
+  };
+}
+
 export function ctx() {
   return _ctx;
 }

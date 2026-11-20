@@ -262,42 +262,62 @@ function hat(c, dest, start, accent, open = false) {
   src.stop(start + dur + 0.02);
 }
 
-// Builds the full loop into an OfflineAudioContext at the real context's
-// sample rate (so pitch matches exactly when the rendered buffer is later
-// played through the real-time context) and resolves with the AudioBuffer.
-async function buildLoop(sampleRate, variant) {
-  // Per-variant timing/key/timbre SHADOW the module defaults so one render
-  // routine builds every stage theme — the same composition, transposed and
-  // re-tempo'd (how arcade soundtracks did per-stage variants). Variant 0
-  // reproduces the exact owner-approved A-minor / 160 BPM track byte-for-byte.
-  const BAR_S = (60 / variant.bpm) * 4;
-  const STEP_S = BAR_S / 16;
-  const ROOT_HZ = variant.rootHz;
-  const TOTAL_BARS = PHRASES * PROGRESSION.length;
-  const LEAD_MOD = variant.leadMod[0];
-  const LEAD_MOD_END = variant.leadMod[1];
-  const length = Math.ceil(TOTAL_BARS * BAR_S * sampleRate) + sampleRate; // +1s tail
-  const OAC = window.OfflineAudioContext || window.webkitOfflineAudioContext;
-  const oc = new OAC(2, length, sampleRate);
+// --- Shared composition engine ---------------------------------------------
+// R37: the flight music used to be rendered ONCE into a ~60 s AudioBuffer via
+// OfflineAudioContext and looped. MEASURED (R35's own render-result.txt:
+// renderMs 200012-256595 per variant; re-confirmed live in
+// judging/R37/start-time/ where the render never resolved within 6 minutes
+// and the stage-1 music therefore never played): offline-rendering this
+// ~16k-node FM graph takes 3-4+ MINUTES at ~100% of a core on this machine,
+// repeated per variant at stage boundaries and on every page reload. The
+// scaling probes in judging/R37/start-time/ show the crawl is intrinsic to
+// thousands-of-FM-notes offline graphs (trivial graphs render ~1000x realtime)
+// and is not fixable by suspend()/resume() scheduling tricks.
+//
+// The runtime path therefore now SCHEDULES the same composition LIVE on the
+// real-time context, one bar at a time, ~2.5 s ahead: music starts the moment
+// flight does, through the SAME instrument functions and the SAME
+// bus/compressor chain, so it is the same track note-for-note. buildLoop
+// (offline) remains ONLY for the audio-verification tooling
+// (__renderLoopForTest); it is no longer on any play path.
 
+// Per-variant timing/key/timbre SHADOW the module defaults so one routine
+// plays every stage theme -- the same composition, transposed and re-tempo'd
+// (how arcade soundtracks did per-stage variants). Variant 0 reproduces the
+// exact owner-approved A-minor / 160 BPM track note-for-note.
+function variantParams(variant) {
+  const barS = (60 / variant.bpm) * 4;
+  return {
+    barS,
+    stepS: barS / 16,
+    rootHz: variant.rootHz,
+    leadMod: variant.leadMod[0],
+    leadModEnd: variant.leadMod[1],
+  };
+}
+
+// The full mix chain (per-instrument buses -> glue compressor -> brickwall
+// limiter -> dest) on ANY BaseAudioContext -- shared by the live scheduler and
+// the offline test render, so both paths are the same signal path.
+function makeBuses(c, dest) {
   // Glue compressor across the whole mix for punch and to tame the peaks of
   // a dense arrangement (kept gentle so it adds drive, not pumping).
-  let sink = oc.destination;
-  if (oc.createDynamicsCompressor) {
+  let sink = dest;
+  if (c.createDynamicsCompressor) {
     // Final brickwall limiter so the rendered buffer never exceeds ~0.8 even
     // when the rhythm guitar + lead double + crash all land on a downbeat
     // (R34 added energy and the old gentle glue comp let peaks reach ~1.18).
-    const limiter = oc.createDynamicsCompressor();
+    const limiter = c.createDynamicsCompressor();
     limiter.threshold.value = -4;
     limiter.knee.value = 1;
     limiter.ratio.value = 20;
     limiter.attack.value = 0.001;
     limiter.release.value = 0.1;
-    limiter.connect(oc.destination);
+    limiter.connect(dest);
 
     // Glue compressor across the whole mix for punch and to tame the peaks of
     // a dense arrangement (kept gentle so it adds drive, not pumping).
-    const comp = oc.createDynamicsCompressor();
+    const comp = c.createDynamicsCompressor();
     comp.threshold.value = -14;
     comp.knee.value = 24;
     comp.ratio.value = 3;
@@ -307,198 +327,220 @@ async function buildLoop(sampleRate, variant) {
     sink = comp;
   }
 
-  const bassBus = oc.createGain();
+  const bassBus = c.createGain();
   bassBus.gain.value = 0.6;
   // Warmth: roll off the FM buzz so the bass stays fat, not fizzy.
-  const bassLP = oc.createBiquadFilter();
+  const bassLP = c.createBiquadFilter();
   bassLP.type = 'lowpass';
   bassLP.frequency.value = 2600;
   bassBus.connect(bassLP).connect(sink);
 
-  const padBus = oc.createGain();
+  const padBus = c.createGain();
   padBus.gain.value = 0.1; // softened to leave room for the rhythm guitar
   padBus.connect(sink);
 
   // Rhythm-guitar bus: gritty power chords summed into one amp-style
   // waveshaper (so overlapping chords distort together like a real amp), then
   // a lowpass to tame the fizz into a fat crunch.
-  const rhythmBus = oc.createGain();
+  const rhythmBus = c.createGain();
   rhythmBus.gain.value = 0.26;
   let rhythmTail = rhythmBus;
-  if (oc.createWaveShaper) {
-    const amp = oc.createWaveShaper();
+  if (c.createWaveShaper) {
+    const amp = c.createWaveShaper();
     amp.curve = makeShaperCurve(0.6);
     amp.oversample = '2x';
     rhythmBus.connect(amp);
     rhythmTail = amp;
   }
-  const rhythmLP = oc.createBiquadFilter();
+  const rhythmLP = c.createBiquadFilter();
   rhythmLP.type = 'lowpass';
   rhythmLP.frequency.value = 3400;
   rhythmTail.connect(rhythmLP).connect(sink);
 
-  const stabBus = oc.createGain();
+  const stabBus = c.createGain();
   stabBus.gain.value = 0.28;
   stabBus.connect(sink);
 
-  const leadBus = oc.createGain();
+  const leadBus = c.createGain();
   leadBus.gain.value = 0.38; // lead pushed forward — it carries the hook
   leadBus.connect(sink);
 
-  const drumBus = oc.createGain();
+  const drumBus = c.createGain();
   drumBus.gain.value = 0.62;
   drumBus.connect(sink);
 
-  for (let bar = 0; bar < TOTAL_BARS; bar++) {
-    const phraseBar = bar % PROGRESSION.length;
-    const phraseIndex = Math.floor(bar / PROGRESSION.length);
-    const chord = CHORDS[PROGRESSION[phraseBar]];
-    const root = chord.root;
-    const triad = chord.triad;
-    const barStart = bar * BAR_S;
 
-    // [root, octave, fifth] in the bass register.
-    const bassTones = [root, root + 12, root + 7];
+  return { bassBus, padBus, rhythmBus, stabBus, leadBus, drumBus };
+}
 
-    // Every other phrase, lift the lead an octave on the back half — a fixed
-    // (deterministic) intensity build so repeats don't feel static.
-    const leadOctaveUp = phraseIndex % 2 === 1 && phraseBar >= 4;
-    const leadShift = leadOctaveUp ? 12 : 0;
+// One bar of the composition, scheduled onto context `c` through buses `B`
+// with variant params `P`, starting at absolute context time `barStart`.
+// `loopBar` indexes the authored 40-bar sequence (PHRASES x PROGRESSION);
+// callers wrap, so the live scheduler reproduces exactly the sequence the
+// rendered loop played, seam included.
+function scheduleBar(c, B, P, loopBar, barStart) {
+  const phraseBar = loopBar % PROGRESSION.length;
+  const phraseIndex = Math.floor(loopBar / PROGRESSION.length);
+  const chord = CHORDS[PROGRESSION[phraseBar]];
+  const root = chord.root;
+  const triad = chord.triad;
+  
+  // [root, octave, fifth] in the bass register.
+  const bassTones = [root, root + 12, root + 7];
 
-    // --- Pad: sustain the triad under everything (soft, slow attack).
-    for (const iv of triad) {
-      fmNote(oc, padBus, {
-        freq: semisToHz(ROOT_HZ, root + 12 + iv),
-        start: barStart,
-        dur: BAR_S * 0.98,
-        carrierType: 'sawtooth',
-        modRatio: 1,
-        modIndex: 3,
-        gain: 0.2,
-        attack: 0.08,
-      });
-    }
+  // Every other phrase, lift the lead an octave on the back half — a fixed
+  // (deterministic) intensity build so repeats don't feel static.
+  const leadOctaveUp = phraseIndex % 2 === 1 && phraseBar >= 4;
+  const leadShift = leadOctaveUp ? 12 : 0;
 
-    for (let step = 0; step < 16; step++) {
-      const t = barStart + step * STEP_S;
-
-      // --- Bass: pumping staccato pulse.
-      const bi = BASS_PATTERN[step];
-      if (bi !== null) {
-        fmNote(oc, bassBus, {
-          freq: semisToHz(ROOT_HZ, bassTones[bi]),
-          start: t,
-          dur: STEP_S * 0.92,
-          carrierType: 'sawtooth',
-          modRatio: 1,
-          modIndex: 10,
-          modEnd: 4,
-          modDecay: STEP_S * 0.5,
-          gain: 0.4,
-          pan: -0.05,
-        });
-      }
-
-      // --- Rhythm guitar: gritty palm-muted power fifth (root + fifth), a
-      // driving staccato 8th-note chug. Short notes so the amp distortion
-      // reads as a down-picked crunch, not a sustained drone.
-      const rg = RHYTHM_STEPS[step];
-      if (rg) {
-        [root + 12, root + 19].forEach((semi, vi) => {
-          fmNote(oc, rhythmBus, {
-            freq: semisToHz(ROOT_HZ, semi),
-            start: t,
-            dur: STEP_S * 1.5,
-            carrierType: 'sawtooth',
-            modRatio: 1,
-            modIndex: 6,
-            modEnd: 2,
-            modDecay: STEP_S * 0.6,
-            gain: 0.3 * rg,
-            attack: 0.003,
-            pan: vi === 0 ? -0.12 : 0.12, // widen the chord a touch
-          });
-        });
-      }
-
-      // --- Stab: bright FM brass chord on the backbeat (with the snare).
-      if (SNARE_STEPS.has(step)) {
-        triad.forEach((iv, ci) => {
-          fmNote(oc, stabBus, {
-            freq: semisToHz(ROOT_HZ, root + 12 + iv),
-            start: t,
-            dur: STEP_S * 2.4,
-            carrierType: 'square',
-            modRatio: 1,
-            modIndex: 60,
-            modEnd: 8,
-            modDecay: STEP_S * 1.2,
-            gain: 0.17,
-            attack: 0.006,
-            pan: (ci - 1) * 0.35, // spread the triad across the stereo field
-          });
-        });
-      }
-
-      // --- Drums.
-      if (KICK_STEPS.has(step)) kick(oc, drumBus, t, step === 0 ? 1.0 : 0.85);
-      if (SNARE_STEPS.has(step)) snare(oc, drumBus, t, 0.6);
-      // Closed hats every 16th (relentless drive); open hat on the final &.
-      hat(oc, drumBus, t, HAT_ACCENT.has(step) ? 1.2 : 0.55, step === 15);
-      // Crash on the downbeat of each 8-bar phrase — lifts the loop top.
-      if (phraseBar === 0 && step === 0) crash(oc, drumBus, t, 0.5);
-    }
-
-    // --- Lead melody.
-    const line = MELODY[phraseBar];
-    for (const [stStep, semi, durSteps] of line) {
-      const t = barStart + stStep * STEP_S;
-      const dur = durSteps * STEP_S;
-      const sustained = durSteps >= 3;
-      const f = semisToHz(ROOT_HZ, semi + leadShift);
-      fmNote(oc, leadBus, {
-        freq: f,
-        start: t,
-        dur: dur * 0.96,
-        carrierType: 'square',
-        modRatio: 2,
-        modIndex: LEAD_MOD,
-        modEnd: LEAD_MOD_END, // bright attack settling to a mellower sustain (FM brass)
-        modDecay: Math.min(0.18, dur * 0.4),
-        gain: 0.24,
-        attack: 0.012,
-        vibratoHz: sustained ? 5.5 : 0,
-        vibratoDepth: sustained ? f * 0.006 : 0,
-        pan: 0.12,
-      });
-      // Detuned double, panned opposite — thickens the hook into a chorused,
-      // present lead instead of a thin single oscillator. Slightly mellower
-      // (lower mod index) so it fills rather than fighting the main voice.
-      fmNote(oc, leadBus, {
-        freq: f * 1.004,
-        start: t,
-        dur: dur * 0.96,
-        carrierType: 'sawtooth',
-        modRatio: 2,
-        modIndex: Math.round(LEAD_MOD * 0.571), // keep the double's ratio to the lead
-        modEnd: Math.round(LEAD_MOD_END * 0.636),
-        modDecay: Math.min(0.18, dur * 0.4),
-        gain: 0.13,
-        attack: 0.014,
-        vibratoHz: sustained ? 5.5 : 0,
-        vibratoDepth: sustained ? f * 0.006 : 0,
-        pan: -0.12,
-      });
-    }
-
-    // --- Turnaround fill: a 16th snare roll on the last bar of each phrase.
-    if (phraseBar === PROGRESSION.length - 1) {
-      for (let s = 12; s < 16; s++) {
-        snare(oc, drumBus, barStart + s * STEP_S, 0.28 + (s - 12) * 0.06);
-      }
-    }
+  // --- Pad: sustain the triad under everything (soft, slow attack).
+  for (const iv of triad) {
+    fmNote(c, B.padBus, {
+      freq: semisToHz(P.rootHz, root + 12 + iv),
+      start: barStart,
+      dur: P.barS * 0.98,
+      carrierType: 'sawtooth',
+      modRatio: 1,
+      modIndex: 3,
+      gain: 0.2,
+      attack: 0.08,
+    });
   }
 
+  for (let step = 0; step < 16; step++) {
+    const t = barStart + step * P.stepS;
+
+    // --- Bass: pumping staccato pulse.
+    const bi = BASS_PATTERN[step];
+    if (bi !== null) {
+      fmNote(c, B.bassBus, {
+        freq: semisToHz(P.rootHz, bassTones[bi]),
+        start: t,
+        dur: P.stepS * 0.92,
+        carrierType: 'sawtooth',
+        modRatio: 1,
+        modIndex: 10,
+        modEnd: 4,
+        modDecay: P.stepS * 0.5,
+        gain: 0.4,
+        pan: -0.05,
+      });
+    }
+
+    // --- Rhythm guitar: gritty palm-muted power fifth (root + fifth), a
+    // driving staccato 8th-note chug. Short notes so the amp distortion
+    // reads as a down-picked crunch, not a sustained drone.
+    const rg = RHYTHM_STEPS[step];
+    if (rg) {
+      [root + 12, root + 19].forEach((semi, vi) => {
+        fmNote(c, B.rhythmBus, {
+          freq: semisToHz(P.rootHz, semi),
+          start: t,
+          dur: P.stepS * 1.5,
+          carrierType: 'sawtooth',
+          modRatio: 1,
+          modIndex: 6,
+          modEnd: 2,
+          modDecay: P.stepS * 0.6,
+          gain: 0.3 * rg,
+          attack: 0.003,
+          pan: vi === 0 ? -0.12 : 0.12, // widen the chord a touch
+        });
+      });
+    }
+
+    // --- Stab: bright FM brass chord on the backbeat (with the snare).
+    if (SNARE_STEPS.has(step)) {
+      triad.forEach((iv, ci) => {
+        fmNote(c, B.stabBus, {
+          freq: semisToHz(P.rootHz, root + 12 + iv),
+          start: t,
+          dur: P.stepS * 2.4,
+          carrierType: 'square',
+          modRatio: 1,
+          modIndex: 60,
+          modEnd: 8,
+          modDecay: P.stepS * 1.2,
+          gain: 0.17,
+          attack: 0.006,
+          pan: (ci - 1) * 0.35, // spread the triad across the stereo field
+        });
+      });
+    }
+
+    // --- Drums.
+    if (KICK_STEPS.has(step)) kick(c, B.drumBus, t, step === 0 ? 1.0 : 0.85);
+    if (SNARE_STEPS.has(step)) snare(c, B.drumBus, t, 0.6);
+    // Closed hats every 16th (relentless drive); open hat on the final &.
+    hat(c, B.drumBus, t, HAT_ACCENT.has(step) ? 1.2 : 0.55, step === 15);
+    // Crash on the downbeat of each 8-bar phrase — lifts the loop top.
+    if (phraseBar === 0 && step === 0) crash(c, B.drumBus, t, 0.5);
+  }
+
+  // --- Lead melody.
+  const line = MELODY[phraseBar];
+  for (const [stStep, semi, durSteps] of line) {
+    const t = barStart + stStep * P.stepS;
+    const dur = durSteps * P.stepS;
+    const sustained = durSteps >= 3;
+    const f = semisToHz(P.rootHz, semi + leadShift);
+    fmNote(c, B.leadBus, {
+      freq: f,
+      start: t,
+      dur: dur * 0.96,
+      carrierType: 'square',
+      modRatio: 2,
+      modIndex: P.leadMod,
+      modEnd: P.leadModEnd, // bright attack settling to a mellower sustain (FM brass)
+      modDecay: Math.min(0.18, dur * 0.4),
+      gain: 0.24,
+      attack: 0.012,
+      vibratoHz: sustained ? 5.5 : 0,
+      vibratoDepth: sustained ? f * 0.006 : 0,
+      pan: 0.12,
+    });
+    // Detuned double, panned opposite — thickens the hook into a chorused,
+    // present lead instead of a thin single oscillator. Slightly mellower
+    // (lower mod index) so it fills rather than fighting the main voice.
+    fmNote(c, B.leadBus, {
+      freq: f * 1.004,
+      start: t,
+      dur: dur * 0.96,
+      carrierType: 'sawtooth',
+      modRatio: 2,
+      modIndex: Math.round(P.leadMod * 0.571), // keep the double's ratio to the lead
+      modEnd: Math.round(P.leadModEnd * 0.636),
+      modDecay: Math.min(0.18, dur * 0.4),
+      gain: 0.13,
+      attack: 0.014,
+      vibratoHz: sustained ? 5.5 : 0,
+      vibratoDepth: sustained ? f * 0.006 : 0,
+      pan: -0.12,
+    });
+  }
+
+  // --- Turnaround fill: a 16th snare roll on the last bar of each phrase.
+  if (phraseBar === PROGRESSION.length - 1) {
+    for (let s = 12; s < 16; s++) {
+      snare(c, B.drumBus, barStart + s * P.stepS, 0.28 + (s - 12) * 0.06);
+    }
+  }
+}
+
+// Builds the full loop into an OfflineAudioContext at the given sample rate
+// and resolves with the AudioBuffer. TEST-ONLY since R37 (see the engine note
+// above): this render takes minutes on real hardware; nothing on the play
+// path calls it. __renderLoopForTest keeps using it so the offline verifier
+// can still inspect peak/RMS/pitch per variant.
+async function buildLoop(sampleRate, variant) {
+  const P = variantParams(variant);
+  const length = Math.ceil(TOTAL_BARS * P.barS * sampleRate) + sampleRate; // +1s tail
+  const OAC = window.OfflineAudioContext || window.webkitOfflineAudioContext;
+  const oc = new OAC(2, length, sampleRate);
+  const buses = makeBuses(oc, oc.destination);
+  for (let bar = 0; bar < TOTAL_BARS; bar++) {
+    scheduleBar(oc, buses, P, bar, bar * P.barS);
+  }
   return oc.startRendering();
 }
 
@@ -524,19 +566,53 @@ function variantForStage(stage) {
 }
 
 const musicBuffers = new Map(); // variantIndex -> Promise<AudioBuffer|null>
-let musicSource = null;
 let currentState = 'off';
 let currentVariant = 0;
 
-// Lazy per-variant render + cache: only the variant a stage actually needs is
-// ever built, so boot and the first stage never stall rendering four themes.
+// TEST-ONLY since R37 (see the engine note above buildLoop): lazy per-variant
+// offline render + cache, kept solely for __renderLoopForTest's verifier.
+// Nothing on the play path calls this — the game schedules live instead.
 function renderMusicBuffer(variantIndex = 0) {
   const c = ctx();
   if (!c) return Promise.resolve(null);
   if (!musicBuffers.has(variantIndex)) {
-    musicBuffers.set(variantIndex, buildLoop(c.sampleRate, VARIANTS[variantIndex]).catch(() => null));
+    // R37 measurement-only: graphMs is the SYNCHRONOUS main-thread cost of
+    // building the offline node graph (buildLoop's body runs to its final
+    // `return oc.startRendering()` before the promise is handed back);
+    // renderMs is the off-thread offline render until the buffer resolves.
+    const t0 = performance.now();
+    const p = buildLoop(c.sampleRate, VARIANTS[variantIndex]).catch(() => null);
+    const timing = { graphMs: performance.now() - t0, renderMs: null };
+    p.then(() => {
+      timing.renderMs = performance.now() - t0 - timing.graphMs;
+    });
+    if (typeof window !== 'undefined') {
+      (window.__musicTiming || (window.__musicTiming = {}))[variantIndex] = timing;
+    }
+    musicBuffers.set(variantIndex, p);
   }
   return musicBuffers.get(variantIndex);
+}
+
+// Test-only (R37): render just the first N bars through the SAME
+// makeBuses/scheduleBar path the live scheduler drives, into a small
+// OfflineAudioContext. Small graphs render fast (the full 40-bar graph is in
+// the measured minutes-long crawl regime; see buildLoop's note), so this is
+// the practical machine-check that the composition engine produces real,
+// unclipped signal — headless/test chromium renders no REAL-TIME audio at
+// all (its real-time contexts run with no device; analyser taps read zero
+// even for a bare oscillator — instrument control in
+// judging/R37/start-time/analyser_control.mjs), so live audibility cannot be
+// probed; this is the verifiable proxy. Not used in play.
+export function __renderBarsForTest(nBars = 2, variantIndex = 0, sampleRate = 44100) {
+  const P = variantParams(VARIANTS[variantIndex]);
+  const OAC = window.OfflineAudioContext || window.webkitOfflineAudioContext;
+  const oc = new OAC(2, Math.ceil(nBars * P.barS * sampleRate) + sampleRate, sampleRate);
+  const buses = makeBuses(oc, oc.destination);
+  for (let bar = 0; bar < nBars; bar++) {
+    scheduleBar(oc, buses, P, bar % TOTAL_BARS, bar * P.barS);
+  }
+  return oc.startRendering();
 }
 
 // Test-only: render a variant's loop (default 0) and hand back the AudioBuffer
@@ -550,52 +626,75 @@ export function __renderLoopForTest(variantIndex = 0) {
 // Test-only: snapshot of the music state machine so a smoke test can assert the
 // stage->variant selection and that a loop actually starts. Not used in play.
 export function __musicDebug() {
-  return { currentState, currentVariant, playing: !!musicSource, variantForStage };
+  return { currentState, currentVariant, playing: !!sched, variantForStage };
 }
+// R37 start-time lane: reachable from a LIVE page (no ?fixed hooks there), so
+// a probe can see whether flight music is actually sounding at stage-1 open.
+if (typeof window !== 'undefined') window.__musicDebug = __musicDebug;
+
+// --- Live playback (R37) ----------------------------------------------------
+// The flight track is SCHEDULED live, one bar at a time, instead of played
+// from a pre-rendered buffer — see the engine note above buildLoop for the
+// measured 3-4 minute offline-render cost this replaces. The lookahead is
+// deliberately larger than a background tab's 1 s timer clamp, so the groove
+// survives throttling; bar times are absolute from t0, so a late timer can
+// only schedule late, never off-grid.
+const SCHED_LOOKAHEAD_S = 2.5;
+const SCHED_INTERVAL_MS = 250;
+let sched = null; // { timer, musicGain, variantIndex }
 
 function stopLoop() {
-  if (musicSource) {
+  if (sched) {
+    clearInterval(sched.timer);
     try {
-      musicSource.stop();
+      // One disconnect silences every already-scheduled note at once: the
+      // whole bus tree hangs off this gain. The few seconds of scheduled
+      // sources still run out silently and are then GC'd — bounded by the
+      // lookahead plus the longest note tail.
+      sched.musicGain.disconnect();
     } catch {
-      /* already stopped */
+      /* already disconnected */
     }
-    musicSource = null;
+    sched = null;
   }
 }
 
-function startLoop(buffer) {
+// Start the live bar scheduler for a variant. Callers gate on the context
+// RUNNING (applyFlight); onUnlock re-applies after the first user gesture
+// resumes a suspended context, same contract as the old buffer path.
+function startScheduler(variantIndex) {
   const c = ctx();
-  if (!c || !buffer) return;
+  if (!c || c.state !== 'running') return;
   stopLoop();
-  const src = c.createBufferSource();
-  src.buffer = buffer;
-  src.loop = true;
-  const g = c.createGain();
-  g.gain.value = 0.5;
-  src.connect(g).connect(master());
-  src.start();
-  musicSource = src;
+  const P = variantParams(VARIANTS[variantIndex]);
+  const musicGain = c.createGain();
+  musicGain.gain.value = 0.5; // same playback level the looped buffer had
+  musicGain.connect(master());
+  const buses = makeBuses(c, musicGain);
+  const t0 = c.currentTime + 0.15;
+  let bar = 0;
+  const pump = () => {
+    while (t0 + bar * P.barS < c.currentTime + SCHED_LOOKAHEAD_S) {
+      scheduleBar(c, buses, P, bar % TOTAL_BARS, t0 + bar * P.barS);
+      bar++;
+    }
+  };
+  pump();
+  sched = { timer: setInterval(pump, SCHED_INTERVAL_MS), musicGain, variantIndex };
 }
 
-// (Re)start the flight loop for the current variant, but ONLY once the context
+// (Re)start flight music for the current variant, but ONLY once the context
 // is actually RUNNING. A 'flight' set while the context is still suspended
-// (before the first user gesture) would schedule a source that never audibly
-// starts; onUnlock (engine.js) calls this again the instant the context
-// resumes, so the music begins cleanly from the unlock point. Idempotent: it
-// no-ops unless we're in 'flight', and won't restart an already-playing loop.
+// (before the first user gesture) cannot sound; onUnlock (engine.js) calls
+// this again the instant the context resumes, so the music begins cleanly
+// from the unlock point. Idempotent: it no-ops unless we're in 'flight', and
+// won't restart an already-running scheduler on the same variant.
 function applyFlight() {
   const c = ctx();
   if (!c || currentState !== 'flight') return;
-  if (musicSource && c.state === 'running') return; // already playing cleanly
-  const want = currentVariant;
-  renderMusicBuffer(want).then((buf) => {
-    if (currentState !== 'flight' || currentVariant !== want) return; // moved on while rendering
-    const cc = ctx();
-    if (!cc || cc.state !== 'running') return; // still locked — wait for onUnlock
-    if (musicSource) return; // started meanwhile
-    startLoop(buf);
-  });
+  if (sched && sched.variantIndex === currentVariant && c.state === 'running') return;
+  if (c.state !== 'running') return; // still locked — wait for onUnlock
+  startScheduler(currentVariant);
 }
 
 // Task 1: when the context unlocks on the first gesture, re-apply flight music
@@ -650,10 +749,10 @@ export function playTitleSting() {
 
 // `state`: 'flight' | 'title' | 'off'. `opts.stage` (a stage index, default 0)
 // selects the flight VARIANT: variant = stage % VARIANTS.length. 'flight'
-// renders the stage's variant (lazily, cached) and loops it — starting now if
-// the context is running, else the moment it unlocks (onUnlock). Entering
-// 'flight' on a NEW stage swaps to that stage's variant. 'title' fires the
-// sting once (and pre-warms the flight render); 'off' stops whatever is playing.
+// starts the stage's variant on the LIVE scheduler — now if the context is
+// running, else the moment it unlocks (onUnlock). Entering 'flight' on a NEW
+// stage swaps to that stage's variant instantly (no render — R37). 'title'
+// fires the sting once; 'off' stops whatever is playing.
 export function setState(state, opts) {
   const stage = opts && typeof opts.stage === 'number' ? opts.stage : 0;
   const variant = variantForStage(stage);
@@ -666,8 +765,8 @@ export function setState(state, opts) {
   }
 
   if (state === 'flight') {
-    // Already flying this exact variant with a live loop -> leave it running.
-    if (currentState === 'flight' && currentVariant === variant && musicSource) return;
+    // Already flying this exact variant with a live scheduler -> leave it.
+    if (currentState === 'flight' && currentVariant === variant && sched) return;
     currentState = 'flight';
     currentVariant = variant;
     stopLoop(); // fresh start / variant switch
@@ -679,8 +778,10 @@ export function setState(state, opts) {
   currentState = state;
   stopLoop();
   if (state === 'title') {
+    // No pre-warm any more: live scheduling needs none (R37), and the old
+    // render pre-warm cost ~0.3-1 s of main thread before the title painted
+    // plus minutes of a saturated core after it.
     playTitleSting();
-    renderMusicBuffer(currentVariant); // pre-warm the stage's flight variant
   }
   // 'off' => loop stopped; nothing else to do.
 }
