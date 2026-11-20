@@ -644,7 +644,20 @@ spread.
 - **Multi-lock + salvo is real and central** — MEASURED (t99.5–103.5, **SAMPLING RATE 4 Hz
   (0.25 s)**, `reference/stage1-missile-salvo-t100.75.png`): a cluster of ~6 dashed
   corner-bracket lock boxes on-screen at once (t100), then **HIT 2 → 10 in 2.25 s** — eight
-  kills from one salvo pass, so at least ~6–8 missiles can be in flight simultaneously.
+  kills from one salvo pass, ~~so at least ~6–8 missiles can be in flight simultaneously~~.
+
+  > **"6–8 IN FLIGHT" CORRECTED R40, measured at 60 Hz.** The eight kills are real; the
+  > inference is not — it counts KILLS at 4 Hz and attributes all of them to missiles while
+  > the arcade pilot is also holding the gun. The arcade's own missile odometer over the SAME
+  > window (t99.5→103.5) falls **44 → 40: four launches against eight kills.** Measured launch
+  > pacing: stage 1 **7 launches / 6.48 s** (mean 0.93 s), stage 3 **2–3 / 4.5 s**. Against the
+  > 0.43–0.90 s flight band that is **~1 missile in the air at a time, 2–3 briefly**, and
+  > counted by eye at 60 Hz the arcade shows **at most two trail chains, frequently zero**.
+  > Our build already sits in that band (max 3 in flight on the salvo stress demo, sparser
+  > than the arcade's densest span). **Do not raise the salvo size toward "6–8"** — that would
+  > re-create the owner's "too much smoke". Multi-lock is NOT in question: ~6 lock brackets
+  > on screen and 6 missiles in the air are different claims. Evidence:
+  > `judging/R40/missile-smoke/NOTES.md` §8.
   ~~A launch throws big white smoke billows that briefly occlude part of the screen~~; two
   simultaneous wing-pylon launch flares are visible at t177. This replaces the prototype's
   single-lock model as the fidelity target.

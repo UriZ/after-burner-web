@@ -229,3 +229,149 @@ and the launch-billow clause struck with its replacement evidence.
   missile we are now inside the arcade band; whether the arcade really has 6–8 trails up at
   once is worth a look, because across 7 s of its densest salvo footage I never saw more
   than two.
+
+---
+
+# §8 — SIMULTANEOUS-TRAIL COUNT (follow-up to §7). LEAD CLOSED NEGATIVE.
+
+**Question** (TL): per-trail width is in band, but total screen smoke is set by how many
+trails are up at once. GAME_SPEC §3 claims "at least ~6–8 missiles can be in flight
+simultaneously". Is our salvo size / launch stagger the remaining driver of "too much of it"?
+
+**Answer: no. Our simultaneous count already matches the arcade — and the §3 claim is wrong
+in the arcade's own data AND was never implemented here.** No change made.
+
+## 8.1 The §3 claim is refuted by the arcade's own stock counter
+
+§3's reasoning: *"HIT 2 → 10 in 2.25 s — eight kills from one salvo pass, so at least ~6–8
+missiles can be in flight simultaneously"*, sampled at **4 Hz**. It counts **kills**, and
+attributes all of them to missiles. GAME_SPEC's own note (iii) already records that **the
+arcade pilot holds the gun trigger**, so a kill is not attributable to a weapon.
+
+The arcade publishes the answer directly: the bottom-right odometer (large icon = 10, small
+tick = 1). Read at the endpoints of the exact window §3 cites:
+
+| | t = 99.50 (f0031) | t = 103.50 (f0271) |
+|---|---|---|
+| HIT counter | **2** | **10** |
+| missile stock | 4L + 4t = **44** | 4L + 0t = **40** |
+
+**Eight kills; FOUR missiles launched.** At least half the kills were the vulcan. There is no
+salvo of 6–8 anywhere in that window.
+
+## 8.2 Launch pacing, measured at 60 Hz across three salvo windows
+
+Detector (`stock_count.py`): red = `R>130 ∧ G<95 ∧ B<95`, 8-connected, ≥4 px; small ticks in
+x[790,900] y[660,700] (one band each), large icons in x[636,792] y[634,700] (two bands each);
+stock = 10·large + small; 11-frame median then monotone non-increasing (stock only falls).
+
+**Instrument validation — and it FAILED one population, so that one is hand-read.**
+Hand-validated on three stage-3 frames before use (6L+7t, 6L+7t, 6L+5t) → detector returns
+6/7, 6/7, 6/5, exact. On **stage 1 it is invalid**: the daylight background (orange fireballs,
+green foliage, brown rock passing behind the HUD) floods the red mask and it reports 63
+launches over 7 s against a hand-read 7. Stage-1 figures below are **hand reads** off 2×
+crops (`stock-s1-series.png`), monotone and mutually consistent.
+
+| window | stage | launches | mean interval | densest sub-burst |
+|---|---|---|---|---|
+| t = 99.50–105.98 (6.48 s) | 1, day | **7** (44→37) | 0.93 s | **3 launches in ~0.83 s** |
+| t = 176.0–180.5 (4.5 s) | 3, night | **2** (67→65) | 2.35 s | — |
+| t = 183.5–188.0 (4.5 s) | 3, night | **3** (64→61) | 2.55 / 0.23 s | 2 in 0.23 s |
+
+Stage-1 hand series: 44 (t99.50) → 43 (100.32) → 41 (101.15) → 40 (101.98) → 40 (102.82) →
+40 (103.65) → 37 (104.48) → 37 (105.32) → 37 (105.98).
+
+My stage-3 launch times (183.98, 186.77) reproduce R10's published burst-N times for the same
+frames, which is an independent corroboration of both detectors.
+
+**With GAME_SPEC's own launch→impact candidate band of 0.43–0.90 s, a 0.93 s mean interval
+puts ~1 missile in the air at a time, 2–3 briefly during the densest sub-burst.** Never 6–8.
+
+## 8.3 Counted by looking, which is the primary observable
+
+Trails break into puff chains, so a connected-component count is not a trail count (one
+stage-3 trail resolves into four components, `n3-comp-f0109.png`). Counted by eye on 60 Hz
+frames at readable size — `count-t176-a.png` (t176.60–178.60), `count-t183.png`
+(t183.90–187.90), `arc-sheet-full.png` (stage 1, t99–106):
+
+- **stage 3, t176 window: exactly ONE trail chain at a time for 1.5 s, then ZERO** from
+  t178.27 onward. Three launches in the window, one visible trail structure.
+- **stage 3, t183 window: ZERO trails for five consecutive sampled frames** (t185.23–186.90)
+  despite a launch at 184.83. The night sky is simply empty.
+- **stage 1, t99–106: at most TWO**, usually one.
+
+The big white masses in all three windows are **clouds**, not smoke — same object class as §1.
+
+## 8.4 Ours, measured the same way
+
+`tools/combat_probe.mjs --ticks 1800 --every 1`, seed 7:
+
+| | demo=1 (attract flight) | demo=2 (overlapping-salvo STRESS) | arcade |
+|---|---|---|---|
+| missiles in flight: median / p90 / **max** | 0 / 1 / **2** | 1 / 2 / **3** | ~1, 2–3 briefly |
+| time with ≥6 in flight | **0 %** | **0 %** | — |
+| launches / mean interval | 2 / 15.0 s | 13 / 2.31 s (min 0.70) | 7 / 0.93 s (stage 1) |
+| visible TRAILS (launch + 2.3 s smoke tail) | — | median 1, p90 2, **max 4** | 1, occasionally 2 |
+
+**We never put 6–8 missiles in the air.** The §3 line was never implemented; the stress demo
+peaks at 3 in flight and spends 2.6 % of its time at ≥3. If anything our salvo is **sparser**
+than the arcade's densest span (2.31 s mean interval vs the arcade's 0.93 s on stage 1).
+
+Worst case, looked at: the tick with the most recent launches (simTime 6.33, four launched
+inside 2.3 s) is `worst/frame-0000.png` — the jet is fully readable and the largest white
+mass in frame is a cloud. Nothing to cut.
+
+**Conclusion: the remaining driver of "too much of it" was per-trail width, which §4 fixed.
+Salvo size and launch stagger are already arcade-correct and must not be reduced.**
+
+## 8.5 For the TL — recommended GAME_SPEC §3 edit (no code change)
+
+The danger is the reverse of the one we just fixed: a future lane reads §3's "at least ~6–8
+missiles can be in flight simultaneously", finds our build doing 1–3, and *raises* the salvo
+to match — re-creating the owner's complaint. Suggested replacement for that clause:
+
+> ~~then **HIT 2 → 10 in 2.25 s** — eight kills from one salvo pass, so at least ~6–8 missiles
+> can be in flight simultaneously.~~
+>
+> **CORRECTED R40, measured at 60 Hz.** The eight kills are real; the "6–8 in flight" is not —
+> it counts KILLS at 4 Hz and attributes all of them to missiles, while the arcade pilot holds
+> the gun trigger (note (iii) below). The arcade's own missile odometer over the SAME window
+> (t99.5→103.5) falls **44 → 40: four launches against eight kills.** Measured launch pacing:
+> stage 1 **7 launches / 6.48 s** (mean 0.93 s, densest 3 inside 0.83 s); stage 3 **2 / 4.5 s**
+> and **3 / 4.5 s**. Against the 0.43–0.90 s flight band that is **~1 missile in the air at a
+> time, 2–3 briefly** — and counted by eye at 60 Hz the arcade shows **at most two trail chains,
+> frequently zero**. Our build already sits in that band (max 3 in flight on the salvo stress
+> demo). **Do not raise the salvo size toward "6–8".**
+> Evidence: `judging/R40/missile-smoke/NOTES.md` §8, `stock_count.py`, `stock-s1-series.png`,
+> `count-t176-a.png`, `count-t183.png`.
+
+Multi-lock itself is NOT in question — the ~6 simultaneous lock brackets at t100 are real and
+separately measured. Six locks on screen and six missiles in the air are different claims.
+
+## 8.6 Housekeeping
+
+- Labelled comparison sheet (CLAUDE.md's `compare_sheet.py` rule, blue = arcade, orange =
+  ours): **`judging/R40/missile-smoke/sbs-labelled.png`**. This is the one to put in the
+  report; the earlier `sbs-arcade-before-after.png` uses text captions only.
+- Boot gate re-run 3× after the §8 work: `node tools/combat_probe.mjs --ticks 60
+  --url-params "demo=1&seed=7"` exits 0 each time. One earlier failure was a **hot-reload
+  race, not a break**: a sibling lane saved `src/core/input.js` during the probe's wait
+  window, Vite reloaded the page and `__frameReady` was lost. `boot_check.mjs` (console +
+  pageerror capture) confirmed the page reaches `__frameReady = true` with no page errors.
+  Worth knowing for every lane on this tree: a gate failure during someone else's save is
+  a false alarm — re-run before escalating.
+- `arc60-t176/` and `arc60-t183/` hold 540 decoded PNGs (~174 MB) backing the §8.2 launch
+  times. Delete when the round closes if disk matters; `stock-s1-series.png`,
+  `count-t176-a.png` and `count-t183.png` preserve the readable evidence on their own.
+
+## 8.7 Residual, stated honestly
+
+Per-trail width, length and footprint are now in the arcade band, and the simultaneous count
+always was. What still does not match the arcade is the trail's **screen path**: our missile
+flies nearly along the view axis and the launch splay sweeps only ~24 %W before the seeker
+pulls it back, so 1.7 s of ribbon lands in a compact patch beside the jet rather than the
+arcade's long diagonal ribbon across a third of the screen. Same amount of smoke, different
+shape. Fixing it means changing `SPLAY_*` / `HOMING_GAIN`, which are owner-approved flight
+feel ("see them chase", R26/R34) — **not a smoke change, and not worth risking against an
+owner-approved behaviour on my own initiative.** Flagged for the TL as a possible future
+look-lane item, not a defect I am leaving unfixed.
