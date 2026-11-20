@@ -667,6 +667,17 @@ export class Enemy {
     holdTime = 0,
     holdWeaveAmp = 0,
     holdWeaveRate = 1.0,
+    // --- CROSSING TEMPO (R38) ------------------------------------------------
+    // Authored multiplier on the type's depthRate, overriding the pattern
+    // default (crosser 0.5, overtake 0.45) when non-null. Exists because the
+    // pattern defaults made every crossing event 4-6x slower than the
+    // arcade's: at 60 Hz (ab2-longplay-60fps, stage-1 combat t=116-119.4,
+    // judging/R38/sky-density/NOTES.md) an arcade crosser is on screen
+    // ~1-1.5 s, while our flyby bomber at 0.5908*0.5 dwelt ~7.9 s and the
+    // crosser wave ~5.7 s — measured by the R38 playtest as "enemies just
+    // park in formation next to me like wingmen". The spawner authors the
+    // tempo per wave; this file only carries it.
+    rateMult = null,
   }) {
     const spec = ENEMY_TYPES[type] ?? ENEMY_TYPES.fighter;
     this.id = nextEnemyId++;
@@ -698,6 +709,10 @@ export class Enemy {
     // are not empty: they are the only readable aircraft on screen until the
     // first head-on echelon completes its ~5 s approach.
     if (pattern === 'overtake') magnitude *= 0.45;
+    // R38: an authored tempo replaces the pattern default outright (it is a
+    // multiplier on the TYPE rate, not on the pattern-adjusted one, so the
+    // spawner states the effective rate in one place).
+    if (rateMult != null) magnitude = spec.depthRate * rateMult;
     this.depthRate = Math.sign(Math.log(depthB / depthA)) * magnitude;
 
     this.ndc = { x: ndcA[0], y: ndcA[1] };
