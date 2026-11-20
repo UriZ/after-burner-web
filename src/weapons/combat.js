@@ -48,7 +48,6 @@ const SALVO_COOLDOWN_S = 0.4; // ADOPTED
 // launches on the first of release / this window closing / the lock set
 // filling. 0.35 s fans a few locks across the wave before launch without the
 // press feeling unresponsive.
-const SALVO_GATHER_S = 0.35;
 // R12: fraction of its muzzle->aim-point path a vulcan round must fly before
 // it can score. Pulls gun kills off the muzzle and up to the sight (R11 §2.1);
 // value set by the kill-vs-sight A/B in judging/R12/combat-lane.md.
@@ -336,7 +335,6 @@ export class Combat {
     this.missileStock = MISSILE_START_STOCK;
     this.hits = 0;
     this.salvoCooldown = 0;
-    this.gatherTimer = 0; // R25: lock-gather window, see SALVO_GATHER_S
     // R36 (lock-clarity lane, routed through this file's owner): cooldown for
     // the no-lock DRY missile — its own clock, NOT salvoCooldown, so a dry
     // round never delays the acquire beat. See _updateMissiles.
@@ -1072,51 +1070,42 @@ export class Combat {
       return;
     }
 
-    // R36 — FIRE ON PRESS, ALWAYS (GAME_SPEC §3 ADOPTED "Fire on button press,
-    // cooldown 0.4 s"): a press with NO lock launches ONE unguided missile
-    // straight up the sight line instead of dead-clicking (R36 rank-1 gap).
-    // Own cooldown, NOT salvoCooldown, so a dry round never delays the acquire
-    // beat: press -> round leaves now; keep holding -> lock forms in parallel.
-    // NOTE (shared-PRNG class): launch() draws from this.rng, so a dry fire
-    // shifts every later draw on the gameplay stream — fairness comparisons
-    // across this change reflect the stream shift as well as the behaviour.
-    if (holding && !this._wasHolding && this.locks.locks.length === 0 &&
-        this.dryCooldown <= 0 && this.salvoCooldown <= 0 && this.missileStock > 0) {
-      this.missiles.launch(this.playerNdc, null, this.launchSide, this.rng, this.sight);
-      AudioBus.play('missileLaunch');
-      this.launchSide = -this.launchSide;
-      this.missileStock -= 1;
-      this.dryCooldown = SALVO_COOLDOWN_S;
-    }
 
-    // R25 — FIRE IS DISCOVERABLE FOR EVERY NAIVE HAND. The arcade missile is
-    // point-and-shoot, so the player must not have to learn "release to fire".
-    // A press opens a short GATHER window (SALVO_GATHER_S) over which locks fan
-    // out across the wave; the salvo then launches on the FIRST of:
-    //   - release        — a tap or mash fires at once (the common naive input)
-    //   - gather closes   — a player who just HOLDS the button still fires, then
-    //                       re-gathers and fires again until stock/targets run out
-    //   - lock set full   — no reason to wait once MAX_LOCKS are held
-    // The gather clock only runs while armed (this._lockHold), so it freezes
-    // through the post-salvo cooldown instead of instantly re-firing the moment
-    // the cooldown lifts.
-    if (holding && !this._wasHolding) this.gatherTimer = SALVO_GATHER_S;
-    // The gather clock only runs once at least one lock is held, so holding
-    // over an empty sky waits to fan out a real salvo rather than firing a
-    // single missile the instant one enemy drifts into the cone.
-    if (this._lockHold && this.locks.locks.length > 0 && this.gatherTimer > 0) {
-      this.gatherTimer -= dt;
-    }
-
+    // R40b — HOLD TO LOCK, RELEASE TO FIRE. The owner played R40 and asked for
+    // exactly this: "i want to be able to get a lock, and then release the
+    // missile." It is also the arcade's own model — sweep the sight across the
+    // wave with the button down, watch the brackets complete, let go and the
+    // salvo leaves.
+    //
+    // What this replaces, and why each piece went:
+    //   - R25's gather-timeout auto-fire (a held button launched by itself after
+    //     SALVO_GATHER_S) made holding IMPOSSIBLE — the salvo left before the
+    //     player had finished choosing, which is the opposite of the ask.
+    //   - R36's fire-on-press dry launch burned a missile the instant the button
+    //     went down, so the player never reached the lock at all. R36 added it
+    //     because a press with no lock dead-clicked; that is still answered,
+    //     below, by firing the unguided round on RELEASE instead of on press.
+    //   - the lock-set-full auto-fire went too: at MAX_LOCKS the player should
+    //     still choose the moment.
+    // The button therefore always answers (never a dead click), but it answers
+    // when the player lets go, which is the beat the owner asked for.
     const released = !holding && this._wasHolding;
-    const gatheredWhileHeld = holding && this.gatherTimer <= 0;
-    const full = this.locks.locks.length >= MAX_LOCKS;
-    if (canArm && (released || gatheredWhileHeld || full) && this.locks.locks.length > 0) {
-      const targets = this.locks.takeLocks();
-      const n = Math.min(targets.length, this.missileStock, MAX_LOCKS);
-      for (let i = 0; i < n; i++) this.launchQueue.push(targets[i]);
-      if (n > 0) this.salvoCooldown = SALVO_COOLDOWN_S;
-      this.gatherTimer = SALVO_GATHER_S; // re-gather for the next salvo if still held
+    if (canArm && released) {
+      if (this.locks.locks.length > 0) {
+        const targets = this.locks.takeLocks();
+        const n = Math.min(targets.length, this.missileStock, MAX_LOCKS);
+        for (let i = 0; i < n; i++) this.launchQueue.push(targets[i]);
+        if (n > 0) this.salvoCooldown = SALVO_COOLDOWN_S;
+      } else if (this.dryCooldown <= 0 && this.missileStock > 0) {
+        // Released with nothing locked: one unguided round up the sight line,
+        // so a tap is still a shot. Own cooldown so it never delays the next
+        // acquire beat (shared-PRNG note: launch() draws from this.rng).
+        this.missiles.launch(this.playerNdc, null, this.launchSide, this.rng, this.sight);
+        AudioBus.play('missileLaunch');
+        this.launchSide = -this.launchSide;
+        this.missileStock -= 1;
+        this.dryCooldown = SALVO_COOLDOWN_S;
+      }
     }
     this._wasHolding = holding;
 

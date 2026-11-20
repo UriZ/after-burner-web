@@ -637,33 +637,14 @@ const SIGHT_PX = 5; // of 320 = 1.563 %W, OUTER edge to outer edge
 // sight without someone noticing.
 const SIGHT_STYLE = { outer: true, strokePx: 1, armPx: 2 };
 
-// R40 — THE SIGHT GETS A DARK BACKING, AND ITS MEASURED SIZE DOES NOT MOVE.
-//
-// Second half of the owner's "aiming system is bad": you cannot aim with a mark
-// you cannot find. The glyph is white, 1 px of stroke on a 5 px box — 12 ink
-// pixels — and the three things it most often sits on in stage 1 are a
-// near-white cloud mass (measured bright mean #f5f2f6, R29), our own grey-white
-// jet (R35), and sea foam. In 39 turns of play I repeatedly could not locate it
-// at all, while the lock bracket — bigger, and drawn around an aircraft I had
-// not chosen — was the loudest thing on screen. The screen was shouting about
-// the game's target and silent about the player's.
-//
-// SIZE IS NOT THE LEVER AND MUST NOT BE USED AS ONE. SIGHT_PX 5 of 320 is the
-// arcade's own 1.563 %W sight glyph, the same measurement R10 tracked the
-// arcade's aim point with; growing it would trade one measured constant for a
-// legibility win that costs nothing to get honestly. The defect is CONTRAST,
-// exactly the class R38 closed for the killing round (its pale body was
-// measured on night footage and vanished against day skies — the fix was
-// contrast, not size: judging/R38/death-legibility2/). Same cure here, minus
-// the strobe, which belongs on a threat and not on a cursor the eye must rest
-// on: a black pass one render order below, one pixel thicker and one pixel
-// longer in the arms, so the white glyph keeps its measured footprint and
-// simply stops disappearing into whatever is behind it.
-//
-// Black needs no colour-management care — (0,0,0) is the one tone that is
-// identical decoded or encoded, so this cannot repeat the project's
-// sRGB double-encoding bug (CLAUDE.md, hit twice).
-const SIGHT_SHADOW_STYLE = { outer: true, strokePx: 2, armPx: 3 };
+// R40b — THE SIGHT'S DARK BACKING IS REMOVED. The R40 aiming lane gave the
+// white glyph a black pass one render order below (one px thicker, one px
+// longer in the arms) because it vanished against cloud, our grey-white jet
+// and sea foam. The owner played it and said: "remove the ui change to the
+// crosshair - its ugly." The owner outranks the lane, so the glyph is back to
+// the plain measured sight. SIGHT_PX 5 of 320 (1.563 %W) was never the lever
+// and still is not — if sight legibility comes back as a complaint, the fix
+// has to be found somewhere other than size or a backing.
 
 export class LockSystem {
   constructor(scene, space) {
@@ -742,8 +723,6 @@ export class LockSystem {
     // Render order 28 puts the dark backing strictly beneath the white glyph
     // (29) and beneath the brackets (30); all three are depthTest:false, so
     // render order is the only thing sequencing them.
-    this.sightShadow = this._makeCorners(28);
-    for (const s of this.sightShadow) s.material.color.setRGB(0, 0, 0);
     this.sightCorners = this._makeCorners(29);
   }
 
@@ -908,16 +887,9 @@ export class LockSystem {
     }
 
     if (sight) {
-      // Dark pass first, one render order below, a touch larger and thicker —
-      // see SIGHT_SHADOW_STYLE. The white glyph lands on top of it unchanged.
-      this._placeCorners(
-        this.sightShadow, sight.x, sight.y, sight.depth, SIGHT_PX, SIGHT_SHADOW_STYLE
-      );
       this._placeCorners(this.sightCorners, sight.x, sight.y, sight.depth, SIGHT_PX, SIGHT_STYLE);
-      for (const c of this.sightShadow) c.visible = true;
       for (const c of this.sightCorners) c.visible = true;
     } else {
-      for (const c of this.sightShadow) c.visible = false;
       for (const c of this.sightCorners) c.visible = false;
     }
 
