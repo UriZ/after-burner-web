@@ -29,8 +29,17 @@
 //   mean V 0.9674, median 0.9686, p10 0.9412, p25 0.9569,
 //   mean S 0.0504, median S 0.0405,
 //   darkest quintile 0.933, brightest quintile 0.995, ratio 1.07,
-//   column occupancy 1.000 over a 39.1%W x 50.0%H bbox (fill 0.584),
-//   per-row width 10.9%W at the missile end -> 36.2%W at the launch end.
+//   column occupancy 1.000.
+//
+// R40 — THE TWO GEOMETRY ROWS THAT USED TO FOLLOW ARE WITHDRAWN ("39.1%W x
+// 50.0%H bbox, fill 0.584" and "per-row width 10.9%W at the missile end ->
+// 36.2%W at the launch end"). That component is a stage-1 cumulus billboard
+// fused with the sea foam, not a trail; the stated window cropped it rather
+// than excluding it. The VALUE and SATURATION rows above are unaffected —
+// they reproduce on real trails, which is why this palette stands. Real trail
+// geometry: body 4.0-8.0 %W, widest point 11.6 %W, length 27-43 %W, coverage
+// 2.0-3.1 % of screen. See judging/R40/missile-smoke/NOTES.md §1-2 and the
+// corrected "Trail geometry" block in REFERENCE.md.
 //
 // So the daylight plume is a near-UNIFORM white column (ratio 1.07), not a
 // 2.7x value taper.

@@ -139,7 +139,22 @@ gp t257, t271, t281. Key frames committed: `reference/death-starburst-gp-t202.pn
 - **Respawn**: the jet slides in from the BOTTOM of the frame at OVERSIZED scale
   (larger than normal flight — it enters from behind/below the camera), twin afterburner
   flames blazing, with a "READY" text card low-center (yellow, then cyan), shrinking to
-  normal scale as control resumes (~2 s). Full hit→control-restored cycle ≈ 8–9 s.
+  normal scale as control resumes. ~~Full hit→control-restored cycle ≈ 8–9 s.~~
+  **CORRECTED R40 — "8–9 s" was the flash-off boundary, not control.** Three boundaries
+  exist and this line conflated them (R7 named all three in `deathSequence.js`; R40 adds a
+  second and third death instance):
+  - **hit → normal scale (CONTROL): 6.98 s.** R7's 1/30 s contiguous pin on gp t200.5667
+    → t207.55. R40's two further instances, read at 0.2 s on consecutive 30 fps decodes of
+    `ab2-gameplay.mp4`, agree: gp t270.40 → ~t277.6 and gp t280.2 → ~t287.6
+    (`judging/R40/flow-timing/arcade/d1`, `/d2`).
+  - **hit → READY card gone: 7.70 s.** The card blinks over LIVE flight for the last
+    0.72 s; the player already has the stick.
+  - **hit → invincibility flash off: 8.67 s.** This is what "8–9 s" was measuring.
+  Phase split, R40, consistent across both clean instances: impact → fireball gone **1.80 s**,
+  then **3.90–4.20 s** of empty sky with the hulk receding to a speck, then a **0.98–1.60 s**
+  slide-in. **Score freezes for the TUMBLE ONLY, not the fireball** — death A accrues
+  +3300/s right through the explosion (391780 → 395740, gp t200.80–202.90), pins at 395740
+  for t202.90–205.60, and resumes at the respawn (t207.10), i.e. BEFORE control returns.
 - ~~**No visible invincibility flash** after respawn in any of the four instances… The
   prototype's 2 s flashing window stays ADOPTED as a usability choice, not arcade-verified.~~
   **WRONG — CORRECTED R7, and it is the second MEASURED-tagged negative this round that the
@@ -630,9 +645,21 @@ spread.
   (0.25 s)**, `reference/stage1-missile-salvo-t100.75.png`): a cluster of ~6 dashed
   corner-bracket lock boxes on-screen at once (t100), then **HIT 2 → 10 in 2.25 s** — eight
   kills from one salvo pass, so at least ~6–8 missiles can be in flight simultaneously.
-  A launch throws big white smoke billows that briefly occlude part of the screen; two
+  ~~A launch throws big white smoke billows that briefly occlude part of the screen~~; two
   simultaneous wing-pylon launch flares are visible at t177. This replaces the prototype's
   single-lock model as the fidelity target.
+
+  > **THE "BIG WHITE BILLOWS" CLAUSE IS WITHDRAWN — R40, measured.** The white mass on
+  > `stage1-missile-salvo-t100.75.png` that this clause (and REFERENCE.md's "raise toward
+  > 35 px" trail instruction) described is a **stage-1 cumulus billboard fused with the sea
+  > foam**, not launch smoke: tracked at 60 Hz across t99.98→t101.18 it grows monotonically
+  > ×2.8, stays rooted on the bottom screen edge (y1 = 719, continuous with the sea) and the
+  > player's jet flies clear of it throughout — smoke leaving a pylon starts AT the jet.
+  > REFERENCE.md's operator windowed x[260,700] y[360,720] and took the largest component,
+  > which **cropped the contaminant instead of excluding it** (unwindowed it is one 93 648 px
+  > blob). R37 doubled the trail on this figure and the owner played the result and said
+  > "too much of it". Evidence: `judging/R40/missile-smoke/NOTES.md` §1 + `refframe-components.png`.
+  > Build to the re-measured trail band in REFERENCE.md "Trail geometry — RE-MEASURED R40".
 
   > **LAUNCH → IMPACT: ~~≈ 0.5–1.5 s~~ DEMOTED TO ASSUMED, R10 (REFERENCE ledger row 49), AND
   > `missiles.js` CALLS IT "MEASURED-TO-SPEC".** The observation behind it is *"explosions land
@@ -921,6 +948,22 @@ spread.
   - The prototype's `is_bonus` flags (6/12/18, +30 missiles) match NEITHER mechanism —
     trust the frame-verified stage-3-open tanker and stage-5 runway (stage 13 is the
     verified second runway biome; its sequence is ASSUMED to mirror stage 5's).
+- **Stage TRANSITION, MEASURED R40** at all three readable boundaries (60 Hz consecutive
+  decode; `judging/R40/flow-timing/arcade/{b12,b23,b34}`, full detail in that lane's NOTES):
+  - **There is NO pause and combat never clears.** Enemies stay alive, shots stay in the
+    air, and the jet banks under player input for the whole card. A player can even die
+    into one — gp t283.4 shows a tally card drawn while the player is still dead.
+  - **The background PALETTE cross-fades.** The card comes up, and **0.10–0.18 s later**
+    the sky begins a **0.63–0.90 s** lerp to the new stage's colour; the card itself lives
+    **1.58–1.85 s** (it is HIT-count-long). Stage 1's `#009fff` → stage 2's `#f17600`
+    passes through a neutral grey-violet ≈(121,122,128), so it is a straight **sRGB lerp of
+    the palette**, not a cross-dissolve of two images.
+  - **Sprites and the HUD are NOT faded** — b34 f366 carries a full-brightness player jet
+    and a full-brightness HUD over a near-black background.
+  - **The tiles hard-cut at the fade's midpoint.** On b12 the sky is already washed to the
+    neutral mid-tone at t=123.233 while the terrain is still stage 1's coastline, and the
+    terrain is stage 2's desert by t=123.500 — q ≈ 0.52. (Only b12 can date this; stage 3's
+    night ground is too dark to read.)
 - Stage length: prototype uses a flat 30 s timer (ADOPTED convenience); arcade spans vary
   12–49 s (MEASURED from the verified stage map — e.g. stage 5 is 12 s, stage 9 is 48 s).
   Prefer the measured per-stage durations.
@@ -947,6 +990,25 @@ spread.
     label shown during it (`reference/stage2-start-bonus-tally-t124.png`: 8 hits →
     160000 mid-count; stage-4→5 tally reconfirms ×20,000 at t244–245). The tally amount
     lands in the score as it counts.
+  - **R40, frame-exact on the 60 fps file at the stage 1→2 boundary** (the whole card
+    walked at 1/60 s, `judging/R40/flow-timing/arcade/b12`):
+    - **Pay rate 7.5 hits/s** — SCORE steps by 20,000 at t=123.033, 123.167, 123.300, i.e.
+      one hit every 0.133 s. ("~7 hits/s" is 6.7 % under; inside the 10 % band.)
+    - **The card's POINTS field is the BONUS ALONE, not the running score**, and is
+      **zero-padded to five digits**: it opens on "POINTS 00000" and walks 20000 / 40000 /
+      … / 240000 while the SCORE field independently reads 113180 / 133620 / 154060 /
+      358460. (We had been adding the live score into that field; fixed R40.)
+    - **Passive accrual re-confirmed at 60 Hz: +220 every 4 frames = 3,300/s exactly**, and
+      it keeps running underneath the tally.
+    - **The "STAGE n" banner BLINKS**: 4 blinks, 0.25 s on / 0.283 s off (period 0.533 s),
+      the first ON edge leading the card by 0.067–0.100 s. Identical at all three
+      boundaries, so it is the authored cadence.
+  - **Score magnitudes, for anyone about to file "our score is inflated"** (HUD digits,
+    same decode): 73,710 at t=117 (stage 1) · 400,110 entering stage 2 · 813,270 entering
+    stage 3 · 1,032,370 entering stage 4, and STAGE_MAP's burst-c cross-check puts the same
+    run at 7.74 M by stage 17. **The arcade crosses 1 M by stage 4.** A build reaching
+    ~1.1 M by stage 3 is on the arcade's own scale; that complaint is about unearned KILLS,
+    not about the scoring constants.
   - **HIT resets to 0 at every stage start** (t126, t204, t246) **and ONLY there** —
     round 4 confirmed it survives player death (held at 2 across a full death/respawn
     cycle, gp t198–209). The prototype has both halves wrong (`game_state.gd` resets on

@@ -11,6 +11,15 @@ import { missileTexture } from './projectileSprites.js';
 // launch that "throws big white smoke billows that briefly occlude part of
 // the screen".
 //
+// R40 — THAT LAST CLAUSE IS WITHDRAWN and GAME_SPEC still carries it (flagged
+// to the TL; §3 is not this lane's file). It traces to REFERENCE.md's "Trail
+// geometry" block, whose sizes were measured on a stage-1 cumulus billboard
+// fused with the sea foam, not on smoke: tracked at 60 Hz the "billow" grows
+// 10.4 % -> 28.9 % of the screen over 1.2 s while the jet flies clear of it.
+// A 60 Hz decode of a real launch shows NO launch billow — the trail starts
+// narrow at the missile and never occludes the airframe. See
+// judging/R40/missile-smoke/NOTES.md §1 and the corrected REFERENCE.md block.
+//
 // ---------------------------------------------------------------------------
 // THE TRAIL IS A RIBBON MESH, NOT A PUFF CHAIN, AND IT IS BUILT IN SCREEN
 // SPACE. Two reasons, both load-bearing:
@@ -33,13 +42,16 @@ import { missileTexture } from './projectileSprites.js';
 //    to a single point, where orientation does not matter and a fixed
 //    fallback is correct.
 //
-// THICKNESS DIRECTION — a deliberate reading of the measurement.
-// REFERENCE.md says "~16 px thick at the head tapering to a few px". Which
-// end is "the head" is ambiguous in that sentence, and the two readings are
-// visually opposite. reference/stage1-missile-salvo-t100.75.png settles it
-// numerically: the plume's per-row width runs 10.9%W at the missile end to
-// 36.2%W at the launch end (full operator in effects/trailPalette.js). So
-// the ribbon is widest at its OLDEST sample and tapers toward the missile.
+// THICKNESS DIRECTION — settled R40, and the old answer here was wrong.
+// This file used to read the direction off "per-row width 10.9%W at the
+// missile end to 36.2%W at the launch end" and conclude "widest at its OLDEST
+// sample". That taper is the cloud's (see above). Re-measured on five real
+// trails, the arcade profile is a SPINDLE: both ends 0.5-2.5 %W, the crest
+// 7.8-11.6 %W sitting 0.22-0.60 of the way back from the missile. The ribbon
+// is therefore thin at the missile, fattest in its middle, and thin again at
+// the launch end — which is also the only shape that keeps thick smoke off
+// the jet, since our oldest samples sit at the launch point. Constants and
+// the per-bin arcade profiles are at HALF_FRAC_PEAK below.
 //
 // VALUE IS PER-STAGE AND COMES FROM effects/trailPalette.js. It used to be
 // two constants in this file taken from a frame that turns out to contain no
@@ -222,9 +234,11 @@ const SPLAY_NDC_Y_PER_S = -0.7; // and downward, away from the sight line
 const SPLAY_DECAY_PER_S = 3.0;
 
 // How far apart the two launch-billow lobes sit ALONG the launch axis, in
-// frame-width fractions. 0.17 against a lobe long axis of 0.31-0.38 keeps
-// them overlapping (no gap between them) while making the union a column.
-const BILLOW_LOBE_STEP_NDC = 0.17;
+// frame-width fractions. R40: 0.17 -> 0.055, following the lobes down (see
+// the billow spawn in fire()). The union has to stay inside the arcade
+// plume's measured widest point of ~11.6 %W; at 0.17 the two lobes made a
+// 25 %W x 49 %W column that is nowhere in the footage.
+const BILLOW_LOBE_STEP_NDC = 0.055;
 
 const MISSILE_FRAC_NEAR = 0.028; // R26: 0.022 -> 0.028, a touch more trackable as it chases
 const MISSILE_FRAC_FAR = 0.009;
@@ -245,21 +259,46 @@ const RIBBON_LIFE_S = 1.7;
 const RIBBON_HZ = 60; // one sample per fixed tick
 const MAX_SAMPLES = Math.ceil(RIBBON_LIFE_S * RIBBON_HZ) + 2;
 // Screen-fraction half-thickness at the youngest and oldest sample.
-// R37 — head raised 0.024 -> 0.05 (4.8%W -> 10%W full thickness). This is
-// REFERENCE.md's own standing instruction, not a new measurement: "Head
-// thickness: 10.9%W = 35 native px on stage 1 ... Our build ships 15.4
-// native px — conservative by a factor of ~2. Raise toward 35 px." 0.05
-// half = 10%W = 32 px of 320, just under the measured 35 so the scallop
-// multiplier below (up to 1.3x) peaks near it rather than past it.
-// The old end follows to 0.075 (15%W), keeping a real taper. NOT more: the
-// measured 36.2%W at the launch end is the LAUNCH BILLOW region (union of
-// billow + ribbon + chain on one axis) — up the column the arcade's aged
-// trail resolves into 4.4-5.4%W discrete puffs (R37 60 Hz decode, NOTES.md
-// §1), so a ribbon that keeps fattening past ~15%W turns the whole trail
-// into the fused grey sheet the first R37 attempt produced
-// (ours-after-sheet.png, withdrawn same session by crop-and-look).
-const HALF_FRAC_YOUNG = 0.05;
-const HALF_FRAC_OLD = 0.075;
+//
+// R40 — BACK DOWN, 0.05/0.075 -> 0.025/0.048. The owner played the R37 build
+// and said the missile smoke was "too much of it". R37 had doubled this on
+// REFERENCE.md's standing "Head thickness: 10.9%W = 35 native px ... Raise
+// toward 35 px" instruction. THAT INSTRUCTION WAS MEASURED ON A CLOUD: its
+// source component (84 509 px inside x[260,700] y[360,720] of
+// stage1-missile-salvo-t100.75.png) is the stage-1 cumulus billboard fused
+// with the sea foam, which grows 10.4% -> 28.9% of the screen over the 1.2 s
+// after that frame while the player's jet flies clear of it
+// (judging/R40/missile-smoke/NOTES.md §1; REFERENCE.md corrected this round).
+//
+// Re-measured on five real trails (V>0.80 & S<0.20, 8-connected, component
+// chosen BY LOOKING, perpendicular width = PCA-binned filled width):
+// body runs 4.0-8.0 %W full thickness, peaking at 11.6 %W only on the
+// freshest near segment; one trail covers 2.0-3.1 % of the screen.
+// THE PROFILE IS A SPINDLE, NOT A WEDGE. A monotonic young->old taper puts
+// the ribbon's FATTEST samples at its oldest ones, which in this engine sit
+// at the LAUNCH POINT — i.e. on the jet, the one place the arcade has no
+// thick smoke at all (arc-launch.png: the trail starts narrow right at the
+// missile and the airframe is never occluded).
+//
+// The arcade is a spindle: thin at the missile, fattest ~40 % of the way
+// back, thinning again at the oldest end. Measured per-bin full thickness
+// (%W, 12 px bins, NOTES.md §2):
+//   f0084  0.6 1.5 1.2 0.9 1.0 0.9 1.5 3.0 5.3 7.2 [7.8] 7.2 6.6 ... 2.5 0.9
+//   f0393  2.5 4.3 6.5 5.5 4.2 ... 6.3 7.4 [8.1] 7.8 6.6 ... 1.5 1.1 1.3 0.5
+//   f0365  1.2 2.8 6.5 8.7 10.4 [11.6] 11.1 9.6 ... 4.1 3.8 4.1 2.1
+// Both ends run 0.5-2.5 %W, the peak 7.8-11.6 %W, and the peak sits at
+// 0.22-0.60 of the way along (0.4 is the central value, hence SPINDLE_PEAK_U).
+//
+// half(u) = MIN + (PEAK - MIN) * sin(PI * u^SPINDLE_K), u = age/RIBBON_LIFE_S.
+// SPINDLE_K = ln(0.5)/ln(0.4) puts the sine's crest exactly at u = 0.4; the
+// sine is 0 at both u = 0 and u = 1, so each end lands on MIN.
+// PEAK 0.040 half = 8.0 %W full, the measured peak; MIN 0.009 = 1.8 %W, the
+// measured ends. The scallop multiplier (up to 1.3x) can carry the crest to
+// ~10.4 %W, still under the 11.6 %W widest point measured anywhere.
+const HALF_FRAC_MIN = 0.009;
+const HALF_FRAC_PEAK = 0.04;
+const SPINDLE_PEAK_U = 0.4;
+const SPINDLE_K = Math.log(0.5) / Math.log(SPINDLE_PEAK_U);
 // R37 — SCALLOPED EDGES. The arcade column is visibly built of round masses:
 // no straight edge longer than a couple of puff diameters anywhere in the
 // 60 Hz t99-106 decode (judging/R37/missile-feel/track-launch1-crops.png).
@@ -404,7 +443,9 @@ class Trail {
       }
       const u = Math.min(1, s.age / RIBBON_LIFE_S);
       const half =
-        (HALF_FRAC_YOUNG + (HALF_FRAC_OLD - HALF_FRAC_YOUNG) * u) * (s.lump ?? 1);
+        (HALF_FRAC_MIN +
+          (HALF_FRAC_PEAK - HALF_FRAC_MIN) * Math.sin(Math.PI * Math.pow(u, SPINDLE_K))) *
+        (s.lump ?? 1);
       const offNdcX = px * half * 2;
       const offNdcY = py * half * NDC_Y_PER_FRAC;
       const base = slot * 3;
@@ -569,24 +610,25 @@ export class Missiles {
     };
     this.live.push(m);
 
-    // Launch billow: two overlapping masses at the pylon, big enough to
-    // "briefly occlude part of the screen" (t99.75-t101, GAME_SPEC.md §3).
+    // Launch billow: two overlapping masses at the pylon.
     //
-    // SIZE AND LIFE ARE BOTH ACCEPTANCE NUMBERS, not taste. The R4 criterion
-    // for gap 4 asks for "a launch billow >=25%W for ~1 s"; the shipped
-    // 7%W -> 17-22%W over 0.42-0.56 s missed on both axes. The arcade's own
-    // launch mass measures 39.1%W x 50.0%H on
-    // reference/stage1-missile-salvo-t100.75.png, so 0.30-0.36%W per lobe
-    // across two jittered lobes lands just under it rather than over.
+    // R40 — THE ACCEPTANCE NUMBERS THAT USED TO BE QUOTED HERE ARE WITHDRAWN.
+    // They were: R4 gap 4's "a launch billow >=25%W for ~1 s", and "the
+    // arcade's own launch mass measures 39.1%W x 50.0%H". Both trace to the
+    // cloud (file header; NOTES.md §1). A 60 Hz decode of a real launch shows
+    // no launch billow at all, and the widest point anywhere along a real
+    // plume is 11.6 %W — so the billow is now a short flare sized to that
+    // ceiling, not a mass built to occlude the screen.
     //
-    // The ceiling is real though: an earlier version painted THREE 30-38%W
-    // masses that merged into one cloud filling the lower third of the frame
-    // and hid the trails entirely
-    // (tools/out/combat-r3-12-trail/frame-0265.png). Two lobes, and a LIFE
-    // short enough that the mass is gone before the next salvo — "briefly
-    // occlude PART of the screen" is the target, not obscure it. (R7: it used
-    // to be `fadeFrom` that did this. A fade is the one thing an arcade sprite
-    // cannot do, so the mass now ends instead of dissolving.)
+    // The old ceiling note still holds and is why there are two lobes rather
+    // than three: an earlier version painted THREE 30-38%W masses that merged
+    // into one cloud filling the lower third of the frame and hid the trails
+    // entirely (tools/out/combat-r3-12-trail/frame-0265.png).
+    //
+    // Two lobes, and a LIFE short enough that the mass is gone well before
+    // the next salvo. (R7: it used to be `fadeFrom` that ended it. A fade is
+    // the one thing an arcade sprite cannot do, so the mass now ends instead
+    // of dissolving.)
     //
     // R6: the billow is now a TAPERING PLUME (effects/smoke.js drawBillow) and
     // has to be ORIENTED, or the taper points in an arbitrary direction and is
@@ -604,35 +646,44 @@ export class Missiles {
     const axY = ((target?.ndc?.y ?? m.aim?.y ?? m.ndcY + 0.4) - m.ndcY) * FRAC_Y_PER_NDC;
     const billowRot =
       (Math.hypot(axX, axY) > 1e-6 ? Math.atan2(axY, axX) : Math.PI / 2) - Math.PI / 2;
-    // The two lobes are strung ALONG the axis, not jittered laterally. They
-    // used to be offset by +-0.045 x +-0.03 NDC in screen x/y, which put two
-    // 30-36 %W balls side by side -- a ~50 %W mass, wider than it is tall,
-    // against the arcade's 39.1 %W x 50.0 %H column. Along the axis the same
-    // two lobes make one rooted plume.
+    // The two lobes are strung ALONG the axis, not jittered laterally, so the
+    // union is one rooted plume rather than two balls side by side.
+    //
+    // R40 — THE BIG SHRINK, and the reason the owner said "too much of it".
+    // Every size here descended from REFERENCE.md's "a launch throws large
+    // white smoke billows that briefly occlude part of the frame (t99.75-
+    // t101)" and its 39.1 %W x 50.0 %H "launch mass". Both describe the
+    // SAME object, and that object is a stage-1 cumulus billboard fused with
+    // the sea foam: tracked across t99.98-101.18 it grows monotonically
+    // 10.4 % -> 28.9 % of the screen and 38.9 -> 47.2 %W while the jet flies
+    // clear of it, which is an approaching cloud, not smoke leaving a pylon
+    // (judging/R40/missile-smoke/NOTES.md §1).
+    //
+    // What the footage actually shows at a launch (60 Hz decode of the
+    // t104.73-105.07 launch, judging/R40/missile-smoke/arc-launch.png): the
+    // trail starts NARROW right at the missile, the jet is never occluded,
+    // and the widest point anywhere along the whole plume is 11.6 %W.
+    // So the billow is now a short flare at the pylon sized to that ceiling:
+    // short axis 0.07-0.095 -> long axis 0.092-0.125, union with the 0.055
+    // lobe step ~0.095 x 0.18. Lives 0.42-0.56 s, not ~1 s: in the footage
+    // the launch region is thin again well before the missile is a speck.
+    //
+    // Draw count per lobe is unchanged (4), so the shared PRNG stream is
+    // untouched (CLAUDE.md's shared-stream bug class).
     const axN = Math.hypot(axX, axY) || 1;
     const stepX = (axX / axN) * BILLOW_LOBE_STEP_NDC * 2; // NDC x per unit frac
     const stepY = (axY / axN) * BILLOW_LOBE_STEP_NDC * NDC_Y_PER_FRAC;
     for (let i = 0; i < 2; i++) {
-      const jitterX = stepX * i + (rng() - 0.5) * 0.04;
-      const jitterY = stepY * i + (rng() - 0.5) * 0.03;
+      const jitterX = stepX * i + (rng() - 0.5) * 0.014;
+      const jitterY = stepY * i + (rng() - 0.5) * 0.011;
       this.space.ndcToWorld(m.ndcX + jitterX, m.ndcY + jitterY, m.depth * 1.05, pos);
       this.smoke.spawn('billow', pos, m.depth * 1.05, {
-        life: 0.95 + rng() * 0.2,
+        life: 0.42 + rng() * 0.14,
         rotation: billowRot,
-        // `frac` is the SHORT (across-plume) axis now that the canvas is
-        // 32x42 -- the sprite's long axis is frac * 1.3125. The arcade's
-        // launch mass is 39.1 %W x 50.0 %H, so a 0.30 %W short axis puts the
-        // long axis at 0.394, which is that measurement rather than a
-        // square 0.30 x 0.30.
-        fracStart: 0.10,
-        // SHORT axis. 0.24-0.29 here puts the long axis at 0.31-0.38 and the
-        // union of the two lobes, offset BILLOW_LOBE_STEP_NDC apart along it,
-        // at roughly 0.25 x 0.49 -- the arcade's 39.1 %W x 50.0 %H mass is
-        // 0.39 x 0.50, and the rest of its width is the ribbon and the puff
-        // chain lying on the same axis. The old 0.30-0.36 was the FULL width
-        // of a round sprite, so this is not a shrink: the mass is the same
-        // size and a different shape.
-        fracEnd: 0.24 + rng() * 0.05,
+        // `frac` is the SHORT (across-plume) axis; the 32x42 canvas puts the
+        // sprite's long axis at frac * 1.3125.
+        fracStart: 0.035,
+        fracEnd: 0.07 + rng() * 0.025,
         valueStart: p.billowStart,
         valueEnd: p.billowEnd,
         // R7: no `fadeFrom`. effects/smoke.js no longer alpha-fades anything
@@ -766,51 +817,39 @@ export class Missiles {
         // draw, so the shared PRNG stream is untouched). Neighbouring puffs
         // die at different ages, so the aged chain THINS INTO SPACED ROUND
         // PUFFS instead of staying one solid overlapped worm — the arcade's
-        // discrete-puff phase (NOTES.md §1: f0098's solid lumps become
-        // f0106's spaced chain). Floor 1.5 s keeps every puff past the
-        // measured >= 1.2 s persistence; survivors reach 2.2 s.
-        const puffLife = 1.5 + 0.7 * (((m.puffCount * 7) % 10) / 9);
+        // discrete-puff phase.
+        // R40 — 1.5-2.2 s -> 1.15-1.6 s. The scatter is what we wanted; the
+        // LENGTH it bought was not. An arcade trail's whole visible extent
+        // holds at 27-43 %W across five measured trails and its footprint at
+        // 2.0-3.1 % of the screen — it does not keep growing. Ours ran a
+        // 1.7 s ribbon with a chain outliving it by another 0.5 s, so the
+        // path kept accumulating white. 1.15 s still clears the measured
+        // >= 1.2 s segment persistence to within a frame at the floor and
+        // passes it at the top, and the chain now ends just after the ribbon
+        // instead of half a second later.
+        const puffLife = 1.15 + 0.45 * (((m.puffCount * 7) % 10) / 9);
         this.space.ndcToWorld(m.ndcX, m.ndcY, m.depth, pos);
         this.smoke.spawn('trail', pos, m.depth, {
-          // R37: 1.0 -> 2.2 s, and the ROLE changed. Measured this round
-          // (60 Hz decode, NOTES.md §1): an arcade segment's ladder is
-          // continuous column -> overlapping lumps -> DISCRETE SPACED ROUND
-          // PUFFS, visible >= 1.2 s and usually leaving by screen exit, not
-          // by fading. At 1.0 s our puffs died BEFORE the 1.7 s ribbon over
-          // the same spot, so the discrete-puff phase never existed — the
-          // trail just vanished with the ribbon. At 2.2 s each spot on the
-          // path outlives its ribbon by 0.5 s as a chain of discrete puffs,
-          // which is the arcade's aged tail. Sprite count: 2.2 / 0.055 =
-          // ~40 live puffs per missile, ~240 across a 6-missile salvo —
-          // pooled billboards, checked against the PUFF_INTERVAL_S warning.
-          // (Scattered per puff — see puffLife above.)
+          // Scattered 1.15-1.6 s — see puffLife above. Sprite count is now
+          // ~1.6 / 0.055 = ~29 live puffs per missile (was ~40), ~174 across
+          // a 6-missile salvo; pooled billboards, inside the
+          // PUFF_INTERVAL_S warning.
           life: puffLife,
-          // R6. THE CHAIN NOW CARRIES THE RIBBON'S OWN TAPER instead of a
-          // flat one, and this is the "size falloff along the axis" half of
-          // the art critique's fix.
-          //
-          // It used to run 0.055 -> 0.075 of frame width over a puff's life:
-          // a 1.36x ramp, against the ribbon's 2.7x (HALF_FRAC_YOUNG 0.024 ->
-          // HALF_FRAC_OLD 0.065, i.e. a full thickness of 4.8 %W -> 13 %W)
-          // and against the arcade plume's measured 3.3x (10.9 %W at the
-          // missile -> 36.2 %W at the launch end,
-          // reference/stage1-missile-salvo-t100.75.png). A chain that barely
+          // The chain carries the ribbon's own taper (R6: a chain that barely
           // tapers, laid along a path that compresses toward the vanishing
-          // point, is a disc.
+          // point, reads as a disc).
           //
           // These are the LONG axis of an ellipse whose canvas aspect is
-          // 0.625, so the plume's visible WIDTH is 0.625x these: 0.063 ->
-          // 0.088. The young end matches the new 10%W ribbon head loosely
-          // (the ribbon covers it anyway, renderOrder 15 over 6); the OLD
-          // end is deliberately SMALLER than the dying ribbon's 15%W,
-          // because that is what the arcade does: the fat column RESOLVES
-          // into 4.4-5.4%W discrete spaced puffs as it ages (f0098 -> f0106
-          // of the R37 decode) — the mass thins into a chain, it does not
-          // keep ballooning. A first attempt that grew these to 0.33 and
-          // matched the ribbon produced a fused grey storm cloud parked on
-          // the jet (ours-after-sheet.png) and was withdrawn by look.
-          fracStart: 0.10,
-          fracEnd: 0.14,
+          // 0.625, so the puff's visible WIDTH is 0.625x these.
+          // R40 — 0.10/0.14 (6.3 -> 8.8 %W) -> 0.07/0.105 (4.4 -> 6.6 %W),
+          // following the ribbon down. The arcade's aged puffs measure
+          // 4.4-5.4 %W and its trail BODY 4.0-8.0 %W full thickness
+          // (judging/R40/missile-smoke/NOTES.md §1), so at 8.8 %W the chain
+          // was wider than the arcade's body everywhere and, now that the
+          // ribbon is 5-9.6 %W, would have been the widest thing in the
+          // trail — the chain has to sit inside the ribbon, not spill past it.
+          fracStart: 0.07,
+          fracEnd: 0.105,
           // Held at the screen tangent the missile had when this puff was
           // laid down (effects/smoke.js `rotation`).
           rotation: m.trailAngle,

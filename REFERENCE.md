@@ -4401,21 +4401,91 @@ white on night stage 3 too, only ~6% dimmer than in daylight. **Acceptance: trai
 numbers for t100.75 (mean V 0.966, median 0.969, p10 0.941, sat 0.051) reproduce here to
 ≤0.01; its width figure does not — see below.
 
-### Trail geometry — MEASURED on stage 1, replacing the whole inherited description
+### Trail geometry — MEASURED on stage 1
+
+> ## ⚠ CORRECTED R40 — THE GEOMETRY BELOW WAS MEASURED ON A CLOUD
+>
+> **Every SIZE in the R5 block below (84 509 px, 39.1%W × 50.0%H, the
+> 10.9 → 36.2 %W taper, the "raise toward 35 px" instruction, and the
+> "large white smoke billows occlude part of the frame" addition) describes a
+> stage-1 cumulus billboard fused with the sea foam, not a missile trail.**
+> The COLOUR and VALUE rows above and below it survive — they were taken on
+> trail pixels and reproduce on real trails. Only the geometry is withdrawn.
+>
+> How it happened, and why the stated window did not catch it: the window
+> x[260,700] y[360,720] **cropped the cloud rather than excluding it**. With
+> no window, the largest component on `stage1-missile-salvo-t100.75.png` is
+> 93 648 px at bbox x[0,661] y[316,719] — the same blob, 84 509 px of which
+> falls inside the window. The block's own warning ("an unwindowed largest
+> component floods into foam, the grey ship and the cloud bank") was right
+> about the failure and wrong about the fix: a window that contains the
+> contaminant is not a sea exclusion.
+>
+> Tracked at 60 Hz across the very span the block cites (t99.98 → t101.18)
+> the object grows monotonically **10.4 % → 28.9 % of the screen** and
+> **38.9 → 47.2 %W**, is rooted on the bottom screen edge in every frame
+> (y1 = 719, i.e. continuous with the sea), and **the player's jet flies
+> clear of it throughout**. That is a billboard cloud approaching the camera.
+> Smoke leaving a pylon starts AT the jet; this starts far from it and swells.
+> Evidence: `judging/R40/missile-smoke/NOTES.md` §1,
+> `refframe-components.png` (every component labelled on the cited frame),
+> `arc-track-mass.png`.
+>
+> **Cost of the error:** R37 executed the "raise toward 35 px" instruction and
+> doubled the shipped trail; the owner played that build and said the missile
+> smoke was *"too much of it"*. The pre-R37 head of 15.4 native px (4.8 %W)
+> had been correct. **Build to the R40 table below, not to the R5 one.**
+
+#### Trail geometry — RE-MEASURED R40 (this is the one to build to)
+
+Operator: mask `V > 0.80 ∧ S < 0.20`; 8-connected components over the **whole
+frame, no window**; the trail component chosen **by looking** at a labelled
+all-components overlay, never by "largest" (on stage 1 the largest is always the
+cloud+foam blob — that is the defect above). Perpendicular width = PCA major/minor
+axes, 8–12 px bins along the major axis, per-bin width = (pixels in bin)/(bin length
+along the axis). Source: 60 Hz consecutive decode of the stage-1 salvo span,
+`t = 99.0 + (i−1)/60`. Tool: `judging/R40/missile-smoke/measure_arc.py`.
+
+| frame | t | screen coverage | length | median width | p75 | max |
+|---|---|---|---|---|---|---|
+| f0084 | 100.383 | **1.98 %** | 34.6 %W | 4.00 %W | 5.95 | 8.03 |
+| f0096 | 100.583 | **2.41 %** | 33.3 %W | 5.06 %W | 6.17 | 8.66 |
+| f0365 | 105.067 | **2.81 %** | 27.0 %W | 8.06 %W | 9.87 | 11.74 |
+| f0379 | 105.300 | **3.11 %** | 43.4 %W | 5.18 %W | 5.88 | 8.76 |
+| f0393 | 105.533 | **2.79 %** | 41.8 %W | 4.90 %W | 5.63 | 8.09 |
+
+- Trail BODY full thickness **4.0–8.0 %W**; the widest point anywhere, on the
+  freshest near segment, is **11.6 %W**. Nothing in a stage-1 trail reaches 36 %W.
+- Total LENGTH **27–43 %W**, stable — the trail does not keep growing; it leaves
+  by screen exit.
+- ONE trail covers **2.0–3.1 %** of the screen.
+- **There is no launch billow.** 60 Hz decode of the t104.73–105.07 launch
+  (`arc-launch.png`): the trail starts narrow right at the missile and the jet is
+  never occluded. Across the whole 7 s salvo span there is never more than one or
+  two thin ribbons on screen at once.
+- The profile is a **SPINDLE**, not a wedge — thin at the missile, fattest at
+  0.22–0.60 of the way back (peak 7.8–11.6 %W), thinning again at the oldest end
+  (both ends 0.5–2.5 %W). Per-bin profiles in NOTES.md §2.
+
+**Tolerance band (CLOSED):** a trail whose body sits in 4–8 %W, whose widest point
+is ≤ 11.6 %W, and which covers 2.0–3.1 % of the screen is correct. Do not
+re-litigate inside that band.
+
+#### R5 block, retained for its colour/value rows and as the cautionary example
 
 Operator (combat-fx lane, independently re-run by me — agrees to **2 px out of 84 511**):
 on `stage1-missile-salvo-t100.75.png` at its stored 1028×720, mask `V > 0.80 ∧ S < 0.20`,
 largest 8-connected component **inside the launch window x[260,700] y[360,720]**.
 
-| | measured |
-|---|---|
-| plume pixels | 84 509 |
-| mean V / median / p10 | **0.9674 / 0.9686 / 0.9412** |
-| mean S / median S | **0.0504 / 0.0405** |
-| **darkest / brightest quintile, RATIO** | 0.933 / 0.995 → **1.07** |
-| column occupancy | **1.000** |
-| bbox | **39.1%W × 50.0%H**, fill 0.584 |
-| per-row width, missile end → launch end | **10.9%W → 36.2%W** |
+| | measured | R40 status |
+|---|---|---|
+| plume pixels | 84 509 | **cloud + sea foam — withdrawn** |
+| mean V / median / p10 | **0.9674 / 0.9686 / 0.9412** | stands (reproduces on real trails) |
+| mean S / median S | **0.0504 / 0.0405** | stands |
+| **darkest / brightest quintile, RATIO** | 0.933 / 0.995 → **1.07** | stands |
+| column occupancy | **1.000** | stands (a real trail is continuous) |
+| bbox | **39.1%W × 50.0%H**, fill 0.584 | **cloud — withdrawn** |
+| per-row width, missile end → launch end | **10.9%W → 36.2%W** | **cloud — withdrawn** |
 
 **The daylight plume has essentially NO internal value structure — quintile ratio 1.07.**
 The inherited "2.2–3.2× bright/dark" requirement is therefore **withdrawn for daylight**
@@ -4424,13 +4494,20 @@ measured on. It is what drove our ribbon's tail to V 0.19 and it will do the sam
 next developer. Keep the *shape* claims — a continuous opaque ribbon at 100% column
 occupancy — which every frame above corroborates.
 
-**Head thickness: 10.9%W = 35 native px on stage 1**, not the inherited "~16 px". That
+~~**Head thickness: 10.9%W = 35 native px on stage 1**, not the inherited "~16 px". That
 figure traced to the same night frame, and R4 gap 4's "12–20 native px" reproduction
 criterion inherited it. Our build ships 15.4 native px — inside the old band and
 **conservative by a factor of ~2** against the stage-1 measurement. Raise toward 35 px for
-stage 1; the night value is unmeasured.
+stage 1; the night value is unmeasured.~~
 
-**Width: 39.1%W bbox, tapering 10.9 → 36.2%W.** R4's "34–67%W" and my own earlier
+> **WITHDRAWN R40.** 35 native px is the cloud's taper. The measured head is
+> **4.0–5.2 %W (13–17 native px)**, so the "15.4 native px" the build shipped
+> before R37 was already right and the "conservative by a factor of ~2" was the
+> factor between a trail and a cumulus cloud. R37 executed this instruction and
+> the owner rejected the result. **Do not raise the head above ~5 %W.**
+
+~~**Width: 39.1%W bbox, tapering 10.9 → 36.2%W.**~~ (WITHDRAWN R40 — cloud.)
+R4's "34–67%W" and my own earlier
 "≥32%W floor" are both superseded by the windowed figure. A bright + low-saturation mask
 on a stage-1 frame **must** state a window or a sea exclusion: stage 1's sea is 23–38%
 foam above V 0.95 (this doc's own "Contrast / foam" numbers) and clouds pass the same
@@ -4440,8 +4517,15 @@ against the windowed plume's clean 39.1%W at fill 0.584. **Any trail criterion w
 stated window is measuring the ocean.**
 
 MEASURED addition: the trail's TAIL ages into a chain of discrete round white puffs
-(t226, t332, t120 — measured above at mean V 0.870), and a launch throws large white
-smoke billows that briefly occlude part of the frame (t99.75–t101).
+(t226, t332, t120 — measured above at mean V 0.870). ~~and a launch throws large white
+smoke billows that briefly occlude part of the frame (t99.75–t101).~~
+
+> **The launch-billow clause is WITHDRAWN R40.** t99.75–t101 is exactly the window in
+> which the stage-1 cumulus billboard sweeps past the camera, growing 10.4 % → 28.9 % of
+> the screen — the same object as the withdrawn geometry above. A 60 Hz decode of a real
+> launch (`judging/R40/missile-smoke/arc-launch.png`, t104.73–105.07) shows **no launch
+> billow at all**: the trail starts narrow right at the missile and the jet is never
+> occluded. This clause sized our launch billow to ~25 %W × 49 %W for several rounds.
 
 **Projectile palettes** (MEASURED this pass on 2× nearest-neighbor crops of 60 fps
 frames; coordinates are crop-local, crops reproducible from the stated source rects):

@@ -198,11 +198,17 @@ function drawTrailPuff(value) {
   };
 }
 
-// Launch billow: a bigger, lumpier mass. In
-// reference/stage1-missile-salvo-t100.75.png the launch smoke is the single
-// largest element on screen (39.1%W x 50.0%H, 58% bbox fill) and is
-// near-white throughout, not just at its core — the whole mass measures
-// mean V 0.9674 with a darkest quintile of 0.933.
+// Launch billow: a lumpier mass than the puff, drawn near-white throughout
+// rather than only at its core — real trail pixels measure mean V 0.9674 with
+// a darkest quintile of 0.933.
+//
+// R40: the "single largest element on screen (39.1%W x 50.0%H, 58% bbox
+// fill)" that used to justify the SIZE here is a stage-1 cumulus billboard
+// fused with the sea foam, not launch smoke, and the arcade has no launch
+// billow at all. The VALUE claim is unaffected (it reproduces on real
+// trails); the size now comes from the caller, which holds it under the
+// 11.6 %W widest point measured anywhere on a real plume. See
+// judging/R40/missile-smoke/NOTES.md §1.
 //
 // Authored at the stage-1 band for the same reason the puff is: the caller
 // multiplies, so this is the ceiling. The old ladder topped out at #f6f6f6
@@ -219,13 +225,16 @@ function drawTrailPuff(value) {
 // 30-36 %W across, and the largest single element of the trail. On
 // tools/out/combat-r6/base/trail-sheet.png it is the cumulus.
 //
-// The arcade's launch mass is NOT square: 39.1 %W x 50.0 %H on
-// reference/stage1-missile-salvo-t100.75.png (the same measurement the width
-// here was already taken from -- only its height was being ignored), i.e. an
-// aspect of 1.28, a column. And the plume above it tapers: the per-row width
-// runs 36.2 %W at the launch end to 10.9 %W at the missile.
+// R40: the aspect argument that used to stand here ("the arcade's launch mass
+// is NOT square: 39.1 %W x 50.0 %H ... aspect 1.28, a column", plus a
+// 36.2 -> 10.9 %W taper) is withdrawn — that object is the cumulus billboard,
+// not smoke. The 32x42 canvas SURVIVES on its own merit: an elongated, tapered
+// sprite is still what the launch needs, because the alternative shipped here
+// before was a radially symmetric BALL that read as cumulus in our own frames,
+// and because a real trail is a spindle rather than a disc. The aspect is now
+// an authoring choice, not a measured one.
 //
-// So: a 32x42 canvas (aspect 1.3125, against the measured 1.28) with the
+// So: a 32x42 canvas (aspect 1.3125) with the
 // lobes laid along the canvas's y axis and their radii falling monotonically
 // toward the TOP, which the caller rotates to point along the launch ->
 // target direction. Canvas +y is screen up at rotation 0, so the caller
