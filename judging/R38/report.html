@@ -142,8 +142,7 @@
     <span class="pill">SHIPPED — all four lanes committed</span>
   </header>
 
-  <p class="eyebrow" style="margin-top:34px">Round 38 · The rebuild, measured against the real thing</p>
-  <h1>Look first. Measure second.</h1>
+  <h1 style="margin-top:34px">Kills no longer bury your jet; the shot that kills you is visible; dying costs lives again.</h1>
 
   <div class="tldr">The playtest said the missile loop is <em>finally satisfying</em> — and named what still hurts. All four shipped: kills no longer <em>bury your jet</em> (they erupt at the victim and balloon past the camera, like the arcade), the shot that kills you <em>strobes</em> on every background, <em>dying costs lives again</em> (a held fire button was silently buying continues), and the empty-sky / parked-wingmen stretches are gone (crossings ran at half speed for 10 rounds).</div>
 
@@ -179,12 +178,12 @@
   </section>
 
   <section>
-    <div class="sec-head"><h2>Shipped this round</h2><span class="count">held up under the judge’s re-measure</span></div>
+    <div class="sec-head"><h2>Shipped this round</h2></div>
     <ul class="shipped"><li>Kill explosions victim-sized, ballooning past camera; jet coverage 84% → ~0; sim provably unchanged (identical kill ticks)</li><li>Fatal round strobes red↔hot + bigger battery telegraph; air rounds byte-untouched</li><li>Continue coin is rising-edge only — lives per credit are real, game over reachable</li><li>Crossing tempo fixed (patterns ran at HALF rate — &#x27;parked wingmen&#x27;); visible-emptiness relief pair: max empty gap 6.5→2.2 s (arcade ~1.5–2 s)</li><li>Close presence 0.096→0.178 nominal — the old gap dented, not closed</li></ul>
   </section>
 
   <section>
-    <div class="sec-head"><h2>Next — R39</h2><span class="count">ranked by what breaks the illusion</span></div>
+    <div class="sec-head"><h2>Next — R39</h2></div>
     <ol class="gaps">
       <li class="gap">
         <span class="gap-rank">01</span>
@@ -211,8 +210,7 @@
 
   <section>
     <div class="sec-head"><h2>Keep — do not regress</h2></div>
-    <ul class="keep"><li>Three of four lane briefs were WRONG about the mechanism — and all four lanes measured first, then fixed the real one</li><li>A &#x27;bug&#x27; each round turns out to be a rendering/trigger truth: fixed-size fireballs, level-triggered coins, half-rate patterns</li><li>0 unannounced fatal hits on every seed, warning floor intact, aim advantage preserved through all four lanes</li></ul>
+    <ul class="keep"><li>Your death starburst parks on the jet; enemy kills do not — that contrast is what tells them apart</li><li>A held fire button must never buy a continue (rising-edge only, verify_continue.mjs 4/4)</li><li>Hands-off play stays ≤0.4× aimed, 0 unannounced fatal hits, warning floor ≥1.167 s</li><li>Air rounds stay as they are — only battery rounds strobe, or the strobe stops meaning &#x27;this one kills you&#x27;</li></ul>
   </section>
 
-  <p class="foot">Playtest-seeded round. Every lane replayed the playtest&#x27;s exact evidence ticks deterministically before touching code; one lead (full-size pop-in) was debunked as a sampling artifact instead of &#x27;fixed&#x27;. Evidence in judging/R38/.</p>
 </div>

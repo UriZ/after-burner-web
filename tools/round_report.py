@@ -24,6 +24,7 @@ ROUND = {
     "number": 38,
     "date": "2026-11-20",
     "status": "SHIPPED — all four lanes committed",
+    "headline": "Kills no longer bury your jet; the shot that kills you is visible; dying costs lives again.",
     "score": "7 / 10",  # round-open naive playtest on the R37 build; fresh playtest queued
     "last_score": "R38 opened at 7/10: “the missiles actually work now … that loop is satisfying”",
     "tldr": (
@@ -78,15 +79,11 @@ ROUND = {
          "Needs a velocity option on SmokeField.spawn (cross-file request logged)."),
     ],
     "keep": [
-        "Three of four lane briefs were WRONG about the mechanism — and all four lanes measured first, then fixed the real one",
-        "A 'bug' each round turns out to be a rendering/trigger truth: fixed-size fireballs, level-triggered coins, half-rate patterns",
-        "0 unannounced fatal hits on every seed, warning floor intact, aim advantage preserved through all four lanes",
+        "Your death starburst parks on the jet; enemy kills do not — that contrast is what tells them apart",
+        "A held fire button must never buy a continue (rising-edge only, verify_continue.mjs 4/4)",
+        "Hands-off play stays ≤0.4× aimed, 0 unannounced fatal hits, warning floor ≥1.167 s",
+        "Air rounds stay as they are — only battery rounds strobe, or the strobe stops meaning 'this one kills you'",
     ],
-    "method_note": (
-        "Playtest-seeded round. Every lane replayed the playtest's exact evidence ticks deterministically "
-        "before touching code; one lead (full-size pop-in) was debunked as a sampling artifact instead of "
-        "'fixed'. Evidence in judging/R38/."
-    ),
 }
 
 
@@ -149,7 +146,7 @@ def build():
     if shipped:
         items = "".join(f"<li>{esc(s)}</li>" for s in shipped)
         shipped_html = f'''  <section>
-    <div class="sec-head"><h2>Shipped this round</h2><span class="count">held up under the judge’s re-measure</span></div>
+    <div class="sec-head"><h2>Shipped this round</h2></div>
     <ul class="shipped">{items}</ul>
   </section>'''
     gaps_label = r.get("gaps_label", "The gaps")
@@ -298,8 +295,7 @@ def build():
     <span class="pill{' closed' if r['status']=='CLOSED' else ''}">{esc(r['status'])}</span>
   </header>
 
-  <p class="eyebrow" style="margin-top:34px">Round {r['number']} · The rebuild, measured against the real thing</p>
-  <h1>Look first. Measure second.</h1>
+  <h1 style="margin-top:34px">{esc(r['headline'])}</h1>
 
   <div class="tldr">{r['tldr']}</div>
 
@@ -318,7 +314,7 @@ def build():
 {shipped_html}
 
   <section>
-    <div class="sec-head"><h2>{esc(gaps_label)}</h2><span class="count">ranked by what breaks the illusion</span></div>
+    <div class="sec-head"><h2>{esc(gaps_label)}</h2></div>
     <ol class="gaps">
 {gaps_html}
     </ol>
@@ -329,7 +325,6 @@ def build():
     <ul class="keep">{keep_html}</ul>
   </section>
 
-  <p class="foot">{esc(r['method_note'])}</p>
 </div>
 """
 
