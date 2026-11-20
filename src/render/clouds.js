@@ -422,8 +422,64 @@ function makeCloudTexture(rng, pal) {
   return texture;
 }
 
-const SPAWN_Z = -70; // world units, far spawn depth
-const CLOUD_SPEED = 9.5; // world units/s, independent of ground scrollSpeed
+// R40 gap 5a — "A CLOUD MASS IS GLUED TO MY JET AND HIDES THE FIGHT"
+// (R39 playtest rank 5; evidence judging/R39/playtest-evidence/
+// s3b-t51-cloud-glued-to-jet.png).
+//
+// MEASURED, and the word "glued" turned out to be literally right. The
+// operator is model-free: take the cloud mask on two frames 3 ticks apart,
+// find the integer screen displacement that maximises their overlap (FFT
+// cross-correlation), and report it in %W per second. It assumes nothing
+// about approach geometry and survives clipping, merging and growth, all of
+// which defeated a 1/size growth fit on the arcade footage. It recovers a
+// planted displacement exactly at 1/4/7 px per frame
+// (judging/R40/art-clutter/drift_rate.py --selftest).
+//
+//   cloud-mass screen drift        p25     p50     p75   frac < 10 %W/s
+//   arcade stage-1 t90-110        16.8    37.5    65.6       0.222
+//   arcade stage-1 t112-120       20.3    37.5    53.0       0.143
+//   OURS, before this change       0.0     0.0     0.0       0.838
+//
+// Our cloud mass did not move across the screen AT ALL — median drift 0.00
+// %W/s, 84 % of frame pairs under 10 — while the arcade's sweeps past at a
+// median 37.5 %W/s, the same median on both spans. Two causes, both here:
+//
+//  1. SPEED. A cloud is a world-stationary object, and the player flies
+//     through the world at stage.scrollSpeed = 68.93 world units/s — that
+//     is the rate the GROUND flows past the camera. These clouds closed at
+//     9.5, 7.3x slower than the world they sit in, so a bank crawled across
+//     the combat band while everything else rushed by. 68.93 is not picked
+//     because it is the nearest constant: it is the speed that makes a
+//     cloud move with the world the player is measurably moving through,
+//     and it is what lands the drift and dwell figures in the arcade's
+//     bands (verified after the change, judging/R40/art-clutter/NOTES.md).
+//  2. PINNED SCREEN HEIGHT — see updateBankPositions, fixed separately.
+//
+// Dwell, the second half of the complaint, on the combat band (rows 16..140
+// of 320x224), cloud-only by differencing a full capture against a matched
+// ?noclouds=1 one (cloud_only.py, 20 s of ?demo=1 at 60 Hz):
+//
+//                              ours before    arcade t90-110 / t112-120
+//   presence (band >5% cloud)      0.458          0.225 / 0.085
+//   median cloud event             1.28 s         0.45 s / 0.34 s
+//   median gap between events      1.37 s         2.50 s / 3.66 s
+//
+// Cloud PLACEMENT was measured too and is NOT the gap: cloud-mass centroid
+// 0.24-0.47 %H in the arcade against 0.36 %H here, mask top 0.07 %H on both
+// sides. BANK_FRAC_LO/HI therefore do not move; only the motion does.
+const WORLD_SPEED = 68.93;
+// Duplicated from stage.js's scrollSpeed rather than imported — the same
+// standing arrangement as the camera constants at the top of this file
+// (stage.js is another lane's). Every authored stage uses this one value.
+// The THROTTLE does vary the real scrollSpeed per detent, which a constant
+// cannot see; update() therefore takes an optional worldSpeed argument so
+// game.js can pass this.flow.scrollSpeed with a one-line change on its
+// side. Logged as an ask in judging/R40/art-clutter/NOTES.md.
+const SPAWN_Z = -150;
+// Was -70. At 68.93 u/s a bank spawning at -70 enters the frame already
+// ~15 %W wide, which pops; from -150 it arrives at ~6 %W — just under the
+// arcade's measured 7.6 %W smallest bank — and grows in. Well inside the
+// camera's 2000-unit far plane.
 const DESPAWN_Z = 6; // past the camera
 
 // A BANK IS ONE SPRITE. R4 and the first R5 pass built a bank from several
@@ -455,8 +511,20 @@ const BANK_SLOTS = 4;
 // numbers say, which is exactly the R4 judge's complaint ("big cumulus
 // masses that the jet flies past; ours carries 1-3 small puffs") stated as
 // geometry. These constants are tuned to the measured-bank figures.
-const BANK_BASE = 13.0;
-const BANK_JITTER = 5.6;
+// R40: both scaled x1.45. Re-measuring the arcade's banks with THIS round's
+// operator (largest cloud component per frame, same class and the same
+// native downsample on both sides, judging/R40/art-clutter) puts the arcade
+// at width p50 30.0 %W / p90 44.7 / max 67.8 on the t90-110 span and p50
+// 43.4 on t112-120, where ours read p50 20.6 / max 32.8 — our banks are
+// simply smaller on screen than the arcade's, before and after the motion
+// fix. (This does NOT contradict R5's 18.66 %W median above: that figure is
+// a median over eleven hand-classified banks at whatever depth each happened
+// to be, including far ones, while this is the largest mass in frames that
+// HAVE a cloud. Both are quoted here with their operators so the next reader
+// can tell them apart.) 1.45x is 30.0/20.6, i.e. it closes the gap exactly
+// and no further.
+const BANK_BASE = 18.8;
+const BANK_JITTER = 8.1;
 // Bank aspect is the FINAL on-screen width/height ratio: a THREE.Sprite
 // stretches its texture to fit scale.x/scale.y, so this must not be
 // compounded with the canvas texture's own shape (an R3 version multiplied
@@ -482,20 +550,43 @@ const BIG_BANK_CHANCE = 0.30;
 const BIG_BANK_MULT_LO = 1.6;
 const BIG_BANK_MULT_HI = 2.3;
 
-// Bursty-bank timing (R3 gap 8). A first attempt gave each slot its own
-// independent per-tick spawn roll with activity tied to the full ~7s world
-// traversal — measured 93-98% presence against a 68-69% target no matter
-// how far the per-roll chance was lowered, because once ANY slot goes
-// active it stays visible for the better part of 7 seconds, making a true
-// empty gap (needed ~31% of the time) almost impossible to reach. Modelled
-// instead as a cooldown/active state machine:
-//   presence fraction = meanActiveDuration / (meanActiveDuration + meanCooldown)
-// meanActive 2.5s, meanCooldown 1.15s -> 2.5/3.65 = 0.685, matching
-// REFERENCE.md's 68-69% by construction.
-const BANK_ACTIVE_MIN = 1.5;
-const BANK_ACTIVE_MAX = 3.5; // mean 2.5
-const BANK_COOLDOWN_MIN = 0.6;
-const BANK_COOLDOWN_MAX = 1.7; // mean 1.15
+// Bursty-bank timing (R3 gap 8), REBUILT R40.
+//
+// The old model was an ACTIVE/COOLDOWN pair: bring a group up, hold it for
+// meanActive 2.5 s, then force every bank hidden and wait meanCooldown
+// 1.15 s, giving presence = 2.5/3.65 = 0.685 to match REFERENCE.md's
+// "68-69% of frames carry a bank". Two things were wrong with it once the
+// clouds moved at world speed.
+//
+// First, the force-hide is a POP: at 9.5 u/s a bank was nowhere near the
+// camera when its 1.5-3.5 s window expired, so it blinked out mid-sky. At
+// 68.93 u/s a bank crosses the whole 156-unit approach in 2.26 s and leaves
+// on its own, so the hide is not only unnecessary, it would cut most banks
+// off before they ever arrive. Banks now despawn ONLY at DESPAWN_Z.
+//
+// Second, the cadence is now set by the measured GAP BETWEEN CLOUD EVENTS
+// rather than by a presence ratio. Measured on the combat band at 60 Hz
+// (see the WORLD_SPEED block above): the arcade's median gap between cloud
+// events is 2.50 s (t90-110) and 3.66 s (t112-120), against 1.37 s here.
+// GROUP_PERIOD is the interval between group spawns, drawn uniformly across
+// that measured band; because a group's own visible life is ~2.3 s and only
+// its last second covers much of the band, this reproduces both the gap and
+// the 0.085-0.225 presence without any presence ratio being dialled in.
+// SET FROM THE MEASURED GAP, not from a presence ratio. GROUP_PERIOD is the
+// interval between group spawns; the quantity it has to deliver is the GAP
+// between cloud events on the combat band, which the arcade puts at a median
+// 2.50 s (t90-110) and 3.66 s (t112-120). A group's own coverage runs ~1.2 s
+// mean (its banks are 1-3 arrivals at one depth, and a big bank crosses the
+// 5 % threshold early in its approach), so the period is that plus the
+// target gap. Measured at 2.5-3.7 the realised gap was 0.39 s — events ran
+// nearly back to back — and presence sat at 0.594 against the arcade's
+// 0.085-0.225. Lengthening the period is the only lever that moves the gap
+// and the presence the same way at once, and it leaves the bank SIZE
+// distribution alone, which is separately verified in band (largest-cloud
+// width p25/p50/p75/p90 = 15.9/22.8/34.4/44.4 %W here against the arcade's
+// re-measured 21.1/29.7/37.3/43.6 on the same operator).
+const GROUP_PERIOD_MIN = 5.5;
+const GROUP_PERIOD_MAX = 7.5;
 
 // Number of BANKS brought up together. REFERENCE.md's published count
 // distribution (median 1, p90 5, max 6) counts the same contaminants as its
@@ -533,7 +624,7 @@ export function createClouds(stage, camera, seed = 1) {
     const sprite = new THREE.Sprite(material);
     sprite.visible = false;
     group.add(sprite);
-    banks.push({ sprite, material, active: false, z: SPAWN_Z, baseFrac: 0 });
+    banks.push({ sprite, material, active: false, z: SPAWN_Z, baseFrac: 0, worldY: undefined });
   }
 
   // Bank centres are laid out in SECTORS across the sky rather than drawn
@@ -543,15 +634,21 @@ export function createClouds(stage, camera, seed = 1) {
   // per sector guarantees the separation, and it is also what the reference
   // shows: t106 is three separate masses spread across the sky, not a pile.
   const BANK_SECTOR = 21; // world units between adjacent bank centres
-  function placeBank(bank, idx, groupCount, groupOffsetX) {
+  function placeBank(bank, idx, groupCount, groupOffsetX, groupZ) {
     const rng = rngCosmetic;
-    bank.z = SPAWN_Z * (0.6 + rng() * 0.4);
+    // ONE DEPTH PER GROUP (R40). placeBank used to roll its own z per bank,
+    // so a 2-3 bank group arrived strung out over a second or more and
+    // segmented into that many separate cloud EVENTS, back to back. The
+    // reference frame this grouping is modelled on (t106) is three masses
+    // spread ACROSS the sky in one frame, i.e. one arrival at one depth.
+    // The small per-bank jitter keeps them from being a rigid row.
+    bank.z = groupZ * (0.94 + rng() * 0.12);
+    // Cleared so updateBankPositions re-derives the world Y for THIS
+    // placement; a bank slot is reused many times over a stage.
+    bank.worldY = undefined;
     // Vertical placement across the arcade's measured band (BANK_FRAC_LO/HI).
-    // The R3 judge found clouds parallax-drifting UP as they approached,
-    // because world Y was fixed at spawn and a cloud above camera height
-    // rises toward the top of frame; update() therefore recomputes Y every
-    // tick to hold a target screen fraction. That fix stays — what is gone
-    // is the extra HUD clamp that used to ride on top of it.
+    // baseFrac is the screen fraction the bank ENTERS at; from there it
+    // parallaxes like the world-fixed object it is (see updateBankPositions).
     bank.baseFrac = BANK_FRAC_LO + rng() * (BANK_FRAC_HI - BANK_FRAC_LO);
     let w = BANK_BASE + (rng() - 0.5) * 2 * BANK_JITTER;
     if (rng() < BIG_BANK_CHANCE) {
@@ -568,16 +665,83 @@ export function createClouds(stage, camera, seed = 1) {
       groupOffsetX + (idx - (groupCount - 1) / 2) * BANK_SECTOR + (rng() - 0.5) * 3.2;
     bank.sprite.visible = true;
   }
+  // Lateral offset of a GROUP's centre from the flight axis, world units:
+  // magnitude drawn in [LO,HI], sign drawn separately. NOT uniform about
+  // zero, and that is the point.
+  //
+  // MEASURED R40. Where does arcade cloud mass actually sit across the
+  // frame, and how do its events end? Over the cloud mask's centroid X and
+  // whether the mask touches a left/right edge column:
+  //
+  //                          centroid X %W (p10/p50/p90)   touches a side edge
+  //   arcade t90-110            0.20 / 0.35 / 0.64               0.59
+  //   arcade t112-120           0.76 / 0.81 / 0.87               0.92
+  //   OURS before               0.36 / 0.48 / 0.61               0.00
+  //
+  // Arcade cloud mass lives OFF TO THE SIDE and leaves through the side of
+  // the frame in 59-92 % of cloud frames. Ours sat at dead centre (p50 0.48,
+  // i.e. on the flight axis) and NEVER ONCE touched a side edge in 20 s —
+  // every bank flew straight down the camera axis and grew in place. That is
+  // the third and last mechanism behind "glued", and the one that keeps the
+  // events long: a head-on bank stays in the combat band until it despawns,
+  // where an off-axis one exits the side partway in.
+  //
+  // The old value was +/-6 UNIFORM, and 62 % of groups are a single bank
+  // (rollBankCount), so most clouds sat within 6 units of the axis — but,
+  // critically, the defect was never the magnitude. A first R40 pass set
+  // this to [16,34] and overshot badly: banks exited the side of the frame
+  // at depth 22-46, before they could grow, and the on-screen width p50 fell
+  // to 18.8 %W against the arcade's 30.0/43.4 while peak band coverage fell
+  // to 0.115 against the arcade's 0.665. The arcade's big passes come CLOSE.
+  //
+  // The geometry says why a small world offset is the right answer: screen
+  // offset is x/(1.486 d), so the SAME x that is nearly centred at the far
+  // end of the approach is at the frame edge by the time the bank is close.
+  // x = 8 puts a bank's centre at 0.41 %W (small and unobtrusive) at depth
+  // 62, at 0.77 %W by depth 20, and off the edge around depth 12 — where a
+  // 13-unit bank is ~73 %W wide. That is the measured arcade picture: two
+  // big masses flanking the jet with a clear gap between them, which is what
+  // "frame the fight" means, as against the small centred blob that used to
+  // sit on the jet because it was pinned to a screen row and barely moving.
+  //
+  // Drawn as a MAGNITUDE with a separate sign so nothing arrives exactly on
+  // the axis; the lower bound is what keeps a bank from growing straight
+  // over the jet, and the upper bound keeps it from leaving before it is
+  // ever big.
+  const GROUP_X_LO = 7;
+  const GROUP_X_HI = 18;
 
+  // A BANK IS WORLD-FIXED IN Y. R40 gap 5a, second half.
+  //
+  // This used to recompute world Y every tick so the bank held a constant
+  // SCREEN fraction for its whole approach — the R3 fix for "clouds
+  // parallax-drift upward as they come in". That fix is what made the cloud
+  // mass's measured screen drift exactly 0.00 %W/s (median, p75, all of it)
+  // against the arcade's 37.5: a pinned screen row is the definition of
+  // glued. It also meant a bank could grow without bound while staying
+  // centred in the combat band — with the R40 speed fix alone, still pinned,
+  // peak band coverage hit 0.967 against the arcade's measured max 0.665.
+  //
+  // So world Y is now set ONCE, at placement, from the entry screen
+  // fraction, and the bank parallaxes from there like the world-fixed object
+  // it is: a bank above camera height rises and leaves over the top, which
+  // is both correct perspective and what the arcade shows (reference
+  // t101.5's bank top edge is 2.9 %H, i.e. already running off frame; banks
+  // pass behind the HUD on t100/t105/t106/t120 — the HUD is composited after
+  // the scene in render/screen.js, so its glyphs stay legible on top).
+  //
+  // The R3 complaint is not re-opened by this: at 9.5 u/s the rise was a
+  // slow creep over eight seconds, which reads as a cloud climbing; at world
+  // speed the whole approach takes ~2.3 s and it reads as a cloud sweeping
+  // past. The entry clamp below keeps a bank's base above the 0.625H horizon
+  // at the moment it appears, and since a world-fixed bank above the camera
+  // only ever rises, it can never dip into the sea later.
   function updateBankPositions(bank) {
-    // Clamp on the bank CENTRE, and only enough to keep it inside the sky:
-    // never so low that it crosses the horizon (0.56H leaves a big bank's
-    // base above the 0.625H horizon), and never so high that the whole mass
-    // leaves the frame. The arcade's banks do run off the top (t101.5's top
-    // edge is 2.9%H) and do pass behind the HUD (t100/t105/t106/t120) — the
-    // HUD is composited after the scene, so its glyphs stay on top.
-    const frac = Math.min(0.56, Math.max(0.04, bank.baseFrac));
-    bank.sprite.position.y = worldYForScreenFrac(frac, bank.z);
+    if (bank.worldY === undefined) {
+      const frac = Math.min(0.56, Math.max(0.04, bank.baseFrac));
+      bank.worldY = worldYForScreenFrac(frac, bank.z);
+    }
+    bank.sprite.position.y = bank.worldY;
     bank.sprite.position.z = bank.z;
   }
 
@@ -586,8 +750,7 @@ export function createClouds(stage, camera, seed = 1) {
     bank.sprite.visible = false;
   }
 
-  let groupTimer = rngStruct() * (BANK_COOLDOWN_MIN + BANK_COOLDOWN_MAX) / 2; // staggered start
-  let groupState = 'cooldown';
+  let groupTimer = rngStruct() * GROUP_PERIOD_MIN; // staggered start
   // R17 gap 1 — PER-STAGE CLOUD GATE. STAGE_MAP gives the refuel stages (5/13)
   // cloud_density 0 (clear sky), and the R16 judge costed the refuel beat's
   // cloud-filled frame directly (two big banks where the arcade's refuel base
@@ -609,13 +772,15 @@ export function createClouds(stage, camera, seed = 1) {
     setStage(newStage) {
       suppressed = newStage.showClouds === false;
       if (suppressed) {
-        // Clear-sky stage: hide every bank and park the state machine in
-        // cooldown so update() brings none up while suppressed. The palette is
-        // left untouched (no point re-authoring textures for hidden sprites);
-        // the next cloud stage's setStage re-points it.
+        // Clear-sky stage: hide every bank and reset the spawn timer. The
+        // `suppressed` gate at the top of update() is what actually keeps
+        // banks from coming up; the timer reset just means the first group
+        // after the stage ends is a fresh full interval rather than
+        // whatever was left over. The palette is left untouched (no point
+        // re-authoring textures for hidden sprites); the next cloud stage's
+        // setStage re-points it.
         for (const bank of banks) hideBank(bank);
-        groupState = 'cooldown';
-        groupTimer = BANK_COOLDOWN_MIN;
+        groupTimer = GROUP_PERIOD_MIN;
         return;
       }
       const next = CLOUD_PALETTES[newStage.cloudPalette] || CLOUD_PALETTES.day;
@@ -629,14 +794,21 @@ export function createClouds(stage, camera, seed = 1) {
       }
     },
 
-    update(dt) {
+    // worldSpeed is the rate the world flows past the camera — the same
+    // quantity ground.update() is given as scrollSpeed. game.js currently
+    // calls update(dt) with one argument, so this defaults to WORLD_SPEED;
+    // passing this.flow.scrollSpeed from there is a one-line change on its
+    // side that makes clouds respond to the throttle. See NOTES.md.
+    update(dt, worldSpeed = WORLD_SPEED) {
       // Clear-sky stages (gate above): nothing approaches, nothing spawns.
       if (suppressed) return;
-      // Active banks keep approaching regardless of the group state, so an
-      // active bank's members visibly move for their whole window.
+      // A bank now lives until it passes the camera, and only until then.
+      // The old active-window force-hide blinked banks out mid-sky; at world
+      // speed a bank crosses its whole approach in ~2.3 s and leaves on its
+      // own (R40, see GROUP_PERIOD_MIN/MAX).
       for (const bank of banks) {
         if (!bank.active) continue;
-        bank.z += CLOUD_SPEED * dt;
+        bank.z += worldSpeed * dt;
         if (bank.z > DESPAWN_Z) {
           hideBank(bank);
           continue;
@@ -647,26 +819,21 @@ export function createClouds(stage, camera, seed = 1) {
       groupTimer -= dt;
       if (groupTimer > 0) return;
 
-      if (groupState === 'cooldown') {
-        const count = rollBankCount(rngStruct);
-        const groupOffsetX = (rngCosmetic() - 0.5) * 2 * 6.0;
-        let brought = 0;
-        for (const bank of banks) {
-          if (brought >= count) break;
-          if (bank.active) continue;
-          // draws from rngCosmetic only — see createClouds() header
-          placeBank(bank, brought, count, groupOffsetX);
-          updateBankPositions(bank);
-          bank.active = true;
-          brought++;
-        }
-        groupState = 'active';
-        groupTimer = BANK_ACTIVE_MIN + rngStruct() * (BANK_ACTIVE_MAX - BANK_ACTIVE_MIN);
-      } else {
-        for (const bank of banks) hideBank(bank);
-        groupState = 'cooldown';
-        groupTimer = BANK_COOLDOWN_MIN + rngStruct() * (BANK_COOLDOWN_MAX - BANK_COOLDOWN_MIN);
+      const count = rollBankCount(rngStruct);
+      const groupOffsetX = (GROUP_X_LO + rngCosmetic() * (GROUP_X_HI - GROUP_X_LO)) *
+        (rngCosmetic() < 0.5 ? -1 : 1);
+      const groupZ = SPAWN_Z * (0.6 + rngCosmetic() * 0.4);
+      let brought = 0;
+      for (const bank of banks) {
+        if (brought >= count) break;
+        if (bank.active) continue;
+        // draws from rngCosmetic only — see createClouds() header
+        placeBank(bank, brought, count, groupOffsetX, groupZ);
+        updateBankPositions(bank);
+        bank.active = true;
+        brought++;
       }
+      groupTimer = GROUP_PERIOD_MIN + rngStruct() * (GROUP_PERIOD_MAX - GROUP_PERIOD_MIN);
     },
   };
 }

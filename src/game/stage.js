@@ -574,6 +574,23 @@ export const STAGE_3 = {
     lightDensity: 0.14,
     lightCell: 0.055,
     lightCellZ: 0.30,
+    // R40 gap 5b — "the stage-3 night ground reads as RGB static" (R39
+    // playtest rank 5). MEASURED against the only true-native stage-3 frame
+    // (ab2-arcade-night-banking.png) on a band wholly below its banked
+    // horizon, rows 176-196: our lights already matched the arcade on
+    // DENSITY (0.127-0.130 vs 0.138), COLOUR MIX (white share 0.584-0.593 vs
+    // 0.614) and SPECK SIZE (component p50 1, p90 2-3, identical). What did
+    // not match is the ARRANGEMENT. Index of dispersion over 10x10 native
+    // blocks -- 1.0 for a uniform random field -- read 1.14-1.48 here
+    // against the arcade's 2.59: our city was white noise, the arcade's
+    // clumps into lit towns with dark country between. lightClump modulates
+    // the per-cell probability by a smooth town field, symmetric about 1.0
+    // so the measured-in-band mean density is preserved and only its
+    // variance moves. See render/ground.js's night branch for the model and
+    // judging/R40/art-clutter/NOTES.md for the verification.
+    lightClump: 0.59,
+    lightTownCell: 0.8,
+    lightTownCellZ: 2.0,
     lightNearDist: 5.0,
     lightFarDist: 45.0,
   },

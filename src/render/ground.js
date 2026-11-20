@@ -1228,6 +1228,9 @@ export function createGround(stage, horizonFrac) {
     uniform float uLightDensity;
     uniform float uLightCell;
     uniform float uLightCellZ;
+    uniform float uLightClump;      // R40: town-field modulation half-width
+    uniform float uLightTownCell;   // world units per town cell, across track
+    uniform float uLightTownCellZ;  // world units per town cell, along track
     uniform float uLightNearDist;
     uniform float uLightFarDist;
     uniform float uBandPeriod;
@@ -2250,7 +2253,42 @@ export function createGround(stage, horizonFrac) {
         vec2 cell = mod(floor(lightP), 256.0); // same float32 wrap as valueNoise
         float lightRoll = hash(cell);
         float nearRamp = 1.0 - smoothstep(uLightNearDist, uLightFarDist, groundDist);
-        if (lightRoll > 1.0 - uLightDensity * nearRamp) {
+        // R40 gap 5b — THE LIGHTS WERE WHITE NOISE; THE ARCADE'S CLUMP INTO
+        // TOWNS. The R39 playtest filed stage 3's ground as "RGB static".
+        // Measured against the only TRUE-NATIVE stage-3 frame we hold
+        // (reference/ab2-arcade-night-banking.png, 320x224) over a band that
+        // is entirely below its banked horizon (rows 176-196, cols 20-300 --
+        // the first attempt used rows 150-196 and the dark wedge ABOVE the
+        // horizon on the left inflated the arcade's empty-cell share to
+        // 0.125 against our 0.045, a difference that is purely the band and
+        // vanishes to 0.000/0.000 once the band is valid; it would have been
+        // tuned into this shader as a real gap):
+        //
+        //                 density  white share  comp p50/p90  DISPERSION
+        //   arcade         0.138       0.614       1.0 / 3.0     2.59
+        //   ours before    0.127-0.130 0.584-0.593 1.0 / 2-3     1.14-1.48
+        //
+        // Density, colour mix and speck size were ALREADY in band -- within
+        // 8 %, 5 % and exactly, on three level-flight frames. The complaint
+        // is real but it is none of those: it is the ARRANGEMENT. Index of
+        // dispersion (variance/mean of light counts over 10x10 native
+        // blocks) is 1.0 for a uniform random field and ours read 1.14-1.48,
+        // i.e. our city was statistically indistinguishable from white
+        // noise, while the arcade's 2.59 is a clumped field -- lit towns
+        // with darker country between them, which is what a city reads as.
+        //
+        // So the per-cell probability is modulated by a smooth low-frequency
+        // "town" field instead of being flat. The modulation is symmetric
+        // about 1.0 so the MEAN density -- the part already measured in band
+        // -- is preserved by construction, and only its variance moves.
+        // uLightClump is the half-width: for a town field of mean 0.5 the
+        // coefficient of variation of the probability is uLightClump/sqrt(3),
+        // and dispersion ~= 1 + meanCount * CV^2, so with ~13.8 lights per
+        // 10x10 block the 1.2 -> 2.6 move wants uLightClump ~ 0.59.
+        float town = valueNoise(vec2(vWorldPos.x / uLightTownCell,
+                                     (vWorldPos.z + uScroll) / uLightTownCellZ));
+        float clump = clamp(1.0 + uLightClump * (town * 2.0 - 1.0), 0.0, 2.0);
+        if (lightRoll > 1.0 - uLightDensity * nearRamp * clump) {
           float ch = hash(cell + vec2(3.1, 9.7));
           vec3 lc = vec3(0.969, 0.969, 0.969);            // #f7f7f7
           if (ch > 0.58) lc = vec3(0.000, 0.839, 0.839);  // #00d6d6
@@ -2756,6 +2794,11 @@ export function createGround(stage, horizonFrac) {
     lightDensity: 0.0,
     lightCell: 0.5,
     lightCellZ: 0.5,
+    // R40. Neutral by default (clump 0 = the old flat probability), so every
+    // stage that does not author city lights is byte-identical.
+    lightClump: 0.0,
+    lightTownCell: 6.0,
+    lightTownCellZ: 26.0,
     lightNearDist: 9.0,
     lightFarDist: 26.0,
     bandPeriod: 7.0,
@@ -2946,6 +2989,9 @@ export function createGround(stage, horizonFrac) {
       uLightDensity: { value: p.lightDensity },
       uLightCell: { value: p.lightCell },
       uLightCellZ: { value: p.lightCellZ },
+      uLightClump: { value: p.lightClump },
+      uLightTownCell: { value: p.lightTownCell },
+      uLightTownCellZ: { value: p.lightTownCellZ },
       uLightNearDist: { value: p.lightNearDist },
       uLightFarDist: { value: p.lightFarDist },
       uBandPeriod: { value: p.bandPeriod },
@@ -3126,6 +3172,9 @@ export function createGround(stage, horizonFrac) {
       u.uLightDensity.value = q.lightDensity;
       u.uLightCell.value = q.lightCell;
       u.uLightCellZ.value = q.lightCellZ;
+      u.uLightClump.value = q.lightClump;
+      u.uLightTownCell.value = q.lightTownCell;
+      u.uLightTownCellZ.value = q.lightTownCellZ;
       u.uLightNearDist.value = q.lightNearDist;
       u.uLightFarDist.value = q.lightFarDist;
       u.uBandPeriod.value = q.bandPeriod;
