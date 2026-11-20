@@ -57,11 +57,49 @@ const LAUNCH_STAGGER_S = 0.05; // 6 missiles leave over ~0.3 s
 
 // The sight: GAME_SPEC.md §3's lock-display element 1, "the small dashed
 // SIGHT square leading the player's nose — the aim point, always present in
-// flight, separate from any lock indicator". Placed 0.30 NDC above the jet
-// = 15%H, which is where reference/stage4-vulcan-stream-t214.png's stream
-// converges (top of the column ~0.32 H against a jet at ~0.51 H) and which
-// sits inside the band the enemies fan out through.
-const SIGHT_NDC_Y_OFFSET = 0.30;
+// flight, separate from any lock indicator".
+//
+// R40 — 0.30 -> 0.16, THE ARCADE FIGURE R15 MEASURED AND NOBODY EVER APPLIED.
+//
+// What stood here placed the sight 0.30 NDC above the jet, citing
+// reference/stage4-vulcan-stream-t214.png: "top of the [gun] column ~0.32 H
+// against a jet at ~0.51 H". That operator measures where the VULCAN STREAM
+// CONVERGES — a depth-dependent vanishing point of the round column — and calls
+// the answer the sight's offset. Those are two different objects. R15 tracked
+// the arcade's SIGHT GLYPH itself and reported the offset on BOTH rails of the
+// vertical envelope (judging/R15/playtest-open.md §JOB 1, table rows "full
+// climb" / "full dive"):
+//
+//     full climb   jet +0.46 NDC (27 %H)   offset +0.16   sight ~ +0.62
+//     full dive    jet -0.34 NDC (67 %H)   offset +0.16   sight ~ -0.18
+//
+// The same +0.16 at two extremes 0.80 NDC apart is a two-point agreement on the
+// glyph, against one frame's convergence estimate on a different object. The
+// glyph is the thing the player aims with, so the glyph operator wins.
+//
+// It also reconciles the one conflict that made this look settled. Our jet
+// ceiling is NOT wrong — ENVELOPE_Y_UP 1.55 puts the airframe at +0.460 NDC
+// against the arcade's 109-observation 27.0 %H, correct to three decimals
+// (player.js). It was only the sight that over-reached (+0.760 vs the arcade's
+// +0.62). The error was never in the envelope; it was in this offset, which is
+// why four rounds of re-litigating ENVELOPE_Y never closed it.
+//
+// WHAT IT FIXES IN THE HAND, which is why it is in this round. At 0.30 the
+// crosshair floats ~96 px above the nose on a 640-tall screen, in empty sky,
+// while the gun bites down at the airframe — the fresh playtest's "kills pop
+// right on my wingtip, almost never out in front where I'm aiming" and my own
+// "five enemies blew up at my wingtips while I pointed up-left"
+// (judging/R40/aiming/NOTES.md §1.4). It also parks the aim point ABOVE the
+// band the enemies fan through, which the agent-playtest skill has been
+// documenting as a standing instrument caveat ("enemies cluster at/below the
+// horizon, away from the aim point"). That was never an instrument caveat. It
+// was this constant.
+//
+// STILL OWED: a direct 60 Hz consecutive-decode track of the arcade sight glyph
+// to confirm +0.16 against R15's inference (R15 itself notes its window only
+// reached +0.42 and that +0.62 rests on the cited 27 %H extreme). 0.16 is the
+// better-evidenced of the two numbers on the table, not a closed one.
+const SIGHT_NDC_Y_OFFSET = 0.16;
 // The same 0.30 expressed as a distance in frame WIDTHS, which is the
 // isotropic unit the offset has to be applied in now that its direction is
 // screen up rather than NDC +y: 0.30 * 0.5 * (224/320) = 0.105 = 10.5 %W.

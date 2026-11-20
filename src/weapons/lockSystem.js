@@ -369,6 +369,31 @@ const ARM_FRAC_TRACK = 3.5 / 16.5;
 // still, with the longer acquire, making the player AIM. Staying well above the
 // 0.18 cone that (paired with a hard reset) could not hold a wavering stick.
 const LOCK_RADIUS_FRAC = 0.27; // R34: 0.24->0.27, a touch easier to place the sight on a target (owner: aiming); the 0.42s hold stays earned
+
+// R40 — THE AIM CONE: THE RADIUS AT WHICH A CANDIDATE COUNTS AS "POINTED AT".
+//
+// LOCK_RADIUS_FRAC above stays where it is, because it is no longer doing the
+// job the player experiences. It is now ADMISSIBILITY — the outer limit of what
+// the system will offer when the player is pointing at nothing in particular,
+// and the thing that keeps R27's naive hand supplied with missiles. The cone
+// the player FEELS is this one: `_nearestLockable` prefers any candidate inside
+// it over every candidate outside it, so when you point at an aircraft, that
+// aircraft is what brackets.
+//
+// Why 0.13 and not the 0.083 the archive keeps citing. 8.3 %W is a DERIVED
+// figure (the sight crossing its own ±9.85 %W rail at 0.379 fracW/s) and it has
+// never been the shipped cone; what a tight cone costs is on the record, and it
+// is R27's defect verbatim — 0.18 "could not hold a wavering stick" and 0.20/
+// 0.22 dropped a ±0.5-jitter aiming pilot below the 8-missile floor (the note
+// above). Those runs priced a cone used as a HARD GATE. Here the tight cone is
+// only a PREFERENCE with the wide cone behind it, so the jitter pilot cannot
+// lose a lock to it — it can only change WHICH aircraft is offered. 0.13 is the
+// measured defect's own scale: the bracket-to-sight distances my hands recorded
+// on the broken build were 253 px and 184 px of 960 (26 %W and 19 %W), and the
+// clustered candidates I actually wanted sat at 165-184 px. A cone at 13 %W
+// (125 px) excludes every one of those grabs while still being two and a half
+// times the sight glyph.
+const LOCK_AIM_FRAC = 0.13;
 // Lockable depth window.
 //
 // R12 -- THE NEAR EDGE WAS UNREACHABLE BY A PLAYER AND IS BROUGHT DOWN TO
@@ -612,6 +637,34 @@ const SIGHT_PX = 5; // of 320 = 1.563 %W, OUTER edge to outer edge
 // sight without someone noticing.
 const SIGHT_STYLE = { outer: true, strokePx: 1, armPx: 2 };
 
+// R40 — THE SIGHT GETS A DARK BACKING, AND ITS MEASURED SIZE DOES NOT MOVE.
+//
+// Second half of the owner's "aiming system is bad": you cannot aim with a mark
+// you cannot find. The glyph is white, 1 px of stroke on a 5 px box — 12 ink
+// pixels — and the three things it most often sits on in stage 1 are a
+// near-white cloud mass (measured bright mean #f5f2f6, R29), our own grey-white
+// jet (R35), and sea foam. In 39 turns of play I repeatedly could not locate it
+// at all, while the lock bracket — bigger, and drawn around an aircraft I had
+// not chosen — was the loudest thing on screen. The screen was shouting about
+// the game's target and silent about the player's.
+//
+// SIZE IS NOT THE LEVER AND MUST NOT BE USED AS ONE. SIGHT_PX 5 of 320 is the
+// arcade's own 1.563 %W sight glyph, the same measurement R10 tracked the
+// arcade's aim point with; growing it would trade one measured constant for a
+// legibility win that costs nothing to get honestly. The defect is CONTRAST,
+// exactly the class R38 closed for the killing round (its pale body was
+// measured on night footage and vanished against day skies — the fix was
+// contrast, not size: judging/R38/death-legibility2/). Same cure here, minus
+// the strobe, which belongs on a threat and not on a cursor the eye must rest
+// on: a black pass one render order below, one pixel thicker and one pixel
+// longer in the arms, so the white glyph keeps its measured footprint and
+// simply stops disappearing into whatever is behind it.
+//
+// Black needs no colour-management care — (0,0,0) is the one tone that is
+// identical decoded or encoded, so this cannot repeat the project's
+// sRGB double-encoding bug (CLAUDE.md, hit twice).
+const SIGHT_SHADOW_STYLE = { outer: true, strokePx: 2, armPx: 3 };
+
 export class LockSystem {
   constructor(scene, space) {
     this.scene = scene;
@@ -663,6 +716,21 @@ export class LockSystem {
     // measurement-only) without a second constant appearing in the tree —
     // which is exactly how this quantity came to have three values.
     this.radius = gunTunable('lockrad', LOCK_RADIUS_FRAC);
+    // A/B lever: `?lockaimr=0` collapses the preference cone, so the ranking
+    // falls back to "best admissible candidate in the wide cone" and the
+    // pre-R40 behaviour can be measured against this one. Read as its own URL
+    // param rather than through gunTunable() for the same reason R37's
+    // `?lockaim=` is: the KNOWN-key set lives in weapons/tunables.js, which is
+    // another lane's file this round. Folding both into the `?gun=` family is
+    // still OPEN (R37 cross-file request, carried forward).
+    this.aimRadius = (() => {
+      const raw =
+        typeof location !== 'undefined'
+          ? new URLSearchParams(location.search).get('lockaimr')
+          : null;
+      const v = raw === null ? NaN : Number(raw);
+      return Number.isFinite(v) && v >= 0 ? v : LOCK_AIM_FRAC;
+    })();
     // R15 completed-lock hold (see LOCK_HOLD_S). Instance field so a probe can
     // sweep it and `?gun=lockhold=0` recovers the pre-R15 instant drop exactly.
     this.lockHoldS = gunTunable('lockhold', LOCK_HOLD_S);
@@ -671,6 +739,11 @@ export class LockSystem {
     // target is still a live in-field lock the map has no entry for it.
     this.lockHold = new Map();
 
+    // Render order 28 puts the dark backing strictly beneath the white glyph
+    // (29) and beneath the brackets (30); all three are depthTest:false, so
+    // render order is the only thing sequencing them.
+    this.sightShadow = this._makeCorners(28);
+    for (const s of this.sightShadow) s.material.color.setRGB(0, 0, 0);
     this.sightCorners = this._makeCorners(29);
   }
 
@@ -835,9 +908,16 @@ export class LockSystem {
     }
 
     if (sight) {
+      // Dark pass first, one render order below, a touch larger and thicker —
+      // see SIGHT_SHADOW_STYLE. The white glyph lands on top of it unchanged.
+      this._placeCorners(
+        this.sightShadow, sight.x, sight.y, sight.depth, SIGHT_PX, SIGHT_SHADOW_STYLE
+      );
       this._placeCorners(this.sightCorners, sight.x, sight.y, sight.depth, SIGHT_PX, SIGHT_STYLE);
+      for (const c of this.sightShadow) c.visible = true;
       for (const c of this.sightCorners) c.visible = true;
     } else {
+      for (const c of this.sightShadow) c.visible = false;
       for (const c of this.sightCorners) c.visible = false;
     }
 
@@ -880,16 +960,24 @@ export class LockSystem {
   // bracket now means "this is what the missile would take", which is also the
   // one thing a bracket can usefully tell a player. The nearest-first pick and
   // the hysteresis below are unchanged inside the gate.
+  //
+  // R40 — AND THE PICK INSIDE THE GATE IS NOW THE AIM'S, NOT THE DEPTH SORT'S.
+  // The sentence above ("the bracket now means 'this is what the missile would
+  // take'") is the whole justification for drawing this bracket at all, and it
+  // stopped being true the moment `_nearestLockable` started ranking by
+  // distance to the sight: a depth-ranked bracket would advertise one aircraft
+  // while the missile took another. These two have to answer the same question
+  // or the bracket lies — which is the defect this file already fixed once, for
+  // `retired` enemies, in the note just below. Both now call `_bestByAim`.
+  //
+  // This is also what the player actually sees. `locks` is 0 for most of a
+  // fight, so the bracket on screen is usually THIS one, and "the bracket grabs
+  // top-of-screen enemies while I aim at the horizon" (R39 playtest) is a
+  // report about the tracking bracket specifically. The hysteresis below is
+  // kept, converted to the same aim metric, so the bracket still refuses to
+  // flicker between two similar candidates.
   _updateTracking(enemies, aimNdc) {
-    let best = null;
-    let bestD = Infinity;
-    for (const e of enemies) {
-      if (!this._lockable(e, aimNdc)) continue;
-      if (e.d < bestD) {
-        bestD = e.d;
-        best = e;
-      }
-    }
+    const best = this._bestByAim(enemies, aimNdc, false);
     // Drop a tracked enemy the moment the aim leaves it, for the same reason
     // `retired` is disqualifying below: a bracket pinned to something the
     // missile can no longer take is a bracket that lies.
@@ -911,7 +999,17 @@ export class LockSystem {
       this.tracked = best;
       return;
     }
-    if (best && best !== this.tracked && best.d < this.tracked.d * TRACK_HYSTERESIS) {
+    // Hysteresis in the aim metric: a rival must be meaningfully CLOSER TO THE
+    // SIGHT than the held target before the bracket jumps. TRACK_HYSTERESIS is
+    // a ratio on a distance and keeps its meaning under the change of metric;
+    // it is applied to the squared distance as its square, so the threshold
+    // stays the same fraction it has always been.
+    if (
+      best &&
+      best !== this.tracked &&
+      this._sightD2(best, aimNdc) <
+        this._sightD2(this.tracked, aimNdc) * TRACK_HYSTERESIS * TRACK_HYSTERESIS
+    ) {
       this.tracked = best;
     }
   }
@@ -1027,18 +1125,73 @@ export class LockSystem {
     return dx * dx + dy * dy <= this.radius * this.radius;
   }
 
-  _nearestLockable(enemies, sightNdc) {
+  // Squared sight-plane distance, in the same anisotropic units `_lockable`
+  // tests against `this.radius`. Factored out so the ranking and the
+  // admissibility test cannot drift apart (the R7 gap-5 failure mode).
+  _sightD2(e, sightNdc) {
+    const dx = (e.ndc.x - sightNdc.x) * 0.5;
+    const dy = (e.ndc.y - sightNdc.y) * 0.5 * (224 / 320);
+    return dx * dx + dy * dy;
+  }
+
+  // R40 — THE PLAYER'S AIM PICKS THE TARGET, NOT THE DEPTH SORT.
+  //
+  // What stood here ranked admissible candidates by `e.d` -- nearest in DEPTH.
+  // Every enemy inside the whole-screen cone was equally eligible and the
+  // closest one won no matter where the crosshair was pointing, so the bracket
+  // routinely landed on an aircraft the player was not aiming at. Measured by
+  // hand on the live build before any constant was read (judging/R40/aiming/
+  // NOTES.md §1.2): with three enemies clustered top-left at 184 / 165 / 172 px
+  // from the crosshair, the bracket took the **184 px one -- the farthest of the
+  // three**, because it was nearest in depth. The owner's words were "aiming
+  // system is bad"; the fresh playtest's were "the bracket grabs top-of-screen
+  // enemies while I aim at the horizon". Both are this sort key.
+  //
+  // Now: rank by distance to the SIGHT. Depth keeps its role as admissibility
+  // only (`_lockable`'s LOCK_DEPTH_MIN/MAX) plus a tiebreak, so the "lock the
+  // thing you are pointing at" promise is what the sort actually encodes.
+  //
+  // THE SOLE-CANDIDATE FALLBACK IS DELIBERATE AND IT IS WHAT KEEPS R27 ALIVE.
+  // A new lock prefers candidates inside the tight aim cone (`this.aimRadius`);
+  // if the player is pointing at nothing, the wide cone still offers its best
+  // candidate rather than refusing to lock. So a naive hand that points
+  // roughly at traffic and holds the button still gets a missile (R27, "owner
+  // saw NO missiles on a hand-flown stick" -- do not regress it), while a hand
+  // that points AT one aircraft now gets THAT aircraft. Making aiming matter by
+  // making the weapon harder to use would be the wrong fix.
+  // The single ranking both the acquisition and the tracking bracket use.
+  // `skipLocked` is the one difference between the two callers: the
+  // acquisition will not re-offer an aircraft already in `this.locks`, the
+  // bracket is happy to keep drawing one.
+  _bestByAim(enemies, sightNdc, skipLocked) {
     let best = null;
-    let bestD = Infinity;
+    let bestD2 = Infinity;
+    let bestAimed = null;
+    let bestAimedD2 = Infinity;
+    const aimR2 = this.aimRadius * this.aimRadius;
     for (const e of enemies) {
-      if (this.locks.includes(e)) continue;
+      if (skipLocked && this.locks.includes(e)) continue;
       if (!this._lockable(e, sightNdc)) continue;
-      if (e.d < bestD) {
-        bestD = e.d;
+      const d2 = this._sightD2(e, sightNdc);
+      // Depth breaks an exact tie, so two aircraft at the same screen distance
+      // resolve to the nearer one rather than to list order.
+      if (d2 < bestD2 || (d2 === bestD2 && best && e.d < best.d)) {
+        bestD2 = d2;
         best = e;
       }
+      if (
+        d2 <= aimR2 &&
+        (d2 < bestAimedD2 || (d2 === bestAimedD2 && bestAimed && e.d < bestAimed.d))
+      ) {
+        bestAimedD2 = d2;
+        bestAimed = e;
+      }
     }
-    return best;
+    return bestAimed ?? best;
+  }
+
+  _nearestLockable(enemies, sightNdc) {
+    return this._bestByAim(enemies, sightNdc, true);
   }
 
   _drawBrackets() {
