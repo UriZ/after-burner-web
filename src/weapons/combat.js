@@ -1530,6 +1530,12 @@ export class Combat {
       this.killLog.push({
         t: Number(this.t.toFixed(3)),
         src: source,
+        // R41: WHICH aircraft died. Without the id a probe can count kills but
+        // cannot answer the only question the owner's complaint asks — "I put
+        // the sight on THAT one; did THAT one die?" Every other field here
+        // describes a kill in the aggregate. `__combatStats().enemies[].id` is
+        // the same id, so a designated target can be followed to its death.
+        id: enemy.id,
         d: Number(enemy.d.toFixed(3)),
         span: Number(enemy.spanFrac(this.space).toFixed(5)),
         ndcX: Number(enemy.ndc.x.toFixed(4)),

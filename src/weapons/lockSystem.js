@@ -449,8 +449,64 @@ const LOCK_AIM_FRAC = 0.13;
 // band down onto the close, big, dead-ahead enemies a naive player actually
 // points at (depth 10-20 project to the mid-screen band, not the horizon
 // speck depth 16+ sat at). Enemies closer than 10 are the gun's job.
-const LOCK_DEPTH_MIN = 10;
-const LOCK_DEPTH_MAX = 88;
+//
+// R41 — THE HOMING-DEAD-ZONE ARGUMENT ABOVE IS STALE, AND THE NEAR EDGE IS
+// WHAT THE PLAYER'S COMPLAINT IS MADE OF. Read from the live module, not from
+// the paragraph above: `missiles.js` HOMING_DELAY_S is **0.08 s**, not the
+// 0.3 s this note computes its depth-8.4 dead zone from (R34 dropped it, and
+// nobody re-derived the near edge). At 0.08 s the seeker turns at depth ~5.6.
+//
+// What 10 costs, measured by hand and then by instrument before a constant was
+// touched (judging/R41/aiming2/NOTES.md §1-2). Drawn span against depth, median
+// over 3600 ticks at seed 7:
+//
+//     depth   4     6     8    10    16    33    88
+//     span  18.3%  12.0% 8.9%  7.2%  4.4%  2.0%  ~0.8%   of frame width
+//
+// so depth 10 is the moment an aircraft shrinks to 7 %W. EVERY aircraft big
+// enough for a player to pick out and point at by eye is already inside the
+// near edge and therefore not lockable. The naive-aim diagnostic (point at the
+// biggest aircraft on screen, hold the button) measured the consequence over
+// 643 ticks with a real aircraft on screen: that aircraft carried the bracket
+// on **2.8 %** of them. Its median was 19.9 %W at depth 4.2, sitting 0.083 from
+// the sight — INSIDE the aim cone. What the system offered instead was a
+// **3.3 %W speck at depth 33**, 0.16 from the sight, i.e. twice as far away as
+// the aircraft the player was pointing at; on 42 % of those ticks it offered
+// nothing at all. That is the owner's "aiming is still not great", exactly: you
+// point at an aeroplane and the game brackets a dot somewhere else.
+//
+// AND THE ARCADE LOCKS CLOSER THAN WE DO. The bracket-geometry note further
+// down this file measures the arcade's own bracket on two targets, and one of
+// them is a CLOSE enemy ~90 px wide = **8.8 %W** (t100.75) — which on the table
+// above is depth ~8, inside our near edge. 10 is not an arcade figure; the only
+// thing holding it up was the stale 0.3 s dead zone.
+//
+// 6 is the measured floor, not a guess: `?lockdmin=` below sweeps it and
+// judging/R41/aiming2/NOTES.md §3 reports hit rate and kill count per arm.
+// Below 6 the lock lands inside the missile's launch depth and the salvo
+// starts behind its target.
+const LOCK_DEPTH_MIN = 6;
+// R41 — THE FAR EDGE IS WHERE THE BRACKET STOPS BEING ABOUT AN AIRCRAFT.
+//
+// 88 was never measured; the note above records only that "the far end is where
+// an enemy is still a small dot, which is where the arcade's locks visibly
+// happen". On the depth/span table above, depth 88 is **~0.8 %W — an 8-pixel
+// dot at 960 wide**. The arcade's own smallest MEASURED bracket (this file's
+// bracket-geometry note, t116) is on an enemy **13 px of 686 = 1.9 %W**, which
+// on that table is depth ~34. So our far edge admitted targets less than half
+// the size of the smallest one the arcade is on record bracketing, and it
+// showed: a loud 5 %W box drawn around a speck the player cannot see is the
+// screen claiming to be aiming at nothing (judging/R41/aiming2/
+// pre-bracket-on-a-speck-enemy-on-my-nose.png — the bracket is the biggest
+// aircraft-shaped thing in that frame and there is no aircraft in it).
+//
+// It also set the missile's flight time. A lock at depth 33 took ~3.5 s to
+// convert in my hands — released, then three seconds of nothing while a trail
+// the width of the screen sat over the jet, then a kill somewhere off in the
+// corner. That is not "I locked that one and killed it".
+//
+// 35 is the arcade's own 1.9 %W, not a round number chosen for feel.
+const LOCK_DEPTH_MAX = 35;
 // A held lock breaks once its target has closed this far — see the drop
 // loop in update(). R25: 13 -> 6, tracking the near edge down (LOCK_DEPTH_MIN
 // 10) so a lock taken on a close enemy a naive player is pointing at is not
@@ -459,7 +515,10 @@ const LOCK_DEPTH_MAX = 88;
 // somewhere to fly; the 0.5 s impact "floor" the old value defended is a
 // nicety the owner's usability directive outranks — a close missile kill in
 // ~0.3 s is still a kill, and the point is that the missile WORKS.
-const LOCK_BREAK_DEPTH = 6;
+// R41 — 6 -> 4, tracking LOCK_DEPTH_MIN down the same way R25 did. The break
+// depth has to stay BELOW the near edge or every lock taken at the near edge
+// enters its hold on the tick it completes; at 6 and 6 they coincided.
+const LOCK_BREAK_DEPTH = 4;
 // Hysteresis: a challenger must be 0.85x the incumbent's range to steal the
 // tracking bracket (ADOPTED).
 const TRACK_HYSTERESIS = 0.85;
@@ -704,14 +763,23 @@ export class LockSystem {
     // `?lockaim=` is: the KNOWN-key set lives in weapons/tunables.js, which is
     // another lane's file this round. Folding both into the `?gun=` family is
     // still OPEN (R37 cross-file request, carried forward).
-    this.aimRadius = (() => {
+    const urlNum = (key, dflt) => {
       const raw =
         typeof location !== 'undefined'
-          ? new URLSearchParams(location.search).get('lockaimr')
+          ? new URLSearchParams(location.search).get(key)
           : null;
       const v = raw === null ? NaN : Number(raw);
-      return Number.isFinite(v) && v >= 0 ? v : LOCK_AIM_FRAC;
-    })();
+      return Number.isFinite(v) && v >= 0 ? v : dflt;
+    };
+    this.aimRadius = urlNum('lockaimr', LOCK_AIM_FRAC);
+    // R41 — the lockable depth window, sweepable so the near edge is settled by
+    // measurement rather than by the paragraph above it (which is how it came
+    // to be defended by a homing delay that had changed two rounds earlier).
+    // `?lockdmin=` / `?lockbreak=`, measurement-only, same self-read family as
+    // `?lockaimr=` above.
+    this.depthMin = urlNum('lockdmin', LOCK_DEPTH_MIN);
+    this.breakDepth = urlNum('lockbreak', LOCK_BREAK_DEPTH);
+    this.depthMax = urlNum('lockdmax', LOCK_DEPTH_MAX);
     // R15 completed-lock hold (see LOCK_HOLD_S). Instance field so a probe can
     // sweep it and `?gun=lockhold=0` recovers the pre-R15 instant drop exactly.
     this.lockHoldS = gunTunable('lockhold', LOCK_HOLD_S);
@@ -761,7 +829,7 @@ export class LockSystem {
         this.lockHold.delete(e);
         continue;
       }
-      if (e.retired || e.d < LOCK_BREAK_DEPTH) {
+      if (e.retired || e.d < this.breakDepth) {
         const left = (this.lockHold.has(e) ? this.lockHold.get(e) : this.lockHoldS) - dt;
         if (left <= 0) {
           this.locks.splice(i, 1);
@@ -852,7 +920,7 @@ export class LockSystem {
     // corpse.
     if (this.acquiring) {
       const e = this.acquiring.enemy;
-      if (!e.alive || e.retired || e.d < LOCK_BREAK_DEPTH) this.acquiring = null;
+      if (!e.alive || e.retired || e.d < this.breakDepth) this.acquiring = null;
     }
     this._wasHolding = holding;
 
@@ -881,7 +949,7 @@ export class LockSystem {
     if (holding) {
       for (const e of enemies) {
         if (!e.lockBait || !e.alive || e.retired) continue;
-        if (e.d < LOCK_DEPTH_MIN || e.d > LOCK_DEPTH_MAX) continue;
+        if (e.d < this.depthMin || e.d > this.depthMax) continue;
         this.hintList.push(e);
       }
     }
@@ -1091,7 +1159,7 @@ export class LockSystem {
   // LOCK_RADIUS_FRAC came to have three values in the tree at once (R7 gap 5).
   _lockable(e, sightNdc) {
     if (!e || !e.alive || e.retired) return false;
-    if (e.d < LOCK_DEPTH_MIN || e.d > LOCK_DEPTH_MAX) return false;
+    if (e.d < this.depthMin || e.d > this.depthMax) return false;
     const dx = (e.ndc.x - sightNdc.x) * 0.5;
     const dy = (e.ndc.y - sightNdc.y) * 0.5 * (224 / 320);
     return dx * dx + dy * dy <= this.radius * this.radius;
