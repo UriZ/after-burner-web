@@ -1,0 +1,207 @@
+{
+  "root": "/private/tmp/claude-501/-Users-urizonens-dev-afterburner-three/b41228a0-594b-4891-9d20-7b35150ada55/scratchpad/r40tp-after",
+  "seconds": 60,
+  "seeds": [
+    4,
+    5,
+    9
+  ],
+  "arms": {
+    "a_default": {
+      "params": "",
+      "runs": [
+        {
+          "seed": 4,
+          "flightS": 48.8,
+          "rounds": 23,
+          "roundsPerMin": 28.3,
+          "trains": 6,
+          "trainsPerMin": 7.4,
+          "gapCV": 1.878,
+          "maxDroughtS": 11.1,
+          "maxTrainN": 18,
+          "medTrainN": 1,
+          "errors": []
+        },
+        {
+          "seed": 5,
+          "flightS": 48.8,
+          "rounds": 30,
+          "roundsPerMin": 36.9,
+          "trains": 7,
+          "trainsPerMin": 8.6,
+          "gapCV": 1.964,
+          "maxDroughtS": 8.9,
+          "maxTrainN": 24,
+          "medTrainN": 1,
+          "errors": []
+        },
+        {
+          "seed": 9,
+          "flightS": 48.8,
+          "rounds": 24,
+          "roundsPerMin": 29.5,
+          "trains": 7,
+          "trainsPerMin": 8.6,
+          "gapCV": 1.8,
+          "maxDroughtS": 9,
+          "maxTrainN": 15,
+          "medTrainN": 1,
+          "errors": []
+        }
+      ],
+      "pooledRoundsPerMin": 31.6,
+      "pooledTrainsPerMin": 8.2,
+      "meanGapCV": 1.881,
+      "worstDroughtS": 11.1,
+      "worstTrainN": 24
+    },
+    "b_tightgap": {
+      "params": "fire=floor=14,gapmin=0.6,gapspan=1.0",
+      "runs": [
+        {
+          "seed": 4,
+          "flightS": 48.8,
+          "rounds": 23,
+          "roundsPerMin": 28.3,
+          "trains": 6,
+          "trainsPerMin": 7.4,
+          "gapCV": 1.878,
+          "maxDroughtS": 11.1,
+          "maxTrainN": 18,
+          "medTrainN": 1,
+          "errors": []
+        },
+        {
+          "seed": 5,
+          "flightS": 48.8,
+          "rounds": 30,
+          "roundsPerMin": 36.9,
+          "trains": 7,
+          "trainsPerMin": 8.6,
+          "gapCV": 1.964,
+          "maxDroughtS": 8.9,
+          "maxTrainN": 24,
+          "medTrainN": 1,
+          "errors": []
+        },
+        {
+          "seed": 9,
+          "flightS": 48.8,
+          "rounds": 24,
+          "roundsPerMin": 29.5,
+          "trains": 7,
+          "trainsPerMin": 8.6,
+          "gapCV": 1.8,
+          "maxDroughtS": 9,
+          "maxTrainN": 15,
+          "medTrainN": 1,
+          "errors": []
+        }
+      ],
+      "pooledRoundsPerMin": 31.6,
+      "pooledTrainsPerMin": 8.2,
+      "meanGapCV": 1.881,
+      "worstDroughtS": 11.1,
+      "worstTrainN": 24
+    },
+    "c_floor24": {
+      "params": "fire=floor=24",
+      "runs": [
+        {
+          "seed": 4,
+          "flightS": 48.8,
+          "rounds": 19,
+          "roundsPerMin": 23.4,
+          "trains": 6,
+          "trainsPerMin": 7.4,
+          "gapCV": 1.764,
+          "maxDroughtS": 12.2,
+          "maxTrainN": 14,
+          "medTrainN": 1,
+          "errors": []
+        },
+        {
+          "seed": 5,
+          "flightS": 48.8,
+          "rounds": 23,
+          "roundsPerMin": 28.3,
+          "trains": 6,
+          "trainsPerMin": 7.4,
+          "gapCV": 1.881,
+          "maxDroughtS": 10.3,
+          "maxTrainN": 18,
+          "medTrainN": 1,
+          "errors": []
+        },
+        {
+          "seed": 9,
+          "flightS": 48.8,
+          "rounds": 15,
+          "roundsPerMin": 18.5,
+          "trains": 6,
+          "trainsPerMin": 7.4,
+          "gapCV": 1.403,
+          "maxDroughtS": 9,
+          "maxTrainN": 10,
+          "medTrainN": 1,
+          "errors": []
+        }
+      ],
+      "pooledRoundsPerMin": 23.4,
+      "pooledTrainsPerMin": 7.4,
+      "meanGapCV": 1.683,
+      "worstDroughtS": 12.2,
+      "worstTrainN": 18
+    },
+    "d_train3tight": {
+      "params": "fire=floor=14,train=3,gapmin=0.5,gapspan=0.8",
+      "runs": [
+        {
+          "seed": 4,
+          "flightS": 48.8,
+          "rounds": 19,
+          "roundsPerMin": 23.4,
+          "trains": 6,
+          "trainsPerMin": 7.4,
+          "gapCV": 1.648,
+          "maxDroughtS": 11.1,
+          "maxTrainN": 14,
+          "medTrainN": 1,
+          "errors": []
+        },
+        {
+          "seed": 5,
+          "flightS": 48.8,
+          "rounds": 24,
+          "roundsPerMin": 29.5,
+          "trains": 7,
+          "trainsPerMin": 8.6,
+          "gapCV": 1.694,
+          "maxDroughtS": 8.9,
+          "maxTrainN": 18,
+          "medTrainN": 1,
+          "errors": []
+        },
+        {
+          "seed": 9,
+          "flightS": 48.8,
+          "rounds": 20,
+          "roundsPerMin": 24.6,
+          "trains": 7,
+          "trainsPerMin": 8.6,
+          "gapCV": 1.585,
+          "maxDroughtS": 9,
+          "maxTrainN": 12,
+          "medTrainN": 1,
+          "errors": []
+        }
+      ],
+      "pooledRoundsPerMin": 25.8,
+      "pooledTrainsPerMin": 8.2,
+      "meanGapCV": 1.642,
+      "worstDroughtS": 11.1,
+      "worstTrainN": 18
+    }
+  }
+}

@@ -1,0 +1,97 @@
+{
+  "root": "/private/tmp/claude-501/-Users-urizonens-dev-afterburner-three/b41228a0-594b-4891-9d20-7b35150ada55/scratchpad/r40tp-after",
+  "seconds": 90,
+  "seeds": [
+    4,
+    5,
+    9
+  ],
+  "arms": {
+    "AFTER2": {
+      "params": "",
+      "runs": [
+        {
+          "peak1s": 9,
+          "peak3s": 17,
+          "emptyBins10s": 4,
+          "bins": [
+            0,
+            0,
+            18,
+            5,
+            0,
+            1,
+            0
+          ],
+          "seed": 4,
+          "flightS": 61.4,
+          "rounds": 24,
+          "roundsPerMin": 23.5,
+          "trains": 5,
+          "trainsPerMin": 4.9,
+          "gapCV": 2.371,
+          "maxDroughtS": 15.3,
+          "maxTrainN": 17,
+          "medTrainN": 1,
+          "errors": []
+        },
+        {
+          "peak1s": 9,
+          "peak3s": 21,
+          "emptyBins10s": 2,
+          "bins": [
+            0,
+            1,
+            21,
+            5,
+            8,
+            1,
+            0
+          ],
+          "seed": 5,
+          "flightS": 60.4,
+          "rounds": 36,
+          "roundsPerMin": 35.8,
+          "trains": 6,
+          "trainsPerMin": 6,
+          "gapCV": 2.332,
+          "maxDroughtS": 11.7,
+          "maxTrainN": 21,
+          "medTrainN": 4,
+          "errors": []
+        },
+        {
+          "peak1s": 8,
+          "peak3s": 8,
+          "emptyBins10s": 2,
+          "bins": [
+            1,
+            4,
+            4,
+            1,
+            2,
+            9,
+            0,
+            0
+          ],
+          "seed": 9,
+          "flightS": 73.3,
+          "rounds": 21,
+          "roundsPerMin": 17.2,
+          "trains": 9,
+          "trainsPerMin": 7.4,
+          "gapCV": 1.347,
+          "maxDroughtS": 12.2,
+          "maxTrainN": 8,
+          "medTrainN": 1,
+          "errors": []
+        }
+      ],
+      "pooledRoundsPerMin": 24.9,
+      "pooledTrainsPerMin": 6.2,
+      "meanGapCV": 2.017,
+      "worstDroughtS": 15.3,
+      "worstTrainN": 21
+    }
+  }
+}

@@ -1,0 +1,109 @@
+{
+  "root": "/private/tmp/claude-501/-Users-urizonens-dev-afterburner-three/b41228a0-594b-4891-9d20-7b35150ada55/scratchpad/r40tp-before",
+  "seconds": 150,
+  "seeds": [
+    4,
+    5,
+    6
+  ],
+  "arms": {
+    "BEFORE456": {
+      "params": "",
+      "runs": [
+        {
+          "peak1s": 21,
+          "peak3s": 29,
+          "emptyBins10s": 4,
+          "bins": [
+            1,
+            0,
+            23,
+            0,
+            1,
+            0,
+            2,
+            1,
+            0,
+            30,
+            1,
+            1
+          ],
+          "seed": 4,
+          "flightS": 117.2,
+          "rounds": 60,
+          "roundsPerMin": 30.7,
+          "trains": 12,
+          "trainsPerMin": 6.1,
+          "gapCV": 2.303,
+          "maxDroughtS": 18.5,
+          "maxTrainN": 29,
+          "medTrainN": 1,
+          "errors": []
+        },
+        {
+          "peak1s": 22,
+          "peak3s": 40,
+          "emptyBins10s": 5,
+          "bins": [
+            1,
+            0,
+            41,
+            0,
+            1,
+            0,
+            0,
+            1,
+            0,
+            23,
+            2
+          ],
+          "seed": 5,
+          "flightS": 110,
+          "rounds": 69,
+          "roundsPerMin": 37.6,
+          "trains": 8,
+          "trainsPerMin": 4.4,
+          "gapCV": 3.243,
+          "maxDroughtS": 26.1,
+          "maxTrainN": 40,
+          "medTrainN": 1,
+          "errors": []
+        },
+        {
+          "peak1s": 22,
+          "peak3s": 25,
+          "emptyBins10s": 2,
+          "bins": [
+            1,
+            18,
+            0,
+            1,
+            1,
+            25,
+            1,
+            1,
+            2,
+            0,
+            1
+          ],
+          "seed": 6,
+          "flightS": 108.6,
+          "rounds": 51,
+          "roundsPerMin": 28.2,
+          "trains": 11,
+          "trainsPerMin": 6.1,
+          "gapCV": 2.076,
+          "maxDroughtS": 18.4,
+          "maxTrainN": 24,
+          "medTrainN": 1,
+          "errors": []
+        }
+      ],
+      "pooledRoundsPerMin": 32.2,
+      "pooledTrainsPerMin": 5.5,
+      "meanGapCV": 2.541,
+      "worstDroughtS": 26.1,
+      "worstTrainN": 40
+    }
+  }
+}

@@ -72,8 +72,73 @@ const WORLD_WIDTH = 3.0; // reads ~8%W at depth 25, ~17%W at depth 12 (hittable 
 // the ground rushes past (~69 u/s): a battery is only on screen ~1.7 s, so the
 // tell lights as soon as it is in range and the burst leaves while there is
 // still flight distance to the player plane.
-const TELE_DEPTH_MAX = 42; // light the flare once this close
-const FIRE_FLOOR_DEPTH = 12; // never fire from inside this (point-blank = unfair)
+//
+// R40 — THE BAND DESCRIBED ABOVE DOES NOT EXIST IN PLAY, AND THAT IS WHY EVERY
+// DEATH LOOKS THE SAME. Measured tick-exactly on both R39 playtest sessions
+// (judging/R40/threat-pacing/NOTES.md §1): all four deaths were battery rounds
+// and every one launched from depth **11.36** at ndcY **−0.412** — identical to
+// the digit, across two seeds and three stages. The arithmetic says it must be:
+// the ground scrolls 68.93 u/s = 1.149 u/tick, TELEGRAPH_S is 0.4 s = 24 ticks
+// = 27.6 depth units, so a flare lit at the old TELE_DEPTH_MAX of 42 expires at
+// d ≈ 14 and the burst pays out at d ≈ 11.4, one or two ticks above the old
+// floor of 12. The "wide band" was a 2.4-unit (2-tick) slot: a battery either
+// fired from that one geometry or dropped its burst entirely.
+//
+// That single geometry is the WORST one available. Flight time is set by launch
+// depth, so launching at the floor gives the shortest possible warning — 1.167
+// to 1.200 s, the project's own floor, on all four deaths — while air-enemy
+// kills carried 2.67-3.67 s (R36 §2, R38 §1). The class of firer the player has
+// no reason to watch (a turret in a 28 px band at the bottom of the frame) was
+// firing on a third of the warning of the class they are looking straight at.
+//
+// Worse, and this is what three rounds of making the ROUND more visible could
+// not fix: **the turret leaves the screen 0.13 s after it fires.** Measured off
+// the depth→screen-position census — it crosses the bottom of the frame at
+// d ≈ 2.5, which from d = 11.36 is 7.7 ticks — while its round then flies for
+// 0.78 s. For 85 % of the round's flight there is nothing on screen that could
+// have produced it. "The fireball came out of nowhere — I never saw the shot or
+// the plane that got me", four fresh players running.
+//
+// The turret can NEVER still be on screen at impact (the ground scrolls 8.6x
+// faster than the round closes), so the fix is not to keep it there — it is to
+// put the launch back where the arcade's AA fire comes from: a turret still up
+// near the horizon, with a long rising round the player watches climb. Firing
+// from d ≈ 33 instead of 11.4 gives 2.33 s of flight at the raised speed below,
+// 2.73 s of total warning (air-comparable), a round that starts at pxY ≈ 147
+// instead of 160, and 0.44 s of turret visible after launch instead of 0.13 s.
+// It also widens the firing slot, which is the other half of the reason
+// batteries so rarely fired at all.
+//
+// THE OPERATOR THIS GEOMETRY IS SOLVED AGAINST (judging/R40/threat-pacing):
+//
+//   SOURCE-VISIBLE TIME = the seconds, inside the window [flare lit, impact],
+//   during which the FIRER is drawn on screen. A death is SOURCED iff that is
+//   at least 1.167 s — the project's standing warning floor, i.e. the player
+//   had a full reaction-floor's worth of time in which the thing shooting at
+//   them was something they could look at.
+//
+// Measured: the turret crosses the bottom of the frame at d ≈ 2.5 (the
+// depth→pxY census: pxY 215 at d=2.8, 232 at d=2.3), and the ground scrolls
+// 68.93 u/s. So
+//
+//   source-visible = TELEGRAPH_S + (D_fire - 2.5) / 68.93  >=  1.167
+//      =>  D_fire >= 55.4
+//
+// and D_fire = D_flare - 27.58 (the telegraph's own 0.4 s of scroll), so the
+// flare has to light at d >= 83. The battery enters the roster at d = 90, so
+// the lighting window is d ∈ [83.6, 90] — its first ~6 ticks. Launch therefore
+// lands at d ∈ [56, 62.4] and, with SPEED 20 below, total warning is
+// 2.95-3.27 s: inside the 2.67-3.67 s band the AIR kills already occupy, which
+// is the point — the battery stops being the one firer with a third of
+// everybody else's warning.
+//
+// The lighting depth is DRAWN per battery from its own stream rather than
+// fixed, so battery deaths are not all the same frame again; the spread is
+// only 6.4 units because that is the whole room the operator leaves above the
+// floor, and the lane says so rather than pretending to more variety.
+const TELE_DEPTH_MIN_LIGHT = 83.6; // D_fire 56 -> source-visible exactly 1.167 s
+const TELE_DEPTH_MAX = 90; // the depth a battery enters the roster at
+const FIRE_FLOOR_DEPTH = 56; // never fire from inside this (R40: was 12 — see above)
 export const BATTERY_TELEGRAPH_S = 0.4; // short: the dodge window is carried by the round's flight
 const TELEGRAPH_S = BATTERY_TELEGRAPH_S;
 
@@ -138,8 +203,23 @@ const _batteryOverrides = (() => {
   return out;
 })();
 
+// R40 — SPEED 8 -> 12, AND IT IS NOT A REVERSAL OF THE R36 TRADE ABOVE.
+// R36 chose 8 over 6 because slowing the round bought reaction margin a
+// reacting human does not need, at the cost of lethality. That argument was
+// made with the launch pinned at depth 11.4, where the ONLY lever on warning
+// was speed. The launch has moved to d ≈ 33 (see TELE_DEPTH_MAX), which buys
+// the warning from DISTANCE instead; at the old speed 8 that same launch would
+// give a 3.5 s fuse — slower than any air train and a free dodge. 12 u/s puts
+// the flight at 2.33 s and the total warning at 2.73 s, inside the 2.67-3.67 s
+// band the air kills already occupy, i.e. the battery stops being the one
+// firer with a third of everyone else's warning. The R36 legibility work is
+// untouched: progressSize still ramps the drawn size over the approach the
+// player watches, so the round is the same 7 -> 9.9 px fireball — and it is
+// now on screen for 2.55 s of flight instead of 0.78 s, climbing from the
+// horizon rather than appearing under the nose. Faster per unit time, 3.3x
+// LONGER to look at: legibility moves the right way on both counts.
 export const BATTERY_SHOT_PROFILE = {
-  speed: _batteryOverrides.speed ?? 8,
+  speed: _batteryOverrides.speed ?? 20,
   fracFar: _batteryOverrides.fracfar ?? 0.022,
   fracNear: _batteryOverrides.fracnear ?? 0.031,
   progressSize: true,
@@ -213,6 +293,11 @@ export class GroundBattery {
     this.firedThisLife = false;
     this.aimX = 0;
     this.aimY = 0;
+    // R40 — the depth at which THIS battery lights its flare, drawn from its
+    // own seeded stream (never the shared gameplay PRNG). See the
+    // TELE_DEPTH_MIN_LIGHT block: the band is the whole room the
+    // source-visibility operator leaves above the firing floor.
+    this.teleDepth = TELE_DEPTH_MIN_LIGHT + rng() * (TELE_DEPTH_MAX - TELE_DEPTH_MIN_LIGHT);
 
     this._ndcOut = { x: 0, y: 0, depth: 0 };
   }
@@ -256,7 +341,10 @@ export class GroundBattery {
 
   // Driven by the spawner's enemy loop (special-cased on isBattery). Returns a
   // fire request in the enemy-fire shape, or null. `scrollDist` is this tick's
-  // ground advance; `allowNewTrain` shares the spawner's concurrency budget.
+  // ground advance. `allowNewTrain` is accepted and DELIBERATELY UNUSED since
+  // R40 — see the Phase 3 block for the measurement that removed it; the
+  // parameter stays so the spawner's call site needs no change.
+  // eslint-disable-next-line no-unused-vars
   update(dt, scrollDist, space, allowNewTrain, playerNdc) {
     // Scroll along the terrain and re-project to screen.
     this.world.z += scrollDist;
@@ -311,13 +399,39 @@ export class GroundBattery {
       }
     } else if (
       !this.firedThisLife &&
-      allowNewTrain &&
       playerNdc &&
-      this.d <= TELE_DEPTH_MAX &&
+      this.d <= this.teleDepth &&
       this.d >= FIRE_FLOOR_DEPTH
     ) {
-      // Phase 3: in range and the shared budget is free — light the flare and
-      // snapshot the player. One burst per pass keeps it fair.
+      // Phase 3: in range — light the flare and snapshot the player. One burst
+      // per pass keeps it fair.
+      //
+      // R40 — NO LONGER GATED ON `allowNewTrain`, and the parameter is kept in
+      // the signature only so the spawner's one call site is unchanged.
+      //
+      // Sharing the aircraft's concurrency budget was a fairness argument (the
+      // module header: "REDISTRIBUTES aim snapshots rather than stacking new
+      // ones") and it had a measured cost that outweighed it. The lighting
+      // window is ~6 ticks wide by geometry; gating those 6 ticks on a budget
+      // the air waves hold for seconds at a time turned battery fire into a
+      // lottery — 4 to 6 rounds across a whole session — and, worse, it
+      // SELECTED the pathological geometry: a battery that lost the budget on
+      // its own window could still fire later, from under the player's nose,
+      // and those point-blank 1.18 s shots were the ones that killed. 100 % of
+      // the R39 playtest's deaths came from that selection.
+      //
+      // What made the fairness argument affordable to drop: this is ONE round,
+      // announced ~3 s ahead, from at most MAX_BATTERIES = 2 emplacements, and
+      // the aim snapshot is taken at the flare and never refreshed. The volume
+      // it adds is paid back in the spawn interval below.
+      //
+      // IT STILL CONSUMES THE BUDGET, it just no longer WAITS for it: the
+      // spawner's `!wasFiring && e.firingTrain` edge still counts this flare
+      // and still arms TRAIN_START_GAP_S, so the "never more flares at once
+      // than the player can read" property is intact — a battery simply is not
+      // made to lose its 6-tick window to an air wave that holds the budget
+      // for seconds. Honest about the asymmetry rather than claiming the
+      // battery is outside the accounting.
       this.telegraph = TELEGRAPH_S;
       this.telegraphFrac = 0;
       this.firedThisLife = true;
@@ -387,7 +501,26 @@ export class GroundBatteryManager {
     if (!this.active) return null;
     this.spawnTimer -= dt;
     if (this.spawnTimer > 0 || liveCount >= maxAlive) return null;
-    this.spawnTimer = 7.0 + this.rng() * 4.0;
+    // R40 — 7-11 s -> 5.5-9.0 s, TIGHTER, and the first R40 arm is why.
+    //
+    // The first attempt went the other way (7-11 -> 9.5-14.5) to pay back the
+    // volume that dropping the `allowNewTrain` gate adds. Measured, that was
+    // an own-goal: the lone battery round every ~9 s was the thing BREAKING
+    // the silence between air waves — visible as the isolated `1`s in the
+    // before arm's rounds-per-10 s series, `[1, 0, 23, 0, 1, 0, 1]` — and
+    // stretching the interval removed them. Peak density improved (21-24
+    // rounds in a second -> 9) while the worst drought got WORSE, 19.3 s ->
+    // 29.3 s. The volume payback has to come from the air side, not from the
+    // only threat that exists when the sky is empty.
+    //
+    // Tighter than the original, because this is also the arcade's answer to
+    // an empty sky: AA fire keeps coming off the terrain between waves. R40's
+    // density-truth lane measured the arcade going totally empty of AIRCRAFT
+    // for 10-11.5 s between waves (its D10 band is 6-12 s), so a ground round
+    // every ~7 s is what keeps those stretches from being dead air. One
+    // announced round, 2.95 s of warning, from a turret the player can see
+    // light up at the horizon.
+    this.spawnTimer = 5.5 + this.rng() * 3.5;
     const wx = X_MIN + this.rng() * (X_MAX - X_MIN);
     const side = this.rng() < 0.5 ? -1 : 1;
     const sprite = this._makeSprite();

@@ -1,0 +1,60 @@
+{
+  "root": "/private/tmp/claude-501/-Users-urizonens-dev-afterburner-three/b41228a0-594b-4891-9d20-7b35150ada55/scratchpad/r40tp-before",
+  "seconds": 60,
+  "seeds": [
+    4,
+    4,
+    9
+  ],
+  "arms": {
+    "before": {
+      "params": "",
+      "runs": [
+        {
+          "seed": 4,
+          "flightS": 46.3,
+          "rounds": 25,
+          "roundsPerMin": 32.4,
+          "trains": 5,
+          "trainsPerMin": 6.5,
+          "gapCV": 2.428,
+          "maxDroughtS": 18.5,
+          "maxTrainN": 21,
+          "medTrainN": 1,
+          "errors": []
+        },
+        {
+          "seed": 4,
+          "flightS": 46.3,
+          "rounds": 25,
+          "roundsPerMin": 32.4,
+          "trains": 5,
+          "trainsPerMin": 6.5,
+          "gapCV": 2.428,
+          "maxDroughtS": 18.5,
+          "maxTrainN": 21,
+          "medTrainN": 1,
+          "errors": []
+        },
+        {
+          "seed": 9,
+          "flightS": 48.8,
+          "rounds": 30,
+          "roundsPerMin": 36.9,
+          "trains": 7,
+          "trainsPerMin": 8.6,
+          "gapCV": 1.898,
+          "maxDroughtS": 8.8,
+          "maxTrainN": 24,
+          "medTrainN": 1,
+          "errors": []
+        }
+      ],
+      "pooledRoundsPerMin": 33.9,
+      "pooledTrainsPerMin": 7.2,
+      "meanGapCV": 2.251,
+      "worstDroughtS": 18.5,
+      "worstTrainN": 24
+    }
+  }
+}

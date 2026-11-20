@@ -1,0 +1,98 @@
+{
+  "root": "/private/tmp/claude-501/-Users-urizonens-dev-afterburner-three/b41228a0-594b-4891-9d20-7b35150ada55/scratchpad/r40tp-after",
+  "seconds": 90,
+  "seeds": [
+    4,
+    5,
+    9
+  ],
+  "arms": {
+    "AFTER": {
+      "params": "",
+      "runs": [
+        {
+          "peak1s": 9,
+          "peak3s": 18,
+          "emptyBins10s": 3,
+          "bins": [
+            0,
+            1,
+            18,
+            0,
+            1,
+            16,
+            1,
+            0
+          ],
+          "seed": 4,
+          "flightS": 73.3,
+          "rounds": 37,
+          "roundsPerMin": 30.3,
+          "trains": 5,
+          "trainsPerMin": 4.1,
+          "gapCV": 3.65,
+          "maxDroughtS": 25.5,
+          "maxTrainN": 18,
+          "medTrainN": 1,
+          "errors": []
+        },
+        {
+          "peak1s": 9,
+          "peak3s": 24,
+          "emptyBins10s": 4,
+          "bins": [
+            0,
+            1,
+            25,
+            0,
+            0,
+            12,
+            1,
+            0
+          ],
+          "seed": 5,
+          "flightS": 73.3,
+          "rounds": 39,
+          "roundsPerMin": 31.9,
+          "trains": 4,
+          "trainsPerMin": 3.3,
+          "gapCV": 4.29,
+          "maxDroughtS": 29.3,
+          "maxTrainN": 25,
+          "medTrainN": 12,
+          "errors": []
+        },
+        {
+          "peak1s": 9,
+          "peak3s": 15,
+          "emptyBins10s": 1,
+          "bins": [
+            1,
+            3,
+            12,
+            4,
+            1,
+            10,
+            0
+          ],
+          "seed": 9,
+          "flightS": 65.5,
+          "rounds": 31,
+          "roundsPerMin": 28.4,
+          "trains": 5,
+          "trainsPerMin": 4.6,
+          "gapCV": 2.622,
+          "maxDroughtS": 16.1,
+          "maxTrainN": 15,
+          "medTrainN": 4,
+          "errors": []
+        }
+      ],
+      "pooledRoundsPerMin": 30.3,
+      "pooledTrainsPerMin": 4,
+      "meanGapCV": 3.521,
+      "worstDroughtS": 29.3,
+      "worstTrainN": 25
+    }
+  }
+}

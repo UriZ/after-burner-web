@@ -745,7 +745,47 @@ const MAX_CONCURRENT_TRAINS = paceTunable('trains', 3);
 // density gate was set against OUR supply of aircraft.** The one enemy-fire
 // statistic that DOES have an arcade side — fireballs on screen — is reported
 // above and we are under the arcade on both sides of the change.
-const TRAIN_START_GAP_S = paceTunable('traingap', 0.15);
+//
+// R40 — 0.15 -> 0.9, AND IT IS THE LIMITER AGAIN, ON PURPOSE. The paragraph
+// above is right that at 0.15 the gap "merely stops two aircraft opening on
+// the same tick" — but stopping them opening on the same TICK is not the same
+// as stopping them opening together, and 0.15 s apart is together. Measured
+// (judging/R40/threat-pacing/NOTES.md §2): the R39 playtest's 82 s of flight
+// contained two air barrages of 33 and 17 rounds — four and two trains opening
+// inside a second as a wave spawned — separated by 27.5 s and 30.3 s of total
+// silence, CV 3.17 against Poisson's 1.0. At 0.45 s those four trains open
+// across ~1.4 s instead of ~0.5 s and, with TRAIN_LENGTHS cut 8 -> 4, the
+// barrage the player could sit inside becomes a stream they have to read.
+//
+// WHY 0.45 AND NOT MORE, which is the honest bound on this change: an
+// approach aircraft is only ELIGIBLE to open a train while it still holds a
+// telegraph's worth of depth budget — with FIRE_DEPTH_MIN 24 and depthRate
+// 0.7089 that is d >= 48.8, i.e. the first 0.863 s of its 5 s life. A gap
+// wider than that window does not defer a train, it DELETES it (the aircraft
+// sinks past eligibility while it waits), and the volume R30 closed goes with
+// it. 0.45 s fits two aircraft inside one window; the rest is carried by
+// enemy.js's budget-sized trains, which widened that window from 0.625 s.
+//
+// SWEPT, not picked (judging/R40/threat-pacing/gate-gapsweep.json, `?demo=1`,
+// seeds 4/5/9 x 90 s, all on the same frozen root):
+//
+//   traingap | rounds/min | trains/min |  CV   | worst drought | peak in 1 s
+//   ---------|------------|------------|-------|---------------|------------
+//   (before) |    30.1    |    5.7     | 2.574 |    19.3 s     |   21-24
+//     0.35   |    28.2    |    6.2     | 2.166 |    14.0 s     |   9-11
+//     0.45   |    27.9    |    6.1     | 2.167 |    15.3 s     |   9-10
+//     0.60   |    24.9    |    6.2     | 2.017 |    15.3 s     |    8-9
+//
+// Peak density, CV and drought are already won at 0.35 and barely move across
+// the band; what DOES move monotonically is volume, and R30 closed that. So
+// the choice is the arm that keeps volume nearest the baseline while holding
+// the shape win — **0.35**, which is also where the remaining volume gap left
+// by TRAIN_LENGTHS 8 -> 6 is closed (that sweep is in enemy.js; 0.35 recovers
+// ~3.5 % of total rounds over 0.45 at a cost of ~1-2 on peak-in-1 s). 0.60 was
+// measured too and bought 0.15 of CV for 17 % of the fire — rejected.
+// Re-set it (with the volume arm re-run) if TRAIN_LENGTHS, FIRE_DEPTH_MIN or
+// the alive budget moves again.
+const TRAIN_START_GAP_S = paceTunable('traingap', 0.35);
 
 // ---------------------------------------------------------------------------
 // ROLE MIX PER STAGE — how much of each stage's sky is the elite livery.
@@ -2063,10 +2103,22 @@ export class Spawner {
         // A train that opens with a 1.0 s pulsing flare and then needs
         // another 0.9-2.1 s of flight is announced ~2-3 s ahead, which is
         // longer than the grace window it was being hidden behind.
-        fireDelay: 0.0 + this.rng() * 0.15,
+        //
+        // R40 — SPREAD ACROSS THE WINDOW, 0-0.15 -> 0-0.55. The 0.15 s band is
+        // an effectively SIMULTANEOUS decision for every member of a wave, and
+        // a wave dispenses its members within a second of each other, so the
+        // whole wave lit up together: measured, 33 rounds inside one second
+        // (NOTES.md §2). The eligibility window is now 0.863 s wide (see
+        // TRAIN_START_GAP_S), so drawing the delay across most of it staggers
+        // the wave without pushing any member past the window and deleting its
+        // train. This is the de-synchroniser; the start gap only enforces it.
+        fireDelay: 0.0 + this.rng() * 0.55,
         // R13 gun-dwell (see the draws above). A readable-depth pause with a
         // gentle sway so the target reads as hesitating in its pass, not
-        // parked. Below FIRE_DEPTH_MIN, so it does not shoot while it loiters.
+        // parked. GUN_DWELL_DEPTH is 5.0-6.5, still below FIRE_DEPTH_MIN after
+        // R40 moved that floor 24 -> 14, so this one IS still protected by its
+        // depth and does not shoot while it loiters (unlike the lock-bait
+        // cluster at 17-21, which now relies on its explicit fireDelay).
         holdDepth: dwell
           ? GUN_DWELL_DEPTH_MIN + dwellDepthU * (GUN_DWELL_DEPTH_MAX - GUN_DWELL_DEPTH_MIN)
           : null,
@@ -2153,7 +2205,10 @@ export class Spawner {
         // mixed depth and fires on its approach like an echelon member, so the
         // wall still carries enemy-fire volume (R4 gap 5 forbids losing it) and
         // the wall has depth variety. The fire-delay draw is unconditional.
-        fireDelay: dwell ? 1e9 : 0.0 + fireDelayU * 0.15,
+        // R40: 0-0.15 -> 0-0.55, the same de-synchronisation as the echelon's.
+        // A burst WALL bunches its arrivals ON PURPOSE (see depthA above), so
+        // it is the wave shape most able to fire as a single barrage.
+        fireDelay: dwell ? 1e9 : 0.0 + fireDelayU * 0.55,
         holdDepth: dwell ? holdDepth : null,
         holdTime: dwell ? holdTime : 0,
         // A slow lateral sway while frozen: a tracking sight follows the wall, a
@@ -2213,8 +2268,13 @@ export class Spawner {
         weaveAmp: 0.01,
         weaveRate: 1.2,
         weavePhase: this.rng() * Math.PI * 2,
-        // Never fires: it is below the firing band for its whole hold and only
-        // drops through afterward. Large delay keeps intent explicit.
+        // Never fires. The large delay is the MECHANISM and always was; the
+        // reason given here used to be "it is below the firing band for its
+        // whole hold", and R40 retired that: FIRE_DEPTH_MIN moved 24 -> 14
+        // (enemy.js) and BAIT_HOLD_DEPTH is 17-21, so the hold now sits INSIDE
+        // the band. Behaviour is unchanged because `1e9` was doing the work —
+        // but the stale justification would have told the next agent this line
+        // was redundant and safe to drop, which it is not.
         fireDelay: 1e9,
         holdDepth,
         holdTime,

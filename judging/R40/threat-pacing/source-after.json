@@ -1,0 +1,271 @@
+{
+  "root": "/private/tmp/claude-501/-Users-urizonens-dev-afterburner-three/b41228a0-594b-4891-9d20-7b35150ada55/scratchpad/r40tp-after",
+  "seconds": 180,
+  "seeds": [
+    4,
+    5,
+    6
+  ],
+  "totalFatal": 13,
+  "totalMatched": 13,
+  "VIOLATIONS": 0,
+  "totalUnannounced": 0,
+  "minWarning": 1.917,
+  "minSourceVisibleS": 1.183,
+  "medSourceVisibleS": 1.95,
+  "maxResidual": 2.5,
+  "byKiller": {
+    "interceptor": 5,
+    "battery": 4,
+    "bomber": 1,
+    "fighter": 3
+  },
+  "runs": [
+    {
+      "seed": 4,
+      "fatalHits": 4,
+      "matched": 4,
+      "violations": 0,
+      "unannounced": 0,
+      "minWarning": 1.917,
+      "minSourceVisibleS": 1.183,
+      "byKiller": {
+        "interceptor": 2,
+        "battery": 1,
+        "bomber": 1
+      },
+      "deaths": [
+        {
+          "tick": 1639,
+          "type": "interceptor",
+          "matched": true,
+          "residual": 0.8,
+          "warning": 2.583,
+          "fromD": 20.86,
+          "fromY": -0.1256,
+          "firePxY": 125.9,
+          "fireW": 0.032,
+          "sourceVisibleS": 2.15,
+          "trackedS": 2.6,
+          "sourced": true,
+          "announced": true
+        },
+        {
+          "tick": 2672,
+          "type": "interceptor",
+          "matched": true,
+          "residual": 0.7,
+          "warning": 2.017,
+          "fromD": 15.19,
+          "fromY": -0.2041,
+          "firePxY": 134.9,
+          "fireW": 0.043,
+          "sourceVisibleS": 2.033,
+          "trackedS": 2.033,
+          "sourced": true,
+          "announced": true
+        },
+        {
+          "tick": 3554,
+          "type": "battery",
+          "matched": true,
+          "residual": 2.5,
+          "warning": 3.05,
+          "fromD": 58.07,
+          "fromY": -0.2817,
+          "firePxY": 143.6,
+          "fireW": 0.035,
+          "sourceVisibleS": 1.183,
+          "trackedS": 1.183,
+          "sourced": true,
+          "announced": true
+        },
+        {
+          "tick": 9495,
+          "type": "bomber",
+          "matched": true,
+          "residual": 0.7,
+          "warning": 1.917,
+          "fromD": 14.27,
+          "fromY": -0.1713,
+          "firePxY": 131.2,
+          "fireW": 0.067,
+          "sourceVisibleS": 1.933,
+          "trackedS": 1.933,
+          "sourced": true,
+          "announced": true
+        }
+      ],
+      "errors": []
+    },
+    {
+      "seed": 5,
+      "fatalHits": 5,
+      "matched": 5,
+      "violations": 0,
+      "unannounced": 0,
+      "minWarning": 1.933,
+      "minSourceVisibleS": 1.183,
+      "byKiller": {
+        "fighter": 2,
+        "battery": 2,
+        "interceptor": 1
+      },
+      "deaths": [
+        {
+          "tick": 1642,
+          "type": "fighter",
+          "matched": true,
+          "residual": 0.6,
+          "warning": 2.267,
+          "fromD": 17.82,
+          "fromY": 0.0187,
+          "firePxY": 109.8,
+          "fireW": 0.04,
+          "sourceVisibleS": 2.283,
+          "trackedS": 2.283,
+          "sourced": true,
+          "announced": true
+        },
+        {
+          "tick": 3409,
+          "type": "battery",
+          "matched": true,
+          "residual": 1.6,
+          "warning": 3.567,
+          "fromD": 68.51,
+          "fromY": -0.2769,
+          "firePxY": 143,
+          "fireW": 0.03,
+          "sourceVisibleS": 1.833,
+          "trackedS": 1.9,
+          "sourced": true,
+          "announced": true
+        },
+        {
+          "tick": 4808,
+          "type": "battery",
+          "matched": true,
+          "residual": 2.5,
+          "warning": 2.983,
+          "fromD": 56.93,
+          "fromY": -0.2823,
+          "firePxY": 143.7,
+          "fireW": 0.036,
+          "sourceVisibleS": 1.183,
+          "trackedS": 1.183,
+          "sourced": true,
+          "announced": true
+        },
+        {
+          "tick": 8566,
+          "type": "interceptor",
+          "matched": true,
+          "residual": 0.7,
+          "warning": 1.933,
+          "fromD": 14.36,
+          "fromY": -0.0918,
+          "firePxY": 122.3,
+          "fireW": 0.046,
+          "sourceVisibleS": 1.95,
+          "trackedS": 1.95,
+          "sourced": true,
+          "announced": true
+        },
+        {
+          "tick": 9528,
+          "type": "fighter",
+          "matched": true,
+          "residual": 0.5,
+          "warning": 2.567,
+          "fromD": 20.79,
+          "fromY": 0.0722,
+          "firePxY": 103.9,
+          "fireW": 0.034,
+          "sourceVisibleS": 2.35,
+          "trackedS": 2.583,
+          "sourced": true,
+          "announced": true
+        }
+      ],
+      "errors": []
+    },
+    {
+      "seed": 6,
+      "fatalHits": 4,
+      "matched": 4,
+      "violations": 0,
+      "unannounced": 0,
+      "minWarning": 2.233,
+      "minSourceVisibleS": 1.9,
+      "byKiller": {
+        "fighter": 1,
+        "battery": 1,
+        "interceptor": 2
+      },
+      "deaths": [
+        {
+          "tick": 1904,
+          "type": "fighter",
+          "matched": true,
+          "residual": 0.6,
+          "warning": 2.6,
+          "fromD": 21.02,
+          "fromY": 0.2469,
+          "firePxY": 84.4,
+          "fireW": 0.034,
+          "sourceVisibleS": 2.367,
+          "trackedS": 2.617,
+          "sourced": true,
+          "announced": true
+        },
+        {
+          "tick": 2618,
+          "type": "battery",
+          "matched": true,
+          "residual": 1.5,
+          "warning": 3.667,
+          "fromD": 70.62,
+          "fromY": -0.2761,
+          "firePxY": 142.9,
+          "fireW": 0.029,
+          "sourceVisibleS": 1.95,
+          "trackedS": 1.983,
+          "sourced": true,
+          "announced": true
+        },
+        {
+          "tick": 7676,
+          "type": "interceptor",
+          "matched": true,
+          "residual": 0.7,
+          "warning": 2.233,
+          "fromD": 17.45,
+          "fromY": -0.1135,
+          "firePxY": 124.7,
+          "fireW": 0.038,
+          "sourceVisibleS": 2.25,
+          "trackedS": 2.25,
+          "sourced": true,
+          "announced": true
+        },
+        {
+          "tick": 9634,
+          "type": "interceptor",
+          "matched": true,
+          "residual": 0.7,
+          "warning": 2.233,
+          "fromD": 17.38,
+          "fromY": -0.091,
+          "firePxY": 122.1,
+          "fireW": 0.038,
+          "sourceVisibleS": 1.9,
+          "trackedS": 2.25,
+          "sourced": true,
+          "announced": true
+        }
+      ],
+      "errors": []
+    }
+  ]
+}

@@ -56,6 +56,16 @@ function parseArgs(argv) {
     else if (a === '--url-params') args.urlParams = argv[++i];
     else if (a === '--selftest') args.selftest = true;
     else if (a === '--trace') args.trace = true;
+    // MEASUREMENT-ONLY (R40). Serve from a FROZEN COPY of the tree instead of
+    // the live repo. Two reasons, both already paid for here: (1) on a shared
+    // tree another lane's save mid-run either kills the execution context or
+    // silently restarts the simulation half-way through a 3-minute figure
+    // (the hazard the hmr:false note below describes — this closes the
+    // remaining hole, since hmr:false stops the RELOAD but not the fact that
+    // a module read after the save is a different module); (2) it makes a
+    // before/after arm attributable to ONE lane's diff rather than to whatever
+    // else happened to be uncommitted. Changes nothing about what is measured.
+    else if (a === '--root') args.root = argv[++i];
     // interfaces.md I28: a figure needs its TREE STATE. Stamped into the JSON
     // so a published number carries it rather than relying on a report line.
     else if (a === '--tree-state') args.treeState = argv[++i];
@@ -265,9 +275,10 @@ async function main() {
   // the deaths-per-minute figure would be measured over a run that began
   // again half-way through. Snapshot the tree first if the edits are in
   // files this measurement depends on.
+  const root = args.root ?? ROOT;
   const server = await createServer({
-    root: ROOT,
-    configFile: path.join(ROOT, 'vite.config.js'),
+    root,
+    configFile: path.join(root, 'vite.config.js'),
     // host is PINNED, not left to vite's default. The client below connects to
     // 127.0.0.1 explicitly; if the server were left to bind ::1 (or the
     // default), `localhost` on macOS resolves ::1 first and a run can silently
@@ -317,6 +328,9 @@ async function main() {
             (s, r) => s + r.graceWindowHitsUnannounced,
             0
           ),
+          // Which tree this figure is OF — the point of --root is that this is
+          // answerable, so it is stamped into the JSON rather than remembered.
+          servedRoot: root,
           treeState: args.treeState ?? null,
         },
         null,

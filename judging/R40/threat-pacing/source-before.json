@@ -1,0 +1,249 @@
+{
+  "root": "/private/tmp/claude-501/-Users-urizonens-dev-afterburner-three/b41228a0-594b-4891-9d20-7b35150ada55/scratchpad/r40tp-before",
+  "seconds": 180,
+  "seeds": [
+    4,
+    5,
+    6
+  ],
+  "totalFatal": 12,
+  "totalMatched": 12,
+  "VIOLATIONS": 10,
+  "totalUnannounced": 0,
+  "minWarning": 1.167,
+  "minSourceVisibleS": 0.417,
+  "medSourceVisibleS": 0.483,
+  "maxResidual": 16.8,
+  "byKiller": {
+    "battery": 10,
+    "fighter": 2
+  },
+  "runs": [
+    {
+      "seed": 4,
+      "fatalHits": 3,
+      "matched": 3,
+      "violations": 3,
+      "unannounced": 0,
+      "minWarning": 1.167,
+      "minSourceVisibleS": 0.417,
+      "byKiller": {
+        "battery": 3
+      },
+      "deaths": [
+        {
+          "tick": 1761,
+          "type": "battery",
+          "matched": true,
+          "residual": 11.6,
+          "warning": 1.283,
+          "fromD": 12.05,
+          "fromY": -0.4028,
+          "firePxY": 158.9,
+          "fireW": 0.185,
+          "sourceVisibleS": 0.467,
+          "trackedS": 0.5,
+          "sourced": false,
+          "announced": true
+        },
+        {
+          "tick": 3452,
+          "type": "battery",
+          "matched": true,
+          "residual": 16.8,
+          "warning": 1.167,
+          "fromD": 11.32,
+          "fromY": -0.4126,
+          "firePxY": 160.3,
+          "fireW": 0.198,
+          "sourceVisibleS": 0.417,
+          "trackedS": 0.467,
+          "sourced": false,
+          "announced": true
+        },
+        {
+          "tick": 5690,
+          "type": "battery",
+          "matched": true,
+          "residual": 10.8,
+          "warning": 1.183,
+          "fromD": 11.36,
+          "fromY": -0.412,
+          "firePxY": 160.2,
+          "fireW": 0.197,
+          "sourceVisibleS": 0.483,
+          "trackedS": 0.483,
+          "sourced": false,
+          "announced": true
+        }
+      ],
+      "errors": []
+    },
+    {
+      "seed": 5,
+      "fatalHits": 5,
+      "matched": 5,
+      "violations": 3,
+      "unannounced": 0,
+      "minWarning": 1.183,
+      "minSourceVisibleS": 0.45,
+      "byKiller": {
+        "fighter": 2,
+        "battery": 3
+      },
+      "deaths": [
+        {
+          "tick": 1707,
+          "type": "fighter",
+          "matched": true,
+          "residual": 0.6,
+          "warning": 3.017,
+          "fromD": 25.21,
+          "fromY": -0.012,
+          "firePxY": 113.3,
+          "fireW": 0.028,
+          "sourceVisibleS": 2.567,
+          "trackedS": 3.033,
+          "sourced": true,
+          "announced": true
+        },
+        {
+          "tick": 3471,
+          "type": "battery",
+          "matched": true,
+          "residual": 7.9,
+          "warning": 1.267,
+          "fromD": 12.05,
+          "fromY": -0.4028,
+          "firePxY": 158.9,
+          "fireW": 0.185,
+          "sourceVisibleS": 0.517,
+          "trackedS": 0.517,
+          "sourced": false,
+          "announced": true
+        },
+        {
+          "tick": 7258,
+          "type": "fighter",
+          "matched": true,
+          "residual": 1,
+          "warning": 3.867,
+          "fromD": 33.88,
+          "fromY": -0.2943,
+          "firePxY": 144.9,
+          "fireW": 0.021,
+          "sourceVisibleS": 2.95,
+          "trackedS": 3.883,
+          "sourced": true,
+          "announced": true
+        },
+        {
+          "tick": 8602,
+          "type": "battery",
+          "matched": true,
+          "residual": 14.4,
+          "warning": 1.183,
+          "fromD": 11.36,
+          "fromY": -0.412,
+          "firePxY": 160.2,
+          "fireW": 0.197,
+          "sourceVisibleS": 0.45,
+          "trackedS": 0.483,
+          "sourced": false,
+          "announced": true
+        },
+        {
+          "tick": 10221,
+          "type": "battery",
+          "matched": true,
+          "residual": 14.5,
+          "warning": 1.183,
+          "fromD": 11.36,
+          "fromY": -0.412,
+          "firePxY": 160.2,
+          "fireW": 0.197,
+          "sourceVisibleS": 0.45,
+          "trackedS": 0.483,
+          "sourced": false,
+          "announced": true
+        }
+      ],
+      "errors": []
+    },
+    {
+      "seed": 6,
+      "fatalHits": 4,
+      "matched": 4,
+      "violations": 4,
+      "unannounced": 0,
+      "minWarning": 1.183,
+      "minSourceVisibleS": 0.45,
+      "byKiller": {
+        "battery": 4
+      },
+      "deaths": [
+        {
+          "tick": 868,
+          "type": "battery",
+          "matched": true,
+          "residual": 2.7,
+          "warning": 2.683,
+          "fromD": 23.3,
+          "fromY": -0.329,
+          "firePxY": 149.1,
+          "fireW": 0.089,
+          "sourceVisibleS": 0.8,
+          "trackedS": 0.85,
+          "sourced": false,
+          "announced": true
+        },
+        {
+          "tick": 1771,
+          "type": "battery",
+          "matched": true,
+          "residual": 12.4,
+          "warning": 1.25,
+          "fromD": 11.8,
+          "fromY": -0.406,
+          "firePxY": 159.3,
+          "fireW": 0.189,
+          "sourceVisibleS": 0.467,
+          "trackedS": 0.483,
+          "sourced": false,
+          "announced": true
+        },
+        {
+          "tick": 6440,
+          "type": "battery",
+          "matched": true,
+          "residual": 8.2,
+          "warning": 1.2,
+          "fromD": 11.36,
+          "fromY": -0.412,
+          "firePxY": 160.2,
+          "fireW": 0.197,
+          "sourceVisibleS": 0.5,
+          "trackedS": 0.5,
+          "sourced": false,
+          "announced": true
+        },
+        {
+          "tick": 8530,
+          "type": "battery",
+          "matched": true,
+          "residual": 13.6,
+          "warning": 1.183,
+          "fromD": 11.36,
+          "fromY": -0.412,
+          "firePxY": 160.2,
+          "fireW": 0.197,
+          "sourceVisibleS": 0.45,
+          "trackedS": 0.483,
+          "sourced": false,
+          "announced": true
+        }
+      ],
+      "errors": []
+    }
+  ]
+}

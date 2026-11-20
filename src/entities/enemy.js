@@ -327,8 +327,85 @@ const BANK_SLEW_RAD_PER_S = 3.2;
 // solution to the two inequalities plus a hit-probability target. Raising the
 // floor buys lag and COSTS budget; slowing the round buys lag for free, which
 // is why SPEED carried the last factor rather than D_lo.
+//
+// R40 — THE SENTENCE ABOVE ("the flare lights at spawn and HOLDS") IS THE
+// BURSTINESS DEFECT, and it was invisible until the schedule was measured as a
+// TIME SERIES rather than as a rate.
+//
+// The old Phase-3 gate demanded enough depth budget to pay out a WHOLE
+// MIN_TRAIN_ROUNDS train before lighting the flare:
+//     budgetS = ln(d / FIRE_DEPTH_MIN) / |depthRate|  >=  TELEGRAPH_S + 3*SPACING
+// With FIRE_DEPTH_MIN 24, depthRate 0.7089 and the old 1.24 s requirement that
+// resolves to d >= 57.8 — and an approach spawns at 90 and passes 57.8 after
+// ln(90/57.8)/0.7089 = **0.625 s**. So EVERY air train in the game opened
+// inside the first 0.625 s of its firer's five-second life, or never. Waves
+// spawn together, so their 0.625 s windows COINCIDE: measured on the two R39
+// playtest sessions (judging/R40/threat-pacing/NOTES.md §2), 82 s of flight
+// held SIX fire events — four lone battery rounds and two air barrages of 33
+// and 17 rounds — with 27.5 s and 30.3 s of total silence between them, and an
+// inter-event-gap CV of 3.17 against Poisson's 1.0.
+//
+// The fix is NOT a new constant, it is removing the all-or-nothing clause:
+// size the train to the budget the aircraft ACTUALLY has when its flare
+// expires (`_trainRoundsFor` below), so any point in the approach is a firing
+// opportunity and the schedule stops being keyed to the spawn instant. Volume
+// is held by trading length for frequency — see TRAIN_LENGTHS.
+//
+// R40 — FIRE_DEPTH_MIN 24 -> 14, AND IT IS MOVED AS PART OF THE PACKAGE THE
+// WARNING ABOVE DEMANDS, not alone. D_lo is what bounds the ARMED window, and
+// through `budgetS` it bounds the OPENING window too, which is the quantity
+// this round is fixing:
+//
+//   armed while d > D_lo        : ln(90/D_lo)/0.7089 seconds of a 5.00 s life
+//   may OPEN while budgetS >= T : d >= D_lo * e^(0.7089*T), T = TELEGRAPH_S 1.0
+//
+//   D_lo = 24 -> armed 1.87 s, may open for the first 0.863 s
+//   D_lo = 14 -> armed 2.63 s, may open for the first **1.63 s**
+//
+// The opening window is the de-synchronisation budget: every aircraft in a
+// wave has to find its own slot inside it, and at 0.863 s with a 0.45 s start
+// gap only two fit — the rest sink past eligibility and their trains are not
+// deferred, they are deleted. That showed up directly as a 26 % volume loss in
+// the first R40 arm, which R30's volume closure forbids.
+//
+// What it costs, priced the way the block above prices it: a round fired from
+// the new floor reaches the player in (14 - 1.6)/10 = 1.24 s, so the total
+// fairness lag at the floor is 1.0 + 1.24 = **2.24 s**, down from 3.24 s. That
+// is still above this project's 1.167 s warning floor and still above the
+// 2.0 s respawn grace, and the top of the band (6.04 s) is untouched. The
+// trade is deliberate: the lethality the air side gains here is what pays for
+// the ground battery giving up its 1.18 s point-blank shot (groundBattery.js),
+// i.e. the same deaths, moved onto the firer the player is actually looking at.
+// Measurement-only overrides, same idiom (and same refuse-on-unknown-key
+// discipline) as spawner.js's `?pace=` and groundBattery.js's `?battery=`.
+// They exist so the R40 schedule sweep can run arms without editing this file
+// between captures — an in-place edit is a concurrent writer to every other
+// agent's capture (the named hazard in CLAUDE.md).
+//   ?fire=train=4,spacing=0.11,floor=14,gapmin=0.9,gapspan=1.6
+// Declared ABOVE every constant that reads it: these are `const`, so a
+// forward reference is a temporal-dead-zone throw at module load, i.e. a
+// blank screen rather than a wrong number.
+const _fireOverrides = (() => {
+  const raw =
+    typeof location === 'undefined'
+      ? null
+      : new URLSearchParams(location.search).get('fire');
+  const out = {};
+  if (!raw) return out;
+  for (const pair of raw.split(',')) {
+    if (!pair) continue;
+    const [k, v] = pair.split('=');
+    if (!['train', 'spacing', 'gapmin', 'gapspan', 'floor'].includes(k))
+      throw new Error(`?fire=: unknown key "${k}"`);
+    const n = Number(v);
+    if (!Number.isFinite(n)) throw new Error(`?fire=: "${k}" is not finite ("${v}")`);
+    out[k] = n;
+  }
+  return out;
+})();
+
 const FIRE_DEPTH_MAX = 52;
-const FIRE_DEPTH_MIN = 24;
+const FIRE_DEPTH_MIN = _fireOverrides.floor ?? 14;
 
 // Spacing inside a shot train. The trains in
 // reference/stage7-enemy-shot-train-t330.png read as ~6 fireballs strung
@@ -346,7 +423,16 @@ const FIRE_DEPTH_MIN = 24;
 // still deliver all eight — narrow enough to be worth checking (the
 // __fairness hook reports rounds per train) and wide enough to hold the
 // round count at the committed build's level.
-const SHOT_SPACING_S = 0.08;
+//
+// R40 — BACK TO 0.11, WHICH IS THE VALUE THE REFERENCE FRAME SUPPORTS. The
+// paragraph above is explicit that 0.08 was never derived from t330 ("the
+// comment above computed 0.1 s and the constant said 0.18"); it was forced by
+// the budget-truncation bug, and it was forced in the direction that makes a
+// train read as one smear instead of as the strung-out string of distinct
+// fireballs the arcade frame actually shows. Budget truncation is now handled
+// by construction (`_trainRoundsFor` sizes the train to the budget), so the
+// constant can go back to the measurement instead of to the workaround.
+const SHOT_SPACING_S = _fireOverrides.spacing ?? 0.11;
 
 // The least a train may be allowed to deliver. A train that opens and is cut
 // off by FIRE_DEPTH_MIN after one round spends a full telegraph of the
@@ -354,7 +440,21 @@ const SHOT_SPACING_S = 0.08;
 // round count collapsed while the train count stayed at the cap. Enforced as
 // a DEPTH gate when the flare lights (see update()), not by letting a
 // truncated train fire below the floor.
-const MIN_TRAIN_ROUNDS = 4;
+//
+// R40: still the floor, but enforced the other way round. The flare no longer
+// has to prove a full train fits before it may light (that clause is what
+// pinned every train to the spawn instant); instead `_trainRoundsFor` sizes
+// the train to the budget, and an aircraft with room for fewer than this fires
+// what it has rather than nothing. 1, because a single announced round from an
+// aircraft the player is watching is a better threat than silence — the whole
+// R40 defect is that the only reliable single round in the game came from a
+// ground turret nobody looks at.
+const MIN_TRAIN_ROUNDS = 1;
+
+// Spacing between one aircraft's successive trains. See the fireTimer reset in
+// update() Phase 3 for why the band is wide rather than tight.
+const FIRE_GAP_MIN_S = _fireOverrides.gapmin ?? 0.9;
+const FIRE_GAP_SPAN_S = _fireOverrides.gapspan ?? 1.6;
 
 // A train SWEEPS PAST the player's position rather than converging on it.
 //
@@ -487,7 +587,41 @@ export const aimErrorCensus = { n: 0, bins: new Array(20).fill(0) };
 // Not a contradiction of "4-8": that range is per train, and
 // reference/stage7-enemy-shot-train-t330.png has 10-16 fireballs in the air
 // at once, which is two overlapping trains (MAX_CONCURRENT_TRAINS = 2).
-const TRAIN_LENGTHS = [8];
+//
+// R40 — 8 -> 6, AND THE PARAGRAPH ABOVE IS THE REASON, READ IN THE OTHER
+// DIRECTION. It is right that length is the cheapest lethality reduction at
+// constant volume, and that is exactly why 8 was wrong for THIS game: it put
+// the whole fire budget into a few barrages that are ONE decision each (all
+// eight share an aim snapshot and a 13 px rake), which the R39 playtest
+// survived "banking randomly" — while 100 % of the deaths came from the lone
+// ground-battery round the player never looks at. Trading length for FREQUENCY
+// moves the lethality onto the aircraft the player is actually fighting, which
+// is where a death is legible. 6 is still inside GAME_SPEC §4's MEASURED
+// "trains of 4-8", and still EVEN.
+//
+// SWEPT AGAINST VOLUME, not picked. R30 closed total volume, and length is the
+// one lever here that moves it almost linearly. Seeds 4/5/6, frozen roots,
+// peak-in-1 s from sweep_fire.mjs and total rounds from the authoritative
+// `shotsFired` counter over 180 s:
+//
+//   length | total rounds (vs 309 before) | peak rounds in 1 s (vs 21-22)
+//   -------|------------------------------|------------------------------
+//     4    |   198   (-36 %)              |   9 / 10 / 9
+//     6    |   258   (-16 %)              |  13 / 14 / 12
+//     8    |   318   (+3 %)               |  17 / 18 / 18
+//
+// 4 bought the best shape and broke the volume closure; 8 held volume and gave
+// most of the shape back. 6 is the knee, and the residual volume gap is closed
+// the rest of the way by TRAIN_START_GAP_S 0.45 -> 0.35 (spawner.js). Note the
+// shape win is NOT mostly from length — peak density is set by how many trains
+// OVERLAP, which is the start gap's job — so the length cut only has to be
+// deep enough to stop one firer emptying a magazine into one snapshot.
+//
+// `_trainRoundsFor` may cut a train below this when the firer is deep in its
+// approach; an odd remainder is handled by the half-step in `k` at the fire
+// site, so the "no round dead-centre on the snapshot" invariant above holds
+// for every length, not only even ones.
+const TRAIN_LENGTHS = [_fireOverrides.train ?? 6];
 
 // ---------------------------------------------------------------------------
 // THE TELEGRAPH. This is the fairness contract, and it replaces a random aim
@@ -662,7 +796,12 @@ export class Enemy {
     // missing dwell: spawner.js holds lock-bait clusters just above the lock
     // floor (gap 1) and a fraction of echelon members at readable depth
     // (gap 2). A holdDepth below FIRE_DEPTH_MIN never fires during the hold,
-    // so a loitering target is a fair one.
+    // so a loitering target is a fair one. R40 CAVEAT: FIRE_DEPTH_MIN moved
+    // 24 -> 14, and lock-bait holds at 17-21 — i.e. that geometric guarantee
+    // no longer covers the bait cluster. It stays silent because spawner.js
+    // gives it `fireDelay: 1e9` explicitly. Any NEW hold band between 14 and
+    // 24 must carry the same explicit delay; the depth alone no longer
+    // protects it.
     holdDepth = null,
     holdTime = 0,
     holdWeaveAmp = 0,
@@ -782,6 +921,30 @@ export class Enemy {
   // was written to prevent.
   get firingTrain() {
     return this.burstLeft > 0 || this.telegraph > 0;
+  }
+
+  // R40 — how many rounds this aircraft can still pay out before it sinks
+  // through FIRE_DEPTH_MIN, capped at the nominal train length.
+  //
+  // This is the clause that replaces the old "refuse to light the flare unless
+  // a whole train fits" gate. That gate was arithmetically equivalent to "only
+  // fire in the first 0.625 s after spawning" (FIRE_DEPTH_MAX block), which
+  // synchronised every wave into one barrage and left 30 s droughts between
+  // them. Sizing the train here instead keeps the thing that gate was actually
+  // protecting — no round ever leaves from inside the floor, and no train is
+  // silently truncated mid-payout — while letting the DECISION happen anywhere
+  // in the approach.
+  //
+  // Depth decays geometrically (d(t) = d0 * e^(-depthRate*t)), so the budget
+  // is a log, not a difference; using a difference here would overcount the
+  // deep end badly. `depthRate` is signed from the authored endpoints, hence
+  // the abs: a receding pattern has none of this budget and gets 1.
+  _trainRoundsFor(nominal) {
+    const rate = Math.abs(this.depthRate);
+    if (!(rate > 0)) return nominal;
+    const budgetS = Math.log(this.d / FIRE_DEPTH_MIN) / rate;
+    const fits = 1 + Math.floor(Math.max(0, budgetS) / SHOT_SPACING_S);
+    return Math.max(MIN_TRAIN_ROUNDS, Math.min(nominal, fits));
   }
 
   // ABANDON a train in progress, used only on the respawn edge
@@ -996,7 +1159,13 @@ export class Enemy {
           } else {
             this.telegraph = 0;
             this.telegraphFrac = 0;
-            this.burstCount = TRAIN_LENGTHS[Math.floor(rng() * TRAIN_LENGTHS.length)];
+            // R40: size the train to the budget this aircraft ACTUALLY has
+            // left, instead of refusing to open one unless a full train fits
+            // (which keyed every train in the game to the spawn instant — see
+            // the FIRE_DEPTH_MAX block). A short train late in the approach is
+            // a real threat; a train that never opens is a 30-second drought.
+            const nominal = TRAIN_LENGTHS[Math.floor(rng() * TRAIN_LENGTHS.length)];
+            this.burstCount = this._trainRoundsFor(nominal);
             this.burstLeft = this.burstCount;
             this.burstTimer = 0;
           }
@@ -1010,7 +1179,14 @@ export class Enemy {
           // Index from the train's centre, so the rake is symmetric about
           // the snapshotted aim point whatever the train length — the middle
           // of a train is the dangerous part and the ends miss.
-          const k = this.burstLeft - (this.burstCount - 1) / 2;
+          //
+          // R40: budget-sized trains can be ODD, and with an odd count this
+          // index hits exactly 0 — a round dead-centre on the telegraphed
+          // point, the guaranteed hit on a motionless pilot that TRAIN_LENGTHS'
+          // "EVEN" clause exists to forbid. Half-step the odd case so the
+          // train straddles the snapshot at every length.
+          const k =
+            this.burstLeft - (this.burstCount - 1) / 2 + (this.burstCount % 2 ? 0.5 : 0);
           fired = {
             ndcX: nx,
             ndcY: ny,
@@ -1039,9 +1215,19 @@ export class Enemy {
         // nominal 4-8. The budget is the aircraft's own remaining time to the
         // floor, so it is correct for all three depth rates rather than for
         // the fighter only.
+        //
+        // R40 — THE REQUIREMENT IS NOW "ROOM FOR THE FLARE AND AT LEAST ONE
+        // ROUND", NOT "ROOM FOR A WHOLE TRAIN". The old `needS` resolved to
+        // d >= 57.8, which an approach passes 0.625 s after spawning, so the
+        // decision this gate makes was always made at the spawn instant and
+        // every wave fired as one barrage (see the FIRE_DEPTH_MAX block for
+        // the measured series). The truncation the old gate was protecting
+        // against is now handled where it belongs — `_trainRoundsFor` sizes
+        // the train to the budget at the moment the flare expires — so the
+        // gate can stop deciding WHEN the whole wave shoots.
         this.fireTimer -= dt;
         const budgetS = Math.log(this.d / FIRE_DEPTH_MIN) / Math.abs(this.depthRate);
-        const needS = TELEGRAPH_S + (MIN_TRAIN_ROUNDS - 1) * SHOT_SPACING_S;
+        const needS = TELEGRAPH_S;
         if (
           this.fireTimer <= 0 &&
           allowNewTrain &&
@@ -1051,7 +1237,12 @@ export class Enemy {
         ) {
           this.telegraph = TELEGRAPH_S;
           this.telegraphFrac = 0;
-          this.fireTimer = 1.5 + rng() * 0.5;
+          // Cooldown between this aircraft's own trains. Drawn over a WIDE
+          // band (R40: 1.5+0.5 -> 0.9+1.6) because a narrow band re-converges
+          // aircraft that opened together: two enemies whose first trains were
+          // 0.9 s apart would have their SECOND trains within 0.5 s of each
+          // other again. The spread is the de-synchroniser.
+          this.fireTimer = FIRE_GAP_MIN_S + rng() * FIRE_GAP_SPAN_S;
           const a = rng() * Math.PI * 2;
           this.sweepX = Math.cos(a);
           this.sweepY = Math.sin(a) * 0.6; // flatter than tall, as t330 reads

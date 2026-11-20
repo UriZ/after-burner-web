@@ -1,0 +1,97 @@
+{
+  "root": "/private/tmp/claude-501/-Users-urizonens-dev-afterburner-three/b41228a0-594b-4891-9d20-7b35150ada55/scratchpad/r40tp-before",
+  "seconds": 90,
+  "seeds": [
+    4,
+    5,
+    9
+  ],
+  "arms": {
+    "BEFORE": {
+      "params": "",
+      "runs": [
+        {
+          "peak1s": 21,
+          "peak3s": 21,
+          "emptyBins10s": 3,
+          "bins": [
+            1,
+            0,
+            23,
+            0,
+            1,
+            0,
+            1
+          ],
+          "seed": 4,
+          "flightS": 65.5,
+          "rounds": 26,
+          "roundsPerMin": 23.8,
+          "trains": 6,
+          "trainsPerMin": 5.5,
+          "gapCV": 2.099,
+          "maxDroughtS": 18.5,
+          "maxTrainN": 21,
+          "medTrainN": 1,
+          "errors": []
+        },
+        {
+          "peak1s": 22,
+          "peak3s": 40,
+          "emptyBins10s": 4,
+          "bins": [
+            1,
+            0,
+            41,
+            0,
+            1,
+            0,
+            0
+          ],
+          "seed": 5,
+          "flightS": 65.5,
+          "rounds": 43,
+          "roundsPerMin": 39.4,
+          "trains": 4,
+          "trainsPerMin": 3.7,
+          "gapCV": 3.878,
+          "maxDroughtS": 19.3,
+          "maxTrainN": 40,
+          "medTrainN": 1,
+          "errors": []
+        },
+        {
+          "peak1s": 24,
+          "peak3s": 24,
+          "emptyBins10s": 1,
+          "bins": [
+            1,
+            6,
+            20,
+            1,
+            2,
+            1,
+            1,
+            0
+          ],
+          "seed": 9,
+          "flightS": 70.6,
+          "rounds": 32,
+          "roundsPerMin": 27.2,
+          "trains": 9,
+          "trainsPerMin": 7.6,
+          "gapCV": 1.746,
+          "maxDroughtS": 14.9,
+          "maxTrainN": 24,
+          "medTrainN": 1,
+          "errors": []
+        }
+      ],
+      "pooledRoundsPerMin": 30.1,
+      "pooledTrainsPerMin": 5.7,
+      "meanGapCV": 2.574,
+      "worstDroughtS": 19.3,
+      "worstTrainN": 40
+    }
+  }
+}

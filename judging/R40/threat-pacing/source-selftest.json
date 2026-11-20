@@ -1,0 +1,21 @@
+{
+  "invincibleFatalIsZero": true,
+  "repeatable": true,
+  "seedsDiffer": true,
+  "a1": {
+    "fatal": 1,
+    "viol": 1,
+    "minSrc": 0.467,
+    "byKiller": {
+      "battery": 1
+    }
+  },
+  "b": {
+    "fatal": 1,
+    "viol": 1,
+    "minSrc": 0.45,
+    "byKiller": {
+      "battery": 1
+    }
+  }
+}

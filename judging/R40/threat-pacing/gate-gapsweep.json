@@ -1,0 +1,183 @@
+{
+  "root": "/private/tmp/claude-501/-Users-urizonens-dev-afterburner-three/b41228a0-594b-4891-9d20-7b35150ada55/scratchpad/r40tp-after",
+  "seconds": 90,
+  "seeds": [
+    4,
+    5,
+    9
+  ],
+  "arms": {
+    "gap045": {
+      "params": "pace=traingap=0.45",
+      "runs": [
+        {
+          "peak1s": 9,
+          "peak3s": 19,
+          "emptyBins10s": 4,
+          "bins": [
+            0,
+            0,
+            20,
+            5,
+            0,
+            1,
+            0
+          ],
+          "seed": 4,
+          "flightS": 61.4,
+          "rounds": 26,
+          "roundsPerMin": 25.4,
+          "trains": 5,
+          "trainsPerMin": 4.9,
+          "gapCV": 2.492,
+          "maxDroughtS": 15.3,
+          "maxTrainN": 19,
+          "medTrainN": 1,
+          "errors": []
+        },
+        {
+          "peak1s": 10,
+          "peak3s": 25,
+          "emptyBins10s": 2,
+          "bins": [
+            0,
+            1,
+            25,
+            1,
+            1,
+            2,
+            0
+          ],
+          "seed": 5,
+          "flightS": 63.2,
+          "rounds": 30,
+          "roundsPerMin": 28.5,
+          "trains": 6,
+          "trainsPerMin": 5.7,
+          "gapCV": 2.103,
+          "maxDroughtS": 12.1,
+          "maxTrainN": 25,
+          "medTrainN": 1,
+          "errors": []
+        },
+        {
+          "peak1s": 9,
+          "peak3s": 15,
+          "emptyBins10s": 2,
+          "bins": [
+            1,
+            4,
+            12,
+            2,
+            1,
+            16,
+            0,
+            0
+          ],
+          "seed": 9,
+          "flightS": 73.3,
+          "rounds": 36,
+          "roundsPerMin": 29.5,
+          "trains": 9,
+          "trainsPerMin": 7.4,
+          "gapCV": 1.906,
+          "maxDroughtS": 12,
+          "maxTrainN": 15,
+          "medTrainN": 1,
+          "errors": []
+        }
+      ],
+      "pooledRoundsPerMin": 27.9,
+      "pooledTrainsPerMin": 6.1,
+      "meanGapCV": 2.167,
+      "worstDroughtS": 15.3,
+      "worstTrainN": 25
+    },
+    "gap035": {
+      "params": "pace=traingap=0.35",
+      "runs": [
+        {
+          "peak1s": 11,
+          "peak3s": 20,
+          "emptyBins10s": 3,
+          "bins": [
+            0,
+            0,
+            20,
+            5,
+            1,
+            9,
+            1,
+            0
+          ],
+          "seed": 4,
+          "flightS": 73.3,
+          "rounds": 36,
+          "roundsPerMin": 29.5,
+          "trains": 7,
+          "trainsPerMin": 5.7,
+          "gapCV": 2.477,
+          "maxDroughtS": 14,
+          "maxTrainN": 20,
+          "medTrainN": 1,
+          "errors": []
+        },
+        {
+          "peak1s": 11,
+          "peak3s": 25,
+          "emptyBins10s": 2,
+          "bins": [
+            0,
+            1,
+            25,
+            1,
+            1,
+            2,
+            0
+          ],
+          "seed": 5,
+          "flightS": 63.2,
+          "rounds": 30,
+          "roundsPerMin": 28.5,
+          "trains": 6,
+          "trainsPerMin": 5.7,
+          "gapCV": 2.104,
+          "maxDroughtS": 12.1,
+          "maxTrainN": 25,
+          "medTrainN": 1,
+          "errors": []
+        },
+        {
+          "peak1s": 9,
+          "peak3s": 15,
+          "emptyBins10s": 1,
+          "bins": [
+            1,
+            4,
+            13,
+            1,
+            4,
+            6,
+            0
+          ],
+          "seed": 9,
+          "flightS": 65.5,
+          "rounds": 29,
+          "roundsPerMin": 26.6,
+          "trains": 8,
+          "trainsPerMin": 7.3,
+          "gapCV": 1.918,
+          "maxDroughtS": 13.3,
+          "maxTrainN": 15,
+          "medTrainN": 1,
+          "errors": []
+        }
+      ],
+      "pooledRoundsPerMin": 28.2,
+      "pooledTrainsPerMin": 6.2,
+      "meanGapCV": 2.166,
+      "worstDroughtS": 14,
+      "worstTrainN": 25
+    }
+  }
+}
