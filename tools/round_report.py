@@ -21,67 +21,65 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 # ---------------------------------------------------------------- ROUND DATA
 ROUND = {
-    "number": 36,
+    "number": 37,
     "date": "2026-11-20",
-    "status": "SHIPPED — in tree, awaiting fresh judge + commit",
-    "score": "7 / 10",  # round-open naive playtest; re-judge pending on the shipped tree
-    "last_score": "8 (R35 judge) → this round opened with a NAIVE agent playtest: 7/10 in the hands",
+    "status": "SHIPPED — all six lanes committed",
+    "score": "owner is playing",  # owner-driven round; fresh naive playtest queued for R38 seeding
+    "last_score": "R36: 7/10 naive playtest → this round = the owner's live asks + R36's gap list",
     "tldr": (
-        "A naive agent played first: 7/10, <em>“it finally plays like a fight.”</em> Its four gaps all "
-        "shipped: a lock you can <em>see</em>, deaths you can <em>see coming</em>, enemies you must "
-        "<em>hunt</em>, and a horizon that's <em>alive</em>. Its weirdest clue — score exactly 84755 at "
-        "first death on both seeds — was a real bug. Fixed."
+        "Your five live asks, shipped: enemy jets fixed by <em>reversing a 10-round-old error</em> (the "
+        "arcade enemy has ONE nozzle — the twin glows were the 'insect face'), incoming fire that "
+        "<em>looks and sounds</em> like a threat, the arcade's billowing <em>missile trail</em>, and the "
+        "slow start traced to three real bugs — the biggest: <em>the music never actually played</em> "
+        "(200 s render, now instant) and the dev server was choking on 74k files (first frame 8.7→1.9 s). "
+        "Plus R36's top gap: <em>aiming matters now</em> — hands-off play collapsed to 0.33× of aimed."
     ),
     "verdict": (
-        "“It finally plays like a fight — I point at planes, hold the trigger, they blow up in big orange "
-        "blooms, and when I bank hard the whole world tips over just like the arcade.”"
+        "“Hands-off: 13 kills/min, zero missiles, stuck at stage 1. Aimed: 38, missiles working, "
+        "reaches stage 3. A pointing player notices nothing changed.”"
     ),
-    "verdict_attr": "R36 round-open playtest — fresh naive agent, 2 seeds, stages 1–3 · 7/10",
+    "verdict_attr": "R37 gate verification — quiet tree, seeds 7/42/3 · owner's hands are the verdict",
     "pairs": [
-        ("judging/R36/lock-clarity/before_after_lock.png",
-         ("BEFORE", "AFTER"),
-         "You can see who you're locked on.",
-         "Left: the old static cyan box. Middle+right: the bracket now pulses cyan↔white-hot ON the enemy. No lock? The button now fires a straight missile instead of doing nothing."),
-        ("judging/R36/death-legibility/new-round-ascent.png",
-         ("AFTER",),
-         "The shot that kills you is watchable.",
-         "Battery rounds (7 of 9 playtest deaths) were a 6px dot. Now a growing fireball you watch for 0.8 s. Difficulty unchanged."),
-        ("judging/R36/depth-combat/cap-final-deep-s7/frame-0002.png",
-         ("NEW",),
-         "Enemies you have to hunt.",
-         "Measured: ~3/4 of arcade kills happen out at depth. New deep formation crosses the sky and escapes if ignored; the nose-wall funnel demoted to 1-in-3."),
-        ("judging/R36/cruise-sway/before-after-sway.png",
-         ("BEFORE", "AFTER"),
-         "Straight flight is alive.",
-         "Top row: horizon frozen to the pixel. Bottom: subtle tilt+bob. Gameplay byte-identical; off during banks and rolls."),
+        ("judging/R37/enemy-art/compare-poses-arcade-before-after.png",
+         ("ARCADE | BEFORE | AFTER",),
+         "The enemy jet, de-bugged.",
+         "One nozzle, not two — R27 misread the player's jet, and the twin glows were your 'insect face'. Now: single bell, green camo, real quarter-view poses that bank into turns. Behavior byte-identical."),
+        ("judging/R37/incoming-fire/look-compare.png",
+         ("ARCADE | BEFORE | AFTER",),
+         "Incoming fire reads (and sounds) like the arcade.",
+         "The red-cap oval, two boil frames — no longer the same color as your own gun. Air rounds whistle in over the last 1.5 s; battery rounds roar their whole flight."),
+        ("judging/R37/missile-feel/sbs-trail-column.png",
+         ("ARCADE | BEFORE | AFTER",),
+         "Missile trail billows like the arcade's.",
+         "Scalloped white column, puff tail that persists and thins. Locked missiles also arrive in the arcade's 0.5–1.5 s again."),
     ],
     "shipped": [
-        "Missile button always answers — no lock fires a straight shot (0.4 s pacing)",
-        "Lock bracket pulses on the enemy; lock difficulty unchanged",
-        "Killing battery round is a visible growing fireball; deaths/min unchanged",
-        "84755 scripted-death bug dead (battery PRNG now seeded)",
-        "Deep formation wave — hunt it or it escapes; aim advantage 1.2× → 1.45×",
-        "Idle sway, with ?nosway=1 escape hatch; barrel roll still snaps level",
+        "Aiming matters: hit disc 1.2→0.5 span-mult + locks require steering; hands-off 0.62×→0.33× of aimed, zero free locks; pointing players byte-identical",
+        "Music actually plays — 0.31 s after start, per-stage variants switch (R35's renderer needed 200+ s per variant and never played)",
+        "Start fixed: dev server watch ignores (first frame 8.7→1.9 s), Space/Enter start the game; press-to-flying is 3× FASTER than the real arcade",
+        "Enemy art: one nozzle, 9-pose ladder, nozzle shimmer, crab-pose selection",
+        "Incoming fire: arcade oval + full-approach whistle/roar, cut on impact",
+        "Retracted a fabricated figure (the '0.33–0.40 presence' comment cited a sweep that never ran)",
     ],
-    "gaps_label": "Next — R37",
+    "gaps_label": "Next — R38",
     "gaps": [
-        (1, "feel", "Hands-off play still kills ~26/min",
-         "The gun's kill disc is 2.4× the target's wingspan and a parked stick gets free locks. Re-run the R8 hit-radius sweep; keep aimed fire easy. (weapons/vulcan.js, lockSystem.js.)"),
-        (2, "feel", "Far kills barely exist — arcade ~22%, ours ~0–5%",
-         "Our missiles resolve only after closure. Let them kill at the lock distance. (weapons/missiles.js.)"),
-        (3, "tension", "Close-enemy presence is low vs the arcade — an old gap, now measured honestly",
-         "RESOLVED: the \"published 0.33–0.40\" was a source comment citing a sweep that never ran; R32's real figure was 0.12–0.24. Today we're at ~0.07 vs the arcade's 0.40–0.70. If the sky feels empty, the lane is enemies ARRIVING already large — not re-funneling them to the nose."),
-        (4, "polish", "Audio still unheard by human ears",
-         "Playtests run mute. Five minutes of owner play with sound settles the R34/R35 music + SFX."),
+        (1, "feel", "Far kills still don't happen — 3–5% vs arcade ~22%",
+         "Measured at gate: missiles now FLY right, but locks still FORM at mid depth. The lane is lock-formation depth, not missile speed."),
+        (2, "feel", "Attract demo barely kills now",
+         "Its old kills were free-disc kills. Fix is making the demo AIM its fire windows (R30-deferred) — not a demo-only hit radius."),
+        (3, "tension", "Close-presence vs arcade (~0.07 vs 0.40–0.70)",
+         "Old, real, never-closed. The arcade's density comes from enemies ARRIVING already large. Needs its own round."),
+        (4, "polish", "Your ears are still the missing instrument",
+         "The music/SFX/whistles are verified by render stats; machines can't hear. You can now — it actually plays."),
     ],
     "keep": [
-        "Every R36 gap came from naive hands — and the weirdest clue was a real bug",
-        "Honest withdrawals shipped as deliverables (no idle sway in the arcade; routing can't beat the hit disc)",
-        "Difficulty held exactly in band while legibility improved",
+        "Reversing R27's enemy misread instead of polishing it — four rounds of 'sprites need work' traced to one wrong fact",
+        "Root-causing 'slow start' to infrastructure instead of trimming the launch cinematic",
+        "0 unannounced fatal hits on every seed through six lanes of combat changes",
     ],
     "method_note": (
-        "Three times this round a telemetry number and a player's eyes disagreed; all three were settled by "
-        "checking the instrument before touching code. Evidence in judging/R36/."
+        "Owner-driven round: every lane came from a sentence you typed while playing. Two long-standing "
+        "complaints died when a measured 'fact' was re-checked at source. Evidence in judging/R37/."
     ),
 }
 

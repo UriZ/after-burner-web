@@ -1,8 +1,30 @@
 # STATUS — where the rebuild stands
 
-**Last updated**: 2026-11-19. **R35 fresh judge: 8/10 — both weapons verifiably work, full arcade
-loop present, reads as AB2 at native scale. R36 is OPEN (fresh-context playtest + side-by-side look
-running).** Recent rounds were OWNER-DRIVEN: **R34** baked the afterburner into the sprite (4th
+**Last updated**: 2026-11-20. **R37 SHIPPED (all committed): owner-driven round, six lanes.**
+Headlines: **aiming matters now** (hands-off play 0.62×→0.33× of aimed, zero free locks — lock
+acquisition requires steering, hit disc 1.2→0.5 span-mult, scripted demos exempt); **the enemy has
+ONE nozzle** (R27's twin-nacelle read REVERSED — it misread the player's F-14; the twin glows WERE
+the owner's recurring "insect face"; 9-pose ladder with true oblique quarter views); **the music
+never actually played** (R35's offline render takes 200+ s/variant on this machine and pinned a
+core — now a live scheduler, same mix verified, starts 0.31 s after the start press, variants
+switch per stage); **startup was the dev server** (74k watched files; chokidar ignores → first
+frame 8.7→1.9 s; press-to-flying measured 3× FASTER than the arcade, closed in band);
+incoming fire redrawn (arcade red-cap oval) + full-approach whistle/roar; missile trail is the
+arcade's scalloped billow; Space/Enter start the game. **Gate (quiet tree): deaths/min 1.33
+pooled (shift = hit disc repricing the unaimed DEMO pilot; player-posture deaths unchanged),
+0 unannounced fatal hits every seed, warning floor 1.167 s.**
+**R37 corrections ledger:** the "R32 published 0.33–0.40 presence" figure was a comment citing a
+sweep that never ran (real R32 figure 0.12–0.24; today ~0.07 vs arcade 0.40–0.70 on a stricter
+operator — old, real, open gap; fix lane = enemies ARRIVING large). The never-kill tab crash was
+environmental (overloaded machine), refuted on the quiet tree.
+**Open for R38:** far-bin kills still 3–5% vs arcade ~22% (locks FORM at mid depth — it's
+lock-formation depth, not missile speed; measured at gate); attract demo now kills almost nothing
+(its kills were free-disc kills — fix is the R30-deferred "demo aims its fire windows", NOT a
+demo-only hit radius); close-presence vs arcade (arrival size/cadence); owner ear-check of the
+now-actually-playing audio.
+
+Previous state (R35/R36):** R35 fresh judge: 8/10 — both weapons verifiably work, full arcade
+loop present, reads as AB2 at native scale.** Recent rounds were OWNER-DRIVEN: **R34** baked the afterburner into the sprite (4th
 detach report → structural fix), made the barrel roll a RIGID whole-view roll, strengthened
 heat-seeking + aiming, punchy weapon SFX + driving music, enemy-fire whistle, MEAT PROXY branding,
 GitHub Pages deploy. **R35** (all owner asks): afterburner flame REMOVED entirely (owner: "it's
