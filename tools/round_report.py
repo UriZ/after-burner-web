@@ -33,31 +33,26 @@ ROUND = {
         "empty-sky / parked-wingmen stretches are gone (crossings ran at half speed for 10 rounds)."
     ),
     "pairs_label": "Where we actually are",
-    "pairs_sub": "every row is labelled inside the image — blue = arcade, orange = ours",
+    "pairs_sub": "blue = arcade, orange = ours",
     "pairs": [
         ("judging/R38/report-assets/arcade-vs-ours-stage1.png",
-         ("ARCADE", "OURS"),
-         "The reference, and our build, side by side.",
-         "Top row is the 1987 arcade; bottom row is ours at the same stage. Sky, sea, jet and HUD hold up. The honest gap this exposes: the arcade's sky is CROWDED — several enemies at readable size at once — while ours runs thinner. That density is the top item on the R39 list."),
+         "Arcade vs ours — stage 1",
+         "Sky, sea, jet and HUD hold up. The arcade's sky is busier — density is the top R39 gap."),
         ("judging/R38/report-assets/kill-before-after.png",
-         ("BEFORE", "AFTER"),
-         "Kills stop burying your jet.",
-         "Same kill, same tick, ours both rows. Before: a fixed-size fireball parks on the jet (84% peak coverage). After: a brief wing eruption, then the jet flies clean — sized to the victim, ballooning past the camera like the arcade's dead smoke. Your own death starburst still parks on the jet, so a kill never looks like your death."),
+         "Kill explosion — before vs after",
+         "Was 84% jet coverage for seconds. Now a brief wing burst, then clean."),
         ("judging/R38/death-legibility2/before-after-fatal-round.png",
-         ("BEFORE", "AFTER"),
-         "The killing shot strobes on every background.",
-         "All 7 playtest deaths were 'announced' — but the round's pale body camouflaged against the desert sky and clouds (it was measured on night footage). Now the killer class strobes red↔hot; everything ambient holds steady color."),
+         "Fatal round — before vs after",
+         "The pale round vanished against day skies. It strobes red↔hot now."),
         ("judging/R38/death-cost/arcade-reserve-icons-t266-338.png",
-         ("ARCADE",),
-         "Dying costs lives again — the arcade rule, read off its own HUD.",
-         "The lives icons hold at 0 across two stage boundaries — no refill exists. Ours 'refilled' because a fire button still held from combat bought the continue on its first tick. Now a coin needs a fresh press that begins on the continue screen."),
+         "Arcade lives counter",
+         "Holds at 0 across two stage boundaries — no refill exists."),
     ],
     "shipped": [
-        "Kill explosions victim-sized, ballooning past camera; jet coverage 84% → ~0; sim provably unchanged (identical kill ticks)",
-        "Fatal round strobes red↔hot + bigger battery telegraph; air rounds byte-untouched",
-        "Continue coin is rising-edge only — lives per credit are real, game over reachable",
-        "Crossing tempo fixed (patterns ran at HALF rate — 'parked wingmen'); visible-emptiness relief pair: max empty gap 6.5→2.2 s (arcade ~1.5–2 s)",
-        "Close presence 0.096→0.178 nominal — the old gap dented, not closed",
+        "Kills erupt at the enemy, not on your jet",
+        "The round that kills you strobes",
+        "Continues need a fresh press — lives are real again",
+        "Crossings at full speed; empty sky 6.5s → 2.2s",
     ],
     "gaps_label": "Next — R39",
     "gaps": [
@@ -102,24 +97,17 @@ def esc(s):
 
 def build():
     r = ROUND
-    def pair_badges(badges):
-        # badges: tuple of 1 or 2 labels, e.g. ("BEFORE", "AFTER"), ("OURS", "ARCADE"),
-        # or ("NEW",). Two labels render left=burn, right=cyan with an arrow between —
-        # the badge must say what the image actually shows (owner, R36: a before/after
-        # strip labelled "OURS vs ARCADE" is a lie).
-        if len(badges) == 1:
-            return f'<span class="pair-ours">{esc(badges[0])}</span>'
-        return (f'<span class="pair-ours">{esc(badges[0])}</span>'
-                f'<span class="pair-vs">→</span>'
-                f'<span class="pair-arc">{esc(badges[1])}</span>')
-
+    # Each picture: a TITLE that names what is being compared, then at most one
+    # sentence of finding. The row identity is baked into the image itself by
+    # tools/compare_sheet.py, so the caption never has to explain which half is
+    # which (owner, R38: "the pictures should have a clearer title - what we are
+    # comparing. with less words").
     pairs_html = "\n".join(
         f'''      <figure class="pair">
         <img src="{data_uri(src)}" alt="{esc(title)}" loading="lazy" />
-        <figcaption>{pair_badges(badges)}
-          <strong>{esc(title)}</strong> {esc(cap)}</figcaption>
+        <figcaption><strong>{esc(title)}</strong> {esc(cap)}</figcaption>
       </figure>'''
-        for src, badges, title, cap in r["pairs"]
+        for src, title, cap in r["pairs"]
     )
 
     gaps_html = "\n".join(
