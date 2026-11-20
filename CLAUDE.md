@@ -134,6 +134,14 @@ SIDE-BY-SIDE LOOK (ours vs arcade, fixed scenarios) + AGENT PLAYTEST
 >   out-of-scope. Structural gaps get their own round; they do not wait for a lane to have spare
 >   file ownership.
 
+- **Never save an edit that does not boot.** Twice in R40 a half-landed edit (a renamed
+  constant with one reference left behind; an undeclared tunable key) killed `window.__step`
+  on a tree the OWNER WAS PLAYING and every other lane was capturing from. A save is a
+  publish here. After each one:
+  `node tools/combat_probe.mjs --ticks 60 --url-params "demo=1&seed=7"` must print state
+  JSON, not a stack trace — ~10 s, and it catches the whole class. A lane that finds another
+  lane's breakage ESCALATES rather than reaching into the file (both R40 lanes did this
+  correctly); the TL preserves the WIP and restores the last good version.
 - **Every report picture names itself.** Owner, twice: "what is ours and what is the arcade???"
   A caption under an ambiguous picture is not an answer. Comparison sheets are built with
   `tools/compare_sheet.py`, which bakes a labelled colour spine into each row (blue = arcade,
