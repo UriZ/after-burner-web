@@ -498,15 +498,147 @@ export function setInboundWarning(intensity) {
   nodes.osc2.frequency.setTargetAtTime(f * 1.19, t, 0.05);
 }
 
-// --- Enemy fire: an incoming round whistling at you ------------------------
-// R34: the owner wants to HEAR enemy fire (it was silent). A SOFT, distinct
-// "incoming" cue -- NOT the player's hard percussive vulcan: a short
-// descending whistle (a round thrown toward the camera) + a little airy noise,
-// quiet so a wave of them layers into a threat bed rather than a machine-gun.
-// `pan` -1..1 places it where the shot came from.
-export function playEnemyFire(pan = 0) {
+// --- Enemy fire: an incoming round that you HEAR APPROACH ------------------
+// R37 (owner, first live ear-check: "improve the sound of incoming fire").
+// The R34 cue was a 0.16 s blip AT THE MUZZLE — it said "something fired",
+// then the round flew its whole 0.8-5 s approach in silence. Every enemy
+// round in this game flies a FIXED straight line at a FIXED speed, so its
+// entire future is known the instant it spawns; the caller (enemyShots.spawn)
+// passes crossS (seconds until it crosses the player's plane) and flightS,
+// and this schedules the full arc up front, in the arcade falling-shell
+// idiom:
+//   * a soft launch transient at t0 (the "it fired" read, kept from R34 but
+//     quieter — the approach now carries the threat);
+//   * a descending whistle that only becomes audible in the last stretch
+//     before the crossing and SWELLS as it closes — pitch tied to remaining
+//     flight, loudness to proximity;
+//   * a hard cut at the crossing (hit or miss) — the silence is the "it
+//     arrived" beat; a hit is immediately covered by the death explosion.
+// Battery rounds (the R36 killers) get a DEEPER voice: a gritty falling-shell
+// saw roar instead of the airy whistle, so ground fire is audibly a different
+// threat from an air train.
+// Per-voice peaks are kept small (<=0.2) because trains stack 4-8 voices;
+// the master limiter (engine.js) catches coincident swells. Verified offline:
+// judging/R37/incoming-fire/render_check.mjs (peak/RMS/no-clip + descending-
+// pitch read via __renderIncomingForTest below).
+
+// One live voice per airborne round, keyed by the caller's id so a retired
+// round (hit / pass / respawn clearShots) can cut exactly its own voice.
+const _incoming = new Map();
+// Air voices are capped: a full train plus strays can put ~8 rounds in the
+// air, and voice 9 adds mud, not information. Battery voices bypass the cap
+// (the likeliest killer must never be the one silenced).
+const MAX_AIR_VOICES = 6;
+
+// Builds the voice into any context (live or Offline — the offline render
+// test runs THIS code, not a copy). `out` is the destination, `noise` a
+// (seconds)=>AudioBuffer for `c`. Returns the gain nodes + sources so the
+// live path can cut early.
+function incomingVoiceGraph(c, out, t0, { battery = false, crossS = 1.0 } = {}, noise) {
+  const tCross = t0 + crossS;
+  const cutEnd = tCross + 0.06;
+  const sources = [];
+  const gains = [];
+
+  // 1) LAUNCH TRANSIENT at t0.
+  if (battery) {
+    // The shell leaving the ground gun: a low thump + lowpassed chuff.
+    const thump = c.createOscillator();
+    thump.type = 'sine';
+    thump.frequency.setValueAtTime(150, t0);
+    thump.frequency.exponentialRampToValueAtTime(58, t0 + 0.14);
+    const tg = c.createGain();
+    env(tg, t0, 0.002, 0.22, 0.0001, t0 + 0.16);
+    thump.connect(tg).connect(out);
+    thump.start(t0);
+    thump.stop(t0 + 0.18);
+    sources.push(thump);
+    gains.push(tg);
+  } else {
+    // Soft "it fired" tick — quieter than R34's blip; the swell is the cue.
+    const blip = c.createOscillator();
+    blip.type = 'triangle';
+    blip.frequency.setValueAtTime(950, t0);
+    blip.frequency.exponentialRampToValueAtTime(520, t0 + 0.07);
+    const bg = c.createGain();
+    env(bg, t0, 0.004, 0.05, 0.0001, t0 + 0.09);
+    blip.connect(bg).connect(out);
+    blip.start(t0);
+    blip.stop(t0 + 0.11);
+    sources.push(blip);
+    gains.push(bg);
+  }
+
+  // 2) THE APPROACH. Audible window: battery rounds scream their whole short
+  // flight; air rounds only for the last ~1.5 s (an 8-round train with 5 s
+  // flights whistling end-to-end is a siren wall, not a threat cue).
+  const tA = battery ? t0 : Math.max(t0, tCross - 1.5);
+  const swell = (g, peak) => {
+    g.gain.setValueAtTime(0.0001, tA);
+    g.gain.exponentialRampToValueAtTime(peak, tCross);
+    g.gain.exponentialRampToValueAtTime(0.0001, cutEnd); // the arrival cut
+  };
+
+  if (battery) {
+    // Falling-shell roar: gritty saw diving an octave and a half.
+    const saw = c.createOscillator();
+    saw.type = 'sawtooth';
+    saw.frequency.setValueAtTime(540, tA);
+    saw.frequency.exponentialRampToValueAtTime(140, tCross);
+    const sShape = shaper(c, 0.5);
+    const sg = c.createGain();
+    swell(sg, 0.2);
+    saw.connect(sShape).connect(sg).connect(out);
+    saw.start(tA);
+    saw.stop(cutEnd + 0.03);
+    sources.push(saw);
+    gains.push(sg);
+
+    const { src, filter } = noiseVoice(c, noise(0.6), 'lowpass', 2000, 600, tCross);
+    const ng = c.createGain();
+    swell(ng, 0.09);
+    filter.connect(ng).connect(out);
+    src.start(tA);
+    src.stop(cutEnd + 0.03);
+    sources.push(src);
+    gains.push(ng);
+  } else {
+    // Air round: a two-osc detuned whistle (the chorus keeps a train from
+    // phasing into one tone) + an air-rip noise band, all diving together.
+    for (const det of [1.0, 1.013]) {
+      const osc = c.createOscillator();
+      osc.type = 'triangle';
+      osc.frequency.setValueAtTime(1650 * det, tA);
+      osc.frequency.exponentialRampToValueAtTime(620 * det, tCross);
+      const g = c.createGain();
+      swell(g, 0.085);
+      osc.connect(g).connect(out);
+      osc.start(tA);
+      osc.stop(cutEnd + 0.03);
+      sources.push(osc);
+      gains.push(g);
+    }
+    const { src, filter } = noiseVoice(c, noise(0.5), 'bandpass', 2600, 950, tCross);
+    filter.Q.value = 1.2;
+    const ng = c.createGain();
+    swell(ng, 0.05);
+    filter.connect(ng).connect(out);
+    src.start(tA);
+    src.stop(cutEnd + 0.03);
+    sources.push(src);
+    gains.push(ng);
+  }
+  return { sources, gains, cutEnd };
+}
+
+export function playEnemyFire({ pan = 0, battery = false, crossS = 1.0, id = null } = {}) {
   const c = ctx();
   if (!c) return;
+  if (!battery) {
+    let air = 0;
+    for (const v of _incoming.values()) if (!v.battery) air += 1;
+    if (air >= MAX_AIR_VOICES) return;
+  }
   const t = now();
   const dst = master();
   const panner = c.createStereoPanner ? c.createStereoPanner() : null;
@@ -515,32 +647,80 @@ export function playEnemyFire(pan = 0) {
     panner.connect(dst);
   }
   const out = panner || dst;
+  const voice = incomingVoiceGraph(c, out, t, { battery, crossS }, noiseBuffer);
+  voice.battery = battery;
+  if (id !== null) {
+    _incoming.set(id, voice);
+    // Self-clean when the scheduled arc ends uninterrupted.
+    const last = voice.sources[voice.sources.length - 1];
+    last.onended = () => {
+      if (_incoming.get(id) === voice) _incoming.delete(id);
+    };
+  }
+}
 
-  // Descending whistle body — a thrown round approaching, pitch falls as it
-  // "passes". Triangle so it is airy, not a laser.
-  const osc = c.createOscillator();
-  osc.type = 'triangle';
-  osc.frequency.setValueAtTime(1150, t);
-  osc.frequency.exponentialRampToValueAtTime(430, t + 0.14);
-  const og = c.createGain();
-  env(og, t, 0.006, 0.09, 0.0001, t + 0.16);
-  osc.connect(og).connect(out);
-  osc.start(t);
-  osc.stop(t + 0.18);
+// The round is gone (hit the player, passed the plane, or the respawn cleared
+// the sky): silence its voice in ~15 ms. Already-ended nodes throw on stop();
+// that is fine and swallowed.
+export function cutEnemyFire(id) {
+  const voice = _incoming.get(id);
+  if (!voice) return;
+  _incoming.delete(id);
+  const c = ctx();
+  if (!c) return;
+  const t = c.currentTime;
+  for (const g of voice.gains) {
+    try {
+      g.gain.cancelScheduledValues(t);
+      g.gain.setTargetAtTime(0.0001, t, 0.012);
+    } catch { /* node already collected */ }
+  }
+  for (const s of voice.sources) {
+    try { s.stop(t + 0.08); } catch { /* already stopped */ }
+  }
+}
 
-  // A breath of bandpassed noise so it reads as fired matter, not a pure tone.
-  const { src, filter } = noiseVoice(c, noiseBuffer(0.16), 'bandpass', 1600, 700, t + 0.14);
-  filter.Q.value = 1.1;
-  const ng = c.createGain();
-  env(ng, t, 0.004, 0.05, 0.0001, t + 0.13);
-  filter.connect(ng).connect(out);
-  src.start(t);
-  src.stop(t + 0.16);
+// Offline-render hook for the verification script ONLY (mirrors
+// music.js's __renderLoopForTest): renders a scenario through the SAME
+// incomingVoiceGraph code plus a mirror of engine.js's master chain (0.7 gain
+// + the same limiter), so the no-clip check covers what actually ships.
+// Scenarios: 'battery' | 'air' | 'train' (8-round spaced train) |
+// 'stack' (train + battery coinciding — the worst case the cap allows).
+export async function __renderIncomingForTest(scenario = 'battery') {
+  if (typeof OfflineAudioContext === 'undefined') return null;
+  const dur = 4.5;
+  const c = new OfflineAudioContext(2, Math.ceil(44100 * dur), 44100);
+  const m = c.createGain();
+  m.gain.value = 0.7;
+  const limiter = c.createDynamicsCompressor();
+  limiter.threshold.value = -6;
+  limiter.knee.value = 4;
+  limiter.ratio.value = 12;
+  limiter.attack.value = 0.002;
+  limiter.release.value = 0.12;
+  m.connect(limiter);
+  limiter.connect(c.destination);
+  const noise = (seconds) => {
+    const len = Math.max(1, Math.floor(c.sampleRate * seconds));
+    const buf = c.createBuffer(1, len, c.sampleRate);
+    const d = buf.getChannelData(0);
+    for (let i = 0; i < len; i++) d[i] = Math.random() * 2 - 1;
+    return buf;
+  };
+  const spawn = (t0, opts) => incomingVoiceGraph(c, m, t0, opts, noise);
+  if (scenario === 'battery') spawn(0.2, { battery: true, crossS: 0.8 });
+  else if (scenario === 'air') spawn(0.2, { crossS: 2.3 });
+  else {
+    for (let i = 0; i < 8; i++) spawn(0.2 + i * 0.13, { crossS: 2.3 });
+    if (scenario === 'stack') spawn(1.7, { battery: true, crossS: 0.8 });
+  }
+  return c.startRendering();
 }
 
 const HANDLERS = {
   vulcan: (opts) => playVulcan(opts.side ?? 1),
-  enemyFire: (opts) => playEnemyFire(opts.pan ?? 0),
+  enemyFire: (opts) => playEnemyFire(opts),
+  enemyFireCut: (opts) => cutEnemyFire(opts.id),
   missileLaunch: playMissileLaunch,
   lockOn: playLockOn,
   explosion: (opts) => playExplosion(!!opts.big),

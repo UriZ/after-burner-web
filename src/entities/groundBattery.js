@@ -143,6 +143,9 @@ export const BATTERY_SHOT_PROFILE = {
   fracFar: _batteryOverrides.fracfar ?? 0.022,
   fracNear: _batteryOverrides.fracnear ?? 0.031,
   progressSize: true,
+  // R37: picks the deeper incoming-fire voice (enemyShots.spawn -> sfx.js).
+  // Audio-only — no ballistics field reads this.
+  battery: true,
 };
 const BURST_LEN = 1; // ONE telegraphed AA round per pass — the arcade battery is
 //                      a dodge PROMPT, not a guaranteed kill. A 2-round burst

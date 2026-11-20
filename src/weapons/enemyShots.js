@@ -1,6 +1,6 @@
 import { makeBillboard } from '../effects/pixelTexture.js';
 import { sizeSprite } from '../effects/smoke.js';
-import { enemyShotTexture } from './projectileSprites.js';
+import { enemyShotTextures } from './projectileSprites.js';
 import { AudioBus } from '../audio/index.js';
 
 // Enemy fire.
@@ -196,6 +196,24 @@ const PASS_DEPTH = 1.6; // retire once it has gone by
 const FRAC_FAR = 0.018; // 5.8 px of 320 — between the arcade's p10 and median
 const FRAC_NEAR = 0.031; // 9.9 px of 320 — near the arcade's p90/max near-end
 
+// R37 — the round BOILS. 60 Hz consecutive decode of the t330 train
+// (judging/R37/incoming-fire/) shows every arcade round's red cap swinging
+// ~40% in coverage frame-to-frame (merged <-> lifted off the body). Two
+// authored sprite frames alternate at 30 Hz (every other 60 Hz tick), with a
+// per-shot phase so a train shimmers instead of blinking in unison. Map swap
+// only — the palette-swap idiom (telegraph.js), never an opacity ramp.
+const FLICKER_HZ = 30;
+
+// Player plane depth, for the incoming-round AUDIO's time-to-crossing only.
+// The hit test itself uses combat.js's live playerNdc.depth; this constant is
+// the same ~5 every combat/groundBattery derivation quotes. An error here
+// shifts the whistle's cut by (err/speed) s — at +-0.5 depth that is <=60 ms.
+const PLAYER_PLANE_DEPTH = 5;
+
+// Monotonic id handed to the audio layer so a retired round can cut its own
+// whistle voice (and nothing else's). Not a PRNG draw; deterministic.
+let nextShotAudioId = 1;
+
 export class EnemyShots {
   constructor(scene, space) {
     this.scene = scene;
@@ -227,14 +245,24 @@ export class EnemyShots {
     let sprite;
     if (this.pool.length) sprite = this.pool.pop();
     else {
-      sprite = makeBillboard(enemyShotTexture(), 0.1);
+      sprite = makeBillboard(enemyShotTextures()[0], 0.1);
       sprite.renderOrder = 11;
     }
     this.scene.add(sprite);
-    // R34: an audible "incoming" whistle when an enemy fires at you, panned to
-    // where the shot came from (owner: the enemy fire was silent). Ground
-    // batteries route through this same spawn, so they are covered too.
-    AudioBus.play('enemyFire', { pan: Math.max(-1, Math.min(1, from.ndcX)) });
+    const speed = opts && opts.speed ? opts.speed : SPEED;
+    const audioId = nextShotAudioId++;
+    // R37 (owner: "improve the sound of incoming fire"): the R34 one-shot blip
+    // is now a voice that TRACKS this round's approach. The flight is a fixed
+    // straight line at a fixed speed, so its whole future is known at spawn:
+    // the audio layer schedules a descending whistle that swells toward the
+    // plane-crossing and cuts there; _retire cuts it early via the id (hit,
+    // pass, or a respawn clearShots). `battery` picks the deeper voice.
+    AudioBus.play('enemyFire', {
+      pan: Math.max(-1, Math.min(1, from.ndcX)),
+      battery: !!(opts && opts.battery),
+      crossS: Math.max(0.12, (from.depth - PLAYER_PLANE_DEPTH) / speed),
+      id: audioId,
+    });
     this.shots.push({
       sprite,
       depth: from.depth,
@@ -246,17 +274,25 @@ export class EnemyShots {
       invStart: 1 / from.depth,
       invAim: 1 / aim.depth,
       startDepth: from.depth,
-      speed: opts && opts.speed ? opts.speed : SPEED,
+      speed,
       fracFar: opts && opts.fracFar ? opts.fracFar : FRAC_FAR,
       fracNear: opts && opts.fracNear ? opts.fracNear : FRAC_NEAR,
       progressSize: !!(opts && opts.progressSize),
+      audioId,
+      age: 0,
+      // Per-shot boil phase: spawn-order parity, so a train's rounds flicker
+      // offset from each other. Deterministic (no PRNG draw — the named
+      // shared-stream bug class).
+      flickerPhase: audioId & 1,
       meta,
     });
   }
 
   update(dt) {
+    const texes = enemyShotTextures();
     for (let i = this.shots.length - 1; i >= 0; i--) {
       const s = this.shots[i];
+      s.age += dt;
       // Kept so combat.js's hit test can ask "did this round cross the
       // player's plane during THIS tick" rather than "is it currently within
       // a depth tolerance of it". See checkPlayerHit's comment: the
@@ -288,6 +324,11 @@ export class EnemyShots {
             1,
             Math.max(0, (1 / s.depth - 1 / s.startDepth) / (1 / PASS_DEPTH - 1 / s.startDepth))
           );
+      // The measured boil: alternate the two authored frames at FLICKER_HZ,
+      // offset per shot. Map BEFORE sizeSprite (it reads aspect off the live
+      // map — telegraph.js's note; both frames are 16x12 today, and this keeps
+      // it correct the day one is redrawn).
+      s.sprite.material.map = texes[(Math.floor(s.age * FLICKER_HZ) + s.flickerPhase) & 1];
       sizeSprite(
         s.sprite,
         this.space.worldWidthFor(s.fracFar + (s.fracNear - s.fracFar) * q, s.depth)
@@ -297,6 +338,10 @@ export class EnemyShots {
 
   _retire(i) {
     const s = this.shots[i];
+    // Cut this round's whistle voice: on a pass this lands where the schedule
+    // already ends; on a player hit the death SFX takes over; on a respawn
+    // clearShots it stops a dead life's rounds screaming into the new one.
+    AudioBus.play('enemyFireCut', { id: s.audioId });
     this.scene.remove(s.sprite);
     this.pool.push(s.sprite);
     this.shots.splice(i, 1);

@@ -81,55 +81,101 @@ function drawVulcanPuff(ctx, w, h) {
 }
 
 // --- Enemy shot ------------------------------------------------------------
-// REFERENCE.md: "larger oval fireballs, ~6-8 native px, in spaced trains of
-// 4-8: pale-gold core #ffd570, orange body #ff7733, dark red rim #941114,
-// salmon edge #e96c63". Source t330.
-// See reference/stage7-enemy-shot-train-t330.png — the dark rim is the
-// distinguishing feature against the player's vulcan puffs, so it is drawn
-// as a full ring, not a shadow on one side.
-export const SHOT_CORE = '#ffd673'; // sampled #ffd570
-export const SHOT_BODY = '#ff7331'; // sampled #ff7733
-export const SHOT_RIM = '#941010'; // sampled #941114
-const SHOT_EDGE = '#e66b63'; // sampled #e96c63
-// R29 — a hot near-white centre pip, for READABILITY. The R29 judge's #1 gap
-// is "you never feel shot at": the round rendered as a tiny dark-dominated
-// dot that vanished into the sky/explosion/HUD clutter, so the AB2 "weave
-// through a hail of fire" loop read as absent (judging/R29/crop_enemyfire.png).
-// This is the SAME hot tone the telegraph flare already uses (telegraph.js
-// T_HOT), so the warning glyph and the round it predicts share their hottest
-// colour — the player learns one threat colour, not two. Ladder-valid:
-// ff=255, f7=247, ce=206 are all on SEGA_LADDER (pixelTexture.js), so
-// fx_palette_probe's ladder assertion still passes.
+// R37 — REDRAWN FROM A 60 Hz CONSECUTIVE-DECODE LOOK AT THE t330 TRAIN
+// (judging/R37/incoming-fire/: arc/t330 frames f0038-f0055, 16-frame strip
+// t330-train-strip-f38-53.png, single-round 8x track t330-tracked-round-8x.png,
+// and a 16-bucket colour census over all train pixels). The owner's R37 ask is
+// "improve the look of incoming fire"; the look-first pass found the previous
+// concentric-rings ball is NOT what the arcade draws. The measured round is
+//   * LAYERED, not concentric: a dark-red CAP over the top ~third, a bright
+//     PALE-PEACH body below it, with cream/near-white horizontal streaks
+//     through the middle — it reads as a burning blob lit from within, under a
+//     thin near-black outline. No salmon halo exists on the real round (the
+//     old #e96c63 edge was video blur, dropped).
+//   * BOILING: the cap's coverage swings ~40% frame-to-frame at 60 Hz (red-cap
+//     pixel count 129->192->169 across one tracked round's 3 consecutive
+//     frames, pale count 101->71->105) and the cap alternately merges with and
+//     lifts off the body. Two authored variants + a per-shot map swap in
+//     enemyShots.js reproduce that (palette-swap idiom, same as telegraph.js —
+//     never an opacity ramp).
+//   * TRAIL-FREE: the sky behind every tracked round is clean. No ember trail.
+// Census (16-bucket modes, snapped to SEGA_LADDER): pale body #f8b888-family
+// -> #f7b584; cap #880808/#981818-family — the already-measured rim #941010;
+// outline #080808-#380808 -> #3a1010; cream streak #f8d898 ~ the previously
+// measured core #ffd673 (kept — same source, earlier pass); mid-orange
+// #f89868-family ~ the previously measured body #ff7331 (kept, now the shadow
+// band). Round proportions: near-end w 34-38 x h 22-23 video px (~1.5:1), so
+// the canvas is 16x12.
+export const SHOT_CORE = '#ffd673'; // sampled #ffd570 — cream/gold streak
+export const SHOT_BODY = '#ff7331'; // sampled #ff7733 — lower shadow band
+export const SHOT_RIM = '#941010'; // sampled #941114 — the red cap
+const SHOT_PALE = '#f7b584'; // R37 census mode #f8b888 — pale-peach body
+const SHOT_OUTLINE = '#3a1010'; // R37 census dark family #080808-#380808
+// R29 — a hot near-white centre, for READABILITY (kept: it is also what the
+// census shows — the mid-band streaks run to near-white). Same hot tone the
+// telegraph flare uses (telegraph.js T_HOT), so the warning glyph and the
+// round it predicts share their hottest colour. Ladder-valid: ff=255, f7=247,
+// ce=206 all on SEGA_LADDER (pixelTexture.js).
 const SHOT_HOT = '#fff7ce';
-export const SHOT_PALETTE = [SHOT_EDGE, SHOT_RIM, SHOT_BODY, SHOT_CORE, SHOT_HOT];
+export const SHOT_PALETTE = [SHOT_OUTLINE, SHOT_RIM, SHOT_BODY, SHOT_PALE, SHOT_CORE, SHOT_HOT];
 
-function drawEnemyShot(ctx, w, h) {
-  const cx = w / 2;
-  const cy = h / 2;
-  const ell = (rx, ry, fill) => {
-    ctx.fillStyle = fill;
-    ctx.beginPath();
-    ctx.ellipse(cx, cy, rx, ry, 0, 0, Math.PI * 2);
-    ctx.fill();
+// Explicit 16x12 pixel grids (Canvas2D ellipse() antialiases with no way to
+// turn it off — the vulcan puff's explicit-grid pattern, per
+// judging/R4/art-critique.md). o=outline r=cap s=shadow-orange p=pale-peach
+// c=cream-streak h=hot. Variant A: cap merged onto the body (red-dominant
+// frame). Variant B: cap thinner and lifted off a hotter body (pale-dominant
+// frame). Flickering A<->B is the measured boil.
+const SHOT_ROWS_A = [
+  '....oorrrroo....',
+  '..oorrrrrrrroo..',
+  '.orrrrrrrrrrrro.',
+  '.orrrrrrrrrrrro.',
+  '.osppppppppppso.',
+  'opcchhhhhhhhccpo',
+  'ophhhhhhhhhhhhpo',
+  'opccccccccccccpo',
+  '.oppppppppppppo.',
+  '.osppppppppppso.',
+  '..osppppppppso..',
+  '...oossssssoo...',
+];
+const SHOT_ROWS_B = [
+  '...oorrrrrroo...',
+  '..orrrrrrrrrro..',
+  '..oossssssssoo..',
+  '.osppppppppppso.',
+  'ophhhhhhhhhhhhpo',
+  'opcchhhhhhhhccpo',
+  'oppccccccccccppo',
+  'oppppppppppppppo',
+  '.oppppppppppppo.',
+  '.osppppppppppso.',
+  '..osppppppppso..',
+  '...oossssssoo...',
+];
+
+const SHOT_ROLES = {
+  o: SHOT_OUTLINE,
+  r: SHOT_RIM,
+  s: SHOT_BODY,
+  p: SHOT_PALE,
+  c: SHOT_CORE,
+  h: SHOT_HOT,
+};
+
+function drawEnemyShotRows(rows) {
+  return (ctx, w, h) => {
+    const pw = w / 16;
+    const ph = h / 12;
+    for (let y = 0; y < 12; y++) {
+      for (let x = 0; x < 16; x++) {
+        const ch = rows[y][x];
+        if (ch === '.') continue;
+        ctx.fillStyle = SHOT_ROLES[ch];
+        ctx.fillRect(x * pw, y * ph, pw, ph);
+      }
+    }
   };
-  // Oval, wider than tall, per "oval fireballs" and the t330 crop.
-  //
-  // R29 — RE-WEIGHTED FOR BRIGHTNESS. Same five-ring fireball and the same
-  // measured dark-red identity rim, but the dark half no longer dominates.
-  // Before, the dark-red RIM ran out to 0.44/0.38 radius and the pale-gold
-  // core was a 0.17 speck, so the sprite was mostly dark red and a 7px round
-  // read as a dim brown dot. Now the dark rim is a THIN ring (0.46->0.42) kept
-  // only for its identifying edge, and the hot orange body + pale-gold core
-  // own the interior: core radius 0.17 -> 0.28 (~2.7x the area), body 0.33 ->
-  // 0.40, with a near-white hot pip at the centre. The fireball now reads as a
-  // hot pale-gold/orange ball with a dark edge, not a dark ball with a gold
-  // dot. The oval shape, the colour family and the identifying dark rim are
-  // unchanged; only how much of the sprite each role covers moved.
-  ell(w * 0.50, h * 0.46, SHOT_EDGE); // salmon halo, thin outer
-  ell(w * 0.46, h * 0.42, SHOT_RIM);  // dark-red identity ring, thin
-  ell(w * 0.40, h * 0.36, SHOT_BODY); // orange body, enlarged
-  ell(w * 0.28, h * 0.26, SHOT_CORE); // pale-gold hot core, enlarged
-  ell(w * 0.13, h * 0.12, SHOT_HOT);  // near-white centre pip
 }
 
 // --- Missile body ----------------------------------------------------------
@@ -250,7 +296,14 @@ function cached(key, draw, w, h, palette) {
 }
 
 export const vulcanTexture = () => cached('vulcan', drawVulcanPuff, 8, 8, VULCAN_PALETTE);
-export const enemyShotTexture = () => cached('shot', drawEnemyShot, 16, 14, SHOT_PALETTE);
+// [capMerged, capLifted] — enemyShots.js flickers each live round between the
+// two (the measured 60 Hz boil). enemyShotTexture() stays as frame A for any
+// single-texture consumer (tools/fx-probe.mjs checks both frames).
+export const enemyShotTextures = () => [
+  cached('shotA', drawEnemyShotRows(SHOT_ROWS_A), 16, 12, SHOT_PALETTE),
+  cached('shotB', drawEnemyShotRows(SHOT_ROWS_B), 16, 12, SHOT_PALETTE),
+];
+export const enemyShotTexture = () => enemyShotTextures()[0];
 export const missileTexture = () => cached('missile', drawMissile, 12, 24, MISSILE_PALETTE);
 export const muzzleFlashTexture = () => cached('muzzle', drawMuzzleFlash, 16, 16, MUZZLE_PALETTE);
 export const lockBarTexture = () => cached('lockbar', drawLockBar, 4, 4, BRACKET_PALETTE);

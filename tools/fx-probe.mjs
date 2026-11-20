@@ -34,7 +34,7 @@
 // Driven by `node tools/fx_palette_probe.mjs`.
 import { SEGA_LADDER } from '../src/effects/pixelTexture.js';
 import {
-  vulcanTexture, enemyShotTexture, missileTexture, muzzleFlashTexture, lockBarTexture,
+  vulcanTexture, enemyShotTextures, missileTexture, muzzleFlashTexture, lockBarTexture,
 } from '../src/weapons/projectileSprites.js';
 import { telegraphTextures } from '../src/weapons/telegraph.js';
 import { burstTexturesForProbe, chunkTexturesForProbe } from '../src/effects/explosions.js';
@@ -48,7 +48,9 @@ import { makePixelTexture } from '../src/effects/pixelTexture.js';
 function elements() {
   const out = [
     { name: 'vulcan', kind: 'effect', tex: vulcanTexture() },
-    { name: 'enemyShot', kind: 'effect', tex: enemyShotTexture() },
+    // Both boil frames of the R37 enemy round (enemyShots.js flickers them).
+    { name: 'enemyShot[A]', kind: 'effect', tex: enemyShotTextures()[0] },
+    { name: 'enemyShot[B]', kind: 'effect', tex: enemyShotTextures()[1] },
     { name: 'missile', kind: 'vehicle', tex: missileTexture() },
     { name: 'muzzleFlash', kind: 'effect', tex: muzzleFlashTexture() },
     { name: 'lockBar', kind: 'effect', tex: lockBarTexture() },
