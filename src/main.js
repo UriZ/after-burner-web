@@ -4,7 +4,13 @@ import { demoTimeline } from './game/flow/demoTimeline.js';
 
 const params = new URLSearchParams(location.search);
 const canvas = document.getElementById('screen');
+// R37 start-time measurement: Game's constructor is the whole boot cost
+// (every texture/sprite is authored on canvas inside it), so its wall-clock
+// time IS the "page load -> title" phase a player sits through. Read via
+// __startupProbe below.
+const _bootT0 = performance.now();
 const game = new Game(canvas);
+const _gameCtorMs = performance.now() - _bootT0;
 
 const seed = params.has('seed') ? Number(params.get('seed')) : 1;
 game.rng = createPrng(seed); // reserved for gameplay systems (spawner, etc.)
@@ -47,7 +53,23 @@ if (params.has('fixed')) {
   window.__frameReady = true;
 } else {
   game.start();
+  // Records when the first live frame actually painted: rAF callbacks run in
+  // registration order, so this fires in the same frame as (and just after)
+  // FixedLoop's first render.
+  requestAnimationFrame(() => {
+    window.__firstFrameMs = performance.now();
+  });
 }
+
+// R37 measurement-only, always on (unlike __flowState it must work in LIVE
+// mode, where the owner's "takes too long to start playing" happens — ?fixed
+// hooks don't exist there). Read-only snapshot; drives nothing.
+window.__startupProbe = () => ({
+  gameCtorMs: _gameCtorMs,
+  firstFrameMs: window.__firstFrameMs ?? null,
+  state: game.flow.state,
+  now: performance.now(),
+});
 
 // `demoTimeline` (src/game/flow/demoTimeline.js, R4): the real two-regime
 // attract flight (GAME_SPEC.md §7), replacing the round-1 placeholder
