@@ -584,7 +584,37 @@ export const ENEMY_LIVERIES = {
     ['#101963', '#2131a4', '#3a5bc5', '#6b8ce6', '#adc5ff'],
     ['#4a4a4a', '#2131a4'],
     // R37: the measured stage-1 green wing band (see liveryOf's band note).
-    '#005230'),
+    //
+    // ============ R41: THE CAMO BAND WAS ACTING AS A SECOND BLACK ==========
+    // #005230 is L 53.7 — DARKER than this livery's own `dominant` rung
+    // (#4a4a4a, L 74) and only 38 levels above its `shadow`. R40 then widened
+    // the bands (three 14 %-wide dashes -> two 22 %-wide bands) and put them
+    // on the head aspect as well, so by R41 the single LARGEST colour on the
+    // stage-1 enemy was a near-black green at 21.8 % of the level cell. The
+    // camo stopped being a pattern on a pale wing and became a hole in it.
+    //
+    // Where the sprite ended up, against this file's own measurement of the
+    // arcade (the R11 census above: median L 132, 30.8 % below L 80):
+    //     enemy-grey-head.png level cell, 331 opaque texels
+    //     -> 64.1 % below L 80, median L ~54-74, MEAN L 91
+    //     against a stage-1 sky of L 120.7, i.e. dL -30 where R11 measured
+    //     the arcade's enemy at dL +6 ("its mean sits ON the sky's own
+    //     luminance"). In game at 11-60 native px, same operator as R40's
+    //     census.py: pale 25.3 % / dark 59.0 % / median luma 74, against the
+    //     arcade's 56.3 / 16.2 / 189 on video (whose blend ring inflates
+    //     pale, hence the R11 figure as the honest target).
+    //
+    // OPERATOR for the replacement value: the arcade's own stage-1 camo
+    // green, measured on the wing of the large left-hand enemy in
+    // ab2-longplay-60fps t=116 (HUD stage digit 1 in frame), box-averaged to
+    // NATIVE 320x224 first — judging/R41/enemy-look2/arc-f1200-nat.png
+    // x[55,121] y[88,126], green = g > r+18 AND g > b+18 AND g > 40, n=111:
+    //     median L 102.8   (p25 93.8, p75 113.2)
+    // That is an UPPER bound (a 3.2125x upscale blends the green with a pale
+    // airframe and a bright sky), which is why this takes the ladder member
+    // just under the p25 rather than at the median, and why the band is not
+    // pushed to the measured centre.
+    '#29845a'),
   // stage 2 (desert, orange sky). Dark green camo — MEASURED dominant
   // #102910 at V0.16 on ab2-arcade-closeup-enemies.jpg, which IS a stage-2
   // frame and so is the right source for this livery. Left dark on purpose.

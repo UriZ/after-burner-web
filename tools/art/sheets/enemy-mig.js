@@ -305,7 +305,17 @@ function wing(c, T, p, { span = HALF_SPAN, root = 4, chord = 6, tipChord = 2,
     // lit above, dark below, the same lit/dark structure that lifted the
     // player jet out of "flat". Drawn from the straight top edge down, so it
     // tracks the real trailing edge as the chord tapers.
-    band(c, T, xr, xt, tr + chord - 1, tr + chord, tt + tipChord - 1, tt + tipChord, p.shadow);
+    // R41: the full-span edge is `dominant`, not `shadow`. This file's own
+    // R11 measurement of the arcade's stage-1 enemy, quoted above, is
+    // "BOTTOMmost airframe row median L 83.0 ... the shaded edge is a MID
+    // tone, not black", and palettes.js took exactly that reading when it set
+    // `dayRim` to rung 2 (#4a4a4a, L 74) "rather than ringing the sprite in
+    // black". The wing's own trailing edge never followed: it stayed on
+    // `shadow` (#101010, L 16 on `grey`) across the whole span, which is 19 %
+    // of the level cell at near-black. The short inboard accent below keeps
+    // `shadow`, so the darkest value is still present where the arcade has
+    // it (the wing root) instead of ringing the whole blade.
+    band(c, T, xr, xt, tr + chord - 1, tr + chord, tt + tipChord - 1, tt + tipChord, p.dominant);
     strip(0.22, chord - 1, chord, p.shadow);
     // R37: camo band dashes along the bar (rear aspect only — callers pass
     // bandHex there). The stage-1 arcade enemy's wing tops carry GREEN bands
@@ -728,33 +738,107 @@ function blade3(c, P, a, b, wRoot, wTip, hex) {
   ], hex);
 }
 
-const mix3 = (a, b, t) => [
-  a[0] + (b[0] - a[0]) * t,
-  a[1] + (b[1] - a[1]) * t,
-  a[2] + (b[2] - a[2]) * t,
-];
+// ====================== R41: THE WING WAS A DOTTED LINE =====================
+// Looked at, at 18x, in the cell the game actually uses: the +-57 cells draw
+// the wing as a ONE-PIXEL DOTTED DIAGONAL THREAD running corner to corner,
+// with the airframe reduced to a grey smudge and the tail bell left as the
+// biggest, highest-contrast mass in the cell. That is the "orange asterisk"
+// the owner and three playtests have described, and it is IN THE SHEET.
+// Evidence: judging/R41/enemy-look2/cell-rear-m57-18x.png,
+// sheet-grey-rear-grid.png, sheet-grey-head-grid.png.
+//
+// THE MECHANISM, and it is a rasterizer property rather than a taste call.
+// The wing is a flat sheet in the aircraft's y = 0 plane, 7 units of chord
+// deep. drawOblique() views it at roll 42 / pitch 14 / yaw 38, which is
+// nearly EDGE-ON, so the projected chord falls below one pixel. canvas.js's
+// polygon() is a scanline fill that samples at pixel CENTRES with no partial
+// coverage (deliberately — see its comment), so a polygon thinner than a
+// pixel fills only the scanlines whose centre it happens to cross: a dotted
+// line, not a thin line. No value, colour or proportion was ever wrong here;
+// the shape had sub-pixel thickness.
+//
+// Measured consequence before this fix — opaque texels per cell:
+//     head  -57:164  -45:132  [-30..+30]: 331-333  +45:132  +57:164
+//     rear  -57:239  -45:219  [-30..+30]: 370-374  +45:219  +57:239
+// The aeroplane loses 40-60 % of its ink the moment it banks past 40 deg, and
+// the +-45 head cells also shed SIX stray components of <= 2 px (dust).
+//
+// THE FIX: build the oblique wing in SCREEN space from the projected leading-
+// and trailing-edge lines, with the chord clamped to a floor. The 3D model
+// still decides where the wing goes, how it sweeps and how it foreshortens —
+// only its THICKNESS is floored, which is the one quantity a pixel grid
+// cannot represent below one unit. This is the same reasoning the frontal
+// wing() already carries ("a fraction of a 2 px tip chord rounds to nothing
+// and the tip then loses its dark edge").
+// Root over tip, not a constant: a wing that is the same thickness tip to
+// root is a stick. The arcade's banked enemy tapers from a chord that merges
+// into the fuselage to a fine point (arc-f1200-pair-8x.png), and the frontal
+// wing() here already runs 6 -> 2 over its span for the same reason.
+const OBLIQUE_CHORD_MIN_ROOT = 4.2; // px of projected chord at the wing root
+const OBLIQUE_CHORD_MIN_TIP = 1.6;  // ... and at the tip
+
+/** Screen-space quad between two centre points, with per-end half-thickness
+ *  along `n` (a unit normal). Returned so sub-bands can reuse the geometry. */
+function slab(a, b, n, ha, hb) {
+  return [
+    [a[0] + n[0] * ha, a[1] + n[1] * ha],
+    [b[0] + n[0] * hb, b[1] + n[1] * hb],
+    [b[0] - n[0] * hb, b[1] - n[1] * hb],
+    [a[0] - n[0] * ha, a[1] - n[1] * ha],
+  ];
+}
+
+/** Linear blend of two screen points. */
+const mix2 = (a, b, t) => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t];
 
 // One swept wing in planform, with band dashes on the top surface.
 // `geom` lets the three families keep their silhouette cues in the oblique
 // cells too: sweep (tip z offset), span, tipChord fraction.
 function wing3(c, P, side, p, { span = 28, sweepZ = -9, rootLe = 12, rootTe = 5,
   tipY = 0.5, tipChordF = 0.4, bandHex = null } = {}) {
-  const rLe = [side * 2.5, 0, rootLe];
-  const rTe = [side * 2.5, 0, rootTe];
   const chord = rootLe - rootTe;
-  const tLe = [side * span, tipY, rootLe + sweepZ];
-  const tTe = [side * span, tipY, rootLe + sweepZ - chord * tipChordF];
-  poly3(c, P, [rLe, tLe, tTe, rTe], p.mid);
+  const A = P(side * 2.5, 0, rootLe);                                  // root LE
+  const B = P(side * 2.5, 0, rootTe);                                  // root TE
+  const C = P(side * span, tipY, rootLe + sweepZ);                     // tip LE
+  const D = P(side * span, tipY, rootLe + sweepZ - chord * tipChordF); // tip TE
+
+  // Span axis = root chord midpoint -> tip chord midpoint; the chord then
+  // lies along its normal, which is where the thickness floor applies.
+  const rm = mix2(A, B, 0.5);
+  const tm = mix2(C, D, 0.5);
+  const sx = tm[0] - rm[0], sy = tm[1] - rm[1];
+  const sl = Math.hypot(sx, sy) || 1;
+  // Normal oriented toward the LEADING edge, so the lit sub-band lands on the
+  // leading side at every bank sign rather than flipping with the projection.
+  let n = [-sy / sl, sx / sl];
+  if ((A[0] - rm[0]) * n[0] + (A[1] - rm[1]) * n[1] < 0) n = [-n[0], -n[1]];
+
+  const hRoot = Math.max(OBLIQUE_CHORD_MIN_ROOT, Math.hypot(A[0] - B[0], A[1] - B[1])) / 2;
+  const hTip = Math.max(OBLIQUE_CHORD_MIN_TIP, Math.hypot(C[0] - D[0], C[1] - D[1])) / 2;
+
+  const at = (t) => mix2(rm, tm, t);
+  const half = (t) => hRoot + (hTip - hRoot) * t;
+  const sub = (t0, t1, f0, f1, hex) => {
+    // f is measured from the LEADING edge (+n) to the trailing edge (-n).
+    const a = at(t0), b = at(t1);
+    const ha = half(t0), hb = half(t1);
+    c.polygon([
+      [a[0] + n[0] * ha * (1 - 2 * f0), a[1] + n[1] * ha * (1 - 2 * f0)],
+      [b[0] + n[0] * hb * (1 - 2 * f0), b[1] + n[1] * hb * (1 - 2 * f0)],
+      [b[0] + n[0] * hb * (1 - 2 * f1), b[1] + n[1] * hb * (1 - 2 * f1)],
+      [a[0] + n[0] * ha * (1 - 2 * f1), a[1] + n[1] * ha * (1 - 2 * f1)],
+    ], hex);
+  };
+
+  c.polygon(slab(rm, tm, n, hRoot, hTip), p.mid);
   // Lit leading edge, trailing shadow — the same one-rung-per-side modelling
-  // the frontal wing bar carries.
-  poly3(c, P, [rLe, tLe, mix3(tLe, tTe, 0.3), mix3(rLe, rTe, 0.3)], p.highlight);
-  poly3(c, P, [mix3(rLe, rTe, 0.78), mix3(tLe, tTe, 0.78), tTe, rTe], p.shadow);
+  // the frontal wing bar carries, now as fractions of the FLOORED chord so
+  // neither one can round away.
+  sub(0, 1, 0.0, 0.42, p.highlight);
+  sub(0, 1, 0.80, 1.0, p.shadow);
   if (bandHex) {
     for (const f0 of [0.18, 0.48, 0.78]) {
-      const aLe = mix3(rLe, tLe, f0), aTe = mix3(rTe, tTe, f0);
-      const bLe = mix3(rLe, tLe, f0 + 0.16), bTe = mix3(rTe, tTe, f0 + 0.16);
-      poly3(c, P, [mix3(aLe, aTe, 0.25), mix3(bLe, bTe, 0.25),
-        mix3(bLe, bTe, 0.75), mix3(aLe, aTe, 0.75)], bandHex);
+      sub(f0, Math.min(1, f0 + 0.16), 0.18, 0.78, bandHex);
     }
   }
 }
@@ -783,7 +867,20 @@ function drawOblique(c, deg, p, { aspect, family, flare = false }) {
   // roll 42 / pitch 14 is 17.8 units against a 16-px half-cell (computed,
   // not eyeballed); 0.86 brings it to 15.3 so the raised tip renders whole
   // instead of clipping flat at the cell edge.
-  const P = proj3(dir * (hard ? 38 : 24) * zs, hard ? 14 : 9,
+  //
+  // R41 — THE PITCH WAS THE REASON NOTHING HAD AREA. The wing lies in the
+  // aircraft's y = 0 plane and its chord runs along z, so the ONLY thing that
+  // gives the wing visible area is the pitch: projected chord ~ chord *
+  // sin(pitch). At pitch 14 a 7-unit chord projects to 1.7 px, which is why
+  // the scanline fill returned a dotted thread (see wing3's R41 note) and why
+  // the tail bell ended up the biggest mass in the cell. The frontal cells
+  // already imply a much steeper view — they draw the wing as a 6 px bar on a
+  // 60 px span — and the arcade's own banked enemies show clear wing PLANFORM
+  // with camo across it (judging/R41/enemy-look2/arc-f1200-pair-8x.png), not
+  // a wing edge-on. 14 -> 30 and 9 -> 20 puts the projected chord at 3.5 and
+  // 2.4 px, above the floor wing3 clamps to, so the floor is a guard rail
+  // rather than the thing doing the drawing.
+  const P = proj3(dir * (hard ? 38 : 24) * zs, hard ? 30 : 20,
     dir * (hard ? 42 : 30), hard ? 0.86 : 1);
   const Z = (x, y, z) => [x, y, z * zs];
   const bandHex = p.band; // R40: every aspect wears the same camo, see drawMigHead
@@ -797,14 +894,39 @@ function drawOblique(c, deg, p, { aspect, family, flare = false }) {
   // Fuselage: three long faces, lit top / plain near side / shaded belly,
   // tapering to the nose; dark panel dashes down the spine (the close
   // fly-past shows them clearly).
+  //
+  // R41 — THE BELLY WAS PAINTED OVER THE SPINE. poly3() is a painter with no
+  // depth test and no back-face rejection, so these four faces landed in
+  // SOURCE ORDER: top, sides, belly. The belly is the darkest face
+  // (`shadow`, #101010 on `grey`) and it was always last, so it covered the
+  // lit top whenever it projected wide — which is every pose once the pitch
+  // is steep enough to show wing planform at all. Looked at, at 18x, the
+  // oblique fuselage was a BLACK diagonal bar crossing a pale wing
+  // (judging/R41/enemy-look2/cell-rear-m57-18x.png and after2-...-18x.png).
+  //
+  // Which face is actually visible is decidable here rather than guessable:
+  // proj3() returns the view-space depth as its third component, so the top
+  // face's outward normal (0,-1,0 — y is belly-down) is toward the viewer iff
+  // its projected depth is LESS than the origin's. Draw the hidden one first
+  // and the visible one last.
   const nose = g.nose;
-  poly3(c, P, [Z(-2.8, -2.2, -6), Z(2.8, -2.2, -6), Z(1.3, -1.0, nose), Z(-1.3, -1.0, nose)], p.highlight);
+  const origin = P(0, 0, 0);
+  const topNormal = P(...Z(0, -1, 0));
+  const topVisible = topNormal[2] - origin[2] < 0;
+  const topFace = () => {
+    poly3(c, P, [Z(-2.8, -2.2, -6), Z(2.8, -2.2, -6), Z(1.3, -1.0, nose), Z(-1.3, -1.0, nose)], p.highlight);
+    // Panel dashes belong to the spine, so they ride with the top face.
+    for (const zd of [-2, 6, 14]) {
+      poly3(c, P, [Z(-2.0, -2.1, zd), Z(2.0, -2.1, zd), Z(1.8, -1.9, zd + 1.8), Z(-1.8, -1.9, zd + 1.8)], p.dominant);
+    }
+  };
+  const bellyFace = () => {
+    poly3(c, P, [Z(-2.8, 2.6, -6), Z(2.8, 2.6, -6), Z(1.3, 1.3, nose), Z(-1.3, 1.3, nose)], p.shadow);
+  };
+  if (topVisible) bellyFace(); else topFace();
   poly3(c, P, [Z(-2.8, -2.2, -6), Z(-2.8, 2.6, -6), Z(-1.3, 1.3, nose), Z(-1.3, -1.0, nose)], p.mid);
   poly3(c, P, [Z(2.8, -2.2, -6), Z(2.8, 2.6, -6), Z(1.3, 1.3, nose), Z(1.3, -1.0, nose)], p.mid);
-  poly3(c, P, [Z(-2.8, 2.6, -6), Z(2.8, 2.6, -6), Z(1.3, 1.3, nose), Z(-1.3, 1.3, nose)], p.shadow);
-  for (const zd of [-2, 6, 14]) {
-    poly3(c, P, [Z(-2.0, -2.1, zd), Z(2.0, -2.1, zd), Z(1.8, -1.9, zd + 1.8), Z(-1.8, -1.9, zd + 1.8)], p.dominant);
-  }
+  if (topVisible) topFace(); else bellyFace();
 
   // Near wing and near tailplane over the body.
   wing3(c, (x, y, z) => P(...Z(x, y, z)), dir, p, wingGeom);
@@ -827,15 +949,32 @@ function drawOblique(c, deg, p, { aspect, family, flare = false }) {
       // The bell at the tail, facing the camera. Slightly smaller than the
       // dead-astern bell: seen at an angle. Same flare contract and the same
       // R40 proportions as nozzle() — the housing is the big dark mass and
-      // the warm core is small and inside it. These cells measured the WORST
-      // warm share on the old sheet (17.0 % at -57 deg, against the arcade's
-      // 1.5-6 %) because the airframe shrinks under the projection while the
-      // glow did not.
+      // the warm core is small and inside it.
+      //
+      // R41: SIZED AGAINST THE AIRFRAME THIS CELL ACTUALLY DRAWS, not against
+      // the frontal cell's 60 px span. The old r 4.6 housing was a fixed 9 px
+      // disc; under this projection the airframe foreshortens to roughly half
+      // the frontal cell's extent, so the bell ended up the biggest and
+      // highest-contrast mass in the cell with the wing reduced to a thread —
+      // one orange-cored black ball with spikes, which is the "orange
+      // asterisk" read (judging/R41/enemy-look2/cell-rear-m57-18x.png).
+      // R40's warm-SHARE fix could not catch this: the share was already in
+      // band at 4.5-7.5 % because the share is measured against an airframe
+      // that had itself collapsed.
+      //
+      // The arcade's own proportion (R37 pose-planform-t115.25, quoted by
+      // nozzle() above): dark bell mass 0.22-0.28 of SPAN. So the housing is
+      // derived from the wing's own projected span in THIS cell.
       const [bx, by] = P(...Z(0, 0.6, -6.5));
-      c.disc(bx, by, 4.6, p.keyline);
-      c.disc(bx, by + 0.6, flare ? 2.6 : 2.3, p.nozzleRim);
-      c.disc(bx, by + 0.6, flare ? 2.1 : 1.8, p.nozzleCore);
-      if (flare) c.disc(bx, by + 0.3, 0.9, p.nozzleHot);
+      const [wx0, wy0] = P(...Z(-g.span, 0, g.rootLe ?? 12));
+      const [wx1, wy1] = P(...Z(g.span, 0, g.rootLe ?? 12));
+      const spanPx = Math.hypot(wx1 - wx0, wy1 - wy0);
+      const bellR = Math.max(2.6, Math.min(4.6, spanPx * 0.125));
+      const coreR = bellR * 0.5;
+      c.disc(bx, by, bellR, p.keyline);
+      c.disc(bx, by + 0.5, flare ? coreR * 1.13 : coreR, p.nozzleRim);
+      c.disc(bx, by + 0.5, flare ? coreR * 0.91 : coreR * 0.78, p.nozzleCore);
+      if (flare) c.disc(bx, by + 0.3, coreR * 0.39, p.nozzleHot);
     }
   } else {
     // Head aspect: dark nose, no glow. The canopy glint sits behind it on

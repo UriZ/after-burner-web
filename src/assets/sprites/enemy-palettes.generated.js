@@ -16,7 +16,7 @@ export const ENEMY_LIVERIES = {
     "nozzleCore": "#ef7300",
     "nozzleHot": "#ffd600",
     "nozzleRim": "#a41000",
-    "band": "#005231",
+    "band": "#29845b",
     "night": {
       "rim": "#2131a4",
       "shadow": "#101963",
