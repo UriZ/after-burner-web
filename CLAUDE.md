@@ -108,6 +108,37 @@ SIDE-BY-SIDE LOOK (ours vs arcade, fixed scenarios) + AGENT PLAYTEST
 >   backdrop fidelity. A beautiful canyon with an unusable missile and weak jet art is a 5, not a 9.
 > - The owner's playtest is the ground truth and **outranks the judge**; the judge's job is to
 >   predict what the owner would say, by playing the way the owner plays.
+> ### DIAGNOSIS GATE — ADDED R40, binding. The owner asked why progress was slow. The answer,
+> from the data: R36–R38 shipped 18 verified fixes with every gate green and the naive-play
+> score went 7 → 7 → 6.5. The method was tuned for rigor; **diagnosis** was the bottleneck.
+> Four rules follow, and they outrank a lane's instinct to start editing:
+>
+> - **No code until the cause is proven.** A lane must REPRODUCE the complaint and state the
+>   mechanism before it edits a file. Fixing the thing the complaint NAMES is the failure mode:
+>   "deaths come from nowhere" got three rounds of fixes to the bullet (bigger → audible →
+>   strobing), each passed its operator, and a fourth fresh player said the same sentence —
+>   nobody had asked whether the firer was ever on screen. The lanes that found a MECHANISM
+>   (the fireball was rendered wrong, not placed wrong; the continue coin was level-triggered)
+>   fixed their gap in one pass.
+> - **Hands before "done" on any feel item.** Probes drive scripted pilots; the owner flies by
+>   hand. R37 declared aiming fixed on a 0.33× hands-off metric and the owner said "I don't see
+>   the improvements." A feel lane PLAYS its gap before and after (`agent-playtest`), and that
+>   verdict is the acceptance; probe numbers are supporting evidence, never the answer to the
+>   owner. Note the instrument's blind spots when citing it: it decides every 0.5–4 s and is deaf.
+> - **Three strikes escalates.** A complaint that survives two fixes is not a tuning problem.
+>   The third round on it is a ROOT-CAUSE round, allowed to cross file ownership and change
+>   architecture. Enemy art took 12 commits across 5 rounds before R37 found the wrong FACT
+>   underneath it (R27 had misread the player's jet).
+> - **Pull the big lever before the polish.** Close-enemy presence (~0.09 vs the arcade's
+>   0.40–0.70) defines AB2's relentlessness and has been deferred by four separate lanes as
+>   out-of-scope. Structural gaps get their own round; they do not wait for a lane to have spare
+>   file ownership.
+
+- **Every report picture names itself.** Owner, twice: "what is ours and what is the arcade???"
+  A caption under an ambiguous picture is not an answer. Comparison sheets are built with
+  `tools/compare_sheet.py`, which bakes a labelled colour spine into each row (blue = arcade,
+  orange = ours), and every round's report LEADS with a real arcade-vs-ours sheet — not a
+  before/after of ours under an "ours vs arcade" heading.
 - **Before tuning to a criterion, check the criterion against the arcade itself** —
   acceptance criteria have been retired as wrong in every round that audited them.
 - **Every round ships an HTML report** — `python3 tools/round_report.py` (edit the `ROUND`
