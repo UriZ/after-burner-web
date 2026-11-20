@@ -36,10 +36,6 @@
   }
   .wrap { max-width: 1120px; margin: 0 auto; padding: clamp(20px, 4vw, 48px); }
   .mono { font-family: "IBM Plex Mono", ui-monospace, monospace; }
-  .eyebrow {
-    font-family: "IBM Plex Mono", monospace; font-size: 11px; font-weight: 600;
-    letter-spacing: .22em; text-transform: uppercase; color: var(--cyan);
-  }
 
   /* HUD status bar — echoes AB2's bottom readout */
   .hud {
@@ -55,13 +51,6 @@
   .hud-stat { display: flex; flex-direction: column; gap: 3px; }
   .hud-stat .k { font-family: "IBM Plex Mono", monospace; font-size: 10px; letter-spacing: .18em; text-transform: uppercase; color: var(--muted); }
   .hud-stat .v { font-family: "IBM Plex Mono", monospace; font-weight: 600; font-size: 15px; font-variant-numeric: tabular-nums; }
-  .hud-spacer { flex: 1 1 auto; }
-  .pill {
-    font-family: "IBM Plex Mono", monospace; font-size: 11px; font-weight: 600;
-    letter-spacing: .1em; text-transform: uppercase; padding: 6px 11px;
-    border-radius: 999px; border: 1px solid var(--burn); color: var(--burn);
-  }
-  .pill.closed { border-color: var(--cyan); color: var(--cyan); }
 
   h1 { font-size: clamp(26px, 5vw, 44px); line-height: 1.08; margin: 30px 0 0;
     letter-spacing: -.02em; text-wrap: balance; max-width: 18ch; }
@@ -73,12 +62,6 @@
     font-size: clamp(16px, 2.1vw, 19px); }
   .tldr em { font-style: normal; color: var(--burn); font-weight: 600; }
 
-  .verdict { margin-top: 16px; padding: 20px 24px; border-radius: 12px;
-    background: var(--surface-2); border: 1px solid var(--line); }
-  .verdict blockquote { margin: 0; font-size: clamp(16px, 2vw, 18px); }
-  .verdict em { font-style: normal; color: var(--red); font-weight: 600; }
-  .verdict .attr { margin-top: 10px; font-family: "IBM Plex Mono", monospace;
-    font-size: 11px; letter-spacing: .08em; color: var(--muted); text-transform: uppercase; }
 
   section { margin-top: 44px; }
   .sec-head { display: flex; align-items: baseline; gap: 14px; margin-bottom: 18px; }
@@ -126,30 +109,19 @@
   .keep li::before { content: "+"; position: absolute; left: 13px; top: 11px; color: var(--cyan);
     font-family: "IBM Plex Mono", monospace; font-weight: 600; }
 
-  .foot { margin-top: 44px; padding-top: 22px; border-top: 1px solid var(--line);
-    font-size: 13.5px; color: var(--muted); }
-  .foot .mono { color: var(--ink); }
   a { color: var(--cyan); }
 </style>
 
 <div class="wrap">
   <header class="hud">
-    <span class="badge">AFTER&nbsp;BURNER&nbsp;R38</span>
-    <div class="hud-stat"><span class="k">Score</span><span class="v">7 / 10</span></div>
-    <div class="hud-stat"><span class="k">Last closed</span><span class="v">R38 opened at 7/10: “the missiles actually work now … that loop is satisfying”</span></div>
-    <div class="hud-stat"><span class="k">Date</span><span class="v">2026-11-20</span></div>
-    <span class="hud-spacer"></span>
-    <span class="pill">SHIPPED — all four lanes committed</span>
+    <span class="badge">R38</span>
+    <div class="hud-stat"><span class="k">Last round</span><span class="v">7 / 10</span></div>
+    <div class="hud-stat"><span class="k">This round</span><span class="v">6.5 / 10</span></div>
   </header>
 
   <h1 style="margin-top:34px">Kills no longer bury your jet; the shot that kills you is visible; dying costs lives again.</h1>
 
   <div class="tldr">The playtest said the missile loop is <em>finally satisfying</em> — and named what still hurts. All four shipped: kills no longer <em>bury your jet</em> (they erupt at the victim and balloon past the camera, like the arcade), the shot that kills you <em>strobes</em> on every background, <em>dying costs lives again</em> (a held fire button was silently buying continues), and the empty-sky / parked-wingmen stretches are gone (crossings ran at half speed for 10 rounds).</div>
-
-  <div class="verdict">
-    <blockquote>“The missiles actually work now: I point roughly at a plane, a lock box snaps on, I press the button, and a second later that plane is a fireball — that loop is satisfying and I did it over and over on purpose.”</blockquote>
-    <div class="attr">R38 round-open playtest — fresh naive agent, 3 seeds, stages 1–3 · 7/10</div>
-  </div>
 
   <section>
     <div class="sec-head"><h2>Where we actually are</h2><span class="count">every row is labelled inside the image — blue = arcade, orange = ours</span></div>

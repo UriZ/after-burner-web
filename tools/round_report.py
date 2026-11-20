@@ -22,11 +22,9 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 # ---------------------------------------------------------------- ROUND DATA
 ROUND = {
     "number": 38,
-    "date": "2026-11-20",
-    "status": "SHIPPED — all four lanes committed",
     "headline": "Kills no longer bury your jet; the shot that kills you is visible; dying costs lives again.",
-    "score": "7 / 10",  # round-open naive playtest on the R37 build; fresh playtest queued
-    "last_score": "R38 opened at 7/10: “the missiles actually work now … that loop is satisfying”",
+    "prev_score": "7 / 10",
+    "score": "6.5 / 10",  # R39 playtest scored the build R38 shipped
     "tldr": (
         "The playtest said the missile loop is <em>finally satisfying</em> — and named what still hurts. "
         "All four shipped: kills no longer <em>bury your jet</em> (they erupt at the victim and balloon "
@@ -34,12 +32,6 @@ ROUND = {
         "<em>dying costs lives again</em> (a held fire button was silently buying continues), and the "
         "empty-sky / parked-wingmen stretches are gone (crossings ran at half speed for 10 rounds)."
     ),
-    "verdict": (
-        "“The missiles actually work now: I point roughly at a plane, a lock box snaps on, I press the "
-        "button, and a second later that plane is a fireball — that loop is satisfying and I did it "
-        "over and over on purpose.”"
-    ),
-    "verdict_attr": "R38 round-open playtest — fresh naive agent, 3 seeds, stages 1–3 · 7/10",
     "pairs_label": "Where we actually are",
     "pairs_sub": "every row is labelled inside the image — blue = arcade, orange = ours",
     "pairs": [
@@ -189,10 +181,6 @@ def build():
   }}
   .wrap {{ max-width: 1120px; margin: 0 auto; padding: clamp(20px, 4vw, 48px); }}
   .mono {{ font-family: "IBM Plex Mono", ui-monospace, monospace; }}
-  .eyebrow {{
-    font-family: "IBM Plex Mono", monospace; font-size: 11px; font-weight: 600;
-    letter-spacing: .22em; text-transform: uppercase; color: var(--cyan);
-  }}
 
   /* HUD status bar — echoes AB2's bottom readout */
   .hud {{
@@ -208,13 +196,6 @@ def build():
   .hud-stat {{ display: flex; flex-direction: column; gap: 3px; }}
   .hud-stat .k {{ font-family: "IBM Plex Mono", monospace; font-size: 10px; letter-spacing: .18em; text-transform: uppercase; color: var(--muted); }}
   .hud-stat .v {{ font-family: "IBM Plex Mono", monospace; font-weight: 600; font-size: 15px; font-variant-numeric: tabular-nums; }}
-  .hud-spacer {{ flex: 1 1 auto; }}
-  .pill {{
-    font-family: "IBM Plex Mono", monospace; font-size: 11px; font-weight: 600;
-    letter-spacing: .1em; text-transform: uppercase; padding: 6px 11px;
-    border-radius: 999px; border: 1px solid var(--burn); color: var(--burn);
-  }}
-  .pill.closed {{ border-color: var(--cyan); color: var(--cyan); }}
 
   h1 {{ font-size: clamp(26px, 5vw, 44px); line-height: 1.08; margin: 30px 0 0;
     letter-spacing: -.02em; text-wrap: balance; max-width: 18ch; }}
@@ -226,12 +207,6 @@ def build():
     font-size: clamp(16px, 2.1vw, 19px); }}
   .tldr em {{ font-style: normal; color: var(--burn); font-weight: 600; }}
 
-  .verdict {{ margin-top: 16px; padding: 20px 24px; border-radius: 12px;
-    background: var(--surface-2); border: 1px solid var(--line); }}
-  .verdict blockquote {{ margin: 0; font-size: clamp(16px, 2vw, 18px); }}
-  .verdict em {{ font-style: normal; color: var(--red); font-weight: 600; }}
-  .verdict .attr {{ margin-top: 10px; font-family: "IBM Plex Mono", monospace;
-    font-size: 11px; letter-spacing: .08em; color: var(--muted); text-transform: uppercase; }}
 
   section {{ margin-top: 44px; }}
   .sec-head {{ display: flex; align-items: baseline; gap: 14px; margin-bottom: 18px; }}
@@ -279,30 +254,19 @@ def build():
   .keep li::before {{ content: "+"; position: absolute; left: 13px; top: 11px; color: var(--cyan);
     font-family: "IBM Plex Mono", monospace; font-weight: 600; }}
 
-  .foot {{ margin-top: 44px; padding-top: 22px; border-top: 1px solid var(--line);
-    font-size: 13.5px; color: var(--muted); }}
-  .foot .mono {{ color: var(--ink); }}
   a {{ color: var(--cyan); }}
 </style>
 
 <div class="wrap">
   <header class="hud">
-    <span class="badge">AFTER&nbsp;BURNER&nbsp;R{r['number']}</span>
-    <div class="hud-stat"><span class="k">Score</span><span class="v">{esc(r['score'])}</span></div>
-    <div class="hud-stat"><span class="k">Last closed</span><span class="v">{esc(r['last_score'])}</span></div>
-    <div class="hud-stat"><span class="k">Date</span><span class="v">{esc(r['date'])}</span></div>
-    <span class="hud-spacer"></span>
-    <span class="pill{' closed' if r['status']=='CLOSED' else ''}">{esc(r['status'])}</span>
+    <span class="badge">R{r['number']}</span>
+    <div class="hud-stat"><span class="k">Last round</span><span class="v">{esc(r['prev_score'])}</span></div>
+    <div class="hud-stat"><span class="k">This round</span><span class="v">{esc(r['score'])}</span></div>
   </header>
 
   <h1 style="margin-top:34px">{esc(r['headline'])}</h1>
 
   <div class="tldr">{r['tldr']}</div>
-
-  <div class="verdict">
-    <blockquote>{r['verdict']}</blockquote>
-    <div class="attr">{esc(r['verdict_attr'])}</div>
-  </div>
 
   <section>
     <div class="sec-head"><h2>{esc(r.get("pairs_label", "The pictures"))}</h2><span class="count">{esc(r.get("pairs_sub", "every panel is labelled in the image itself"))}</span></div>
