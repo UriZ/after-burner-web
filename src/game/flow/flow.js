@@ -317,6 +317,21 @@ export class GameFlow {
     this.attractStage = 0;
     this.invincibleTimer = 0;
     this._readyAudioPlayed = false;
+    // R38 (playtest gap 4, "dying costs nothing"): rising-edge latch for the
+    // one-button coin/start. The continue coin used to be LEVEL-triggered, so
+    // a fire button still held from combat — the normal posture, and since R37
+    // also Space/Enter — bought the continue on its first tick: lives went
+    // 0->3 with the CONTINUE card on screen for at most one tick, which the
+    // R38 playtest read as "the stage transition refilled my lives" (s1 ticks
+    // 3146-3386: death/lives 0 -> flight/stage 2/lives 3 inside one fire-held
+    // turn). The arcade's continue is a deliberate coin insert; a held button
+    // is not a press. False until a button-up tick is SEEN in a state that
+    // accepts presses (title/attract/continue); reset at the two entries
+    // where a held combat button carries over (death->continue,
+    // gameover->title). GAME_SPEC.md §2: lives NEVER refill mid-credit (the
+    // 9-continue partition reads [3,3,3,3,3,3,3,3,3]) — the ONLY refills are
+    // a new credit and a continue, and both must now be asked for.
+    this._pressArmed = false;
 
     // `?demo=1` (main.js) already drives a scripted input timeline for
     // unattended capture — skip the title screen entirely so that existing
@@ -708,7 +723,11 @@ export class GameFlow {
     this._redrawTitle();
     this.titleOverlay.visible = true;
     this.cardOverlay.visible = false;
-    if (rawInput.fire || rawInput.missile) {
+    // R38: rising edge only (see _pressArmed in the constructor) — a button
+    // held across the GAME OVER card must not silently start a new credit.
+    const pressed = rawInput.fire || rawInput.missile;
+    if (!pressed) this._pressArmed = true;
+    if (pressed && this._pressArmed) {
       this._startRealGame();
     } else if (this.titleTimer >= TITLE_TIMEOUT_S) {
       // Timing out is NOT a start any more — it rolls into the attract
@@ -764,7 +783,12 @@ export class GameFlow {
   // a cabinet losing, and because the loop's length then depends on the
   // combat lane's current lethality instead of on ATTRACT_DEMO_S.
   _updateAttract(dt, rawInput, simTime) {
-    if (rawInput.fire || rawInput.missile) {
+    // R38: same rising-edge rule as the title (see _pressArmed) — a walk-up
+    // press mid-demo still starts instantly; a button held since before the
+    // state began does not.
+    const pressed = rawInput.fire || rawInput.missile;
+    if (!pressed) this._pressArmed = true;
+    if (pressed && this._pressArmed) {
       this._startRealGame();
       return { input: ZERO_INPUT, combatActive: false, playerControlled: false };
     }
@@ -1049,6 +1073,10 @@ export class GameFlow {
       } else {
         this.state = 'continue';
         this.continueCountdown = CONTINUE_COUNTDOWN_S;
+        // R38: the player very likely died with fire held — disarm so the
+        // held button cannot buy the continue on its first tick (the
+        // "lives refilled 0->3" playtest bug; see _pressArmed).
+        this._pressArmed = false;
       }
     }
     return { input: ZERO_INPUT, combatActive: false, playerControlled: false };
@@ -1067,7 +1095,17 @@ export class GameFlow {
     // "CONTINUE PLAY / INSERT COIN" prompt means insert a coin to keep the
     // credit, and letting it expire ends the game (the feel critic's measured
     // credit ends on a GAME OVER card, GAME_SPEC.md §2 "Lethality").
-    if (rawInput && (rawInput.fire || rawInput.missile)) {
+    // R38: the coin is a RISING EDGE — a new press that begins after the
+    // CONTINUE card is up (see _pressArmed). Level-triggering here was the
+    // whole "dying costs nothing" gap: fire held from combat consumed the
+    // continue invisibly, so the card never displayed, lives silently went
+    // 0->3, and no playthrough with the button down could ever reach GAME
+    // OVER. Release-then-press is the coinless stand-in for the arcade's
+    // deliberate coin insert; letting the countdown expire is GAME OVER,
+    // exactly as before.
+    const pressed = rawInput && (rawInput.fire || rawInput.missile);
+    if (!pressed) this._pressArmed = true;
+    if (pressed && this._pressArmed) {
       // A coin: "Continuing resumes IN PLACE — same stage" (GAME_SPEC.md §2).
       //
       // The SCORE IS NOT RESET (the `score.reset()` that used to live on this
@@ -1135,6 +1173,9 @@ export class GameFlow {
       if (this.combat) this.combat.clear();
       this.state = 'title';
       this.titleTimer = 0;
+      // R38: a button held across the GAME OVER card is not a start press —
+      // require a fresh press at the title (see _pressArmed).
+      this._pressArmed = false;
       this._redrawTitle();
       AudioBus.music('title');
     }
