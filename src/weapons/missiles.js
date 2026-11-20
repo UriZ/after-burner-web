@@ -166,6 +166,31 @@ const MAX_LIFE_S = 5.0; // ADOPTED
 const V0 = 6; // world depth units/s at launch
 const ACC = 18;
 const V_MAX = 34;
+// R37 — LOCKED SHOTS RESOLVE AT THE LOCK'S DEPTH (R36 gap #2). The R36 depth
+// census (judging/R36/depth-combat/NOTES.md §1) measured ~22 % of arcade
+// kills as FAR specks dying inside their lock brackets out at depth; ours
+// were 0-5 % because the R26 slow profile (V_MAX 34) lets a far target CLOSE
+// most of the gap before the missile arrives — the kill lands near the nose
+// however far away it was designated. Fix: each LOCKED missile carries an
+// intercept deadline T_F = clamp(0.6 + gap0/90, 0.6, 1.4) s (gap0 = depth
+// gap at launch) and each tick flies at least fast enough to make it:
+// vNeed = (target.d - depth)/tRemain. This is closed-loop, so the target's
+// own closure is compensated automatically. Properties, all intended:
+//   * close targets: vNeed is small, the R26 slow watchable profile wins
+//     unchanged (owner: "see the heat-seeking" — preserved where it is
+//     visible);
+//   * far targets: the missile streaks out and the kill resolves near where
+//     the lock was made — the arcade's bracketed speck dying at depth;
+//   * flight times land in 0.6-1.4 s, INSIDE GAME_SPEC §3's MEASURED
+//     0.5-1.5 s launch->impact band, which the R26 slowdown had pushed past
+//     2 s for far shots — this restores the measured spec there.
+// DRY (no-lock) shots never get a deadline: straight flight + proximity
+// fuse, R36 behaviour untouched. V_DASH_MAX bounds the closed loop against
+// a deadline that can no longer be met (target died late, fuse handles it).
+const INTERCEPT_T_BASE_S = 0.6;
+const INTERCEPT_T_PER_DEPTH = 1 / 90;
+const INTERCEPT_T_MAX_S = 1.4;
+const V_DASH_MAX = 110;
 const HOMING_GAIN = 3.2; // R34: 2.8->3.2, more aggressive pursuit (crossings hit ~0.8-1.0, still earned: ~0.6-0.75 of all fired)
 const MAX_DEPTH = 130;
 
@@ -220,16 +245,38 @@ const RIBBON_LIFE_S = 1.7;
 const RIBBON_HZ = 60; // one sample per fixed tick
 const MAX_SAMPLES = Math.ceil(RIBBON_LIFE_S * RIBBON_HZ) + 2;
 // Screen-fraction half-thickness at the youngest and oldest sample.
-// 0.024 half = 4.8%W = 15.4 px of 320 at the missile end, the centre of the
-// R4 criterion's 12-20 native px head band; 0.065 half = 13%W = 41.6 px at
-// the launch end. The wide end is set from the plume's own measured taper
-// rather than picked: reference/stage1-missile-salvo-t100.75.png runs
-// 10.9%W at the missile to 36.2%W at the launch point, and the ribbon
-// carries the inner part of that while the launch billow below carries the
-// outer. (The previous 1.2%W -> 3.7%W was a ninth of the measured width; it
-// is the thin-grey-streak half of R4 gap 4, the black half being the value.)
-const HALF_FRAC_YOUNG = 0.024;
-const HALF_FRAC_OLD = 0.065;
+// R37 — head raised 0.024 -> 0.05 (4.8%W -> 10%W full thickness). This is
+// REFERENCE.md's own standing instruction, not a new measurement: "Head
+// thickness: 10.9%W = 35 native px on stage 1 ... Our build ships 15.4
+// native px — conservative by a factor of ~2. Raise toward 35 px." 0.05
+// half = 10%W = 32 px of 320, just under the measured 35 so the scallop
+// multiplier below (up to 1.3x) peaks near it rather than past it.
+// The old end follows to 0.075 (15%W), keeping a real taper. NOT more: the
+// measured 36.2%W at the launch end is the LAUNCH BILLOW region (union of
+// billow + ribbon + chain on one axis) — up the column the arcade's aged
+// trail resolves into 4.4-5.4%W discrete puffs (R37 60 Hz decode, NOTES.md
+// §1), so a ribbon that keeps fattening past ~15%W turns the whole trail
+// into the fused grey sheet the first R37 attempt produced
+// (ours-after-sheet.png, withdrawn same session by crop-and-look).
+const HALF_FRAC_YOUNG = 0.05;
+const HALF_FRAC_OLD = 0.075;
+// R37 — SCALLOPED EDGES. The arcade column is visibly built of round masses:
+// no straight edge longer than a couple of puff diameters anywhere in the
+// 60 Hz t99-106 decode (judging/R37/missile-feel/track-launch1-crops.png).
+// Ours rendered as flat polygonal slabs with corners — a white road. Each
+// sample gets a width multiplier from two incommensurable sinusoids over the
+// SAMPLE INDEX (so the lumps are laid down in world and stay put as smoke
+// should, exactly like the puff rotation note in effects/smoke.js). Range
+// ~0.70-1.30x: the mean width — the measured quantity — is unchanged.
+// Wavelengths ~15 and ~5.6 samples = big lobes every quarter second of path
+// with small-scale lumps on top. Phase steps by the golden angle per launch
+// (deterministic under ?fixed=1&seed=N: no rng draw, so no PRNG-stream shift
+// — the shared-stream bug class in CLAUDE.md).
+const LUMP_AMP_1 = 0.20;
+const LUMP_FREQ_1 = 0.42;
+const LUMP_AMP_2 = 0.10;
+const LUMP_FREQ_2 = 1.13;
+let lumpLaunchCounter = 0;
 // Cross-ribbon edge value as a fraction of the centreline, from the stage
 // palette. Kept close to 1: at 0.70 the ribbon rendered as a smooth shaded
 // TUBE (a wide linear ramp reads as a cylinder, which is a 3D look the
@@ -248,6 +295,8 @@ class Trail {
     // so a Trail built outside a launch still renders as stage 1 rather than
     // as whatever the last night stage left behind.
     this.palette = TRAIL_DAYLIGHT;
+    this.lumpPhase = 0;
+    this.sampleIndex = 0;
     // R7: ONE SEGMENT'S SIX VERTICES ARE ITS OWN — nothing is shared with the
     // neighbouring segment — and that is what makes the ribbon flat-shaded.
     //
@@ -299,10 +348,18 @@ class Trail {
   reset() {
     this.samples.length = 0;
     this.geometry.setDrawRange(0, 0);
+    // R37 scallops: fresh phase per launch, deterministic (see LUMP_* note).
+    this.lumpPhase = (lumpLaunchCounter++ * 2.39996) % (Math.PI * 2);
+    this.sampleIndex = 0;
   }
 
   push(ndcX, ndcY, depth) {
-    this.samples.push({ ndcX, ndcY, depth, age: 0 });
+    const i = this.sampleIndex++;
+    const lump =
+      1 +
+      LUMP_AMP_1 * Math.sin(i * LUMP_FREQ_1 + this.lumpPhase) +
+      LUMP_AMP_2 * Math.sin(i * LUMP_FREQ_2 + this.lumpPhase * 1.7);
+    this.samples.push({ ndcX, ndcY, depth, age: 0, lump });
     if (this.samples.length > MAX_SAMPLES) this.samples.shift();
   }
 
@@ -346,7 +403,8 @@ class Trail {
         py = tx / len;
       }
       const u = Math.min(1, s.age / RIBBON_LIFE_S);
-      const half = HALF_FRAC_YOUNG + (HALF_FRAC_OLD - HALF_FRAC_YOUNG) * u;
+      const half =
+        (HALF_FRAC_YOUNG + (HALF_FRAC_OLD - HALF_FRAC_YOUNG) * u) * (s.lump ?? 1);
       const offNdcX = px * half * 2;
       const offNdcY = py * half * NDC_Y_PER_FRAC;
       const base = slot * 3;
@@ -500,6 +558,14 @@ export class Missiles {
       // R36 dry (unguided) shot: the fixed NDC point the round straightens
       // onto. Null for a locked launch. See the launch() note.
       aim: target ? null : (aim ?? { x: playerNdc.x, y: playerNdc.y }),
+      // R37 intercept deadline (locked only) — see the INTERCEPT_T_* note.
+      interceptT: target
+        ? Math.min(
+            INTERCEPT_T_MAX_S,
+            INTERCEPT_T_BASE_S +
+              Math.max(0, target.d - playerNdc.depth) * INTERCEPT_T_PER_DEPTH
+          )
+        : 0,
     };
     this.live.push(m);
 
@@ -594,7 +660,16 @@ export class Missiles {
       const y0 = m.ndcY;
       const d0 = m.depth;
 
-      const v = Math.min(V_MAX, V0 + ACC * m.age);
+      let v = Math.min(V_MAX, V0 + ACC * m.age);
+      // R37: a locked round flies at least fast enough to cross its target's
+      // depth by the intercept deadline (see INTERCEPT_T_*). Closed-loop:
+      // re-reads target.d every tick, so target closure is compensated and
+      // a dead/lost target drops the round back to the profile speed.
+      if (m.interceptT && m.target && m.target.alive && !m.targetLost) {
+        const tRemain = Math.max(0.15, m.interceptT - m.age);
+        const vNeed = (m.target.d - m.depth) / tRemain;
+        v = Math.min(V_DASH_MAX, Math.max(v, vNeed));
+      }
       m.depth += v * dt;
 
       // Launch splay, decaying. Runs through the homing phase too so the
@@ -686,9 +761,30 @@ export class Missiles {
       m.puffTimer -= dt;
       if (m.puffTimer <= 0) {
         m.puffTimer += PUFF_INTERVAL_S;
+        m.puffCount = (m.puffCount ?? 0) + 1;
+        // R37: per-puff life scatter (deterministic — counter-driven, no rng
+        // draw, so the shared PRNG stream is untouched). Neighbouring puffs
+        // die at different ages, so the aged chain THINS INTO SPACED ROUND
+        // PUFFS instead of staying one solid overlapped worm — the arcade's
+        // discrete-puff phase (NOTES.md §1: f0098's solid lumps become
+        // f0106's spaced chain). Floor 1.5 s keeps every puff past the
+        // measured >= 1.2 s persistence; survivors reach 2.2 s.
+        const puffLife = 1.5 + 0.7 * (((m.puffCount * 7) % 10) / 9);
         this.space.ndcToWorld(m.ndcX, m.ndcY, m.depth, pos);
         this.smoke.spawn('trail', pos, m.depth, {
-          life: 1.0,
+          // R37: 1.0 -> 2.2 s, and the ROLE changed. Measured this round
+          // (60 Hz decode, NOTES.md §1): an arcade segment's ladder is
+          // continuous column -> overlapping lumps -> DISCRETE SPACED ROUND
+          // PUFFS, visible >= 1.2 s and usually leaving by screen exit, not
+          // by fading. At 1.0 s our puffs died BEFORE the 1.7 s ribbon over
+          // the same spot, so the discrete-puff phase never existed — the
+          // trail just vanished with the ribbon. At 2.2 s each spot on the
+          // path outlives its ribbon by 0.5 s as a chain of discrete puffs,
+          // which is the arcade's aged tail. Sprite count: 2.2 / 0.055 =
+          // ~40 live puffs per missile, ~240 across a 6-missile salvo —
+          // pooled billboards, checked against the PUFF_INTERVAL_S warning.
+          // (Scattered per puff — see puffLife above.)
+          life: puffLife,
           // R6. THE CHAIN NOW CARRIES THE RIBBON'S OWN TAPER instead of a
           // flat one, and this is the "size falloff along the axis" half of
           // the art critique's fix.
@@ -703,13 +799,18 @@ export class Missiles {
           // point, is a disc.
           //
           // These are the LONG axis of an ellipse whose canvas aspect is
-          // 0.625, so the plume's visible WIDTH is 0.625x these: 0.048 ->
-          // 0.130, exactly the ribbon's full thickness at both ends. The
-          // chain and the ribbon are now the same wedge, and the chain's
-          // extra length along the axis is what buys the column occupancy
-          // that the old overlap-sized discs were buying with area.
-          fracStart: 0.0768,
-          fracEnd: 0.208,
+          // 0.625, so the plume's visible WIDTH is 0.625x these: 0.063 ->
+          // 0.088. The young end matches the new 10%W ribbon head loosely
+          // (the ribbon covers it anyway, renderOrder 15 over 6); the OLD
+          // end is deliberately SMALLER than the dying ribbon's 15%W,
+          // because that is what the arcade does: the fat column RESOLVES
+          // into 4.4-5.4%W discrete spaced puffs as it ages (f0098 -> f0106
+          // of the R37 decode) — the mass thins into a chain, it does not
+          // keep ballooning. A first attempt that grew these to 0.33 and
+          // matched the ribbon produced a fused grey storm cloud parked on
+          // the jet (ours-after-sheet.png) and was withdrawn by look.
+          fracStart: 0.10,
+          fracEnd: 0.14,
           // Held at the screen tangent the missile had when this puff was
           // laid down (effects/smoke.js `rotation`).
           rotation: m.trailAngle,
