@@ -14,7 +14,15 @@ at HALF rate for 10 rounds = "parked wingmen"; dead-sky clip now keys on VISIBLE
 empty gap 6.5→2.2 s vs arcade ~1.5–2 s; close presence 0.096→0.178 nominal — dented, not closed).
 One lead debunked, not fixed: "plane pops up full-size as I die" was the playtest's 1 s panel
 cadence (on screen 60+ ticks, tick-exact replay).
-**Open for R39:** close presence by DRAWN width (~0.09 vs arcade 0.40–0.70) — arrival-pipeline
+**Close-presence figures SUPERSEDED R40** — the real arcade band is **0.30–0.40** (D1, drawn
+width, pinned pilot), not 0.40–0.70; the old number came from a scalar "spanFrac ≈ 2× drawn
+width" conversion that is pose-specific (2× only near ±57°, 1.06× near level). The arcade also
+goes **totally empty 10–11.5 s between waves** — R38's "~1.5–2 s" measured the HUD radar scope,
+so `DEAD_SKY_MAX_S = 1.5` is tuned to a mis-measurement. Full spec, bands D1–D10, arrival mix
+and acceptance test: `judging/R40/density-truth/NOTES.md`. The headline target is **D4 "specks
+only" ≤ 0.15** — D1 alone can be gamed by spawning distant traffic.
+
+**Open for R39 (superseded numbers, kept for history):** close presence by DRAWN width (~0.09 vs arcade 0.40–0.70) — arrival-pipeline
 redesign (side-entry mid-large arrivals in the ordinary rhythm; the relief pair proves the
 mechanism); far-bin kills (locks form at mid depth); attract-demo aiming (R30-deferred); smoke
 velocity option for ballooning mid-kill residue; owner ear-check still pending.
