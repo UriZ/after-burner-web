@@ -1,6 +1,25 @@
 # STATUS — where the rebuild stands
 
-**Last updated**: 2026-11-20. **R37 SHIPPED (all committed): owner-driven round, six lanes.**
+**Last updated**: 2026-11-20 (R38 closed). **R38 SHIPPED (all four lanes committed; gate green:
+fairness pooled 1.333 = R37 baseline exactly, 0 unannounced every seed, hands-off 0.17× aimed).**
+Playtest-seeded round (opened 7/10: "the missiles actually work now … that loop is satisfying").
+Shipped: **kills no longer bury the jet** (victim-sized eruptions ballooning past camera — the
+fireball was a fixed 30 %W screen fraction parked at a world point; jet coverage 84 %→~0, sim
+provably unchanged); **the killing round STROBES** on every background (its pale body was measured
+on night footage and camouflaged against day skies; all 7 playtest deaths were "announced" — the
+failure was contrast); **dying costs lives again** (the continue coin was LEVEL-triggered — a fire
+button still held from combat bought a continue on the first tick; arcade rule read off the lives
+icons: no refill exists; rising-edge latch shipped); **the sky stays alive** (crossing patterns ran
+at HALF rate for 10 rounds = "parked wingmen"; dead-sky clip now keys on VISIBLE emptiness; max
+empty gap 6.5→2.2 s vs arcade ~1.5–2 s; close presence 0.096→0.178 nominal — dented, not closed).
+One lead debunked, not fixed: "plane pops up full-size as I die" was the playtest's 1 s panel
+cadence (on screen 60+ ticks, tick-exact replay).
+**Open for R39:** close presence by DRAWN width (~0.09 vs arcade 0.40–0.70) — arrival-pipeline
+redesign (side-entry mid-large arrivals in the ordinary rhythm; the relief pair proves the
+mechanism); far-bin kills (locks form at mid depth); attract-demo aiming (R30-deferred); smoke
+velocity option for ballooning mid-kill residue; owner ear-check still pending.
+
+Previous: **R37 SHIPPED (all committed): owner-driven round, six lanes.**
 Headlines: **aiming matters now** (hands-off play 0.62×→0.33× of aimed, zero free locks — lock
 acquisition requires steering, hit disc 1.2→0.5 span-mult, scripted demos exempt); **the enemy has
 ONE nozzle** (R27's twin-nacelle read REVERSED — it misread the player's F-14; the twin glows WERE

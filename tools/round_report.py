@@ -21,65 +21,65 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 # ---------------------------------------------------------------- ROUND DATA
 ROUND = {
-    "number": 37,
+    "number": 38,
     "date": "2026-11-20",
-    "status": "SHIPPED — all six lanes committed",
-    "score": "owner is playing",  # owner-driven round; fresh naive playtest queued for R38 seeding
-    "last_score": "R36: 7/10 naive playtest → this round = the owner's live asks + R36's gap list",
+    "status": "SHIPPED — all four lanes committed",
+    "score": "7 / 10",  # round-open naive playtest on the R37 build; fresh playtest queued
+    "last_score": "R38 opened at 7/10: “the missiles actually work now … that loop is satisfying”",
     "tldr": (
-        "Your five live asks, shipped: enemy jets fixed by <em>reversing a 10-round-old error</em> (the "
-        "arcade enemy has ONE nozzle — the twin glows were the 'insect face'), incoming fire that "
-        "<em>looks and sounds</em> like a threat, the arcade's billowing <em>missile trail</em>, and the "
-        "slow start traced to three real bugs — the biggest: <em>the music never actually played</em> "
-        "(200 s render, now instant) and the dev server was choking on 74k files (first frame 8.7→1.9 s). "
-        "Plus R36's top gap: <em>aiming matters now</em> — hands-off play collapsed to 0.33× of aimed."
+        "The playtest said the missile loop is <em>finally satisfying</em> — and named what still hurts. "
+        "All four shipped: kills no longer <em>bury your jet</em> (they erupt at the victim and balloon "
+        "past the camera, like the arcade), the shot that kills you <em>strobes</em> on every background, "
+        "<em>dying costs lives again</em> (a held fire button was silently buying continues), and the "
+        "empty-sky / parked-wingmen stretches are gone (crossings ran at half speed for 10 rounds)."
     ),
     "verdict": (
-        "“Hands-off: 13 kills/min, zero missiles, stuck at stage 1. Aimed: 38, missiles working, "
-        "reaches stage 3. A pointing player notices nothing changed.”"
+        "“The missiles actually work now: I point roughly at a plane, a lock box snaps on, I press the "
+        "button, and a second later that plane is a fireball — that loop is satisfying and I did it "
+        "over and over on purpose.”"
     ),
-    "verdict_attr": "R37 gate verification — quiet tree, seeds 7/42/3 · owner's hands are the verdict",
+    "verdict_attr": "R38 round-open playtest — fresh naive agent, 3 seeds, stages 1–3 · 7/10",
     "pairs": [
-        ("judging/R37/enemy-art/compare-poses-arcade-before-after.png",
-         ("ARCADE | BEFORE | AFTER",),
-         "The enemy jet, de-bugged.",
-         "One nozzle, not two — R27 misread the player's jet, and the twin glows were your 'insect face'. Now: single bell, green camo, real quarter-view poses that bank into turns. Behavior byte-identical."),
-        ("judging/R37/incoming-fire/look-compare.png",
-         ("ARCADE | BEFORE | AFTER",),
-         "Incoming fire reads (and sounds) like the arcade.",
-         "The red-cap oval, two boil frames — no longer the same color as your own gun. Air rounds whistle in over the last 1.5 s; battery rounds roar their whole flight."),
-        ("judging/R37/missile-feel/sbs-trail-column.png",
-         ("ARCADE | BEFORE | AFTER",),
-         "Missile trail billows like the arcade's.",
-         "Scalloped white column, puff tail that persists and thins. Locked missiles also arrive in the arcade's 0.5–1.5 s again."),
+        ("judging/R38/kill-placement/evidence-ba-crosser-before-top-after-bottom.png",
+         ("BEFORE (top)", "AFTER (bottom)"),
+         "Kills stop burying your jet.",
+         "Same kill, same tick. Before: a fixed-size fireball parks on the jet for seconds (84% peak coverage). After: a brief wing eruption, then the jet flies clean — eruption sized to the victim, ballooning past the camera like the arcade's dead smoke. Your own death starburst still parks on the jet, so a kill never looks like your death."),
+        ("judging/R38/death-legibility2/before-after-fatal-round.png",
+         ("BEFORE", "AFTER"),
+         "The killing shot strobes on every background.",
+         "All 7 playtest deaths were 'announced' — but the round's pale body camouflaged against the desert sky and clouds (it was measured on night footage). Now the killer class strobes red↔hot; everything ambient holds steady color."),
+        ("judging/R38/death-cost/arcade-reserve-icons-t266-338.png",
+         ("ARCADE",),
+         "Dying costs lives again — the arcade rule, read off its own HUD.",
+         "The lives icons hold at 0 across two stage boundaries — no refill exists. Ours 'refilled' because a fire button still held from combat bought the continue on its first tick. Now a coin needs a fresh press that begins on the continue screen."),
     ],
     "shipped": [
-        "Aiming matters: hit disc 1.2→0.5 span-mult + locks require steering; hands-off 0.62×→0.33× of aimed, zero free locks; pointing players byte-identical",
-        "Music actually plays — 0.31 s after start, per-stage variants switch (R35's renderer needed 200+ s per variant and never played)",
-        "Start fixed: dev server watch ignores (first frame 8.7→1.9 s), Space/Enter start the game; press-to-flying is 3× FASTER than the real arcade",
-        "Enemy art: one nozzle, 9-pose ladder, nozzle shimmer, crab-pose selection",
-        "Incoming fire: arcade oval + full-approach whistle/roar, cut on impact",
-        "Retracted a fabricated figure (the '0.33–0.40 presence' comment cited a sweep that never ran)",
+        "Kill explosions victim-sized, ballooning past camera; jet coverage 84% → ~0; sim provably unchanged (identical kill ticks)",
+        "Fatal round strobes red↔hot + bigger battery telegraph; air rounds byte-untouched",
+        "Continue coin is rising-edge only — lives per credit are real, game over reachable",
+        "Crossing tempo fixed (patterns ran at HALF rate — 'parked wingmen'); visible-emptiness relief pair: max empty gap 6.5→2.2 s (arcade ~1.5–2 s)",
+        "Close presence 0.096→0.178 nominal — the old gap dented, not closed",
     ],
-    "gaps_label": "Next — R38",
+    "gaps_label": "Next — R39",
     "gaps": [
-        (1, "feel", "Far kills still don't happen — 3–5% vs arcade ~22%",
-         "Measured at gate: missiles now FLY right, but locks still FORM at mid depth. The lane is lock-formation depth, not missile speed."),
-        (2, "feel", "Attract demo barely kills now",
-         "Its old kills were free-disc kills. Fix is making the demo AIM its fire windows (R30-deferred) — not a demo-only hit radius."),
-        (3, "tension", "Close-presence vs arcade (~0.07 vs 0.40–0.70)",
-         "Old, real, never-closed. The arcade's density comes from enemies ARRIVING already large. Needs its own round."),
-        (4, "polish", "Your ears are still the missing instrument",
-         "The music/SFX/whistles are verified by render stats; machines can't hear. You can now — it actually plays."),
+        (1, "feel", "Close presence by drawn width still ~0.09 vs arcade 0.40–0.70",
+         "The relief pair proves the mechanism; the real fix is the arrival-pipeline redesign — side-entry mid-large arrivals as part of the ordinary rhythm."),
+        (2, "feel", "Far kills still don't happen — locks form at mid depth",
+         "R37's honest residual, unaddressed this round (the playtest didn't raise it; it may once density improves)."),
+        (3, "polish", "Attract demo barely kills",
+         "R30-deferred: make the demo AIM its fire windows. Attract-only."),
+        (4, "polish", "Mid-kill residue smoke is parked, arcade's balloons for ~2 s",
+         "Needs a velocity option on SmokeField.spawn (cross-file request logged)."),
     ],
     "keep": [
-        "Reversing R27's enemy misread instead of polishing it — four rounds of 'sprites need work' traced to one wrong fact",
-        "Root-causing 'slow start' to infrastructure instead of trimming the launch cinematic",
-        "0 unannounced fatal hits on every seed through six lanes of combat changes",
+        "Three of four lane briefs were WRONG about the mechanism — and all four lanes measured first, then fixed the real one",
+        "A 'bug' each round turns out to be a rendering/trigger truth: fixed-size fireballs, level-triggered coins, half-rate patterns",
+        "0 unannounced fatal hits on every seed, warning floor intact, aim advantage preserved through all four lanes",
     ],
     "method_note": (
-        "Owner-driven round: every lane came from a sentence you typed while playing. Two long-standing "
-        "complaints died when a measured 'fact' was re-checked at source. Evidence in judging/R37/."
+        "Playtest-seeded round. Every lane replayed the playtest's exact evidence ticks deterministically "
+        "before touching code; one lead (full-size pop-in) was debunked as a sampling artifact instead of "
+        "'fixed'. Evidence in judging/R38/."
     ),
 }
 
